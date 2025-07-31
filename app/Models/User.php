@@ -18,9 +18,4 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'role' => 'string',
     ];
-
-    public function salesPerson()
-    {
-        return $this->hasOne(SalesPerson::class);
-    }
 }
