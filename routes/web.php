@@ -11,7 +11,9 @@ Route::get('/', function () {
 Route::get('/dashboard', function () {
     if (Auth::check()) {
         $user = Auth::user();
-        if ($user->role === 'sales') {
+        var_dump($user);
+        exit;
+        if ($user->role === 'salesperson') {
             return redirect()->route('sales.dashboard');
         }
     }
