@@ -3,11 +3,10 @@
 @endphp
 @section('layoutContent')
   @extends('layouts.commonMaster')
-    <div class="layout-wrapper layout-content-navbar">
-      <div class="layout-container">
-        <!-- Menu -->
-        <aside id="layout-menu" class="layout-menu menu-vertical menu">
-       <div class="app-brand demo">
+  <div class="layout-wrapper layout-content-navbar">
+    <div class="layout-container">
+      <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+        <div class="app-brand demo">
         <a href="{{ route('dashboard') }}" class="app-brand-link">
             <span class="text-primary">
                 <svg width="150" height="40" viewBox="0 0 254 75" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -24,11 +23,9 @@
         <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
               <i class="icon-base bx bx-chevron-left"></i>
             </a>
-          </div>
-
-          <div class="menu-inner-shadow"></div>
-
-          <ul class="menu-inner py-1">
+    </div>
+    <div class="menu-inner-shadow"></div>
+        <ul class="menu-inner py-1">
           @if (auth()->check())
             <li class="menu-item {{ request()->routeIs('sales.dashboard', 'admin.dashboard', 'boss.dashboard') ? 'active open' : '' }}">
               <a href="{{ route('dashboard') }}" class="menu-link">
@@ -96,75 +93,39 @@
             @endif
           @endif
         </ul>
-        </aside>
-
-        <div class="menu-mobile-toggler d-xl-none rounded-1">
-          <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large text-bg-secondary p-2 rounded-1">
-            <i class="bx bx-menu icon-base"></i>
-            <i class="bx bx-chevron-right icon-base"></i>
-          </a>
-        </div>
-        <!-- / Menu -->
-
-        <!-- Layout container -->
-        <div class="layout-page">
-          <!-- Navbar -->
-            @include('layouts.sections.navbar.navigation')
-          <!-- Content wrapper -->
-          <div class="content-wrapper">
-            <!-- Content -->
-            <div class="container-xxl flex-grow-1 container-p-y">
-                @yield('content')
-            </div>
-            <!-- / Content -->
-
-            <!-- Footer -->
-            <!-- <footer class="content-footer footer bg-footer-theme">
-              <div class="container-xxl">
-                <div
-                  class="footer-container d-flex align-items-center justify-content-between py-4 flex-md-row flex-column">
-                  <div class="mb-2 mb-md-0">
-                    ©
-                    <script>
-                      document.write(new Date().getFullYear());
-                    </script>
-                    , made with ❤️ by
-                    <a href="https://themeselection.com" target="_blank" class="footer-link">ThemeSelection</a>
-                  </div>
-                  <div class="d-none d-lg-inline-block">
-                    <a href="https://themeselection.com/license/" class="footer-link me-4" target="_blank">License</a>
-                    <a href="https://themeselection.com/" target="_blank" class="footer-link me-4">More Themes</a>
-
-                    <a
-                      href="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/documentation/"
-                      target="_blank"
-                      class="footer-link me-4"
-                      >Documentation</a
-                    >
-
-                    <a
-                      href="https://themeselection.com/support/"
-                      target="_blank"
-                      class="footer-link d-none d-sm-inline-block"
-                      >Support</a
-                    >
-                  </div>
+      </aside>
+      <div class="layout-page">
+        @include('layouts.sections.navbar.navigation')
+        <div class="content-wrapper">
+          <div class="container-xxl flex-grow-1 container-p-y">
+            @yield('content')
+          </div>
+          <!-- <footer class="content-footer footer bg-footer-theme">
+            <div class="container-xxl">
+              <div
+                class="footer-container d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column"
+              >
+                <div>
+                  ©
+                  <script>
+                    document.write(new Date().getFullYear());
+                  </script>
+                  , made with ❤️ by <a href="https://pixinvent.com" target="_blank" class="fw-medium">Pixinvent</a>
+                </div>
+                <div class="d-none d-lg-inline-block">
+                  <a href="{{ config('variables.licenseUrl') }}" target="_blank" class="footer-link me-4">License</a>
+                  <a href="{{ config('variables.moreThemes') }}" target="_blank" class="footer-link me-4">More Themes</a>
+                  <a href="{{ config('variables.documentation') }}" target="_blank" class="footer-link me-4">Documentation</a>
+                  <a href="{{ config('variables.support') }}" target="_blank" class="footer-link d-none d-sm-inline-block">Support</a>
                 </div>
               </div>
-            </footer> -->
-            <!-- / Footer -->
-
-            <div class="content-backdrop fade"></div>
-          </div>
-          <!-- Content wrapper -->
+            </div>
+          </footer> -->
+          <div class="content-backdrop fade"></div>
         </div>
-        <!-- / Layout page -->
       </div>
-
-      <!-- Overlay -->
-      <div class="layout-overlay layout-menu-toggle"></div>
-
-      <!-- Drag Target Area To SlideIn Menu On Small Screens -->
-      <div class="drag-target"></div>
     </div>
-    @endsection
+    <div class="layout-overlay layout-menu-toggle"></div>
+    <div class="drag-target"></div>
+  </div>
+  @endsection
