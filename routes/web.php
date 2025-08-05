@@ -43,12 +43,18 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:salesperson')->group(function () {
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
-        Route::post('/api/leads', [LeadController::class, 'getLeads'])->name('leads.get');
-        Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
-        Route::delete('/api/leads/{id}', [LeadController::class, 'destroy']);
-
         Route::get('/sales/calendar', [SalesController::class, 'calendar'])->name('sales.calendar');
         Route::get('/sales/orders', [SalesController::class, 'orders'])->name('sales.orders');
+
+        // LEAD MANAGEMENT
+        Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
+    Route::post('/api/leads', [LeadController::class, 'getLeads'])->name('leads.get');
+    Route::post('/leads/{id}/update-status', [LeadController::class, 'updateStatus'])->name('leads.update.status');
+    Route::post('/leads/{id}/confirm-reminder', [LeadController::class, 'confirmReminder'])->name('leads.confirm.reminder');
+    Route::get('/leads/{id}/attachments', [LeadController::class, 'getAttachments'])->name('leads.attachments');
+    Route::get('/leads/{id}/edit', [LeadController::class, 'edit'])->name('leads.edit');
+    Route::get('/leads/{id}', [LeadController::class, 'show'])->name('leads.show');
+    Route::delete('/api/leads/{id}', [LeadController::class, 'destroy']);
     });
 
     Route::middleware('role:artist')->group(function () {

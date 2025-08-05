@@ -503,9 +503,12 @@
                       <div class="dropdown-divider my-1"></div>
                     </li>
                     <li>
-                      <a class="dropdown-item" href="auth-login-cover.html" target="_blank">
-                        <i class="icon-base bx bx-power-off icon-md me-3"></i><span>Log Out</span>
-                      </a>
+          <form action="{{ route('logout') }}" method="POST" style="display: inline;">
+    @csrf
+    <a class="dropdown-item" href="javascript:void(0)" onclick="this.closest('form').submit();">
+        <i class="icon-base bx bx-power-off icon-md me-3"></i><span>Log Out</span>
+    </a>
+</form>
                     </li>
                   </ul>
                 </li>
