@@ -45,18 +45,28 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <!-- Core CSS -->
     <!-- build:css assets/vendor/css/theme.css  -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/pickr/pickr-themes.css') }}" />
+
+    
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}" />
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
     <!-- endbuild -->
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
+ 
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
     <!-- Page CSS -->
+    @if (Request::is('sales/calendar') || Request::is('calendar/*'))
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
+    @endif
+
+    @if (Request::is('sales/dashboard') || Request::is('dashboard/*'))
+       <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/flag-icons.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
+    @endif
     <!-- Helpers -->
     <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
     <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
@@ -67,6 +77,15 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
   </head>
 
   <body>
+    <!-- <div style="position: fixed; top: 0; left: 0; background: #fff; padding: 100px; z-index: 1000; border: 1px solid #ccc;">
+      <strong>Debug Request:</strong><br>
+      - Full URL: {{ Request::fullUrl() }}<br>
+      - Path: {{ Request::path() }}<br>
+      - Route Name: {{ Route::currentRouteName() ?? 'Not Named' }}<br>
+      - Is Dashboard: {{ Request::is('dashboard') ? 'Yes' : 'No' }}<br>
+      - Is Dashboard/*: {{ Request::is('dashboard/*') ? 'Yes' : 'No' }}<br>
+      - Is sales/dashboard: {{ Request::is('sales/dashboard') ? 'Yes' : 'No' }}<br>
+    </div> -->
       @yield('layoutContent')
     <!-- Layout wrapper -->
     
@@ -94,7 +113,13 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <!-- endbuild -->
 
     <!-- Vendors JS -->
+    @if (Request::is('sales/calendar') || Request::is('calendar/*'))
     <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}" ></script>
+        <!-- Page JS -->
+    <script src="{{ asset('assets/js/app-calendar-events.js') }}" ></script>
+    <script src="{{ asset('assets/js/app-calendar.js') }}" ></script>
+    @endif
+
     <script src="{{ asset('assets/vendor/libs/@form-validation/popular.js') }}" ></script>
     <script src="{{ asset('assets/vendor/libs/@form-validation/bootstrap5.js') }}" ></script>
     <script src="{{ asset('assets/vendor/libs/@form-validation/auto-focus.js') }}" ></script>
@@ -102,15 +127,17 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <script src="{{ asset('assets/vendor/libs/moment/moment.js') }}" ></script>
     <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}" ></script>
 
+    
+    @if (Request::is('sales/dashboard') || Request::is('dashboard/*'))
+     <!-- <script src="{{ asset('assets/js/dashboards-crm.js') }}"></script> -->
+      <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
+    @endif
     <!-- Main JS -->
-
     <script src="{{ asset('assets/js/main.js') }}" ></script>
 
-    <!-- Page JS -->
-    <script src="{{ asset('assets/js/app-calendar-events.js') }}" ></script>
-    <script src="{{ asset('assets/js/app-calendar.js') }}" ></script>
+
   <!-- Code injected by live-server -->
-<script>
+<!-- <script>
 	// <![CDATA[  <-- For SVG support
 	if ('WebSocket' in window) {
 		(function () {
@@ -146,6 +173,6 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
 		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
 	}
 	// ]]>
-</script>
+</script> -->
 </body>
 </html>

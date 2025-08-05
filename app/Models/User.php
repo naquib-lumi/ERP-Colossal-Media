@@ -23,4 +23,9 @@ class User extends Authenticatable
     {
         return $this->role === $role;
     }
+
+    public function leads()
+    {
+        return $this->hasMany(Lead::class, 'user_id'); // if Salesperson
+    }
 }

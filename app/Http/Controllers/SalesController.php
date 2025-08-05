@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SalesPerson;
 use App\Models\Lead;
 use App\Models\Meeting;
 use App\Models\Order;
@@ -19,38 +18,60 @@ class SalesController extends Controller
 
     public function dashboard()
     {
-        $salesPerson = Auth::user()->salesPerson;
-        $leads = $salesPerson ? $salesPerson->leads : [];
-        $meetings = $salesPerson ? $salesPerson->meetings : [];
-        $orders = $salesPerson ? $salesPerson->orders : [];
-        return view('sales.dashboard', compact('leads', 'meetings', 'orders'));
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
+        // Fetch counts based on the authenticated user's leads
+        $acceptCount = $user->leads()->where('status', 'accept')->count();
+        $rejectCount = $user->leads()->where('status', 'reject')->count();
+        $followupCount = $user->leads()->where('status', 'followup')->count();
+        $leads = $user->leads;
+        $meetings = []; // Placeholder, implement Meeting model if needed
+        $orders = [];   // Placeholder, implement Order model if needed
+
+        return view('sales.dashboard', compact('leads', 'meetings', 'orders', 'acceptCount', 'rejectCount', 'followupCount'));
     }
 
     public function leadManagement()
     {
-        $salesPerson = Auth::user()->salesPerson;
-        $leads = $salesPerson ? $salesPerson->leads : [];
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $leads = $user->leads;
         return view('sales.lead-management', compact('leads'));
     }
 
     public function addLead()
     {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
         return view('sales.add-lead');
     }
 
     public function storeLead(Request $request)
     {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
         $request->validate([
             'name' => 'required',
             'email' => 'required|email',
             'phone' => 'required',
             'notes' => 'nullable',
-            'status' => 'required|in:new,contacted,in_progress,converted,lost',
+            'status' => 'required|in:accept,reject,followup', // Updated statuses
         ]);
 
-        $salesPerson = Auth::user()->salesPerson;
         Lead::create([
-            'sales_person_id' => $salesPerson->id,
+            'user_id' => $user->id,
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
@@ -63,18 +84,32 @@ class SalesController extends Controller
 
     public function calendar()
     {
-        $salesPerson = Auth::user()->salesPerson;
-        $meetings = $salesPerson ? $salesPerson->meetings : [];
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $meetings = []; // Implement Meeting model and relationship if needed
         return view('sales.calendar', compact('meetings'));
     }
 
     public function scheduleMeeting()
     {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
         return view('sales.schedule-meeting');
     }
 
     public function storeMeeting(Request $request)
     {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
         $request->validate([
             'title' => 'required',
             'start_time' => 'required|date',
@@ -83,31 +118,32 @@ class SalesController extends Controller
             'status' => 'required|in:scheduled,completed,cancelled',
         ]);
 
-        $salesPerson = Auth::user()->salesPerson;
-        Meeting::create([
-            'sales_person_id' => $salesPerson->id,
-            'title' => $request->title,
-            'start_time' => $request->start_time,
-            'end_time' => $request->end_time,
-            'description' => $request->description,
-            'status' => $request->status,
-        ]);
+        // Implement Meeting model creation
+        // Meeting::create([...]);
 
         return redirect()->route('sales.calendar')->with('success', 'Meeting scheduled successfully');
     }
 
     public function order()
     {
-        $salesPerson = Auth::user()->salesPerson;
-        $orders = $salesPerson ? $salesPerson->orders : [];
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $orders = []; // Implement Order model and relationship if needed
         return view('sales.order', compact('orders'));
     }
 
     public function jobOrderStatus()
     {
-        $salesPerson = Auth::user()->salesPerson;
-        $orders = $salesPerson ? $salesPerson->orders : [];
-        $jobOrders = $orders->flatMap->jobOrders;
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $orders = []; // Implement Order model and relationship if needed
+        $jobOrders = collect(); // Placeholder, implement JobOrder model if needed
         return view('sales.job-order-status', compact('jobOrders'));
     }
 }

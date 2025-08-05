@@ -10,15 +10,14 @@ return new class extends Migration
     {
         Schema::create('leads', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('sales_person_id');
+            $table->unsignedBigInteger('user_id'); // Reference the users table
             $table->string('name');
             $table->string('email');
             $table->string('phone');
             $table->text('notes')->nullable();
-            $table->enum('status', ['new', 'contacted', 'in_progress', 'converted', 'lost'])->default('new');
+            $table->string('status')->default('new');
             $table->timestamps();
-
-            $table->foreign('sales_person_id')->references('id')->on('sales_people')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 
