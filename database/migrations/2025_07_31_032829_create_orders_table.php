@@ -17,7 +17,7 @@ return new class extends Migration
             $table->enum('status', ['pending', 'processed', 'shipped', 'delivered'])->default('pending');
             $table->timestamps();
 
-            $table->foreign('sales_person_id')->references('id')->on('sales_people')->onDelete('cascade');
+            $table->foreign('sales_person_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 

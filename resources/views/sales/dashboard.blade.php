@@ -2,458 +2,280 @@
 
 @section('title', 'Dashboard Overview')
 @section('content')
-
-<h1>Dashboard Overview</h1>
-    <p>Welcome, {{ auth()->user()->name }}! Here's your sales activity summary.</p>
-<div class="container-xxl flex-grow-1 container-p-y">
-    <div class="row">
-        <h4 class="fw-bold py-3 mb-4">Dashboard Overview</h4>
-             
-                <!-- Sales Status Summary -->
-                <div class="col-md-6 col-xxl-4 mb-6">
-                  <div class="card h-100 gap-12">
-                    <div class="card-header d-flex justify-content-between">
-                      <div class="card-title me-2">
-                        <h5 class="mb-1">Sales Status Summary</h5>
-                        <p class="card-subtitle">Check out each column for more details</p>
-                        
-                      </div>
-                      <div class="dropdown">
-                        <button
-                          class="btn p-0"
-                          type="button"
-                          id="salesActivity"
-                          data-bs-toggle="dropdown"
-                          aria-haspopup="true"
-                          aria-expanded="false">
-                          <i class="icon-base bx bx-dots-vertical-rounded icon-lg text-body-secondary"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end" aria-labelledby="salesActivity">
-                          <a class="dropdown-item" href="javascript:void(0);">Last 28 Days</a>
-                          <a class="dropdown-item" href="javascript:void(0);">Last Month</a>
-                          <a class="dropdown-item" href="javascript:void(0);">Last Year</a>
-                        </div>
-                      </div>
+    <h1>Dashboard Overview</h1>
+    <p class="mb-4">Welcome, {{ auth()->user()->name }}! Here's your sales activity summary for {{ $currentYear }}.</p>
+    <div class="container-xxl flex-grow-1 container-p-y">
+        <div class="row" >
+            <!-- Left Column: Sales Activity -->
+            <div class="col-md-6 mb-4">
+               <div class="card h-100">
+                <div class="card-header d-flex justify-content-between">
+                    <div class="card-title me-2">
+                        <h5 class="mb-1">Sales Activity</h5>
+                        <p class="card-subtitle">Monthly lead status counts for {{ $currentYear }}</p>
                     </div>
-                    <div class="card-body px-1 pb-0">
-                      <div id="salesActivityChart"></div>
-                    </div>
-                  </div>
                 </div>
-   
-        
-    
+                <div class="p-3 rounded w-100">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="me-2" style="width: 16px; height: 16px; background-color: #28c76f; "></div>
+                            <span>Accept</span>
+                        </div>
+                        <strong>{{ $acceptCount }}</strong>
+                    </div>
 
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5>Leads:  count($leads) </h5>
-                    <h5>Meetings:  count($meetings) </h5>
-                    <h5>Orders:  count($orders) </h5> 
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="me-2" style="width: 16px; height: 16px; background-color: #000000;"></div>
+                            <span>Rejected</span>
+                        </div>
+                        <strong> {{ $rejectCount }}</strong>
+                    </div>
 
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="me-2" style="width: 16px; height: 16px; background-color: #ff9f43;"></div>
+                            <span>Follow Up</span>
+                        </div>
+                        <strong>{{ $followupCount }}</strong>
+                    </div>
+                </div>
+
+                <div class="card-body px-1 pb-0">
+                    <div id="salesActivityChart" class="w-100" style="background-color: transparent;"></div>
                 </div>
             </div>
+
+            </div>
+            <!-- Right Column: Upcoming Meetings -->
+            <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Upcoming Meetings</h5>
+                </div>
+
+                <div class="card-body">
+                    @forelse ($meetings as $meeting)
+                        <div class="border rounded p-3 mb-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1 fw-bold">{{ $meeting->title }}</h6>
+                                    <small class="text-muted">{{ $meeting->start_time->format('h:i A') }} - {{ $meeting->end_time->format('h:i A') }}</small>
+                                </div>
+                                <span class="badge bg-primary">{{ $meeting->start_time->diffForHumans() }}</span>
+                            </div>
+                      <p class="mt-2 mb-0 text-muted">
+                        @if ($meeting->location)
+                            @if (filter_var($meeting->location, FILTER_VALIDATE_URL))
+                                <a href="{{ $meeting->location }}" target="_blank" rel="noopener">
+                                    {{ $meeting->location }}
+                                </a>
+                            @else
+                                {{ $meeting->location }}
+                            @endif
+                        @else
+                            No Location provided
+                        @endif
+                    </p>
+                        </div>
+                    @empty
+                        <div class="text-center text-muted">
+                            No upcoming meetings.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+          </div>
+
         </div>
+
+        <!-- <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Leads (Accepted): {{ $acceptCount }}</h5>
+                        <h5>Leads (Rejected): {{ $rejectCount }}</h5>
+                        <h5>Leads (FollowUp): {{ $followupCount }}</h5>
+                        <h5>Leads (New): {{ $leads->where('status', 'new')->count() }}</h5>
+                        <h5>Total Leads: {{ $leads->count() }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div> -->
+
+        <div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Quick Shortcuts</h5>
+  </div>
+  <div class="card-body">
+    <div class="row row-bordered overflow-visible g-3 text-center">
+      <div class="col-6 col-md-3">
+        <div class="p-3 border rounded text-center h-100">
+          <a href="{{ route('sales.calendar') }}" class="stretched-link text-decoration-none text-body">
+            <div class="mb-2">
+              <i class="bx bx-calendar fs-2 text-primary"></i>
+            </div>
+            <strong>Calendar</strong><br>
+            <small>View Schedule</small>
+          </a>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="p-3 border rounded text-center h-100">
+          <a href="" class="stretched-link text-decoration-none text-body">
+            <div class="mb-2">
+              <i class="bx bx-video fs-2 text-info"></i>
+            </div>
+            <strong>Meetings</strong><br>
+            <small>All Meetings</small>
+          </a>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="p-3 border rounded text-center h-100">
+          <a href="" class="stretched-link text-decoration-none text-body">
+            <div class="mb-2">
+              <i class="bx bx-user-plus fs-2 text-success"></i>
+            </div>
+            <strong>New Client</strong><br>
+            <small>Register Client</small>
+          </a>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="p-3 border rounded text-center h-100">
+          <a href="" class="stretched-link text-decoration-none text-body">
+            <div class="mb-2">
+              <i class="bx bx-group fs-2 text-warning"></i>
+            </div>
+            <strong>Clients</strong><br>
+            <small>Browse List</small>
+          </a>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
-<script>
-'use strict';
 
-document.addEventListener('DOMContentLoaded', function (e) {
-  let cardColor,
-    headingColor,
-    labelColor,
-    legendColor,
-    shadeColor,
-    borderColor,
-    heatMap1,
-    heatMap2,
-    heatMap3,
-    heatMap4,
-    fontFamily;
+    </div>
 
-  if (isDarkStyle) {
-    shadeColor = 'dark';
-    heatMap1 = '#333457';
-    heatMap2 = '#3c3e75';
-    heatMap3 = '#484b9b';
-    heatMap4 = '#696cff';
-  } else {
-    shadeColor = '';
-    heatMap1 = '#ededff';
-    heatMap2 = '#d5d6ff';
-    heatMap3 = '#b7b9ff';
-    heatMap4 = '#696cff';
-  }
-  cardColor = config.colors.cardColor;
-  headingColor = config.colors.headingColor;
-  labelColor = config.colors.textMuted;
-  legendColor = config.colors.bodyColor;
-  borderColor = config.colors.borderColor;
-  fontFamily = config.fontFamily;
+    @if (Request::is('sales/dashboard') || Request::is('sales/dashboard/*'))
+        <script>
+            'use strict';
 
-  // Donut Chart Colors
-  const chartColors = {
-    donut: {
-      series1: '#66C732',
-      series2: '#8DE45F',
-      series3: '#AAEB87',
-      series4: '#E3F8D7'
-    }
-  };
+            document.addEventListener('DOMContentLoaded', function (e) {
+                let cardColor, headingColor, labelColor, legendColor, borderColor, fontFamily;
 
-  // Radial bar chart functions
-  function radialBarChart(color, value) {
-    const radialBarChartOpt = {
-      chart: {
-        height: 55,
-        width: 45,
-        type: 'radialBar'
-      },
-      plotOptions: {
-        radialBar: {
-          hollow: {
-            size: '25%'
-          },
-          dataLabels: {
-            show: false
-          },
-          track: {
-            background: config.colors_label.secondary
-          }
-        }
-      },
-      stroke: {
-        lineCap: 'round'
-      },
-      colors: [color],
-      grid: {
-        padding: {
-          top: -15,
-          bottom: -15,
-          left: -5,
-          right: -15
-        }
-      },
-      series: [value],
-      labels: ['Progress']
-    };
-    return radialBarChartOpt;
-  }
+                cardColor = '#fff';
+                headingColor = '#333';
+                labelColor = '#666';
+                legendColor = '#666';
+                borderColor = '#ddd';
+                fontFamily = 'Public Sans, sans-serif';
 
-  // Progress Chart
-  // --------------------------------------------------------------------
-  // All progress chart
-  const chartProgressList = document.querySelectorAll('.chart-progress');
-  if (chartProgressList) {
-    chartProgressList.forEach(function (chartProgressEl) {
-      const color = config.colors[chartProgressEl.dataset.color],
-        series = chartProgressEl.dataset.series;
-      const optionsBundle = radialBarChart(color, series);
-      const chart = new ApexCharts(chartProgressEl, optionsBundle);
-      chart.render();
-    });
-  }
+                // Sales Activity (Bar Chart) - Reverted to old styling
+                const salesActivityChartEl = document.querySelector('#salesActivityChart');
+                if (salesActivityChartEl) {
+                    const salesActivityChartConfig = {
+                        chart: {
+                            type: 'bar',
+                            height: 235, // Match the card-body height
+                            stacked: true,
+                            toolbar: { show: false }
+                        },
+                        series: [
+                            {
+                                name: 'Accepted/Month',
+                                data: @json(array_slice($acceptCounts, 0, $currentMonth))
+                            },
+                            {
+                                name: 'Rejected/Month',
+                                data: @json(array_slice($rejectCounts, 0, $currentMonth))
+                            },
+                            {
+                                name: 'FollowUp/Month',
+                                data: @json(array_slice($followupCounts, 0, $currentMonth))
+                            }
+                        ],
+                        plotOptions: {
+                            bar: {
+                                horizontal: false,
+                                columnWidth: '40%',
+                                borderRadius: 9,
+                                startingShape: 'rounded',
+                                endingShape: 'rounded',
+                                borderRadiusApplication: 'around'
+                            }
+                        },
+                        dataLabels: { enabled: false },
+                        stroke: {
+                            curve: 'smooth',
+                            width: 6,
+                            lineCap: 'round',
+                            colors: [cardColor]
+                        },
+//                  legend: {
+//   show: true,
+//   position: 'top',
+//   horizontalAlign: 'center',
+//   labels: {
+//     colors: labelColor,
+//     useSeriesColors: false
+//   },
+//   markers: {
+//     width: 12,
+//     height: 12,
+//     radius: 12
+//   }
+// },
+                        legend:{
+                          show:false
+                        },
+             colors: ['#28c76f', '#000000', '#ff9f43'], // Accepted, Rejected (black), Follow Up
 
-  // Customer Ratings - Line Charts
-  // --------------------------------------------------------------------
-  const customerRatingsChartEl = document.querySelector('#customerRatingsChart'),
-    customerRatingsChartOptions = {
-      chart: {
-        height: 212,
-        toolbar: { show: false },
-        zoom: { enabled: false },
-        type: 'line',
-        dropShadow: {
-          enabled: true,
-          enabledOnSeries: [1],
-          top: 13,
-          left: 4,
-          blur: 3,
-          color: config.colors.primary,
-          opacity: 0.09
-        }
-      },
-      series: [
-        {
-          name: 'Last Month',
-          data: [20, 54, 20, 38, 22, 28, 16, 19, 11]
-        },
-        {
-          name: 'This Month',
-          data: [20, 32, 22, 65, 40, 46, 34, 70, 75]
-        }
-      ],
-      stroke: {
-        curve: 'smooth',
-        dashArray: [8, 0],
-        width: [3, 4]
-      },
-      legend: {
-        show: false
-      },
-      colors: [borderColor, config.colors.primary],
-      grid: {
-        show: false,
-        borderColor: borderColor,
-        padding: {
-          top: -20,
-          bottom: -10,
-          left: 0
-        }
-      },
-      markers: {
-        size: 6,
-        colors: 'transparent',
-        strokeColors: 'transparent',
-        strokeWidth: 5,
-        hover: {
-          size: 6
-        },
-        discrete: [
-          {
-            fillColor: config.colors.white,
-            seriesIndex: 1,
-            dataPointIndex: 8,
-            strokeColor: config.colors.primary,
-            size: 6
-          },
-          {
-            fillColor: config.colors.white,
-            seriesIndex: 1,
-            dataPointIndex: 3,
-            strokeColor: config.colors.black,
-            size: 6
-          }
-        ],
-        offsetX: -3
-      },
-      xaxis: {
-        labels: {
-          style: {
-            colors: labelColor,
-            fontSize: '13px'
-          }
-        },
-        axisTicks: {
-          show: false
-        },
-        categories: [' ', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', ' '],
-        axisBorder: {
-          show: false
-        }
-      },
-      yaxis: {
-        show: false
-      }
-    };
-  if (typeof customerRatingsChartEl !== undefined && customerRatingsChartEl !== null) {
-    const customerRatingsChart = new ApexCharts(customerRatingsChartEl, customerRatingsChartOptions);
-    customerRatingsChart.render();
-  }
 
-  // Overview & Sales Activity - Staked Bar Chart
-  // --------------------------------------------------------------------
-  const salesActivityChartEl = document.querySelector('#salesActivityChart'),
-    salesActivityChartConfig = {
-      chart: {
-        type: 'bar',
-        height: 235,
-        stacked: true,
-        toolbar: {
-          show: false
-        }
-      },
-      series: [
-        {
-          name: 'PRODUCT A',
-          data: [75, 50, 55, 60, 48, 82, 59]
-        },
-        {
-          name: 'PRODUCT B',
-          data: [25, 29, 32, 35, 34, 18, 30]
-        }
-      ],
-      plotOptions: {
-        bar: {
-          horizontal: false,
-          columnWidth: '40%',
-          borderRadius: 9,
-          startingShape: 'rounded',
-          endingShape: 'rounded',
-          borderRadiusApplication: 'around'
-        }
-      },
-      dataLabels: {
-        enabled: false
-      },
-      stroke: {
-        curve: 'smooth',
-        width: 6,
-        lineCap: 'round',
-        colors: [cardColor]
-      },
-      legend: {
-        show: false
-      },
-      colors: [config.colors.danger, config.colors.secondary],
-      fill: {
-        opacity: 1
-      },
-      grid: {
-        show: false,
-        strokeDashArray: 7,
-        padding: {
-          top: -40,
-          left: 0,
-          right: 0
-        }
-      },
-      xaxis: {
-        categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
-        labels: {
-          show: true,
-          style: {
-            colors: labelColor,
-            fontSize: '15px',
-            fontFamily: fontFamily
-          }
-        },
-        axisBorder: {
-          show: false
-        },
-        axisTicks: {
-          show: false
-        }
-      },
-      yaxis: {
-        show: false
-      },
-      responsive: [
-        {
-          breakpoint: 1440,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 10,
-                columnWidth: '50%'
-              }
-            }
-          }
-        },
-        {
-          breakpoint: 1300,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 11,
-                columnWidth: '55%'
-              }
-            }
-          }
-        },
-        {
-          breakpoint: 1200,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 10,
-                columnWidth: '45%'
-              }
-            }
-          }
-        },
-        {
-          breakpoint: 1040,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 10,
-                columnWidth: '50%'
-              }
-            }
-          }
-        },
-        {
-          breakpoint: 992,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 12,
-                columnWidth: '40%'
-              }
-            },
-            chart: {
-              type: 'bar',
-              height: 320
-            }
-          }
-        },
-        {
-          breakpoint: 768,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 11,
-                columnWidth: '25%'
-              }
-            }
-          }
-        },
-        {
-          breakpoint: 576,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 10,
-                columnWidth: '35%'
-              }
-            }
-          }
-        },
-        {
-          breakpoint: 440,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 10,
-                columnWidth: '45%'
-              }
-            }
-          }
-        },
-        {
-          breakpoint: 360,
-          options: {
-            plotOptions: {
-              bar: {
-                borderRadius: 8,
-                columnWidth: '50%'
-              }
-            }
-          }
-        }
-      ],
-      states: {
-        hover: {
-          filter: {
-            type: 'none'
-          }
-        },
-        active: {
-          filter: {
-            type: 'none'
-          }
-        }
-      }
-    };
-  if (typeof salesActivityChartEl !== undefined && salesActivityChartEl !== null) {
-    const salesActivityChart = new ApexCharts(salesActivityChartEl, salesActivityChartConfig);
-    salesActivityChart.render();
-  }
+                        fill: { opacity: 1 },
+                        grid: {
+                            show: false,
+                            strokeDashArray: 7,
+                            padding: { top: 0, left: 0, right: 0 } // Adjusted padding to fit bottom
+                        },
+                        xaxis: {
+                            categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].slice(0, @json($currentMonth)),
+                            labels: {
+                                show: true,
+                                style: {
+                                    colors: labelColor,
+                                    fontSize: '15px',
+                                    fontFamily: fontFamily
+                                }
+                            },
+                            axisBorder: { show: false },
+                            axisTicks: { show: false }
+                        },
+                        yaxis: { show: false },
+                        responsive: [
+                            { breakpoint: 1440, options: { plotOptions: { bar: { borderRadius: 10, columnWidth: '50%' } } } },
+                            { breakpoint: 1300, options: { plotOptions: { bar: { borderRadius: 11, columnWidth: '55%' } } } },
+                            { breakpoint: 1200, options: { plotOptions: { bar: { borderRadius: 10, columnWidth: '45%' } } } },
+                            { breakpoint: 1040, options: { plotOptions: { bar: { borderRadius: 10, columnWidth: '50%' } } } },
+                            { breakpoint: 992, options: { plotOptions: { bar: { borderRadius: 12, columnWidth: '40%' } }, chart: { height: 320 } } },
+                            { breakpoint: 768, options: { plotOptions: { bar: { borderRadius: 11, columnWidth: '25%' } } } },
+                            { breakpoint: 576, options: { plotOptions: { bar: { borderRadius: 10, columnWidth: '35%' } } } },
+                            { breakpoint: 440, options: { plotOptions: { bar: { borderRadius: 10, columnWidth: '45%' } } } },
+                            { breakpoint: 360, options: { plotOptions: { bar: { borderRadius: 8, columnWidth: '50%' } } } }
+                        ],
+                        states: {
+                            hover: { filter: { type: 'none' } },
+                            active: { filter: { type: 'none' } }
+                        }
+                    };
+                    const salesActivityChart = new ApexCharts(salesActivityChartEl, salesActivityChartConfig);
+                    salesActivityChart.render();
+                }
 
-});
 
-</script>
+            });
+        </script>
+    @endif
 @endsection

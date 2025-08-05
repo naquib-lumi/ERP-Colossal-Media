@@ -26,6 +26,11 @@ class User extends Authenticatable
 
     public function leads()
     {
-        return $this->hasMany(Lead::class, 'user_id'); // if Salesperson
+        return $this->hasMany(Lead::class, 'salesperson_id');
+    }
+
+    public function meetings()
+    {
+        return $this->hasMany(Meeting::class, 'user_id');
     }
 }

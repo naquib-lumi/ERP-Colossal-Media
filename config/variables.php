@@ -1,10 +1,10 @@
 <?php
 
 return [
-    'templateName' => 'Sneat',
-    'templateSuffix' => 'Bootstrap 5 Laravel Admin Template',
-    'templateDescription' => 'Most Powerful & Comprehensive Bootstrap 5 Laravel Admin Template built for developers!',
-    'templateKeyword' => 'dashboard, bootstrap 5 dashboard, bootstrap 5 admin, bootstrap 5 laravel dashboard, bootstrap laravel admin template',
+    'templateName' => 'Colossal ERP',
+    'templateSuffix' => 'Colossal ERP',
+    'templateDescription' => '',
+    'templateKeyword' => '',
     'licenseUrl' => 'https://themeforest.net/licenses/standard',
     'livePreview' => 'https://demos.themeselection.com/sneat-bootstrap-laravel-admin-template/demo-1/',
     'productPage' => 'https://themeselection.com/products/sneat-bootstrap-laravel-admin-template/',

@@ -10,14 +10,21 @@ return new class extends Migration
     {
         Schema::create('leads', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id'); // Reference the users table
+            $table->unsignedBigInteger('salesperson_id'); // Renamed from user_id to salesperson_id
+            $table->string('company_name');
+            $table->string('company_phone')->nullable();
+            $table->string('website')->nullable();
             $table->string('name');
-            $table->string('email');
             $table->string('phone');
-            $table->text('notes')->nullable();
-            $table->string('status')->default('new');
+            $table->string('email');
+            $table->date('date')->nullable(); // Date field for lead creation or follow-up
+            $table->enum('status', ['accept', 'reject', 'followup', 'new'])->default('new');
+            $table->string('opportunity')->nullable(); // e.g., High, Medium, Low
+            $table->text('remark')->nullable(); // Additional remarks or notes
             $table->timestamps();
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+
+            $table->foreign('salesperson_id')->references('id')->on('users')->onDelete('cascade')
+                  ->constrained()->onUpdate('cascade');
         });
     }
 

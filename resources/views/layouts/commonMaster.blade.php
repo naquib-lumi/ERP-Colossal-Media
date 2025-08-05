@@ -28,7 +28,6 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
       content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <title>
     @yield('title') | {{ config('variables.templateName') ? config('variables.templateName') : 'Colossal ERP' }}
-    - {{ config('variables.templateSuffix') ? config('variables.templateSuffix') : 'Admin Template' }}
   </title>
     <meta name="description"  content="{{ config('variables.templateDescription') ? config('variables.templateDescription') : '' }}" /> 
     <meta name="keywords"
@@ -67,6 +66,11 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
        <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/flag-icons.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
     @endif
+
+      @if (Request::is('sales/leads'))
+      <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+      <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />    
+      @endif
     <!-- Helpers -->
     <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
     <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
@@ -135,6 +139,11 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <!-- Main JS -->
     <script src="{{ asset('assets/js/main.js') }}" ></script>
 
+
+    @if (Request::is('sales/leads'))
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}" ></script>
+    <!-- <script src="{{ asset('assets/js/tables-datatables-advanced.js') }}" ></script> -->
+    @endif
 
   <!-- Code injected by live-server -->
 <!-- <script>

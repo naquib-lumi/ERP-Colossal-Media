@@ -1,6 +1,7 @@
 <?php
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\LeadController;
 use App\Http\Controllers\JobOrderController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OperationsController;
@@ -42,7 +43,10 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:salesperson')->group(function () {
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
-        Route::get('/sales/leads', [SalesController::class, 'leads'])->name('sales.leads');
+        Route::post('/api/leads', [LeadController::class, 'getLeads'])->name('leads.get');
+        Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
+        Route::delete('/api/leads/{id}', [LeadController::class, 'destroy']);
+
         Route::get('/sales/calendar', [SalesController::class, 'calendar'])->name('sales.calendar');
         Route::get('/sales/orders', [SalesController::class, 'orders'])->name('sales.orders');
     });
