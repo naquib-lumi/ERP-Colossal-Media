@@ -47,7 +47,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/sales/orders', [SalesController::class, 'orders'])->name('sales.orders');
 
         // LEAD MANAGEMENT
-        Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
+    Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
     Route::post('/api/leads', [LeadController::class, 'getLeads'])->name('leads.get');
     Route::post('/leads/{id}/update-status', [LeadController::class, 'updateStatus'])->name('leads.update.status');
     Route::post('/leads/{id}/confirm-reminder', [LeadController::class, 'confirmReminder'])->name('leads.confirm.reminder');
@@ -55,8 +55,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/leads/{id}/edit', [LeadController::class, 'edit'])->name('leads.edit');
     Route::get('/leads/{id}', [LeadController::class, 'show'])->name('leads.show');
     Route::delete('/api/leads/{id}', [LeadController::class, 'destroy']);
-    });
+    Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
+     Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
+});
 
+    Route::get('/test-route', function () {
+    return 'Route is working';
+});
     Route::middleware('role:artist')->group(function () {
         Route::get('/job/orders', [JobOrderController::class, 'index'])->name('job.orders');
     });

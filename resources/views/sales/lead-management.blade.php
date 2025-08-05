@@ -5,7 +5,10 @@
 <div class="container-xxl flex-grow-1 container-p-y">
     <!-- Lead Management Table -->
     <div class="card">
-        <h5 class="card-header pb-0 text-md-start text-center">Lead Management</h5>
+       <h5 class="card-header pb-0 text-md-start d-flex justify-content-between align-items-center">
+    Lead Management
+    <a href="{{ route('leads.create') }}" class="btn btn-primary">Add Lead</a>
+</h5>
         <div class="card-datatable text-nowrap">
             <div class="table-responsive">
                 <table class="datatables-ajax table table-bordered" id="leadTable">

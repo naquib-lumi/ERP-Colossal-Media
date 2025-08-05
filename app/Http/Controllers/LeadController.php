@@ -86,6 +86,69 @@ class LeadController extends Controller
             ->toJson();
     }
 
+public function create()
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+        $salespeople =  $user;
+        return view('sales.add-lead', compact('salespeople'));
+    }
+
+    public function store(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'company_name' => 'required|string|max:255',
+            'company_phone' => 'nullable|string|max:20',
+            'website' => 'nullable|url|max:255',
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'email' => 'required|email|max:255',
+            'salesperson_id' => 'required|exists:users,id',
+            'date' => 'nullable|date',
+            'status' => 'required|in:accepted,rejected,followup',
+            'opportunity' => 'nullable|string|max:10',
+            'remark' => 'nullable|string',
+            'attachments' => 'nullable|array|max:10|mimes:pdf,doc,jpg,png|max:10240', // 10MB max
+        ]);
+
+        $lead = $user->leads()->create([
+            'salesperson_id' => $validated['salesperson_id'],
+            'company_name' => $validated['company_name'],
+            'company_phone' => $validated['company_phone'],
+            'website' => $validated['website'],
+            'name' => $validated['name'],
+            'phone' => $validated['phone'],
+            'email' => $validated['email'],
+            'date' => $validated['date'],
+            'status' => $validated['status'],
+            'opportunity' => $validated['opportunity'],
+            'remark' => $validated['remark'],
+        ]);
+
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('leads/' . $lead->id, 'public');
+                LeadAttachment::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => $user->id,
+                    'file_size' => $file->getSize(),
+                    'file_location' => $path,
+                    'file_extension' => $file->getClientOriginalExtension(),
+                ]);
+            }
+        }
+
+        return redirect()->route('sales.leads')->with('success', 'Lead added successfully');
+    }
+
+
     public function show($id)
 {
     $lead = Lead::with('user', 'attachments')->findOrFail($id);
