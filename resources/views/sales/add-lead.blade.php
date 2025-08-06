@@ -65,20 +65,20 @@
                                 @enderror
                             </div>
                         </div>
-                  {{-- 
+     
                     <div class="mb-4">
                         <div class="form-floating">
-                            <select class="form-select" id="assignTo" name="salesperson_id" required>
-                                <option value="">Select Artist</option>
-                                @foreach ($salespeople as $salesperson)
-                                    @php
-                                        $selected = old('salesperson_id', $selectedSalespersonId ?? '') == $salesperson->id ? 'selected' : '';
-                                    @endphp
-                                    <option value="{{ $salesperson->id }}" {{ $selected }}>
-                                        {{ $salesperson->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                          <select class="form-select" id="assignTo" name="salesperson_id" required>
+                            <option value="">Select Artist</option>
+                            @foreach ($artists as $artist)
+                                @php
+                                    $selected = old('salesperson_id', $selectedArtistId ?? '') == $artist->id ? 'selected' : '';
+                                @endphp
+                                <option value="{{ $artist->id }}" {{ $selected }}>
+                                    {{ $artist->name }}
+                                </option>
+                            @endforeach
+                        </select>
 
                             <label for="assignTo">Assign To</label>
                             @error('salesperson_id')
@@ -86,7 +86,7 @@
                             @enderror
                         </div>
                     </div>
---}}
+
                         <div class="mb-4">
                             <div class="form-floating">
                                 <input type="date" class="form-control" id="leadDate" name="date" value="{{ old('date') }}">

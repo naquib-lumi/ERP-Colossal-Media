@@ -11,7 +11,7 @@ class ReminderSeeder extends Seeder
     public function run()
     {
         Reminder::create([
-            'lead_id' => 1, // Assume lead ID 1 exists
+            'lead_id' => 1,
             'title' => 'Follow up with John about the proposal.',
             'due_date' => Carbon::now()->subDays(1),
             'status' => 'overdue',
@@ -23,7 +23,5 @@ class ReminderSeeder extends Seeder
             'due_date' => Carbon::now()->addDays(2),
             'status' => 'upcoming',
         ]);
-
-        // Add more for other leads
     }
 }

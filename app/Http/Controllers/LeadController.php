@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Models\User;
 use App\Models\Lead;
 use App\Models\LeadAttachment;
 use Illuminate\Support\Facades\Auth;
@@ -104,10 +104,9 @@ class LeadController extends Controller
         if (!$user->hasRole('salesperson')) {
             abort(403, 'Unauthorized');
         }
-        $salespeople = User::where('role', 'salesperson')->get();
-        return view('sales.add-lead', compact('salespeople'));
+        $artists = User::where('role', 'artist')->get();
+        return view('sales.add-lead', compact('artists'));
     }
-
     public function store(Request $request)
     {
         $user = Auth::user();

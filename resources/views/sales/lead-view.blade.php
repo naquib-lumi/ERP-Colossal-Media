@@ -108,7 +108,7 @@
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             <div>
                                                 <strong>{{ $reminder->title }}</strong><br>
-                                                <small class="text-muted">Due: {{ $reminder->due_date }}</small>
+                                                <small class="text-muted">Due: {{ $reminder->due_date instanceof \Carbon\Carbon ? $reminder->due_date->format('Y-m-d H:i') : $reminder->due_date }}</small>
                                             </div>
                                             <span class="badge bg-{{ $reminder->status == 'overdue' ? 'danger' : ($reminder->status == 'upcoming' ? 'warning' : 'success') }} rounded-pill">
                                                 {{ ucfirst($reminder->status) }}
@@ -133,7 +133,7 @@
                                         @forelse ($lead->notes as $note)
                                         <div class="chat-message mb-2 p-2 bg-light rounded" style="max-width: 70%;">
                                             <p class="mb-1">{{ $note->content }}</p>
-                                            <small class="text-muted">{{ $note->date }}</small>
+                                            <small class="text-muted">{{ $note->date instanceof \Carbon\Carbon ? $note->date->format('Y-m-d H:i') : $note->date }}</small>
                                             @if ($note->tags)
                                             <div class="mt-1">
                                                 @foreach (json_decode($note->tags) as $tag)

@@ -16,6 +16,10 @@ class Reminder extends Model
         'status',
     ];
 
+    protected $casts = [
+        'due_date' => 'datetime', // Ensure due_date is cast as a datetime
+    ];
+
     public function lead()
     {
         return $this->belongsTo(Lead::class);
