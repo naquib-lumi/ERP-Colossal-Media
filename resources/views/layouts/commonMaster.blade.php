@@ -68,6 +68,7 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     @endif
 
       @if (Request::is('sales/leads'))
+      <meta name="csrf-token" content="{{ csrf_token() }}">
       <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
       <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />    
       @endif
@@ -78,6 +79,7 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <!-- <script src="{{ asset('assets/vendor/js/template-customizer.js') }}" ></script> UNCOMMENT-CUSTOMIZER-->
     <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="{{ asset('assets/js/config.js') }}" ></script>
+    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}" ></script>
   </head>
 
   <body>
@@ -98,7 +100,7 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <!-- Core JS -->
     <!-- build:js assets/vendor/js/theme.js  -->
 
-    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}" ></script>
+
 
     <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}" ></script>
     <script src="{{ asset('assets/vendor/js/bootstrap.js') }}" ></script>

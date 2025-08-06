@@ -111,13 +111,20 @@
                             </div>
                         </div>
                         <div class="mb-4">
-                            <div class="form-floating">
-                                <input type="text" class="form-control" id="opportunity" name="opportunity" placeholder="High" value="{{ old('opportunity') }}">
-                                <label for="opportunity">Opportunity</label>
-                                @error('opportunity')
-                                    <div class="text-danger">{{ $message }}</div>
-                                @enderror
-                            </div>
+                        <div class="form-floating">
+                            <select class="form-select" id="opportunity" name="opportunity">
+                                <option value="" disabled {{ old('opportunity') ? '' : 'selected' }}>Select Opportunity</option>
+                                <option value="50/50" {{ old('opportunity') == '50/50' ? 'selected' : '' }}>50/50</option>
+                                <option value="High Chance" {{ old('opportunity') == 'High Chance' ? 'selected' : '' }}>High Chance</option>
+                                <option value="Low Chance" {{ old('opportunity') == 'Low Chance' ? 'selected' : '' }}>Low Chance</option>
+                                <option value="None" {{ old('opportunity') == 'None' ? 'selected' : '' }}>None</option>
+                            </select>
+                            <label for="opportunity">Opportunity</label>
+                            @error('opportunity')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+
                         </div>
                         <div class="mb-4">
                             <div class="form-floating">
@@ -129,17 +136,61 @@
                             </div>
                         </div>
                         <div class="mb-4">
-                            <label for="attachments" class="form-label">Attachment from Lead</label>
-                            <div class="dropzone" style="min-height: 150px; border: 2px dashed #ccc; padding: 20px; text-align: center;">
-                                <p>Drag and drop files here, or click to browse</p>
-                                <p>Supported formats: PDF, DOC, JPG, PNG (Max 10MB)</p>
-                                <input type="file" class="form-control" id="attachments" name="attachments[]" multiple accept=".pdf,.doc,.jpg,.png" style="display: none;" onchange="this.parentNode.querySelector('p').textContent = this.files.length + ' file(s) selected';">
-                                <button type="button" class="btn btn-secondary" onclick="this.parentNode.querySelector('input[type=file]').click();">Choose file</button>
-                            </div>
-                            @error('attachments')
-                                <div class="text-danger">{{ $message }}</div>
-                            @enderror
-                        </div>
+    <label for="attachments" class="form-label">Attachment from Lead</label>
+    <div id="dropzone" class="dropzone" 
+         style="min-height: 150px; border: 2px dashed #ccc; padding: 20px; text-align: center;">
+        <p id="dropzone-message">Drag and drop files here, or click to browse</p>
+        <p>Supported formats: PDF, DOC, JPG, PNG (Max 10MB)</p>
+        <input type="file" class="form-control" id="attachments" name="attachments[]" multiple
+               accept=".pdf,.doc,.jpg,.png" style="display: none;">
+        <button type="button" class="btn btn-secondary"
+                onclick="document.getElementById('attachments').click();">Choose file</button>
+    </div>
+    @error('attachments')
+        <div class="text-danger">{{ $message }}</div>
+    @enderror
+</div>
+
+<script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('attachments');
+    const message = document.getElementById('dropzone-message');
+
+    // Prevent default behaviors for drag/drop
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, e => e.preventDefault());
+        dropzone.addEventListener(eventName, e => e.stopPropagation());
+    });
+
+    // Highlight dropzone on drag over
+    dropzone.addEventListener('dragover', () => {
+        dropzone.style.borderColor = '#666';
+        dropzone.style.backgroundColor = '#f8f8f8';
+    });
+
+    // Remove highlight on drag leave
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = '#ccc';
+        dropzone.style.backgroundColor = 'transparent';
+    });
+
+    // Handle dropped files
+    dropzone.addEventListener('drop', (e) => {
+        dropzone.style.borderColor = '#ccc';
+        dropzone.style.backgroundColor = 'transparent';
+
+        const files = e.dataTransfer.files;
+        fileInput.files = files;
+
+        message.textContent = files.length + ' file(s) selected';
+    });
+
+    // Update message on file input change
+    fileInput.addEventListener('change', () => {
+        message.textContent = fileInput.files.length + ' file(s) selected';
+    });
+</script>
+
                         <button type="submit" class="btn btn-primary">Save</button>
                     </form>
                 </div>
