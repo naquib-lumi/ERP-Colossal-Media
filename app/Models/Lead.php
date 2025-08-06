@@ -24,14 +24,24 @@ class Lead extends Model
         'date' => 'date',
     ];
 
- public function user()
+    public function user()
     {
         return $this->belongsTo(User::class, 'salesperson_id')
-            ->where('role', 'salesperson'); // Restrict to salesperson role
+            ->where('role', 'salesperson');
     }
 
     public function attachments()
     {
         return $this->hasMany(LeadAttachment::class, 'lead_id');
+    }
+
+    public function reminders()
+    {
+        return $this->hasMany(Reminder::class);
+    }
+
+    public function notes()
+    {
+        return $this->hasMany(Note::class);
     }
 }

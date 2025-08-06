@@ -55,6 +55,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/leads/{id}/attachments', [LeadController::class, 'getAttachments'])->name('leads.attachments');
     Route::get('/leads/{id}/edit', [LeadController::class, 'edit'])->name('leads.edit');
     Route::get('/leads/{id}', [LeadController::class, 'show'])->name('leads.show');
+    Route::post('/leads/{id}/add-reminder', [LeadController::class, 'addReminder'])->name('leads.add.reminder');
+    Route::post('/leads/{id}/add-note', [LeadController::class, 'addNote'])->name('leads.add.note');
     Route::delete('/api/leads/{id}', [LeadController::class, 'destroy']);
     Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
     Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');

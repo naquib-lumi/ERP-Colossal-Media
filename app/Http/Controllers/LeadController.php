@@ -160,13 +160,47 @@ class LeadController extends Controller
         return redirect()->route('sales.leads')->with('success', 'Lead added successfully');
     }
 
-    public function show($id)
+public function show($id)
     {
-        $lead = Lead::with('user', 'attachments')->findOrFail($id);
+        $lead = Lead::with('user', 'attachments', 'reminders', 'notes')->findOrFail($id);
         if ($lead->salesperson_id !== Auth::id()) {
             abort(403, 'Unauthorized');
         }
         return view('sales.lead-view', compact('lead'));
+    }
+
+    public function addReminder(Request $request, $id)
+    {
+        $lead = Lead::findOrFail($id);
+        if ($lead->salesperson_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'due_date' => 'required|date',
+            'status' => 'required|in:overdue,upcoming,completed',
+        ]);
+
+        $reminder = $lead->reminders()->create($validated);
+        return response()->json(['success' => true, 'reminder' => $reminder]);
+    }
+
+    public function addNote(Request $request, $id)
+    {
+        $lead = Lead::findOrFail($id);
+        if ($lead->salesperson_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'content' => 'required|string',
+            'date' => 'nullable|date',
+            'tags' => 'nullable|array',
+        ]);
+
+        $note = $lead->notes()->create($validated);
+        return response()->json(['success' => true, 'note' => $note]);
     }
 
     public function getAttachments($id)
