@@ -5,6 +5,7 @@ use App\Http\Controllers\LeadController;
 use App\Http\Controllers\JobOrderController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OperationsController;
+use App\Http\Controllers\ArtistController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -19,7 +20,7 @@ Route::get('/dashboard', function () {
             case 'salesperson':
                 return redirect()->route('sales.dashboard');
             case 'artist':
-                return redirect()->route('job.orders');
+                return redirect()->route('artist.dashboard');
             case 'admin':
                 return redirect()->route('admin.dashboard');
             case 'printing':
@@ -65,8 +66,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/test-route', function () {
     return 'Route is working';
 });
-    Route::middleware('role:artist')->group(function () {
-        Route::get('/job/orders', [JobOrderController::class, 'index'])->name('job.orders');
+    Route::middleware(['auth', 'role:artist'])->group(function () {
+        Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])->name('artist.dashboard');
     });
 
     Route::middleware('role:admin')->group(function () {
