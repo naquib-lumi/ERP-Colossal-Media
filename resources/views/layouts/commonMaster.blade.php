@@ -16,174 +16,121 @@
   }
 @endphp
 <html
-lang="{{ session()->get('locale') ?? app()->getLocale() }}"
- class="{{ $navbarType ?? '' }} {{ $contentLayout ?? '' }} {{ $menuFixed ?? '' }} {{ $menuCollapsed ?? '' }} {{ $footerFixed ?? '' }} {{ $customizerHidden ?? '' }}"
+  lang="{{ session()->get('locale') ?? app()->getLocale() }}"
+  class="{{ $navbarType ?? '' }} {{ $contentLayout ?? '' }} {{ $menuFixed ?? '' }} {{ $menuCollapsed ?? '' }} {{ $footerFixed ?? '' }} {{ $customizerHidden ?? '' }}"
   dir="{{ $configData['textDirection'] }}" data-skin="{{ $skinName }}" data-assets-path="{{ asset('/assets') . '/' }}"
   data-base-url="{{ url('/') }}" data-framework="laravel" data-template="{{ $configData['myLayout'] }}-menu-template"
   data-bs-theme="{{ $configData['themeOpt'] }}" @if ($isAdminLayout && $semiDarkEnabled) data-semidark-menu="true" @endif>
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-    <title>
-    @yield('title') | {{ config('variables.templateName') ? config('variables.templateName') : 'Colossal ERP' }}
-  </title>
-    <meta name="description"  content="{{ config('variables.templateDescription') ? config('variables.templateDescription') : '' }}" /> 
-    <meta name="keywords"
-    content="{{ config('variables.templateKeyword') ? config('variables.templateKeyword') : '' }}" />
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/favicon/favicon.ico') }}" />
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
-      rel="stylesheet" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/iconify-icons.css') }}" />
-    <!-- Core CSS -->
-    <!-- build:css assets/vendor/css/theme.css  -->
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/pickr/pickr-themes.css') }}" />
 
-    
-    <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}" />
-    <!-- Vendors CSS -->
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
-    <!-- endbuild -->
- 
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
-    <!-- Page CSS -->
-    @if (Request::is('sales/calendar') || Request::is('calendar/*'))
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <title>@yield('title') | {{ config('variables.templateName') ? config('variables.templateName') : 'Colossal ERP' }}</title>
+  <meta name="description" content="{{ config('variables.templateDescription') ? config('variables.templateDescription') : '' }}" />
+  <meta name="keywords" content="{{ config('variables.templateKeyword') ? config('variables.templateKeyword') : '' }}" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/favicon/favicon.ico') }}" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/iconify-icons.css') }}" />
+
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="{{ asset('assets/vendor/libs/pickr/pickr-themes.css') }}" />
+  <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}" />
+  <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}" />
+
+  <!-- Vendors CSS -->
+  <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
+  <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
+  <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
+  <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
+  <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
+
+  <!-- Page CSS (conditional) -->
+  @if (Request::is('sales/calendar') || Request::is('calendar/*'))
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
-    @endif
+  @endif
 
-    @if (Request::is('sales/dashboard') || Request::is('dashboard/*'))
-       <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/flag-icons.css') }}" />
+  @if (Request::is('sales/dashboard') || Request::is('dashboard/*'))
+    <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/flag-icons.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
-    @endif
+  @endif
 
-      @if (Request::is('sales/leads'))
-      <meta name="csrf-token" content="{{ csrf_token() }}">
-      <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
-      <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />    
-      @endif
-    <!-- Helpers -->
-    <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
-    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-    <!--? Template customizer: To hide customizer set displayCustomizer value false in config.js.  -->
-    <!-- <script src="{{ asset('assets/vendor/js/template-customizer.js') }}" ></script> UNCOMMENT-CUSTOMIZER-->
-    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
-    <script src="{{ asset('assets/js/config.js') }}" ></script>
-    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}" ></script>
-  </head>
+  {{-- DataTables CSS for pages that need it --}}
+  @if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/*') || Request::is('sales/leads'))
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-select-bs5/select.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-fixedcolumns-bs5/fixedcolumns.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-fixedheader-bs5/fixedheader.bootstrap5.css') }}" />
+  @endif
 
-  <body>
-    <!-- <div style="position: fixed; top: 0; left: 0; background: #fff; padding: 100px; z-index: 1000; border: 1px solid #ccc;">
-      <strong>Debug Request:</strong><br>
-      - Full URL: {{ Request::fullUrl() }}<br>
-      - Path: {{ Request::path() }}<br>
-      - Route Name: {{ Route::currentRouteName() ?? 'Not Named' }}<br>
-      - Is Dashboard: {{ Request::is('dashboard') ? 'Yes' : 'No' }}<br>
-      - Is Dashboard/*: {{ Request::is('dashboard/*') ? 'Yes' : 'No' }}<br>
-      - Is sales/dashboard: {{ Request::is('sales/dashboard') ? 'Yes' : 'No' }}<br>
-    </div> -->
-      @yield('layoutContent')
-    <!-- Layout wrapper -->
-    
-    <!-- / Layout wrapper -->
+  {{-- Page-level extra styles from views --}}
+  @stack('styles')
 
-    <!-- Core JS -->
-    <!-- build:js assets/vendor/js/theme.js  -->
+  <!-- Helpers + Config (keep in head) -->
+  <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
+  <script src="{{ asset('assets/js/config.js') }}"></script>
+</head>
 
+<body>
+  @yield('layoutContent')
 
+  <!-- Core JS (bottom, in order) -->
+  <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
+  <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/@algolia/autocomplete-js.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/pickr/pickr.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/hammer/hammer.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/i18n/i18n.js') }}"></script>
+  <script src="{{ asset('assets/vendor/js/menu.js') }}"></script>
 
-    <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}" ></script>
-    <script src="{{ asset('assets/vendor/js/bootstrap.js') }}" ></script>
-    <script src="{{ asset('assets/vendor/libs/@algolia/autocomplete-js.js') }}" ></script>
+  <!-- Vendors JS (conditional) -->
+  @if (Request::is('sales/calendar') || Request::is('calendar/*'))
+    <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
+    <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
+    <script src="{{ asset('assets/js/app-calendar.js') }}"></script>
+  @endif
 
-    <script src="{{ asset('assets/vendor/libs/pickr/pickr.js') }}" ></script>
+  <script src="{{ asset('assets/vendor/libs/@form-validation/popular.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/@form-validation/bootstrap5.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/@form-validation/auto-focus.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/moment/moment.js') }}"></script>
+  <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
 
-    <script src="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js') }}" ></script>
+  @if (Request::is('sales/dashboard') || Request::is('dashboard/*'))
+    <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
+  @endif
 
-    <script src="{{ asset('assets/vendor/libs/hammer/hammer.js') }}" ></script>
+  {{-- DataTables JS + export deps (AFTER jQuery) --}}
+  @if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/*') || Request::is('sales/leads'))
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-select-bs5/select.bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-fixedcolumns-bs5/fixedcolumns.bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-fixedheader-bs5/fixedheader.bootstrap5.js') }}"></script>
 
-    <script src="{{ asset('assets/vendor/libs/i18n/i18n.js') }}" ></script>
+    <!-- Export deps -->
+    <script src="{{ asset('assets/vendor/libs/jszip/jszip.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/pdfmake/pdfmake.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/pdfmake/vfs_fonts.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.html5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.print.js') }}"></script>
+  @endif
 
-    <script src="{{ asset('assets/vendor/js/menu.js') }}" ></script>
+  <!-- Main JS -->
+  <script src="{{ asset('assets/js/main.js') }}"></script>
 
-    <!-- endbuild -->
-
-    <!-- Vendors JS -->
-    @if (Request::is('sales/calendar') || Request::is('calendar/*'))
-    <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}" ></script>
-        <!-- Page JS -->
-    <script src="{{ asset('assets/js/app-calendar-events.js') }}" ></script>
-    <script src="{{ asset('assets/js/app-calendar.js') }}" ></script>
-    @endif
-
-    <script src="{{ asset('assets/vendor/libs/@form-validation/popular.js') }}" ></script>
-    <script src="{{ asset('assets/vendor/libs/@form-validation/bootstrap5.js') }}" ></script>
-    <script src="{{ asset('assets/vendor/libs/@form-validation/auto-focus.js') }}" ></script>
-    <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}" ></script>
-    <script src="{{ asset('assets/vendor/libs/moment/moment.js') }}" ></script>
-    <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}" ></script>
-
-    
-    @if (Request::is('sales/dashboard') || Request::is('dashboard/*'))
-     <!-- <script src="{{ asset('assets/js/dashboards-crm.js') }}"></script> -->
-      <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
-    @endif
-    <!-- Main JS -->
-    <script src="{{ asset('assets/js/main.js') }}" ></script>
-
-
-    @if (Request::is('sales/leads'))
-    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}" ></script>
-    <!-- <script src="{{ asset('assets/js/tables-datatables-advanced.js') }}" ></script> -->
-    @endif
-
-  <!-- Code injected by live-server -->
-<!-- <script>
-	// <![CDATA[  <-- For SVG support
-	if ('WebSocket' in window) {
-		(function () {
-			function refreshCSS() {
-				var sheets = [].slice.call(document.getElementsByTagName("link"));
-				var head = document.getElementsByTagName("head")[0];
-				for (var i = 0; i < sheets.length; ++i) {
-					var elem = sheets[i];
-					var parent = elem.parentElement || head;
-					parent.removeChild(elem);
-					var rel = elem.rel;
-					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
-						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
-						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
-					}
-					parent.appendChild(elem);
-				}
-			}
-			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
-			var address = protocol + window.location.host + window.location.pathname + '/ws';
-			var socket = new WebSocket(address);
-			socket.onmessage = function (msg) {
-				if (msg.data == 'reload') window.location.reload();
-				else if (msg.data == 'refreshcss') refreshCSS();
-			};
-			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
-				console.log('Live reload enabled.');
-				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
-			}
-		})();
-	}
-	else {
-		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
-	}
-	// ]]>
-</script> -->
+  {{-- View-level scripts --}}
+  @stack('scripts')
 </body>
 </html>
