@@ -6,15 +6,37 @@ use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
-    protected $fillable = ['sales_person_id', 'customer_name', 'amount', 'order_date', 'status'];
+    protected $table = 'orders';
 
-    public function salesPerson()
-    {
-        return $this->belongsTo(SalesPerson::class);
-    }
+    protected $fillable = [
+        'user_id','lead_id','leadName','leadPhone','companyName',
+        'orderDate','deadline','leadEmail','orderTitle','orderDetail',
+        'orderStatus','orderAttachment','approval','taskType','draft','pending'
+    ];
 
-    public function jobOrders()
+    protected $casts = [
+        'orderDate' => 'date',
+        'deadline'  => 'date',
+        'approval'  => 'boolean',
+        'draft'     => 'boolean',
+        'pending'   => 'boolean',
+    ];
+
+    // Relations
+    public function user() { return $this->belongsTo(User::class); }
+    public function lead() { return $this->belongsTo(Lead::class); }
+
+    // Accessors
+    public function getStatusLabelAttribute(): string
     {
-        return $this->hasMany(JobOrder::class);
+        $map = [
+            'to_assign'   => 'Assign',
+            'assigned'    => 'Assigned',
+            'in_progress' => 'In Progress',
+            'pending'     => 'Pending',
+            'completed'   => 'Completed',
+            'rejected'    => 'Rejected',
+        ];
+        return $map[$this->orderStatus] ?? ucfirst($this->orderStatus);
     }
 }

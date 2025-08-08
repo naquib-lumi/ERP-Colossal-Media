@@ -296,10 +296,12 @@
                             <!-- Status filter -->
                             <select id="statusFilter" class="form-select w-auto">
                                 <option value="">All Status</option>
-                                <option value="Assign">Assign</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Rejected">Rejected</option>
+                                <option value="to_assign">To Assign</option>
+                                <option value="assigned">Assigned</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                                <option value="rejected">Rejected</option>
                             </select>
 
                             <!-- Export -->
@@ -323,25 +325,48 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {{-- Keep your real rows; sample below --}}
+                                @foreach($orders as $order)
                                 <tr>
-                                    <td>#ORD-2025-003</td>
-                                    <td>Corporate Business Cards Design</td>
-                                    <td>TechCorp Ltd</td>
-                                    <td>Artist A</td>
-                                    <td>Assign</td>
-                                    <td>Feb 15, 2025</td>
+                                    {{-- 1) Order ID --}}
+                                    <td>#ORD-{{ str_pad($order->id, 4, '0', STR_PAD_LEFT) }}</td>
+
+                                    {{-- 2) Job Title --}}
+                                    <td>{{ $order->orderTitle ?? '-' }}</td>
+
+                                    {{-- 3) Company --}}
+                                    <td>{{ $order->companyName ?? '-' }}</td>
+
+                                    {{-- 4) Artist --}}
+                                    <td>{{ optional($order->user)->name ?? '-' }}</td>
+
+                                    {{-- 5) Status (raw text; DT will wrap into a pill) --}}
+                                    <td class="js-status">{{ $order->orderStatus ?? 'to_assign' }}</td>
+
+                                    {{-- 6) Deadline --}}
+                                    <td>
+                                        @if(!empty($order->deadline))
+                                        {{ \Carbon\Carbon::parse($order->deadline)->format('M d, Y') }}
+                                        @else
+                                        -
+                                        @endif
+                                    </td>
+
+                                    {{-- 7) Actions --}}
                                     <td class="text-end">
-                                        <button class="btn btn-outline-secondary btn-icon" title="View"><i class="bx bx-show"></i></button>
-                                        <button class="btn btn-outline-secondary btn-icon" title="Edit"><i class="bx bx-edit-alt"></i></button>
+                                        <button class="btn btn-outline-secondary btn-icon" title="View">
+                                            <i class="bx bx-show"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-icon" title="Edit">
+                                            <i class="bx bx-edit-alt"></i>
+                                        </button>
                                     </td>
                                 </tr>
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-
 
             <!-- Charts -->
             <div class="row g-4">
@@ -370,16 +395,40 @@
         @push('scripts')
         <script>
             $(function() {
-                const statusPill = (s) => {
-                    if (!s) return '';
-                    const map = {
-                        'Assign': 'assign',
-                        'In Progress': 'progress',
-                        'Completed': 'completed',
-                        'Rejected': 'rejected'
+                const statusMap = {
+                    to_assign: {
+                        label: 'To Assign',
+                        cls: 'assign'
+                    },
+                    assigned: {
+                        label: 'Assigned',
+                        cls: 'assign'
+                    },
+                    in_progress: {
+                        label: 'In Progress',
+                        cls: 'progress'
+                    },
+                    pending: {
+                        label: 'Pending',
+                        cls: 'progress'
+                    },
+                    completed: {
+                        label: 'Completed',
+                        cls: 'completed'
+                    },
+                    rejected: {
+                        label: 'Rejected',
+                        cls: 'rejected'
+                    }
+                };
+
+                const pill = (raw) => {
+                    const key = String(raw || '').toLowerCase();
+                    const m = statusMap[key] || {
+                        label: raw || '-',
+                        cls: 'progress'
                     };
-                    const key = map[s] || 'progress';
-                    return `<span class="badge-status badge-${key}">${s}</span>`;
+                    return `<span class="badge-status badge-${m.cls}">${m.label}</span>`;
                 };
 
                 const dt = $('#jobOrdersTable').DataTable({
@@ -388,7 +437,7 @@
                     pageLength: 5,
                     autoWidth: false,
                     responsive: true,
-                    order: [], // keep natural order
+                    order: [],
                     buttons: [{
                         extend: 'excel',
                         title: 'Job Orders',
@@ -397,13 +446,13 @@
                             columns: [0, 1, 2, 3, 4, 5]
                         }
                     }],
-                    columnDefs: [{ // status pill
-                            targets: 4,
+                    columnDefs: [{
+                            targets: 4, // Status column
                             createdCell: function(td, cellData) {
-                                $(td).html(statusPill(cellData));
+                                $(td).html(pill(cellData)); // show pill
                             }
                         },
-                        { // actions
+                        {
                             targets: -1,
                             orderable: false,
                             searchable: false,
@@ -422,22 +471,17 @@
                     }
                 });
 
-                // external search
+                // External controls
                 $('#jobSearch').on('keyup', function() {
                     dt.search(this.value).draw();
                 });
-
-                // external status filter (search on raw value, not the pill)
                 $('#statusFilter').on('change', function() {
                     dt.column(4).search(this.value).draw();
                 });
-
-                // export
                 $('#exportExcel').on('click', function() {
                     dt.button(0).trigger();
                 });
 
-                // handle layout resizes (sidebar toggles etc.)
                 window.addEventListener('resize', () => {
                     setTimeout(() => dt.columns.adjust().responsive.recalc(), 100);
                 });

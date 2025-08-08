@@ -67,7 +67,9 @@ Route::middleware('auth')->group(function () {
     return 'Route is working';
 });
     Route::middleware(['auth', 'role:artist'])->group(function () {
-        Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])->name('artist.dashboard');
+        Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])
+        ->name('artist.dashboard')
+        ->middleware(['web','auth','role:artist']); 
     });
 
     Route::middleware('role:admin')->group(function () {
