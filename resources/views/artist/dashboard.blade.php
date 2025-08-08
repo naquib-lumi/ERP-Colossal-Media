@@ -370,22 +370,31 @@
 
             <!-- Charts -->
             <div class="row g-4">
+                <!-- Salesperson Meeting Status Report -->
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-body">
-                            <h6>Salesperson Meeting Status Report</h6>
-                            <select class="form-select mb-2">
-                                <option>All Salespersons</option>
-                            </select>
-                            <canvas id="meetingStatusChart"></canvas>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">Salesperson Meeting Status</h6>
+
+                                <select id="salespersonFilter" class="form-select w-auto">
+                                <option value="">All Salespersons</option>
+                                @foreach ($salespersons as $sp)
+                                    <option value="{{ $sp->id }}">{{ $sp->name }}</option>
+                                @endforeach
+                                </select>
+                            </div>
+
+                            <div id="meetingStatusChart"></div>
                         </div>
                     </div>
                 </div>
+
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-body">
                             <h6>Job Order Fulfillment Report</h6>
-                            <canvas id="fulfillmentChart"></canvas>
+                            <div id="fulfillmentChart"></div>
                         </div>
                     </div>
                 </div>
@@ -393,100 +402,161 @@
         </div>
 
         @push('scripts')
-        <script>
-            $(function() {
-                const statusMap = {
-                    to_assign: {
-                        label: 'To Assign',
-                        cls: 'assign'
-                    },
-                    assigned: {
-                        label: 'Assigned',
-                        cls: 'assign'
-                    },
-                    in_progress: {
-                        label: 'In Progress',
-                        cls: 'progress'
-                    },
-                    pending: {
-                        label: 'Pending',
-                        cls: 'progress'
-                    },
-                    completed: {
-                        label: 'Completed',
-                        cls: 'completed'
-                    },
-                    rejected: {
-                        label: 'Rejected',
-                        cls: 'rejected'
-                    }
-                };
+<script>
+  (function() {
+    // Bail if jQuery is missing
+    if (!window.jQuery) { console.error('jQuery not loaded → DataTables will not init'); return; }
 
-                const pill = (raw) => {
-                    const key = String(raw || '').toLowerCase();
-                    const m = statusMap[key] || {
-                        label: raw || '-',
-                        cls: 'progress'
-                    };
-                    return `<span class="badge-status badge-${m.cls}">${m.label}</span>`;
-                };
+    $(function () {
+      // ===== Helpers for status pill =====
+      const statusMap = {
+        to_assign: { label: 'To Assign',    cls: 'assign'    },
+        assigned:  { label: 'Assigned',     cls: 'assign'    },
+        in_progress:{label: 'In Progress',  cls: 'progress'  },
+        pending:   { label: 'Pending',      cls: 'progress'  },
+        completed: { label: 'Completed',    cls: 'completed' },
+        rejected:  { label: 'Rejected',     cls: 'rejected'  }
+      };
+      const pill = raw => {
+        const key = String(raw || '').toLowerCase();
+        const m = statusMap[key] || { label: raw || '-', cls: 'progress' };
+        return `<span class="badge-status badge-${m.cls}">${m.label}</span>`;
+      };
 
-                const dt = $('#jobOrdersTable').DataTable({
-                    dom: 'Brt<"d-flex justify-content-between align-items-center mt-3"ip>',
-                    paging: true,
-                    pageLength: 5,
-                    autoWidth: false,
-                    responsive: true,
-                    order: [],
-                    buttons: [{
-                        extend: 'excel',
-                        title: 'Job Orders',
-                        className: 'd-none',
-                        exportOptions: {
-                            columns: [0, 1, 2, 3, 4, 5]
-                        }
-                    }],
-                    columnDefs: [{
-                            targets: 4, // Status column
-                            createdCell: function(td, cellData) {
-                                $(td).html(pill(cellData)); // show pill
-                            }
+      // ===== DataTables init (guarded) =====
+      let dt;
+      try {
+        if (!$.fn.DataTable) throw new Error('DataTables plugin not loaded');
+
+        dt = $('#jobOrdersTable').DataTable({
+          dom: 'Brt<"d-flex justify-content-between align-items-center mt-3"ip>',
+          paging: true,
+          pageLength: 5,
+          autoWidth: false,
+          responsive: true,
+          order: [],
+          buttons: [{
+            extend: 'excel',
+            title: 'Job Orders',
+            className: 'd-none',
+            exportOptions: { columns: [0,1,2,3,4,5] }
+          }],
+          columnDefs: [
+            { // status pill
+              targets: 4,
+              createdCell: function (td, cellData) {
+                $(td).html(pill(cellData));
+              }
+            },
+            { // actions
+              targets: -1,
+              orderable: false,
+              searchable: false,
+              className: 'text-end'
+            }
+          ],
+          language: {
+            info: 'Showing _START_ to _END_ of _TOTAL_ results',
+            paginate: { previous: 'Previous', next: 'Next' }
+          },
+          drawCallback: function() {
+            this.api().columns.adjust().responsive.recalc();
+          }
+        });
+
+        // External controls
+        $('#jobSearch').on('keyup', function () { dt.search(this.value).draw(); });
+        $('#statusFilter').on('change', function () { dt.column(4).search(this.value).draw(); });
+        $('#exportExcel').on('click', function () { dt.button(0).trigger(); });
+        window.addEventListener('resize', () => setTimeout(() => dt.columns.adjust().responsive.recalc(), 100));
+
+      } catch (e) {
+        console.error('Failed to initialize DataTables:', e);
+      }
+
+      // ===== Apex donut: Scheduled vs Canceled (meetings) =====
+      try {
+        if (!window.ApexCharts) { console.warn('ApexCharts not loaded, skipping chart'); return; }
+
+        // Colors fallback (works even if you don’t have a theme object)
+        const colors = {
+          success: '#26ee6fff',
+          danger:  '#ff5d5dff',
+          text:    '#6c7680',
+          card:    '#ffffff'
+        };
+
+        const el = document.querySelector('#meetingStatusChart');
+        if (!el) return;
+
+        const apex = new ApexCharts(el, {
+          chart: { type: 'donut', height: 290 },
+          labels: ['Scheduled', 'Canceled'],
+          series: [0, 0], // will update via AJAX below
+          colors: [colors.success, colors.danger],
+          stroke: { width: 2, colors: [colors.card] },
+          dataLabels: { enabled: true,
+                        formatter: (val, opts) => `${Math.round(val)}%`, // val is already the % for donut
+                        style: {
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        colors: ['#fff'] // white text over the colored slices
                         },
-                        {
-                            targets: -1,
-                            orderable: false,
-                            searchable: false,
-                            className: 'text-end'
-                        }
-                    ],
-                    language: {
-                        info: "Showing _START_ to _END_ of _TOTAL_ results",
-                        paginate: {
-                            previous: "Previous",
-                            next: "Next"
-                        }
+                        dropShadow: {
+                        enabled: true,
+                        blur: 2,
+                        opacity: 0.6
+                        } 
                     },
-                    drawCallback: function() {
-                        this.api().columns.adjust().responsive.recalc();
-                    }
-                });
+          legend: {
+            position: 'bottom',
+            labels: { colors: colors.text },
+            markers: { width: 10, height: 10, radius: 10 }
+          },
+          plotOptions: {
+            pie: {
+                dataLabels: {
+                    offset: -6 // nudge labels toward the ring so they sit nicely on slices
+                },
+                donut: {
+                    size: '50%',
+                    labels: { show: true } // keep your center labels if you use them
+                }
+            }
+          },
+          tooltip: { y: { formatter: v => `${v} meetings` } }
+        });
+        apex.render();
 
-                // External controls
-                $('#jobSearch').on('keyup', function() {
-                    dt.search(this.value).draw();
-                });
-                $('#statusFilter').on('change', function() {
-                    dt.column(4).search(this.value).draw();
-                });
-                $('#exportExcel').on('click', function() {
-                    dt.button(0).trigger();
-                });
+        // Loader for counts
+        const loadCounts = (salespersonId = '') => {
+          $.getJSON('{{ route('artist.meetingStatusCounts') }}', { salesperson_id: salespersonId })
+            .done(res => {
+              const s = Number(res && res.scheduled) || 0;
+              const c = Number(res && res.canceled)  || 0;
+              apex.updateSeries([s, c]);
+            })
+            .fail(() => console.warn('Failed to load meeting status counts'));
+        };
 
-                window.addEventListener('resize', () => {
-                    setTimeout(() => dt.columns.adjust().responsive.recalc(), 100);
-                });
-            });
-        </script>
-        @endpush
+        // initial load (all)
+        loadCounts('');
+
+        // dropdown change (make sure your select id matches)
+        $('#salespersonFilter').on('change', function() {
+          loadCounts(this.value);
+        });
+
+        // Optional: refresh when table draws (not necessary for server data)
+        // $('#jobOrdersTable').on('draw.dt', () => loadCounts($('#salespersonFilter').val()));
+
+      } catch (e) {
+        console.error('Failed to build Apex chart:', e);
+      }
+    });
+  })();
+</script>
+@endpush
+
 
         @endsection

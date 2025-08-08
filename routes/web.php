@@ -70,6 +70,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])
         ->name('artist.dashboard')
         ->middleware(['web','auth','role:artist']); 
+
+        Route::get('/artist/meetingStatusCounts', [ArtistController::class, 'meetingStatusCounts'])
+        ->name('artist.meetingStatusCounts')
+        ->middleware(['web','auth','role:artist']);
+
     });
 
     Route::middleware('role:admin')->group(function () {

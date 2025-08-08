@@ -68,6 +68,8 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-select-bs5/select.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-fixedcolumns-bs5/fixedcolumns.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-fixedheader-bs5/fixedheader.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}">
+
   @endif
 
   {{-- Page-level extra styles from views --}}
@@ -118,6 +120,7 @@
     <script src="{{ asset('assets/vendor/libs/datatables-select-bs5/select.bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/datatables-fixedcolumns-bs5/fixedcolumns.bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/datatables-fixedheader-bs5/fixedheader.bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
 
     <!-- Export deps -->
     <script src="{{ asset('assets/vendor/libs/jszip/jszip.js') }}"></script>
