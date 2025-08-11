@@ -1,3 +1,4 @@
+
 @extends('layouts.app')
 
 @section('title', 'Lead Details')
@@ -36,9 +37,6 @@
                             <div class="card h-100 border-light shadow-sm">
                                 <div class="card-body p-3">
                                     <div class="d-flex align-items-center mb-3">
-                                        <div class="avatar me-3">
-                                            <img src="{{ asset('assets/img/avatars/1.png') }}" alt="User Avatar" class="rounded-circle" style="width: 50px; height: 50px;">
-                                        </div>
                                         <div>
                                             <h6 class="mb-0 fw-bold">{{ $lead->name }}</h6>
                                             <small class="text-muted">Assigned To: {{ $lead->user->name ?? 'Not Assigned' }}</small>
@@ -46,7 +44,6 @@
                                         <a href="#" class="ms-auto text-primary"><i class="bx bx-pencil"></i></a>
                                     </div>
                                     <ul class="list-unstyled text-muted small">
-                                        <li><strong>Last Contacted:</strong> {{ $lead->updated_at->diffForHumans() }}</li>
                                         <li><strong>Reminder Date:</strong> {{ $lead->date ? $lead->date->format('Y-m-d') : 'No Reminder' }}</li>
                                         <li><strong>Opportunity:</strong> {{ $lead->opportunity ?? 'None' }}</li>
                                         <li><strong>Company Name:</strong> {{ $lead->company_name }}</li>
@@ -73,6 +70,13 @@
                                         <h6 class="card-title">Files</h6>
                                         <button class="btn btn-dark btn-sm" id="addFileBtn">Add File</button>
                                     </div>
+                                    <form action="{{ route('leads.add.attachment', ['id' => $lead->id]) }}" method="POST" enctype="multipart/form-data" id="addFileForm" style="display: none;">
+                                        @csrf
+                                        <div class="mb-3">
+                                            <input type="file" class="form-control" name="attachments[]" multiple accept=".pdf,.doc,.jpg,.png">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+                                    </form>
                                     <table class="table table-bordered table-hover">
                                         <thead>
                                             <tr>
@@ -85,18 +89,26 @@
                                         </thead>
                                         <tbody>
                                             @foreach ($lead->attachments as $attachment)
-                                            <tr>
-                                                <td>{{ basename($attachment->file_location) }}</td>
-                                                <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
-                                                <td>{{ $attachment->created_at->format('Y-m-d') }}</td>
-                                                <td>{{ round($attachment->file_size / 1024) }} KB</td>
-                                                <td><a href="{{ asset('storage/' . $attachment->file_location) }}" class="btn btn-sm btn-dark" download><i class="bx bx-download"></i></a></td>
-                                            </tr>
+                                                <tr>
+                                                    <td>{{ basename($attachment->file_location) }}</td>
+                                                    <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
+                                                    <td>{{ $attachment->created_at->format('Y-m-d') }}</td>
+                                                    <td>{{ round($attachment->file_size / 1024) }} KB</td>
+                                                    <td><a href="{{ asset('storage/' . $attachment->file_location) }}" class="btn btn-sm btn-dark" download><i class="bx bx-download"></i></a></td>
+                                                </tr>
                                             @endforeach
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
+
+                            <script>
+                                $(document).ready(function() {
+                                    $('#addFileBtn').on('click', function() {
+                                        $('#addFileForm').slideToggle();
+                                    });
+                                });
+</script>
                             <div class="card mb-4 border-light shadow-sm">
                                 <div class="card-body p-3">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -173,28 +185,43 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="reminderModalLabel">Add Reminder</h5>
+                    <h5 class="modal-title" id="reminderModalLabel">Add Custom Reminder</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="reminderForm">
                         @csrf
+                        <input type="hidden" name="status" id="reminderStatus" value="upcoming">
                         <div class="mb-3">
                             <label for="reminderTitle" class="form-label">Title</label>
-                            <input type="text" class="form-control" id="reminderTitle" required>
+                            <input type="text" class="form-control" id="reminderTitle" name="title" required>
                         </div>
                         <div class="mb-3">
-                            <label for="reminderDueDate" class="form-label">Due Date</label>
-                            <input type="datetime-local" class="form-control" id="reminderDueDate" required>
+                            <label for="reminderDueDate" class="form-label">Due Date & Time</label>
+                            <input type="datetime-local" class="form-control" id="reminderDueDate" name="due_date" required>
                         </div>
                         <div class="mb-3">
-                            <label for="reminderStatus" class="form-label">Status</label>
-                            <select class="form-select" id="reminderStatus" required>
-                                <option value="upcoming">Upcoming</option>
-                                <option value="overdue">Overdue</option>
-                                <option value="completed">Completed</option>
+                            <label for="recurrenceType" class="form-label">Recurrence Type</label>
+                            <select class="form-select" id="recurrenceType" name="recurrence_type">
+                                <option value="none">None</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label for="recurrenceTime" class="form-label">Recurrence Time</label>
+                            <input type="time" 
+                                id="recurrenceTime" 
+                                name="recurrence_time" 
+                                class="form-control"
+                                value="{{ now()->format('H:i') }}">
+
+                        </div>
+                        <!-- <div class="mb-3">
+                            <label for="endDate" class="form-label">Recurrence End Date</label>
+                            <input type="date" class="form-control" id="endDate" name="end_date">
+                        </div> -->
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -205,12 +232,15 @@
         </div>
     </div>
 
-    @push('scripts')
     <script>
         $(document).ready(function() {
+            // Debug: Confirm jQuery is loaded
+            console.log('jQuery loaded:', typeof $);
+
             // Status Dropdown Update
             $('#statusDropdown').on('change', function() {
                 let status = $(this).val();
+                console.log('Status change:', status);
                 $.ajax({
                     url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
                     type: 'POST',
@@ -222,31 +252,43 @@
                         alert('Status updated successfully');
                     },
                     error: function(xhr) {
+                        console.error('Status update error:', xhr.responseText);
                         alert('Error updating status: ' + xhr.responseText);
                     }
                 });
             });
 
-            // Add Reminder
-            $('#saveReminderBtn').on('click', function() {
+            // Add Reminder with event delegation
+            $(document).on('click', '#saveReminderBtn', function(e) {
+                e.preventDefault();
+                console.log('Save Reminder button clicked');
+
                 let formData = {
                     title: $('#reminderTitle').val(),
                     due_date: $('#reminderDueDate').val(),
                     status: $('#reminderStatus').val(),
+                    recurrence_type: $('#recurrenceType').val(),
+                    recurrence_time: $('#recurrenceTime').val(),
+                    end_date: $('#endDate').val(),
                     _token: '{{ csrf_token() }}'
                 };
+
+                console.log('Form data:', formData);
+
                 $.ajax({
                     url: '{{ route('leads.add.reminder', ['id' => $lead->id]) }}',
                     type: 'POST',
                     data: formData,
                     success: function(response) {
+                        console.log('Reminder saved:', response);
                         $('#reminderModal').modal('hide');
-                        $('#reminderTitle').val('');
-                        $('#reminderDueDate').val('');
+                        $('#reminderForm')[0].reset();
                         $('#reminderStatus').val('upcoming');
+                        $('#recurrenceType').val('none');
                         location.reload(); // Refresh to show new reminder
                     },
                     error: function(xhr) {
+                        console.error('Reminder save error:', xhr.responseText);
                         alert('Error adding reminder: ' + xhr.responseText);
                     }
                 });
@@ -256,6 +298,7 @@
             $('#sendNoteBtn').on('click', function() {
                 let content = $('#noteContent').val();
                 let tags = $('#noteTags').val().split(',').map(tag => tag.trim()).filter(tag => tag);
+                console.log('Note data:', { content, tags });
                 let formData = {
                     content: content,
                     tags: tags,
@@ -266,11 +309,13 @@
                     type: 'POST',
                     data: formData,
                     success: function(response) {
+                        console.log('Note saved:', response);
                         $('#noteContent').val('');
                         $('#noteTags').val('');
                         location.reload(); // Refresh to show new note
                     },
                     error: function(xhr) {
+                        console.error('Note save error:', xhr.responseText);
                         alert('Error adding note: ' + xhr.responseText);
                     }
                 });
@@ -279,6 +324,7 @@
             // Filter Notes by Tags
             $('#noteTagFilter').on('keyup', function() {
                 let filter = $(this).val().toLowerCase();
+                console.log('Filtering notes by:', filter);
                 $('.chat-message').each(function() {
                     let tags = $(this).find('.badge').map(function() { return $(this).text().toLowerCase(); }).get();
                     $(this).toggle($(this).text().toLowerCase().includes(filter) || tags.some(tag => tag.includes(filter)));
@@ -286,6 +332,5 @@
             });
         });
     </script>
-    @endpush
 </div>
 @endsection

@@ -22,7 +22,7 @@
                         <th class="text-center align-middle" style="width: 15%;">Lead Data</th>
                         <th class="text-center align-middle" style="width: 20%;">Company Details</th>
                         <th class="text-center align-middle" style="width: 20%;">Lead Details</th>
-                        <th class="text-center align-middle" style="width: 15%;">Assigned Artist</th>
+                        <th class="text-center align-middle" style="width: 15%;">Assigned Salesperson</th>
                         <th class="text-center align-middle" style="width: 15%;">Reminder</th>
                         <th class="text-center align-middle" style="width: 15%;">Actions</th>
                     </tr>
@@ -46,6 +46,24 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal for Reminder Confirmation -->
+    <div class="modal fade" id="reminderConfirmModal" tabindex="-1" aria-labelledby="reminderConfirmLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reminderConfirmLabel">Confirm Reminder Completion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="reminderConfirmText"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
+                    <button type="button" class="btn btn-primary" id="confirmReminderDoneBtn">Yes</button>
                 </div>
             </div>
         </div>
@@ -85,7 +103,7 @@
                 { data: 'lead_data', name: 'lead_data', orderable: true },
                 { data: 'company_details', name: 'company_details', orderable: false },
                 { data: 'lead_details', name: 'lead_details', orderable: false },
-                { data: 'assigned_artist', name: 'assigned_artist', orderable: true },
+                { data: 'assigned_salesperson', name: 'assigned_salesperson', orderable: true },
                 { data: 'reminder', name: 'reminder', orderable: true },
                 { data: 'actions', name: 'actions', orderable: false, searchable: false }
             ],
@@ -151,7 +169,7 @@
         });
 
         $('#leadTable').on('change', '.status-dropdown', function(e) {
-            e.stopPropagation(); // Prevent tr click
+            e.stopPropagation();
             let id = $(this).data('id');
             let status = $(this).val();
             $.ajax({
@@ -159,7 +177,7 @@
                 type: 'POST',
                 data: { _token: $('meta[name="csrf-token"]').attr('content'), status: status },
                 success: function(response) {
-                    table.ajax.reload(null, false); // Reload without resetting page
+                    table.ajax.reload(null, false);
                 },
                 error: function(xhr) {
                     alert('Error updating status: ' + xhr.responseText);
@@ -168,7 +186,7 @@
         });
 
         $('#leadTable').on('change', '.opportunity-dropdown', function(e) {
-            e.stopPropagation(); // Prevent tr click
+            e.stopPropagation();
             let id = $(this).data('id');
             let opportunity = $(this).val();
             $.ajax({
@@ -176,7 +194,7 @@
                 type: 'POST',
                 data: { _token: $('meta[name="csrf-token"]').attr('content'), opportunity: opportunity },
                 success: function(response) {
-                    table.ajax.reload(null, false); // Reload without resetting page
+                    table.ajax.reload(null, false);
                 },
                 error: function(xhr) {
                     alert('Error updating opportunity: ' + xhr.responseText);
@@ -184,41 +202,117 @@
             });
         });
 
-        $('#leadTable').on('click', '.confirm-reminder', function(e) {
-            e.stopPropagation(); // Prevent tr click
-            e.preventDefault();
+        $('#leadTable').on('change', '.assign-dropdown', function(e) {
+            e.stopPropagation();
             let id = $(this).data('id');
-            let confirmed = $(this).data('confirmed');
-            if (confirmed == '1') {
+            let salespersonId = $(this).val();
+            if (salespersonId) {
                 $.ajax({
-                    url: '{{ route('leads.confirm.reminder', ['id' => ':id']) }}'.replace(':id', id),
+                    url: '{{ route('leads.update.salesperson', ['id' => ':id']) }}'.replace(':id', id),
                     type: 'POST',
-                    data: { _token: $('meta[name="csrf-token"]').attr('content') },
+                    data: { _token: $('meta[name="csrf-token"]').attr('content'), salesperson_id: salespersonId },
                     success: function(response) {
-                        $(e.target).text(response.reminderText);
-                        $(e.target).data('confirmed', '0');
-                        table.ajax.reload(null, false); // Reload without resetting page
+                        table.ajax.reload(null, false);
                     },
                     error: function(xhr) {
-                        alert('Error confirming reminder: ' + xhr.responseText);
+                        alert('Error reassigning lead: ' + xhr.responseText);
                     }
                 });
             }
         });
 
-        $('#leadTable').on('click', '.view-attachments', function(e) {
-            e.stopPropagation(); // Prevent tr click
-            let id = $(this).data('id');
+        $(document).on('click', '.confirm-reminder', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            let leadId = $(this).data('id');
+            let reminderId = $(this).data('reminder-id');
+            let title = $(this).data('title');
+
+            $('#reminderConfirmText').text(`Is the reminder "${title}" done?`);
+            $('#reminderConfirmModal').data('lead-id', leadId).data('reminder-id', reminderId).modal('show');
+        });
+
+        $(document).on('click', '#confirmReminderDoneBtn', function() {
+            let leadId = $('#reminderConfirmModal').data('lead-id');
+            let reminderId = $('#reminderConfirmModal').data('reminder-id');
+
             $.ajax({
-                url: '{{ route('leads.attachments', ['id' => ':id']) }}'.replace(':id', id),
-                type: 'GET',
-                data: { _token: $('meta[name="csrf-token"]').attr('content') },
+                url: '{{ route('leads.confirm.reminder.status', ['id' => ':leadId', 'reminderId' => ':reminderId']) }}'.replace(':leadId', leadId).replace(':reminderId', reminderId),
+                type: 'POST',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    confirm: 'yes'
+                },
                 success: function(response) {
-                    $('#attachmentBody').html(response);
-                    $('#attachmentModal').modal('show');
+                    console.log('Reminder confirmed:', response);
+                    $('#reminderConfirmModal').modal('hide');
+                    table.ajax.reload(null, false);
+                    alert(response.message);
                 },
                 error: function(xhr) {
-                    alert('Error loading attachments: ' + xhr.responseText);
+                    console.error('Reminder confirm error:', xhr.status, xhr.responseText);
+                    alert('Error confirming reminder: ' + xhr.responseText);
+                }
+            });
+        });
+
+        $('#leadTable').on('click', '.view-attachments', function(e) {
+    e.stopPropagation();
+    let id = $(this).data('id');
+    $.ajax({
+        url: '{{ route('leads.attachments', ['id' => ':id']) }}'.replace(':id', id),
+        type: 'GET',
+        success: function(response) {
+            $('#attachmentBody').html(response);
+            $('#attachmentModal').modal('show');
+        },
+        error: function(xhr) {
+            alert('Error loading attachments: ' + xhr.responseText);
+        }
+    });
+});
+
+// Bind delete events after modal load
+$('#attachmentModal').on('shown.bs.modal', function() {
+    $('#attachmentBody').on('submit', 'form', function(e) {
+        e.preventDefault();
+        let form = $(this);
+        $.ajax({
+            url: form.attr('action'),
+            type: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+                form.closest('tr').remove();
+                if ($('#attachmentBody tr').length === 0) {
+                    $('#attachmentModal').modal('hide');
+                }
+            },
+            error: function(xhr) {
+                alert('Error deleting attachment: ' . xhr.responseText);
+            }
+        });
+    });
+});
+
+        $('#leadTable').on('submit', 'form', function(e) {
+            e.preventDefault();
+            let form = $(this);
+            $.ajax({
+                url: form.attr('action'),
+                type: 'POST',
+                data: form.serialize(),
+                success: function(response) {
+                    if (response.message) {
+                        alert(response.message); // Show success popup
+                        table.ajax.reload(null, false); // Reload table without resetting page
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.status === 403) {
+                        alert('Unauthorized: You can only delete your own leads.');
+                    } else {
+                        alert('Error deleting lead: ' + xhr.responseText);
+                    }
                 }
             });
         });

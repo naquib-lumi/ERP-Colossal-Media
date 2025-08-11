@@ -104,58 +104,58 @@
         </div> -->
 
         <div class="card">
-  <div class="card-header">
-    <h5 class="mb-0">Quick Shortcuts</h5>
-  </div>
-  <div class="card-body">
-    <div class="row row-bordered overflow-visible g-3 text-center">
-      <div class="col-6 col-md-3">
-        <div class="p-3 border rounded text-center h-100">
-          <a href="{{ route('sales.calendar') }}" class="stretched-link text-decoration-none text-body">
-            <div class="mb-2">
-              <i class="bx bx-calendar fs-2 text-primary"></i>
-            </div>
-            <strong>Calendar</strong><br>
-            <small>View Schedule</small>
-          </a>
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Shortcuts</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row row-bordered overflow-visible g-3 text-center">
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 border rounded text-center h-100">
+                        <a href="{{ route('sales.calendar') }}" class="stretched-link text-decoration-none text-body">
+                            <div class="mb-2">
+                            <i class="bx bx-calendar fs-2"></i>
+                            </div>
+                            <strong>Calendar</strong><br>
+                            <small>View Schedule</small>
+                        </a>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 border rounded text-center h-100">
+                        <a href="" class="stretched-link text-decoration-none text-body">
+                            <div class="mb-2">
+                            <i class="bx bx-video fs-2"></i>
+                            </div>
+                            <strong>Meetings</strong><br>
+                            <small>All Meetings</small>
+                        </a>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 border rounded text-center h-100">
+                        <a href="" class="stretched-link text-decoration-none text-body">
+                            <div class="mb-2">
+                            <i class="bx bx-user-plus fs-2 "></i>
+                            </div>
+                            <strong>New Client</strong><br>
+                            <small>Register Client</small>
+                        </a>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 border rounded text-center h-100">
+                        <a href="" class="stretched-link text-decoration-none text-body">
+                            <div class="mb-2">
+                            <i class="bx bx-group fs-2 "></i>
+                            </div>
+                            <strong>Clients</strong><br>
+                            <small>Browse List</small>
+                        </a>
+                        </div>
+                    </div>
+                    </div>
+                </div>
         </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="p-3 border rounded text-center h-100">
-          <a href="" class="stretched-link text-decoration-none text-body">
-            <div class="mb-2">
-              <i class="bx bx-video fs-2 text-info"></i>
-            </div>
-            <strong>Meetings</strong><br>
-            <small>All Meetings</small>
-          </a>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="p-3 border rounded text-center h-100">
-          <a href="" class="stretched-link text-decoration-none text-body">
-            <div class="mb-2">
-              <i class="bx bx-user-plus fs-2 text-success"></i>
-            </div>
-            <strong>New Client</strong><br>
-            <small>Register Client</small>
-          </a>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="p-3 border rounded text-center h-100">
-          <a href="" class="stretched-link text-decoration-none text-body">
-            <div class="mb-2">
-              <i class="bx bx-group fs-2 text-warning"></i>
-            </div>
-            <strong>Clients</strong><br>
-            <small>Browse List</small>
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
     </div>
 
