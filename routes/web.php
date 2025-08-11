@@ -66,15 +66,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/test-route', function () {
     return 'Route is working';
 });
-    Route::middleware(['auth', 'role:artist'])->group(function () {
-        Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])
-        ->name('artist.dashboard')
-        ->middleware(['web','auth','role:artist']); 
+    Route::middleware(['web','auth','role:artist'])->group(function () {
+        Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])->name('artist.dashboard');
+        Route::get('/artist/meetingStatusCounts', [ArtistController::class, 'meetingStatusCounts'])->name('artist.meetingStatusCounts');
 
-        Route::get('/artist/meetingStatusCounts', [ArtistController::class, 'meetingStatusCounts'])
-        ->name('artist.meetingStatusCounts')
-        ->middleware(['web','auth','role:artist']);
-
+        // NEW
+        Route::get('/artist/orders', [ArtistController::class, 'orders'])->name('artist.orders');
     });
 
     Route::middleware('role:admin')->group(function () {

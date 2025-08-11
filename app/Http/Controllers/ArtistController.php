@@ -53,7 +53,7 @@ class ArtistController extends Controller
 
         return view('artist.dashboard', [
             'orders'        => $orders,
-            'metrics'       => $metrics, // ← pass to Blade
+            'metrics'       => $metrics, 
             'salespersons'  => $salespersons,
             'initialCounts' => [
                 'scheduled' => (int) ($initial->scheduled ?? 0),
@@ -78,6 +78,40 @@ class ArtistController extends Controller
         return response()->json([
             'scheduled' => $scheduled,
             'canceled'  => $canceled,
+        ]);
+    }
+
+    public function orders()
+    {
+        $user = Auth::user();
+
+        // Base scope — for artists, only their own orders
+        $base = Order::query();
+        if ($user->role === 'artist') {
+            $base->where('user_id', $user->id);
+        }
+
+        // KPI metrics
+        $metrics = [
+            'total'       => (clone $base)->count(),
+            'pending'     => (clone $base)->where('orderStatus', 'pending')->count(),
+            'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
+            'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
+            'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
+            // 'to_assign' => (clone $base)->where('orderStatus','to_assign')->count(),
+            // 'assigned'  => (clone $base)->where('orderStatus','assigned')->count(),
+        ];
+
+        // Orders list (respect the same scope)
+        $orders = (clone $base)
+            ->with('user')                
+            ->latest('orderDate')
+            ->limit(50)
+            ->get();
+
+        return view('artist.orders', [
+            'orders'        => $orders,
+            'metrics'       => $metrics,
         ]);
     }
 }
