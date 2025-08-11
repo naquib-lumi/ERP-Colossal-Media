@@ -23,8 +23,26 @@ class Order extends Model
     ];
 
     // Relations
-    public function user() { return $this->belongsTo(User::class); }
-    public function lead() { return $this->belongsTo(Lead::class); }
+    // public function user() { 
+    //     return $this->belongsTo(User::class, 'user_id')->withDefault([
+    //         'name' => '—',
+    //     ]);    
+    // }
+
+    public function artist()
+    {
+        return $this->belongsTo(User::class, 'artist_id');
+    }
+
+    public function salesperson()
+    {
+        return $this->belongsTo(User::class, 'salesperson_id');
+    }
+
+
+    public function lead() { 
+        return $this->belongsTo(Lead::class); 
+    }
 
     // Accessors
     public function getStatusLabelAttribute(): string

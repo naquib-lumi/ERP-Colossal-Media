@@ -30,26 +30,6 @@
         font-size: .75rem;
     }
 
-    .badge-assign {
-        background: #eef2ff;
-        color: #4f46e5;
-    }
-
-    .badge-progress {
-        background: #eaf6ff;
-        color: #0284c7;
-    }
-
-    .badge-completed {
-        background: #ecfdf5;
-        color: #059669;
-    }
-
-    .badge-rejected {
-        background: #fef2f2;
-        color: #dc2626;
-    }
-
     /* Tiny icon buttons */
     .btn-icon {
         --size: 32px;
@@ -123,48 +103,6 @@
 
     .table-modern tbody tr:hover td {
         background: #fafbfc;
-    }
-
-    .badge-status {
-        padding: .35rem .6rem;
-        font-weight: 600;
-        border-radius: 999px;
-        font-size: .75rem
-    }
-
-    .badge-assign {
-        background: #eef2ff;
-        color: #4f46e5
-    }
-
-    .badge-progress {
-        background: #eaf6ff;
-        color: #0284c7
-    }
-
-    .badge-completed {
-        background: #ecfdf5;
-        color: #059669
-    }
-
-    .badge-rejected {
-        background: #fef2f2;
-        color: #dc2626
-    }
-
-    .btn-icon {
-        --size: 32px;
-        width: var(--size);
-        height: var(--size);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border-radius: .5rem
-    }
-
-    .btn-outline-secondary.btn-icon {
-        border-color: #e5e7eb
     }
 
     .dataTables_length,
@@ -318,12 +256,13 @@
 
                     <div class="table-responsive">
                         <table id="jobOrdersTable" class="table table-modern table-hover w-100">
+                            @php $isHead = auth()->user()->role === 'head-artist'; @endphp
                             <thead>
                                 <tr>
                                     <th>Order ID</th>
                                     <th>Job Title</th>
                                     <th>Company</th>
-                                    <th>Artist</th>
+                                    <th>{{ $isHead ? 'Artist' : 'Salesperson' }}</th>
                                     <th>Status</th>
                                     <th>Deadline</th>
                                     <th class="text-end">Actions</th>
@@ -332,38 +271,38 @@
                             <tbody>
                                 @foreach($orders as $order)
                                 <tr>
-                                    {{-- 1) Order ID --}}
                                     <td>#ORD-{{ str_pad($order->id, 4, '0', STR_PAD_LEFT) }}</td>
-
-                                    {{-- 2) Job Title --}}
                                     <td>{{ $order->orderTitle ?? '-' }}</td>
-
-                                    {{-- 3) Company --}}
                                     <td>{{ $order->companyName ?? '-' }}</td>
-
-                                    {{-- 4) Artist --}}
-                                    <td>{{ optional($order->user)->name ?? '-' }}</td>
-
-                                    {{-- 5) Status (raw text; DT will wrap into a pill) --}}
-                                    <td class="js-status">{{ $order->orderStatus ?? 'to_assign' }}</td>
-
-                                    {{-- 6) Deadline --}}
                                     <td>
-                                        @if(!empty($order->deadline))
-                                        {{ \Carbon\Carbon::parse($order->deadline)->format('M d, Y') }}
+                                        @if ($isHead)
+                                            {{ optional($order->artist)->name ?? '-' }}
                                         @else
-                                        -
+                                            {{ optional($order->salesperson)->name ?? '-' }}
                                         @endif
-                                    </td>
+                                    </td>                                    
+                                    @php
+                                        $key = strtolower($order->orderStatus ?? '');
+                                        $map = [
+                                            'to_assign'   => ['To Assign',   'bg-label-secondary'],
+                                            'assigned'    => ['Assigned',    'bg-label-info'],
+                                            'in_progress' => ['In Progress', 'bg-label-primary'],
+                                            'pending'     => ['Pending',     'bg-label-warning'],
+                                            'completed'   => ['Completed',   'bg-label-success'],
+                                            'rejected'    => ['Rejected',    'bg-label-danger'],
+                                        ];
+                                        [$label, $cls] = $map[$key] ?? [$order->orderStatus ?? '-', 'bg-label-secondary'];
+                                    @endphp
+                                    <td><span class="badge {{ $cls }}">{{ $label }}</span></td>
+                                    <td>{{ \Carbon\Carbon::parse($order->deadline)->format('M d, Y') }}</td>
 
-                                    {{-- 7) Actions --}}
                                     <td class="text-end">
                                         <button class="btn btn-outline-secondary btn-icon" title="View">
                                             <i class="bx bx-show"></i>
                                         </button>
-                                        <button class="btn btn-outline-secondary btn-icon" title="Edit">
+                                        <a href="{{ route('artist.orders.edit', $order->id) }}" class="btn btn-outline-secondary btn-icon" title="Edit">
                                             <i class="bx bx-edit-alt"></i>
-                                        </button>
+                                        </a>
                                     </td>
                                 </tr>
                                 @endforeach

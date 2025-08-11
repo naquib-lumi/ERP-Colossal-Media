@@ -13,47 +13,45 @@ class ArtistController extends Controller
 {
     public function dashboard()
     {
-        $user = Auth::user();
+        $user  = Auth::user();
+        $base  = $this->visibleOrders();
+        $isTop = $this->isHeadArtist($user);
 
-        // Base scope — for artists, only their own orders
-        $base = Order::query();
-        if ($user->role === 'artist') {
-            $base->where('user_id', $user->id);
-        }
-
-        // KPI metrics
+        // KPI metrics (respect visible scope)
         $metrics = [
             'total'       => (clone $base)->count(),
             'pending'     => (clone $base)->where('orderStatus', 'pending')->count(),
             'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
             'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
             'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
-            // 'to_assign' => (clone $base)->where('orderStatus','to_assign')->count(),
-            // 'assigned'  => (clone $base)->where('orderStatus','assigned')->count(),
         ];
 
-        // Orders list (respect the same scope)
-        $orders = (clone $base)
-            ->with('user')                // so {{ optional($order->user)->name }} works
-            ->latest('orderDate')
-            ->limit(50)
-            ->get();
+        // Head-artist can also see these two buckets
+        if ($isTop) {
+            $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
+            $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
+        }
 
-        // Salesperson dropdown
-        $salespersons = User::query()
-            ->where('role', 'salesperson')
+        // Orders list (respect scope)
+        $orders = $this->visibleOrders()
+            ->with(['artist:id,name', 'salesperson:id,name'])
+            ->latest('orderDate')
+            ->paginate(10);
+
+        // Salesperson filter for the donut chart
+        $salespersons = User::where('role', 'salesperson')
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id','name']);
 
         // Initial donut counts (all salespersons)
         $initial = Meeting::selectRaw("
-            SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) AS scheduled,
-            SUM(CASE WHEN status = 'canceled'  THEN 1 ELSE 0 END) AS canceled
+            SUM(CASE WHEN status='scheduled' THEN 1 ELSE 0 END) AS scheduled,
+            SUM(CASE WHEN status='canceled'  THEN 1 ELSE 0 END) AS canceled
         ")->first();
 
         return view('artist.dashboard', [
             'orders'        => $orders,
-            'metrics'       => $metrics, 
+            'metrics'       => $metrics,
             'salespersons'  => $salespersons,
             'initialCounts' => [
                 'scheduled' => (int) ($initial->scheduled ?? 0),
@@ -83,35 +81,81 @@ class ArtistController extends Controller
 
     public function orders()
     {
-        $user = Auth::user();
+        $user  = Auth::user();
+        $base  = $this->visibleOrders();
+        $isTop = $this->isHeadArtist($user);
 
-        // Base scope — for artists, only their own orders
-        $base = Order::query();
-        if ($user->role === 'artist') {
-            $base->where('user_id', $user->id);
-        }
-
-        // KPI metrics
         $metrics = [
             'total'       => (clone $base)->count(),
             'pending'     => (clone $base)->where('orderStatus', 'pending')->count(),
             'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
             'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
             'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
-            // 'to_assign' => (clone $base)->where('orderStatus','to_assign')->count(),
-            // 'assigned'  => (clone $base)->where('orderStatus','assigned')->count(),
         ];
 
-        // Orders list (respect the same scope)
-        $orders = (clone $base)
-            ->with('user')                
-            ->latest('orderDate')
-            ->limit(50)
-            ->get();
+        if ($isTop) {
+            $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
+            $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
+        }
 
-        return view('artist.orders', [
-            'orders'        => $orders,
-            'metrics'       => $metrics,
-        ]);
+        $orders = (clone $base)
+            ->with(['artist:id,name', 'salesperson:id,name'])
+            ->latest('orderDate')
+            ->paginate(10);
+
+        return view('artist.orders', compact('orders','metrics'));
+    }
+
+    public function edit(Order $order)
+    {
+        $user = Auth::user();
+
+        // Normal artist can only open orders assigned to them
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            abort(403);
+        }
+
+        $orderCode   = sprintf('ORD-%04d', $order->id);
+        $today       = now()->format('M d, Y');
+        $attachments = !empty($order->orderAttachment)
+            ? array_filter(array_map('trim', explode(',', $order->orderAttachment)))
+            : [];
+
+        return view('artist.orders.edit', compact('order','orderCode','today','attachments'));
+    }
+
+    public function update(Request $request, Order $order)
+    {
+        // Only “Design Confirmation Required?” is editable here
+        $request->validate(['design_confirmed' => 'required|boolean']);
+
+        $order->approval = $request->boolean('design_confirmed');
+        $order->save();
+
+        return back()->with('success','Order updated.');
+    }
+
+    /**
+     * Visible orders for the current user:
+     * - head-artist: sees everything
+     * - artist: only orders assigned to them; hide "to_assign" / "assigned"
+     */
+    private function visibleOrders()
+    {
+        $user = Auth::user();
+        $q    = Order::query();
+
+        if ($this->isHeadArtist($user)) {
+            return $q; // no restrictions
+        }
+
+        // Normal artist
+        return $q->where('artist_id', $user->id)
+                 ->whereNotIn('orderStatus', ['to_assign', 'assigned']);
+    }
+
+    private function isHeadArtist($user): bool
+    {
+        return $user && $user->role === 'head-artist';
     }
 }

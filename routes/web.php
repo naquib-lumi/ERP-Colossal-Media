@@ -21,6 +21,8 @@ Route::get('/dashboard', function () {
                 return redirect()->route('sales.dashboard');
             case 'artist':
                 return redirect()->route('artist.dashboard');
+            case 'head-artist':
+                return redirect()->route('artist.dashboard');
             case 'admin':
                 return redirect()->route('admin.dashboard');
             case 'printing':
@@ -66,12 +68,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/test-route', function () {
     return 'Route is working';
 });
-    Route::middleware(['web','auth','role:artist'])->group(function () {
+    Route::middleware(['web','auth','role:artist,head-artist'])->group(function () {
         Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])->name('artist.dashboard');
         Route::get('/artist/meetingStatusCounts', [ArtistController::class, 'meetingStatusCounts'])->name('artist.meetingStatusCounts');
-
-        // NEW
         Route::get('/artist/orders', [ArtistController::class, 'orders'])->name('artist.orders');
+        Route::get('/artist/orders/{order}/edit', [ArtistController::class, 'edit'])->name('artist.orders.edit');
+        Route::put('/artist/orders/{order}', [ArtistController::class, 'update'])->name('artist.orders.update');
+
+        // Actions ONLY a head-artist can do
+        Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'assign'])
+            ->middleware('role:head-artist')
+            ->name('artist.orders.assign');
     });
 
     Route::middleware('role:admin')->group(function () {
