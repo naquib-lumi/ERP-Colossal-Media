@@ -48,6 +48,29 @@
     padding: 0;
     cursor: pointer;
   }
+    
+  .attach-box{
+    position:relative; border:2px dashed #cbd5e1; border-radius:10px;
+    padding:48px; display:flex; align-items:center; justify-content:center;
+    background:#fff; cursor:pointer;
+  }
+  .attach-inner{ text-align:center; pointer-events:none; }
+  .attach-icon{ width:42px;height:42px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:8px;font-size:20px; }
+  .attach-title{ color:#475569; font-weight:600; }
+  .attach-hint{ color:#64748b; font-size:12px; }
+
+  /* the magic: input covers the box and receives the click */
+  .file-overlay{
+    position:absolute; inset:0;
+    opacity:0; cursor:pointer;
+  }
+
+  .remove-x{
+    border:none; background:none; color:#dc2626;  /* red-600 */
+    font-weight:700; cursor:pointer; margin-left:8px;
+  }
+  .remove-x:hover{ color:#b91c1c; }               /* red-700 */
+
 </style>
 
 @endpush
@@ -524,23 +547,20 @@
             </div>
 
             <div class="card-body">
-              <div id="order-attachments-dz" class="dropzone dz-clickable">
-                <div class="dz-message needsclick" id="dz-click-target">
-                  <p class="mb-0">Drop files here or click to upload</p>
-                  <small class="text-muted">(PDF, images, docs. Max 20MB each)</small>
+              <div id="attach-box" class="attach-box">
+                <div class="attach-inner">
+                  <div class="attach-icon" aria-hidden="true"><i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i></div>
+                  <div class="attach-title">Drop files here or click to upload</div>
+                  <div class="attach-hint">(PDF, images, docs. Max 20MB each)</div>
                 </div>
 
-                <!-- hidden preview template (Dropzone clones this) -->
-                <div class="dz-preview d-none">
-                  <div class="dz-details">
-                    <div class="dz-filename"><span data-dz-name></span></div>
-                    <div class="dz-size" data-dz-size></div>
-                  </div>
-                  <div class="dz-progress"><span class="dz-upload" data-dz-uploadprogress></span></div>
-                  <div class="dz-error-message"><span data-dz-errormessage></span></div>
-                  <button class="btn btn-sm btn-link text-danger dz-remove" data-dz-remove>Remove file</button>
-                </div>
+                <!-- This input sits on top, invisible, and owns the click -->
+                <input id="fileInput" type="file" multiple
+                      accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
+                      class="file-overlay">
               </div>
+
+              <ul id="preview" class="mt-4 space-y-2"></ul>
             </div>
           </div>
         </div>
@@ -807,28 +827,75 @@
         reindexDeliveries();
       }
     });
-
-    // upload attachemnt -------------------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      Dropzone.autoDiscover = false;
-
-      const dzEl  = document.getElementById('order-attachments-dz');
-      const uploadUrl = @json(route('artist.orders.attachments.upload', $order));
-      const deleteUrl = @json(route('artist.orders.attachments.delete', $order));
-      const csrf      = @json(csrf_token());
-
-      const dz = new Dropzone(dzEl, {
-        url: uploadUrl,
-        method: 'post',
-        params: { _token: csrf },
-        clickable: '#dz-click-target',   // <- single, explicit clickable target
-        previewsContainer: dzEl,
-        addRemoveLinks: false,
-        parallelUploads: 2,
-        acceptedFiles: '.pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx',
-      });
-    });
   })();
+
+  // upload attachemnt -------------------------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+  const input   = document.getElementById('fileInput');   // overlay input
+  const preview = document.getElementById('preview');
+
+  const uploadUrl = @json(route('artist.orders.attachments.upload', $order));
+  const deleteUrl = @json(route('artist.orders.attachments.delete', $order));
+  const csrf      = @json(csrf_token());
+
+  input.addEventListener('change', () => handleFiles(input.files));
+
+  async function handleFiles(fileList) {
+    for (const file of Array.from(fileList)) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${file.name}</span> <button class="remove-x" title="Remove">×</button>`;
+      preview.appendChild(li);
+      const removeBtn = li.querySelector('.remove-x');
+
+      const fd = new FormData();
+      fd.append('_token', csrf);
+      fd.append('file', file);
+
+      try {
+        const res = await fetch(uploadUrl, {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        li.dataset.savedPath = data.path;
+
+        removeBtn.onclick = async () => {
+          await safeDelete(li);
+        };
+      } catch (err) {
+        // Mark as failed but still allow removing the list item
+        li.firstChild.textContent = `${file.name} – upload failed`;
+        removeBtn.onclick = () => li.remove();
+        console.error(err);
+      }
+    }
+    input.value = '';
+  }
+
+  async function safeDelete(li) {
+    const path = li.dataset.savedPath;
+    li.remove();  // optimistic UI
+    if (!path) return;
+
+    try {
+      await fetch(deleteUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrf,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ path })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+});
 
 </script>
 @endpush

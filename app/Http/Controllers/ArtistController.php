@@ -231,32 +231,48 @@ class ArtistController extends Controller
     // Upload endpoint (Dropzone)
     public function uploadAttachments(Request $request, Order $order)
     {
+        $user = Auth::user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $request->validate([
-            'file' => 'required|file|max:20480', // 20MB
+            'file' => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx'
         ]);
 
-        // Store under public disk; adjust path as you like
+        // store file
         $path = $request->file('file')->store("orders/{$order->id}/attachments", 'public');
 
-        // You can also persist this path on the order if you track them in DB
-        // e.g., $order->addAttachment($path);
+        // append to DB (comma-separated list)
+        $list = $this->getOrderAttachments($order);
+        $list[] = $path;
+        $this->putOrderAttachments($order, $list);
 
-        return response()->json([
-            'path' => $path,
-            'url'  => Storage::disk('public')->url($path),
-        ]);
+        return response()->json(['path' => $path, 'url' => Storage::disk('public')->url($path)], 201);
     }
 
     // Remove from order + delete file (optional)
     public function deleteAttachment(Request $request, Order $order)
     {
-        $request->validate(['path' => 'required|string']);
-
-        if (Storage::disk('public')->exists($request->path)) {
-            Storage::disk('public')->delete($request->path);
+        $user = Auth::user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        // Also remove from DB if you track it
+        $data = $request->validate(['path' => 'required|string']);
+        $path = trim($data['path']);
+
+        // delete physical file (ignore if missing)
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+
+        // remove from DB list
+        $list = collect($this->getOrderAttachments($order))
+            ->reject(fn ($p) => trim($p) === $path)
+            ->values()->all();
+        $this->putOrderAttachments($order, $list);
+
         return response()->json(['ok' => true]);
     }
 
