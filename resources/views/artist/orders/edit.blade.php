@@ -49,27 +49,14 @@
     cursor: pointer;
   }
     
-  .attach-box{
-    position:relative; border:2px dashed #cbd5e1; border-radius:10px;
-    padding:48px; display:flex; align-items:center; justify-content:center;
-    background:#fff; cursor:pointer;
-  }
-  .attach-inner{ text-align:center; pointer-events:none; }
-  .attach-icon{ width:42px;height:42px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:8px;font-size:20px; }
-  .attach-title{ color:#475569; font-weight:600; }
-  .attach-hint{ color:#64748b; font-size:12px; }
-
-  /* the magic: input covers the box and receives the click */
-  .file-overlay{
-    position:absolute; inset:0;
-    opacity:0; cursor:pointer;
-  }
-
-  .remove-x{
-    border:none; background:none; color:#dc2626;  /* red-600 */
-    font-weight:700; cursor:pointer; margin-left:8px;
-  }
-  .remove-x:hover{ color:#b91c1c; }               /* red-700 */
+.attach-box{position:relative;border:2px dashed #cbd5e1;border-radius:10px;padding:48px;display:flex;align-items:center;justify-content:center;background:#fff;cursor:pointer}
+.attach-inner{text-align:center;pointer-events:none}
+.attach-icon{width:42px;height:42px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:8px;font-size:20px}
+.attach-title{color:#475569;font-weight:600}.attach-hint{color:#64748b;font-size:12px}
+.file-overlay{position:absolute;inset:0;opacity:0;cursor:pointer}
+.remove-x{border:0;background:none;color:#dc2626;font-weight:700;cursor:pointer;margin-left:8px}
+.remove-x:hover{color:#b91c1c}
+.ok{color:#15803d}.err{color:#b91c1c}
 
 </style>
 
@@ -556,11 +543,12 @@
 
                 <!-- This input sits on top, invisible, and owns the click -->
                 <input id="fileInput" type="file" multiple
-                      accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
                       class="file-overlay">
               </div>
 
-              <ul id="preview" class="mt-4 space-y-2"></ul>
+              <div id="attach-msg" class="mt-2 text-sm"></div>
+              <ul id="preview" class="mt-3 space-y-2"></ul>
             </div>
           </div>
         </div>
@@ -831,72 +819,73 @@
 
   // upload attachemnt -------------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
-  const input   = document.getElementById('fileInput');   // overlay input
-  const preview = document.getElementById('preview');
+    const input  = document.getElementById('fileInput');
+    const listEl = document.getElementById('preview');
+    const msgEl  = document.getElementById('attach-msg');
 
-  const uploadUrl = @json(route('artist.orders.attachments.upload', $order));
-  const deleteUrl = @json(route('artist.orders.attachments.delete', $order));
-  const csrf      = @json(csrf_token());
+    // allow-list (case-insensitive)
+    const ALLOWED = ['pdf','png','jpg','jpeg','webp','doc','docx','xls','xlsx','ppt','pptx'];
 
-  input.addEventListener('change', () => handleFiles(input.files));
+    // state of *valid* selections (used for summary)
+    const selected = new Map(); // key => File  (key = name|size|lastModified)
 
-  async function handleFiles(fileList) {
-    for (const file of Array.from(fileList)) {
-      const li = document.createElement('li');
-      li.innerHTML = `<span>${file.name}</span> <button class="remove-x" title="Remove">×</button>`;
-      preview.appendChild(li);
-      const removeBtn = li.querySelector('.remove-x');
+    input.addEventListener('change', () => {
+      if (!input.files?.length) return;
+      const incoming = Array.from(input.files);
 
-      const fd = new FormData();
-      fd.append('_token', csrf);
-      fd.append('file', file);
+      incoming.forEach(f => {
+        const ext = (f.name.split('.').pop() || '').toLowerCase();
+        const key = `${f.name}|${f.size}|${f.lastModified}`;
 
-      try {
-        const res = await fetch(uploadUrl, {
-          method: 'POST',
-          body: fd,
-          credentials: 'same-origin',
-          headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        li.dataset.savedPath = data.path;
+        const errors = [];
+        if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
+        if (selected.has(key))      errors.push('Duplicate');
 
-        removeBtn.onclick = async () => {
-          await safeDelete(li);
-        };
-      } catch (err) {
-        // Mark as failed but still allow removing the list item
-        li.firstChild.textContent = `${file.name} – upload failed`;
-        removeBtn.onclick = () => li.remove();
-        console.error(err);
-      }
-    }
-    input.value = '';
-  }
-
-  async function safeDelete(li) {
-    const path = li.dataset.savedPath;
-    li.remove();  // optimistic UI
-    if (!path) return;
-
-    try {
-      await fetch(deleteUrl, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrf,
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({ path })
+        if (errors.length) {
+          // show but don't add to "selected"
+          addRow(f, { status: 'error', note: errors.join(', ') });
+        } else {
+          selected.set(key, f);
+          addRow(f, { key, status: 'ready' });
+        }
       });
-    } catch (e) {
-      console.error(e);
-    }
-  }
-});
 
+      updateSummary();
+      input.value = ''; // allow re-selecting same files
+    });
+
+    function addRow(file, { key = null, status = 'ready', note = '' }) {
+      const li = document.createElement('li');
+      li.dataset.key = key || '';
+      li.innerHTML = `
+        <span>${file.name}${
+          status === 'error'
+            ? ` – <span class="err">${note}</span>`
+            : ` – <span class="ok">ready</span>`
+        }</span>
+        <button class="remove-x" title="Remove">×</button>
+      `;
+
+      li.querySelector('.remove-x').addEventListener('click', () => {
+        const k = li.dataset.key;
+        if (k && selected.has(k)) selected.delete(k); // only affects valid rows
+        li.remove();
+        updateSummary();
+      });
+
+      listEl.appendChild(li);
+    }
+
+    function updateSummary() {
+      const count = selected.size;
+      msgEl.innerHTML = count
+        ? `<span class="ok">${count} file(s) selected for upload</span>`
+        : '';
+    }
+
+    // expose for later submit if needed
+    window.getSelectedFiles = () => Array.from(selected.values());
+  });
 </script>
 @endpush
 
