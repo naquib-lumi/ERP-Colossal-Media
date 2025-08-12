@@ -80,7 +80,7 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li>
             @endif
-            @if (auth()->user()->role === 'artist')
+            @if (in_array(auth()->user()->role, ['artist', 'head-artist']))
               <li class="menu-item {{ request()->routeIs('artist.orders') ? 'active' : '' }}">
                 <a href="{{ route('artist.orders') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-file"></i>

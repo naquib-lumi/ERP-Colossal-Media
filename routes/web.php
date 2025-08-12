@@ -50,30 +50,34 @@ Route::middleware('auth')->group(function () {
         Route::get('/sales/orders', [SalesController::class, 'orders'])->name('sales.orders');
 
         // LEAD MANAGEMENT
-  Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
-    Route::post('/api/leads', [LeadController::class, 'getLeads'])->name('leads.get');
-    Route::post('/leads/{id}/update-status', [LeadController::class, 'updateStatus'])->name('leads.update.status');
-    Route::post('/leads/{id}/update-opportunity', [LeadController::class, 'updateOpportunity'])->name('leads.update.opportunity');
-    Route::post('/leads/{id}/confirm-reminder', [LeadController::class, 'confirmReminder'])->name('leads.confirm.reminder');
-    Route::get('/leads/{id}/attachments', [LeadController::class, 'getAttachments'])->name('leads.attachments');
-    Route::get('/leads/{id}/edit', [LeadController::class, 'edit'])->name('leads.edit');
-    Route::get('/leads/{id}', [LeadController::class, 'show'])->name('leads.show');
-    Route::post('/leads/{id}/add-reminder', [LeadController::class, 'addReminder'])->name('leads.add.reminder');
-    Route::post('/leads/{id}/add-note', [LeadController::class, 'addNote'])->name('leads.add.note');
-    Route::delete('/api/leads/{id}', [LeadController::class, 'destroy']);
-    Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
-    Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
-});
+        Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
+        Route::post('/api/leads', [LeadController::class, 'getLeads'])->name('leads.get');
+        Route::post('/leads/{id}/update-status', [LeadController::class, 'updateStatus'])->name('leads.update.status');
+        Route::post('/leads/{id}/update-opportunity', [LeadController::class, 'updateOpportunity'])->name('leads.update.opportunity');
+        Route::post('/leads/{id}/confirm-reminder', [LeadController::class, 'confirmReminder'])->name('leads.confirm.reminder');
+        Route::get('/leads/{id}/attachments', [LeadController::class, 'getAttachments'])->name('leads.attachments');
+        Route::get('/leads/{id}/edit', [LeadController::class, 'edit'])->name('leads.edit');
+        Route::get('/leads/{id}', [LeadController::class, 'show'])->name('leads.show');
+        Route::post('/leads/{id}/add-reminder', [LeadController::class, 'addReminder'])->name('leads.add.reminder');
+        Route::post('/leads/{id}/add-note', [LeadController::class, 'addNote'])->name('leads.add.note');
+        Route::delete('/api/leads/{id}', [LeadController::class, 'destroy']);
+        Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
+        Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
+    });
 
     Route::get('/test-route', function () {
-    return 'Route is working';
-});
+        return 'Route is working';
+    });
+
+    // Artist 
     Route::middleware(['web','auth','role:artist,head-artist'])->group(function () {
         Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])->name('artist.dashboard');
         Route::get('/artist/meetingStatusCounts', [ArtistController::class, 'meetingStatusCounts'])->name('artist.meetingStatusCounts');
         Route::get('/artist/orders', [ArtistController::class, 'orders'])->name('artist.orders');
         Route::get('/artist/orders/{order}/edit', [ArtistController::class, 'edit'])->name('artist.orders.edit');
         Route::put('/artist/orders/{order}', [ArtistController::class, 'update'])->name('artist.orders.update');
+        Route::post('/artist/orders/{order}/attachments/upload', [ArtistController::class, 'uploadAttachment'])->name('artist.orders.attachments.upload');
+        Route::post('/artist/orders/{order}/attachments/delete', [ArtistController::class, 'deleteAttachment'])->name('artist.orders.attachments.delete');
 
         // Actions ONLY a head-artist can do
         Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'assign'])

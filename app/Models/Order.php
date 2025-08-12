@@ -20,6 +20,7 @@ class Order extends Model
         'approval'  => 'boolean',
         'draft'     => 'boolean',
         'pending'   => 'boolean',
+        'attachments' => 'array',
     ];
 
     // Relations
