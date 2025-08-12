@@ -107,7 +107,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                   <input type="date" class="form-control" id="leadDate" name="date" value="{{ old('date', $lead->date) }}">
+                                   <input type="date" class="form-control" id="leadDate" name="date" value="{{ old('date', $lead->date->format('Y-m-d')) }}">
                                     <label for="leadDate">Lead Date (dd/mm/yy)</label>
                                     @error('date')
                                         <div class="text-danger">{{ $message }}</div>

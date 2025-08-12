@@ -170,11 +170,6 @@ class LeadController extends Controller
                 return '<div class="actions-cell d-flex gap-2">' .
                     '<a href="' . route('leads.edit', $lead->id) . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
                     '<a href="' . route('leads.show', $lead->id) . '" class="btn" title="View"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>' .
-                    '<form action="' . route('leads.destroy', $lead->id) . '" method="POST" style="display:inline;" onsubmit="return confirm(\'Are you sure?\');">' .
-                    '<input type="hidden" name="_token" value="' . csrf_token() . '">' .
-                    '<input type="hidden" name="_method" value="DELETE">' .
-                    '<button type="submit" class="btn" title="Delete"><i class="bx bxs-trash me-2" style="font-size: 1.5em;"></i></button>' .
-                    '</form>' .
                     '</div>';
             })
             ->rawColumns(['lead_data', 'company_details', 'lead_details', 'assigned_salesperson', 'reminder', 'actions'])
@@ -339,7 +334,7 @@ class LeadController extends Controller
     }
 
     $html = '<table class="table table-bordered table-hover">';
-    $html .= '<thead><tr><th>Name</th><th>Uploaded By</th><th>Date</th><th>Size</th><th>Action</th></tr></thead>';
+    $html .= '<thead><tr><th>Name</th><th>Uploaded By</th><th>Date</th><th>Size</th><th>Actions</th></tr></thead>';
     $html .= '<tbody>';
     foreach ($lead->attachments as $attachment) {
         $html .= '<tr>';
@@ -348,13 +343,9 @@ class LeadController extends Controller
         $html .= '<td>' . $attachment->created_at->format('Y-m-d') . '</td>';
         $html .= '<td>' . round($attachment->file_size / 1024) . ' KB</td>';
         $html .= '<td>';
-        $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="btn btn-sm btn-primary" target="_blank">View</a>';
-        $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="btn btn-sm btn-secondary" download>Download</a>';
-        $html .= '<form action="' . route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) . '" method="POST" style="display:inline;" onsubmit="return confirm(\'Are you sure?\');">';
-        $html .= '<input type="hidden" name="_token" value="' . csrf_token() . '">';
-        $html .= '<input type="hidden" name="_method" value="DELETE">';
-        $html .= '<button type="submit" class="btn btn-sm btn-danger">Delete</button>';
-        $html .= '</form>';
+        $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-primary me-2" target="_blank" title="View"><i class="bx bx-show"></i></a>';
+        $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-secondary me-2" download title="Download"><i class="bx bx-download"></i></a>';
+        $html .= '<a href="' . route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) . '" class="text-danger me-2 delete-attachment" title="Delete"><i class="bx bx-trash"></i></a>';
         $html .= '</td>';
         $html .= '</tr>';
     }

@@ -274,23 +274,27 @@
 
 // Bind delete events after modal load
 $('#attachmentModal').on('shown.bs.modal', function() {
-    $('#attachmentBody').on('submit', 'form', function(e) {
+    $('#attachmentBody').on('click', '.delete-attachment', function(e) {
         e.preventDefault();
-        let form = $(this);
-        $.ajax({
-            url: form.attr('action'),
-            type: 'POST',
-            data: form.serialize(),
-            success: function(response) {
-                form.closest('tr').remove();
-                if ($('#attachmentBody tr').length === 0) {
-                    $('#attachmentModal').modal('hide');
+        if (confirm('Are you sure you want to delete this attachment?')) {
+            let url = $(this).attr('href');
+            $.ajax({
+                url: url,
+                type: 'DELETE',
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    $(e.target).closest('tr').remove();
+                    if ($('#attachmentBody tbody tr').length === 0) {
+                        $('#attachmentModal').modal('hide');
+                    }
+                },
+                error: function(xhr) {
+                    alert('Error deleting attachment: ' + xhr.responseText);
                 }
-            },
-            error: function(xhr) {
-                alert('Error deleting attachment: ' . xhr.responseText);
-            }
-        });
+            });
+        }
     });
 });
 

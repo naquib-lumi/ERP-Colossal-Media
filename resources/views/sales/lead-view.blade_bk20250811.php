@@ -120,7 +120,7 @@
                                         $('#addFileForm').slideToggle();
                                     });
                                 });
-                            </script>
+</script>
                             <div class="card mb-4 border-light shadow-sm">
                                 <div class="card-body p-3">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -182,122 +182,9 @@
                         </div>
                     </div>
                 </div>
-       <div class="tab-pane fade" id="meeting" role="tabpanel" aria-labelledby="meeting-tab">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="card-title">Meetings</h6>
-        <button class="btn btn-dark btn-sm" data-bs-toggle="modal" data-bs-target="#meetingModal">Add Meeting</button>
-    </div>
-    <!-- List meetings -->
-    <ul class="list-group list-group-flush">
-        @forelse ($lead->meetings as $meeting)
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    <strong>{{ $meeting->title }}</strong><br>
-                    <small class="text-muted">Start: {{ $meeting->start_time->format('Y-m-d H:i') }} - End: {{ $meeting->end_time->format('Y-m-d H:i') }}</small><br>
-                    <small class="text-muted">Type: {{ ucfirst($meeting->type) }}</small><br>
-                    <small class="text-muted"> {{ $meeting->type === 'online' ? 'URL: ' . $meeting->url : 'Location: ' . $meeting->location }}</small>
+                <div class="tab-pane fade" id="meeting" role="tabpanel" aria-labelledby="meeting-tab">
+                    <p class="text-muted">Meeting details will be added here.</p>
                 </div>
-                <span class="badge bg-{{ $meeting->status == 'scheduled' ? 'warning' : 'success' }} rounded-pill">
-                    {{ ucfirst($meeting->status) }}
-                </span>
-            </li>
-        @empty
-            <li class="list-group-item text-muted">No meetings available.</li>
-        @endforelse
-    </ul>
-</div>
-
-        <!-- Meeting Modal -->
-        <div class="modal fade" id="meetingModal" tabindex="-1" aria-labelledby="meetingModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title" id="meetingModalLabel">Add Meeting</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="meetingForm">
-                            @csrf
-                            <div class="mb-3">
-                                <label for="meetingTitle" class="form-label">Title</label>
-                                <input type="text" class="form-control" id="meetingTitle" name="title" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="meetingStartTime" class="form-label">Start Date & Time</label>
-                                <input type="datetime-local" class="form-control" id="meetingStartTime" name="start_time" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="meetingDuration" class="form-label">Duration (minutes)</label>
-                                <input type="number" class="form-control" id="meetingDuration" name="duration" min="1" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Type</label>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="type" id="typeOnline" value="online" checked>
-                                    <label class="form-check-label" for="typeOnline">Online</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="type" id="typeOffline" value="offline">
-                                    <label class="form-check-label" for="typeOffline">Offline</label>
-                                </div>
-                            </div>
-                            <div class="mb-3" id="onlineUrl" style="display: block;">
-                                <label for="meetingUrl" class="form-label">URL</label>
-                                <input type="url" class="form-control" id="meetingUrl" name="url">
-                            </div>
-                            <div class="mb-3" id="offlineLocation" style="display: none;">
-                                <label for="meetingLocation" class="form-label">Location</label>
-                                <input type="text" class="form-control" id="meetingLocation" name="location">
-                            </div>
-                            <div class="mb-3">
-                                <label for="meetingNote" class="form-label">Description</label>
-                                <textarea class="form-control" id="meetingNote" name="note" rows="3"></textarea>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" id="saveMeetingBtn">Save Meeting</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <script>
-            $(document).ready(function() {
-                // Type radio toggle
-                $('input[name="type"]').on('change', function() {
-                    if ($(this).val() === 'online') {
-                        $('#onlineUrl').show();
-                        $('#offlineLocation').hide();
-                    } else {
-                        $('#onlineUrl').hide();
-                        $('#offlineLocation').show();
-                    }
-                });
-
-                $('#saveMeetingBtn').on('click', function() {
-                    let formData = new FormData($('#meetingForm')[0]);
-                    formData.append('_token', '{{ csrf_token() }}');
-
-                    $.ajax({
-                        url: '{{ route('meetings.store', ['lead' => $lead->id]) }}',
-                        type: 'POST',
-                        data: formData,
-                        contentType: false,
-                        processData: false,
-                        success: function(response) {
-                            console.log('Meeting saved:', response);
-                            $('#meetingModal').modal('hide');
-                            location.reload(); // Refresh to show new meeting
-                        },
-                        error: function(xhr) {
-                            console.error('Meeting save error:', xhr.responseText);
-                            alert('Error adding meeting: ' + xhr.responseText);
-                        }
-                    });
-                });
-            });
-        </script>
                 <div class="tab-pane fade" id="order-history" role="tabpanel" aria-labelledby="order-history-tab">
                     <p class="text-muted">Order history will be added here.</p>
                 </div>
