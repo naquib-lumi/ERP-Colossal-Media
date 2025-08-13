@@ -25,6 +25,25 @@ class LeadController extends Controller
         return view('sales.lead-management', compact('leads'));
     }
 
+    public function getLead($id)
+    {
+        \Log::info('getLead called for lead ID: ' . $id . ' by user: ' . Auth::user()->email);
+
+        $lead = Lead::findOrFail($id);
+        if ($lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+            \Log::warning('Unauthorized access attempt for lead ID: ' . $id);
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        return response()->json([
+            'id' => $lead->id,
+            'company_name' => $lead->company_name,
+            'name' => $lead->name,
+            'email' => $lead->email,
+            'phone' => $lead->phone
+        ]);
+    }
+
     public function getLeads(Request $request)
     {
         \Log::info('getLeads called for user: ' . Auth::user()->email);

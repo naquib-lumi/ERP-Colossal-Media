@@ -57,7 +57,7 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
     <!-- Page CSS -->
-    @if (Request::is('sales/calendar') || Request::is('calendar/*'))
+    @if (Request::is('sales/calendar') || Request::is('calendar'))
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
     @endif
@@ -67,7 +67,7 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
     @endif
 
-      @if (Request::is('sales/leads'))
+      @if (Request::is('sales/leads') ||Request::is('sales/calendar') )
       <meta name="csrf-token" content="{{ csrf_token() }}">
       <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
       <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />    
@@ -230,12 +230,13 @@ lang="{{ session()->get('locale') ?? app()->getLocale() }}"
     <script src="{{ asset('assets/vendor/js/menu.js') }}" ></script>
 
     <!-- endbuild -->
+    {{ Request::path() }}
 
-    <!-- Vendors JS -->
-    @if (Request::is('sales/calendar') || Request::is('calendar/*'))
+    <!-- Vendors JS --> 
+    @if (Request::is('sales/calendar') || Request::is('calendar'))
     <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}" ></script>
         <!-- Page JS -->
-    <script src="{{ asset('assets/js/app-calendar-events.js') }}" ></script>
+    <!-- <script src="{{ asset('assets/js/app-calendar-events.js') }}" ></script> -->
     <script src="{{ asset('assets/js/app-calendar.js') }}" ></script>
     @endif
 

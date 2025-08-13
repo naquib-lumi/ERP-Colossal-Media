@@ -1,4 +1,5 @@
 <?php
+
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\LeadController;
@@ -7,6 +8,8 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\MeetingController;
+use App\Http\Controllers\CalendarController;
+
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -39,7 +42,6 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllAsRead');
     Route::post('/notifications/{id}/archive', [NotificationController::class, 'archive'])->name('notifications.archive');
@@ -52,8 +54,16 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:salesperson')->group(function () {
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
-        Route::get('/sales/calendar', [SalesController::class, 'calendar'])->name('sales.calendar');
         Route::get('/sales/orders', [SalesController::class, 'orders'])->name('sales.orders');
+        Route::get('/sales/calendar', [CalendarController::class, 'index'])->name('sales.calendar');
+        Route::get('/calendar/events', [CalendarController::class, 'events'])->name('calendar.events');
+        Route::post('/calendar/reminders', [CalendarController::class, 'storeReminder'])->name('calendar.reminders.store');
+        Route::put('/calendar/reminders/{id}', [CalendarController::class, 'updateReminder'])->name('calendar.reminders.update');
+        Route::post('/calendar/reminders/{id}/complete', [CalendarController::class, 'completeReminder'])->name('calendar.reminders.complete');
+        Route::post('/calendar/meetings', [CalendarController::class, 'storeMeeting'])->name('calendar.meetings.store');
+        Route::put('/calendar/meetings/{id}', [CalendarController::class, 'updateMeeting'])->name('calendar.meetings.update');
+        Route::get('/leads/search', [CalendarController::class, 'searchLeads'])->name('leads.search');
+        Route::get('/leads/{id}', [LeadController::class, 'getLead'])->name('leads.get');
 
         // LEAD MANAGEMENT
         Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
@@ -66,7 +76,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/leads/{id}/add-attachment', [LeadController::class, 'addAttachment'])->name('leads.add.attachment');
         Route::get('/leads/{id}/edit', [LeadController::class, 'edit'])->name('leads.edit');
         Route::put('/leads/{id}/update', [LeadController::class, 'update'])->name('leads.update');
-        Route::get('/leads/{id}', [LeadController::class, 'show'])->name('leads.show');
+        Route::get('/leads/{id}/view', [LeadController::class, 'show'])->name('leads.show');
         Route::post('/leads/{id}/add-reminder', [LeadController::class, 'addReminder'])->name('leads.add.reminder');
         Route::post('/leads/{id}/add-note', [LeadController::class, 'addNote'])->name('leads.add.note');
         Route::post('/leads/{id}/update-salesperson', [LeadController::class, 'updateSalesperson'])->name('leads.update.salesperson');
@@ -75,11 +85,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
 
         Route::post('/leads/{lead}/meetings', [MeetingController::class, 'store'])->name('meetings.store');
-});
+    });
 
-    Route::get('/test-route', function () {
-    return 'Route is working';
-});
     Route::middleware('role:artist')->group(function () {
         Route::get('/job/orders', [JobOrderController::class, 'index'])->name('job.orders');
     });

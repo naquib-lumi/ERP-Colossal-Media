@@ -28,16 +28,17 @@ class ReminderNotification extends Notification
     public function toMail($notifiable)
     {
         \Log::info('Rendering email for Reminder ID: ' . $this->reminder->id . ' to: ' . $notifiable->email);
-        return (new MailMessage)
-            ->subject('Reminder: ' . $this->reminder->title)
-            ->greeting('Hello ' . $this->user->name . ',')
-            ->line('You have a reminder for the following task:')
-            ->line('**Title**: ' . $this->reminder->title)
-            ->line('**Due Date**: ' . $this->reminder->due_date->format('Y-m-d H:i'))
-            ->line('**Lead ID**: ' . $this->reminder->lead_id)
-            ->line('**Status**: ' . ucfirst($this->reminder->status))
-            ->action('View Lead', url('/sales/leads/' . $this->reminder->lead_id))
-            ->line('Please take appropriate action to address this reminder.');
+        // return (new MailMessage)
+        //     ->subject('Reminder: ' . $this->reminder->title)
+        //     ->greeting('Hello ' . $this->user->name . ',')
+        //     ->line('You have a reminder for the following task:')
+        //     ->line('**Title**: ' . $this->reminder->title)
+        //     ->line('**Due Date**: ' . $this->reminder->due_date->format('Y-m-d H:i'))
+        //     ->line('**Lead ID**: ' . $this->reminder->lead_id)
+        //     ->line('**Status**: ' . ucfirst($this->reminder->status))
+        //     ->action('View Lead', url('/sales/leads/' . $this->reminder->lead_id))
+        //     ->line('Please take appropriate action to address this reminder.');
+        return ; //disabled for dev
     }
 
     public function toArray($notifiable)
