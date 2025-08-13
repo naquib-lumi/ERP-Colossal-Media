@@ -538,7 +538,7 @@
                 <div class="attach-inner">
                   <div class="attach-icon" aria-hidden="true"><i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i></div>
                   <div class="attach-title">Drop files here or click to upload</div>
-                  <div class="attach-hint">(PDF, images, docs. Max 20MB each)</div>
+                  <div class="attach-hint">(PDF, images, docs, xlsx, ppt.)</div>
                 </div>
 
                 <!-- This input sits on top, invisible, and owns the click -->
