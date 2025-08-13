@@ -48,6 +48,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
         Route::get('/sales/calendar', [SalesController::class, 'calendar'])->name('sales.calendar');
         Route::get('/sales/orders', [SalesController::class, 'orders'])->name('sales.orders');
+        
         // Add Order route
        Route::get('/sales/orders/{id}/add-order', function ($id) {
             return view('sales.add-order', compact('id'));

@@ -137,77 +137,77 @@
                         <!-- Lead Information -->
                         <div class="col-lg-6 d-flex">
                             <div class="card h-100 flex-fill mb-0">
-                            <div class="card-header">
-                                <h5 class="mb-0">Lead Information</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Company Name</label>
-                                    <input type="text" class="form-control" value="">
-                                    <input type="hidden" name="company_name" value="">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Lead Information</h5>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Lead Name</label>
-                                    <input type="text" class="form-control" value="">
-                                    <input type="hidden" name="lead_name" value="">
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Company Name</label>
+                                            <input type="text" class="form-control" value="">
+                                            <input type="hidden" name="company_name" value="">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Lead Name</label>
+                                            <input type="text" class="form-control" value="">
+                                            <input type="hidden" name="lead_name" value="">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Phone</label>
+                                            <input type="text" class="form-control">
+                                            <input type="hidden" name="phone_num" value="">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Email</label>
+                                            <input type="text" class="form-control">
+                                            <input type="hidden" name="email" value="">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Phone</label>
-                                    <input type="text" class="form-control">
-                                    <input type="hidden" name="phone_num" value="">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Email</label>
-                                    <input type="text" class="form-control">
-                                    <input type="hidden" name="email" value="">
-                                </div>
-                                </div>
-                            </div>
                             </div>
                         </div>
 
                         <!-- Job Order Details -->
                         <div class="col-lg-6 d-flex">
                             <div class="card h-100 flex-fill mb-0">
-                            <div class="card-header">
-                                <h5 class="mb-0">Job Order Details</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Job Title</label>
-                                    <input name="job_title" type="text" class="form-control">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Job Order Details</h5>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Created Date</label>
-                                    <input type="text" class="form-control">
-                                    <input type="hidden" name="created_date" value="">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Deadline</label>
-                                    <input type="text" class="form-control">
-                                    <input type="hidden" name="deadline" value="">
-                                </div>
-                                <div class="col-md-6 mb-4">
-                                    <label class="form-label">Created By</label>
-                                    <input type="text" class="form-control" readonly>
-                                    <input type="hidden" name="created_by" value="">
-                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Job Title</label>
+                                            <input name="job_title" type="text" class="form-control">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Created Date</label>
+                                            <input type="text" class="form-control">
+                                            <input type="hidden" name="created_date" value="">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Deadline</label>
+                                            <input type="text" class="form-control">
+                                            <input type="hidden" name="deadline" value="">
+                                        </div>
+                                        <div class="col-md-6 mb-4">
+                                            <label class="form-label">Created By</label>
+                                            <input type="text" class="form-control" readonly>
+                                            <input type="hidden" name="created_by" value="">
+                                        </div>
 
-                                <div class="col-12">
-                                    <label class="form-label d-block mb-4">Design from artist would need client approval</label>
-                                    <div class="d-flex gap-4">
-                                    <label class="form-check-label">
-                                        <input class="form-check-input me-1" type="radio" name="design_confirmed" value="1"> YES
-                                    </label>
-                                    <label class="form-check-label">
-                                        <input class="form-check-input me-1" type="radio" name="design_confirmed" value="0"> NO
-                                    </label>
+                                        <div class="col-12">
+                                            <label class="form-label d-block mb-4">Design from artist would need client approval</label>
+                                            <div class="d-flex gap-4">
+                                                <label class="form-check-label">
+                                                    <input class="form-check-input me-1" type="radio" name="design_confirmed" value="1"> YES
+                                                </label>
+                                                <label class="form-check-label">
+                                                    <input class="form-check-input me-1" type="radio" name="design_confirmed" value="0"> NO
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                </div>
-                            </div>
                             </div>
                         </div>
 
@@ -219,32 +219,37 @@
                             <h5 class="card-title mb-0">Product Details</h5>
 
                             <div class="d-flex align-items-center gap-3">
-                            <span class="text-muted small">Max 5 products</span>
-                            <button type="button" id="addProductBtn" class="btn btn-primary btn-sm">Add Product</button>
+                                <span class="text-muted small">Max 5 products</span>
+                                <button type="button"
+                                    class="btn btn-primary btn-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#addProductModal">
+                                    Add Product
+                                </button>
                             </div>
                         </div>
 
                         <div class="card-body">
                             <!-- Top row: left label + right CSV template download -->
                             <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="text-muted">Upload CSV (Optional)</span>
-                            <a id="csvTemplateBtn" href="#" class="btn btn-link p-0 text-decoration-none">
-                                <i class="bx bx-download me-1"></i> CSV Template Download
-                            </a>
+                                <span class="text-muted">Upload CSV (Optional)</span>
+                                <a id="csvTemplateBtn" href="#" class="btn btn-link p-0 text-decoration-none">
+                                    <i class="bx bx-download me-1"></i> CSV Template Download
+                                </a>
                             </div>
 
                             <!-- Your EXISTING drop area (untouched) -->
                             <div id="attach-box" class="attach-box">
-                            <div class="attach-inner">
-                                <div class="attach-icon" aria-hidden="true">
-                                    <i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i>
+                                <div class="attach-inner">
+                                    <div class="attach-icon" aria-hidden="true">
+                                        <i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i>
+                                    </div>
+                                    <div class="attach-title">Drop CSV file here or click to upload</div>
+                                    <div class="attach-hint">(Excel or CVS)</div>
                                 </div>
-                                <div class="attach-title">Drop CSV file here or click to upload</div>
-                                <div class="attach-hint">(Excel or CVS)</div>
-                            </div>
 
-                            <!-- This input sits on top, invisible, and owns the click -->
-                            <input id="fileInput" type="file" multiple
+                                <!-- This input sits on top, invisible, and owns the click -->
+                                <input id="fileInput" type="file" multiple
                                     accept=".xlsx,.xls,.csv"
                                     class="file-overlay">
                             </div>
@@ -313,8 +318,80 @@
     </div>
 </template>
 
+<!-- pop out add product modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bx bx-package me-2"></i> Add Product
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3">
+                @include('sales.partials.add-product-form')
+            </div>
+        </div>
+    </div>
+</div>
+
+
 @push('scripts')
 <script>
+    (function() {
+
+        // delivery breakdown ----------------------------------------------------------------------------------
+        const wrap = document.getElementById('deliveriesWrap');
+        const addDeliveryBtn = document.getElementById('addDeliveryBtn');
+        const tpl = document.getElementById('deliveryTemplate');
+
+        function reindexDeliveries() {
+            wrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
+                // Update the visible number
+                const numEl = card.querySelector('.delivery-index');
+                if (numEl) numEl.textContent = i + 1;
+
+                // Fix names: deliveries[<i>][...]
+                card.querySelectorAll('[name]').forEach((el) => {
+                    el.name = el.name.replace(/\[deliveries\]\[\d+\]|\[deliveries\]\[__INDEX__\]/g, ''); // safety if pasted differently
+                    el.name = el.name.replace(/\[?\bdeliveries\b\]?\[\d+\]/, 'deliveries[' + i + ']')
+                        .replace(/\[\d+\]/, '[' + i + ']');
+                    // More robust: always rewrite first index occurrence
+                    el.name = el.name.replace(/deliveries\[\d+\]/, 'deliveries[' + i + ']');
+                });
+            });
+        }
+
+        function addDelivery() {
+            const index = wrap.querySelectorAll('[data-delivery]').length;
+            const html = tpl.innerHTML
+                .replace(/__INDEX__/g, index)
+                .replace(/__INDEX_HUMAN__/g, index + 1);
+
+            const temp = document.createElement('div');
+            temp.innerHTML = html.trim();
+            const node = temp.firstElementChild;
+
+            wrap.appendChild(node);
+            reindexDeliveries();
+        }
+
+        // Add delivery
+        addDeliveryBtn.addEventListener('click', addDelivery);
+
+        // Remove delivery (event delegation)
+        wrap.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-remove]');
+            if (!btn) return;
+
+            const card = btn.closest('[data-delivery]');
+            if (card) {
+                card.remove();
+                reindexDeliveries();
+            }
+        });
+    })();
 
     // upload attachemnt -------------------------------------------------------
     document.addEventListener('DOMContentLoaded', () => {
@@ -394,11 +471,17 @@
         // Highlight attach box on drag — noop if you already do something similar
         const box = document.getElementById('attach-box');
         if (box) {
-            ['dragenter','dragover'].forEach(evt =>
-            box.addEventListener(evt, e => { e.preventDefault(); box.classList.add('ring'); })
+            ['dragenter', 'dragover'].forEach(evt =>
+                box.addEventListener(evt, e => {
+                    e.preventDefault();
+                    box.classList.add('ring');
+                })
             );
-            ['dragleave','drop'].forEach(evt =>
-            box.addEventListener(evt, e => { e.preventDefault(); box.classList.remove('ring'); })
+            ['dragleave', 'drop'].forEach(evt =>
+                box.addEventListener(evt, e => {
+                    e.preventDefault();
+                    box.classList.remove('ring');
+                })
             );
         }
 
@@ -407,8 +490,8 @@
         if (tmpl && !tmpl.dataset.wired) {
             tmpl.dataset.wired = '1';
             tmpl.addEventListener('click', (e) => {
-            e.preventDefault();
-            alert('CSV template download coming soon.');
+                e.preventDefault();
+                alert('CSV template download coming soon.');
             });
         }
 
@@ -417,20 +500,19 @@
         if (addBtn && !addBtn.dataset.wired) {
             addBtn.dataset.wired = '1';
             addBtn.addEventListener('click', () => {
-            // If you already have a function, call it here instead:
-            // if (window.addProductCard) return window.addProductCard();
-            const list = document.getElementById('product-list');
-            if (list) {
-                const div = document.createElement('div');
-                div.className = 'border rounded p-3 mb-2';
-                div.textContent = 'Product item placeholder';
-                list.appendChild(div);
-            }
+                // If you already have a function, call it here instead:
+                // if (window.addProductCard) return window.addProductCard();
+                const list = document.getElementById('product-list');
+                if (list) {
+                    const div = document.createElement('div');
+                    div.className = 'border rounded p-3 mb-2';
+                    div.textContent = 'Product item placeholder';
+                    list.appendChild(div);
+                }
             });
         }
     });
 </script>
 @endpush
-
 
 @endsection
