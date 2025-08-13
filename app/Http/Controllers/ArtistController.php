@@ -144,46 +144,84 @@ class ArtistController extends Controller
 
     public function update(Request $request, Order $order)
     {
-        // Only “Design Confirmation Required?” is editable here
-        $request->validate(['design_confirmed' => 'required|boolean']);
+        try {
+            // 1) Validate once
+            $data = $request->validate([
+                'design_confirmed'       => ['required','boolean'],
+                'is_draft'               => ['required','in:0,1'],
 
-        $order->approval = $request->boolean('design_confirmed');
-        $order->save();
+                // form fields (add/remove as needed)
+                'leadName'               => ['nullable','string','max:255'],
+                'leadPhone'              => ['nullable','string','max:30'],
+                'companyName'            => ['nullable','string','max:255'],
+                'deadline'               => ['nullable','date'],
+                'leadEmail'              => ['nullable','email','max:255'],
+                'orderTitle'             => ['nullable','string','max:255'],
+                'orderDetail'            => ['nullable','string'],
 
-        $validated = $request->validate([
-            'design_confirmed'     => ['required','boolean'],
-            'attachments.*'        => ['file','max:10240','mimes:pdf,jpg,jpeg,png,doc,docx'],
-            'delete_attachments'   => ['array'],
-            'delete_attachments.*' => ['string'],
-        ]);
+                // attachments
+                'attachments.*'          => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx'],
+                'delete_attachments'     => ['array'],
+                'delete_attachments.*'   => ['string'],
+            ]);
 
-        // Start with existing list (always array because of $casts)
-        $existing = collect($order->attachments ?? []);
-
-        // 1) Delete checked files
-        $toDelete = collect($request->input('delete_attachments', []));
-        if ($toDelete->isNotEmpty()) {
-            $toDelete->each(function ($path) {
-                Storage::disk('public')->delete($path);
-            });
-            $existing = $existing->reject(fn ($p) => $toDelete->contains($p));
-        }
-
-        // 2) Upload new files
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                if (!$file->isValid()) continue;
-                $path = $file->store("orders/{$order->id}", 'public'); // storage/app/public/orders/{id}
-                $existing->push($path);
+            // 2) Only patch fields that are present in the request (prevents wiping)
+            $updatable = [
+                'leadName','leadPhone','companyName','deadline',
+                'leadEmail','orderTitle','orderDetail',
+            ];
+            foreach ($updatable as $key) {
+                if ($request->has($key)) {
+                    // use ->input so empty string is a valid update if user cleared it on purpose
+                    $order->{$key} = $request->input($key);
+                }
             }
+
+            // 3) Flags
+            $order->draft       = (int) $data['is_draft'];     // 1 = draft, 0 = submit
+            $order->orderStatus = 'in_progress';
+            $order->approval    = (bool) $data['design_confirmed'];
+
+            // 4) Attachments (consistent path + same column)
+            $paths = collect($this->getOrderAttachments($order)); // reads orderAttachment (comma list)
+
+            // deletions (optional)
+            foreach ($request->input('delete_attachments', []) as $delPath) {
+                Storage::disk('public')->delete($delPath);
+                $paths = $paths->reject(fn ($p) => trim($p) === trim($delPath));
+            }
+
+            // new files (store to SAME place as before)
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $file) {
+                    if ($file && $file->isValid()) {
+                        $stored = $file->store("orders/{$order->id}/attachments", 'public');
+                        $paths->push($stored);
+                    }
+                }
+            }
+
+            // write list back to the SAME column
+            $this->putOrderAttachments($order, $paths->values()->all());
+
+            // 5) Save once
+            $order->save();
+
+            $msg = $order->draft ? 'Draft saved successfully.' : 'Order submitted successfully.';
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['ok' => true, 'message' => $msg], 200);
+            }
+            return back()->with('success', $msg);
+
+        } catch (\Throwable $e) {
+            $err = 'Save failed: ' . $e->getMessage();
+            if ($request->ajax() || $request->wantsJson()) {
+                // 422 if it’s a validation-like issue, 500 otherwise — your call
+                return response()->json(['ok' => false, 'message' => $err], 500);
+            }
+            return back()->with('error', $err)->withInput();
         }
-
-        // 3) Save back
-        $order->attachments = $existing->values()->all();
-        $order->approval    = $request->boolean('design_confirmed');
-        $order->save();
-
-        return back()->with('success','Order updated.');
     }
 
     /**

@@ -49,21 +49,57 @@
     cursor: pointer;
   }
     
-.attach-box{position:relative;border:2px dashed #cbd5e1;border-radius:10px;padding:48px;display:flex;align-items:center;justify-content:center;background:#fff;cursor:pointer}
-.attach-inner{text-align:center;pointer-events:none}
-.attach-icon{width:42px;height:42px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:8px;font-size:20px}
-.attach-title{color:#475569;font-weight:600}.attach-hint{color:#64748b;font-size:12px}
-.file-overlay{position:absolute;inset:0;opacity:0;cursor:pointer}
-.remove-x{border:0;background:none;color:#dc2626;font-weight:700;cursor:pointer;margin-left:8px}
-.remove-x:hover{color:#b91c1c}
-.ok{color:#15803d}.err{color:#b91c1c}
+  .attach-box{position:relative;border:2px dashed #cbd5e1;border-radius:10px;padding:48px;display:flex;align-items:center;justify-content:center;background:#fff;cursor:pointer}
+  .attach-inner{text-align:center;pointer-events:none}
+  .attach-icon{width:42px;height:42px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:8px;font-size:20px}
+  .attach-title{color:#475569;font-weight:600}.attach-hint{color:#64748b;font-size:12px}
+  .file-overlay{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .remove-x{border:0;background:none;color:#dc2626;font-weight:700;cursor:pointer;margin-left:8px}
+  .remove-x:hover{color:#b91c1c}
+  .ok{color:#15803d}.err{color:#b91c1c}
+
+  .overlay{
+    display:none;                  
+    position:fixed; inset:0;
+    background:rgba(184,184,184,.6);
+    z-index:1020;                 
+    align-items:center; justify-content:center;
+  }
+  .overlay.is-open{ display:flex; } 
+
+  .overlay-box{
+    padding:14px 18px; background:#fff;
+    border:1px solid #e5e7eb; border-radius:8px;
+  }
 
 </style>
 
 @endpush
-<form id="orderForm" action="{{ route('artist.orders.update', $order->id) }}" method="POST" enctype="multipart/form-data">
+
+@if (session('success'))
+  @push('scripts')
+  <script>Swal.fire({icon:'success', title:'Success', text: @json(session('success'))});</script>
+  @endpush
+@endif
+@if (session('error'))
+  @push('scripts')
+  <script>Swal.fire({icon:'error', title:'Error', text: @json(session('error'))});</script>
+  @endpush
+@endif
+
+{{-- Loading overlay --}}
+<div id="loading-overlay" class="overlay">
+  <div class="overlay-box">Saving… please wait</div>
+</div>
+
+{{-- Validation errors (client-side 422) --}}
+<div id="form-errors" class="text-danger small mb-2"></div>
+
+<form id="order-form" action="{{ route('artist.orders.update', $order) }}" method="POST" enctype="multipart/form-data">
   @csrf
   @method('PUT')
+  <input type="hidden" name="is_draft" id="is_draft" value="0">
+
   <div class="row g-4">
     <div class="col-12">
       <div class="card">
@@ -118,10 +154,9 @@
                 <div class="col-12 col-md-4">
                   <label class="form-label">Design Confirmation Required?</label>
                   @php $dc = old('design_confirm', $order->design_confirm ?? null); @endphp
-                  <select name="design_confirm" class="form-select">
-                    <option value=""  {{ $dc === null ? 'selected' : '' }}>-</option>
-                    <option value="yes" {{ $dc === 'yes' ? 'selected' : '' }}>Yes</option>
-                    <option value="no"  {{ $dc === 'no'  ? 'selected' : '' }}>No</option>
+                  <select id="design_confirmed" name="design_confirmed" class="form-select">
+                    <option value="1" {{ $order->approval ? 'selected' : '' }}>Yes</option>
+                    <option value="0"  {{ !$order->approval ? 'selected' : '' }}>No</option>
                   </select>
                 </div>
 
@@ -551,16 +586,20 @@
               <ul id="preview" class="mt-3 space-y-2"></ul>
             </div>
           </div>
+
+          <div id="form-errors" class="mt-3 text-red-600 text-sm"></div>
+
         </div>
       </div>
+
     </div>
 
     {{-- Sticky save bar --}}
     <div class="col-12">
       <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
         <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
-        <button type="submit" name="action" value="draft" class="btn btn-secondary">Save Draft</button>
-        <button type="submit" name="action" value="submit" class="btn btn-primary">Save and Submit</button>
+        <button type="button" name="action" value="draft" id="btn-draft" class="btn btn-secondary">Save Draft</button>
+        <button type="button" name="action" value="submit" id="btn-submit" class="btn btn-primary">Save and Submit</button>
       </div>
     </div>
   </div>
@@ -682,6 +721,8 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
   (function () {
     // add item --------------------------------------------------------------------------------------------
@@ -823,11 +864,9 @@
     const listEl = document.getElementById('preview');
     const msgEl  = document.getElementById('attach-msg');
 
-    // allow-list (case-insensitive)
     const ALLOWED = ['pdf','png','jpg','jpeg','webp','doc','docx','xls','xlsx','ppt','pptx'];
 
-    // state of *valid* selections (used for summary)
-    const selected = new Map(); // key => File  (key = name|size|lastModified)
+    const selected = new Map(); 
 
     input.addEventListener('change', () => {
       if (!input.files?.length) return;
@@ -842,7 +881,6 @@
         if (selected.has(key))      errors.push('Duplicate');
 
         if (errors.length) {
-          // show but don't add to "selected"
           addRow(f, { status: 'error', note: errors.join(', ') });
         } else {
           selected.set(key, f);
@@ -851,7 +889,7 @@
       });
 
       updateSummary();
-      input.value = ''; // allow re-selecting same files
+      input.value = ''; 
     });
 
     function addRow(file, { key = null, status = 'ready', note = '' }) {
@@ -868,7 +906,7 @@
 
       li.querySelector('.remove-x').addEventListener('click', () => {
         const k = li.dataset.key;
-        if (k && selected.has(k)) selected.delete(k); // only affects valid rows
+        if (k && selected.has(k)) selected.delete(k); 
         li.remove();
         updateSummary();
       });
@@ -883,8 +921,89 @@
         : '';
     }
 
-    // expose for later submit if needed
     window.getSelectedFiles = () => Array.from(selected.values());
+
+    // submit order form
+    const form      = document.getElementById('order-form');
+    const btnDraft  = document.getElementById('btn-draft');
+    const btnSubmit = document.getElementById('btn-submit');
+    const isDraftEl = document.getElementById('is_draft');
+    const overlay   = document.getElementById('loading-overlay');
+
+    const action = @json(route('artist.orders.update', $order));
+    const csrf   = @json(csrf_token());
+
+    function getSelectedFiles(){
+      return (typeof window.getSelectedFiles === 'function') ? window.getSelectedFiles() : [];
+    }
+    function loading(on){
+      overlay.classList.toggle('is-open', !!on);
+      btnDraft.disabled = btnSubmit.disabled = !!on;
+    }
+    const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
+
+    async function send(isDraft){
+      isDraftEl.value = isDraft ? 1 : 0;
+
+      const fd = new FormData(form);
+      fd.set('is_draft', isDraftEl.value);
+      fd.append('_method', 'PUT');
+      for (const f of getSelectedFiles()) fd.append('attachments[]', f);
+
+      // 1) show loading and allow the browser to paint it
+      loading(true);
+      await nextPaint(); // ensures "Saving… please wait" is visible
+
+      let res, data;
+      try {
+        res = await fetch(action, {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: {
+            'X-CSRF-TOKEN': csrf,
+            'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
+          }
+        });
+
+        if (res.status === 422) {
+          data = await res.json().catch(() => ({}));
+          // 2) hide loading BEFORE showing SweetAlert
+          loading(false);
+          const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
+          await Swal.fire({ icon:'error', title:'Validation error', text: msg });
+          return;
+        }
+
+        data = await res.json().catch(() => ({}));
+
+        // 2) hide loading BEFORE showing SweetAlert
+        loading(false);
+
+        if (res.ok && data?.ok) {
+          await Swal.fire({
+            icon:'success',
+            title: isDraft ? 'Draft saved' : 'Order saved',
+            text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
+          });
+          // optional refresh
+          window.location.reload();
+        } else {
+          await Swal.fire({
+            icon:'error',
+            title:'Save failed',
+            text: data?.message || `HTTP ${res.status} — please try again`
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        loading(false); // be sure to hide on network errors too
+        await Swal.fire({ icon:'error', title:'Network error', text:'Could not save. Please try again.' });
+      }
+    }
+
+    document.getElementById('btn-draft') .addEventListener('click', () => send(true));
+    document.getElementById('btn-submit').addEventListener('click', () => send(false));
   });
 </script>
 @endpush
