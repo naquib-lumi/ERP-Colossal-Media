@@ -80,10 +80,10 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li>
             @endif
-            @if (auth()->user()->role === 'Artist')
-              <li class="menu-item {{ request()->routeIs('job.orders') ? 'active' : '' }}">
-                <a href="{{ route('job.orders') }}" class="menu-link">
-                  <i class="menu-icon tf-icons ti ti-paint"></i>
+            @if (in_array(auth()->user()->role, ['artist', 'head-artist']))
+              <li class="menu-item {{ request()->routeIs('artist.orders') ? 'active' : '' }}">
+                <a href="{{ route('artist.orders') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-file"></i>
                   <div data-i18n="Job Orders">Job Orders</div>
                 </a>
               </li>

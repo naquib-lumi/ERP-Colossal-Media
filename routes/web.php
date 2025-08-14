@@ -10,6 +10,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\CalendarController;
 
+use App\Http\Controllers\ArtistController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,7 +25,9 @@ Route::get('/dashboard', function () {
             case 'salesperson':
                 return redirect()->route('sales.dashboard');
             case 'artist':
-                return redirect()->route('job.orders');
+                return redirect()->route('artist.dashboard');
+            case 'head-artist':
+                return redirect()->route('artist.dashboard');
             case 'admin':
                 return redirect()->route('admin.dashboard');
             case 'printing':
@@ -64,6 +67,11 @@ Route::middleware('auth')->group(function () {
         Route::put('/calendar/meetings/{id}', [CalendarController::class, 'updateMeeting'])->name('calendar.meetings.update');
         Route::get('/leads/search', [CalendarController::class, 'searchLeads'])->name('leads.search');
         Route::get('/leads/{id}', [LeadController::class, 'getLead'])->name('leads.get');
+        
+        // Add Order route
+       Route::get('/sales/orders/{id}/add-order', function ($id) {
+            return view('sales.add-order', compact('id'));
+        })->name('sales.orders.add');
 
         // LEAD MANAGEMENT
         Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
@@ -83,12 +91,40 @@ Route::middleware('auth')->group(function () {
         Route::delete('/api/leads/{id}', [LeadController::class, 'destroy'])->name('leads.destroy');
         Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
         Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
-
         Route::post('/leads/{lead}/meetings', [MeetingController::class, 'store'])->name('meetings.store');
     });
 
     Route::middleware('role:artist')->group(function () {
         Route::get('/job/orders', [JobOrderController::class, 'index'])->name('job.orders');
+        Route::post('/leads/{id}/confirm-reminder', [LeadController::class, 'confirmReminder'])->name('leads.confirm.reminder');
+        Route::get('/leads/{id}/attachments', [LeadController::class, 'getAttachments'])->name('leads.attachments');
+        Route::get('/leads/{id}/edit', [LeadController::class, 'edit'])->name('leads.edit');
+        Route::get('/leads/{id}', [LeadController::class, 'show'])->name('leads.show');
+        Route::post('/leads/{id}/add-reminder', [LeadController::class, 'addReminder'])->name('leads.add.reminder');
+        Route::post('/leads/{id}/add-note', [LeadController::class, 'addNote'])->name('leads.add.note');
+        Route::delete('/api/leads/{id}', [LeadController::class, 'destroy']);
+        Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
+        Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
+    });
+
+    Route::get('/test-route', function () {
+        return 'Route is working';
+    });
+
+    // Artist 
+    Route::middleware(['web','auth','role:artist,head-artist'])->group(function () {
+        Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])->name('artist.dashboard');
+        Route::get('/artist/meetingStatusCounts', [ArtistController::class, 'meetingStatusCounts'])->name('artist.meetingStatusCounts');
+        Route::get('/artist/orders', [ArtistController::class, 'orders'])->name('artist.orders');
+        Route::get('/artist/orders/{order}/edit', [ArtistController::class, 'edit'])->name('artist.orders.edit');
+        Route::put('/artist/orders/{order}', [ArtistController::class, 'update'])->name('artist.orders.update');
+        Route::post('/artist/orders/{order}/attachments/upload', [ArtistController::class, 'uploadAttachment'])->name('artist.orders.attachments.upload');
+        Route::post('/artist/orders/{order}/attachments/delete', [ArtistController::class, 'deleteAttachment'])->name('artist.orders.attachments.delete');
+
+        // Actions ONLY a head-artist can do
+        Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'assign'])
+            ->middleware('role:head-artist')
+            ->name('artist.orders.assign');
     });
 
     Route::middleware('role:admin')->group(function () {
