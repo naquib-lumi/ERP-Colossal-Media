@@ -194,27 +194,36 @@
             </div>
           </div>
 
-          {{-- Product block --}}
+          {{-- Product block --}} 
           <div class="card mb-6">
             <div class="card-header">
-              <h5 class="mb-0">
-                <i class="bx bx-package me-2"></i>Product
-              </h5>
+              <h5 class="mb-0"><i class="bx bx-package me-2"></i>Product</h5>
             </div>
 
             <div class="card-body p-4">
               <div class="row g-3 mb-4">
                 <div class="col-12 col-md-6 col-xl-3">
                   <label class="form-label">Product Name</label>
-                  <input name="product[name]" type="text" class="form-control" placeholder="e.g. Business Card">
+                  <input
+                    name="product[name]" type="text" class="form-control" placeholder="e.g. Business Card"
+                    value="{{ old('product.name', $product['productName'] ?? $product['product_name'] ?? '') }}" readonly
+                  >
                 </div>
+
                 <div class="col-12 col-md-6 col-xl-3">
                   <label class="form-label">Total Quantity</label>
-                  <input name="product[qty_total]" type="number" min="0" class="form-control" placeholder="1000">
+                  <input
+                    name="product[qty_total]" type="number" min="0" class="form-control" placeholder="1000"
+                    value="{{ old('product.qty_total', $product['totalQuantity'] ?? $product['total_quantity'] ?? '') }}" readonly
+                  >
                 </div>
+
                 <div class="col-12 col-md-6 col-xl-6">
                   <label class="form-label">Material / Remark</label>
-                  <input name="product[material]" type="text" class="form-control" placeholder="Premium Paper, Glossy">
+                  <input
+                    name="product[material]" type="text" class="form-control" placeholder="Premium Paper, Glossy"
+                    value="{{ old('product.material', $product['materialRemark'] ?? $product['material_remark'] ?? '') }}" readonly
+                  >
                 </div>
               </div>
 
@@ -556,9 +565,16 @@
               {{-- Product Remarks --}}
               <div class="mt-4">
                 <h6 class="mb-2">Product Remarks</h6>
-                <textarea name="product[remarks]" rows="3" class="form-control"
-                  placeholder="Client requested matte finish on cover page. Ensure color matching with Pantone 286C."></textarea>
+                <textarea
+                  name="product[remarks]" rows="3" class="form-control"
+                  placeholder="Client requested matte finish on cover page. Ensure color matching with Pantone 286C."
+                >{{ old('product.remarks', $product['productRemark'] ?? $product['product_remark'] ?? '') }}</textarea>
               </div>
+
+              {{-- Optional: keep ProductID hidden so you can update later --}}
+              @if(!empty($product?->ProductID))
+                <input type="hidden" name="product[id]" value="{{ $product->ProductID }}">
+              @endif
             </div>
           </div>
 

@@ -116,15 +116,17 @@ class ArtistController extends Controller
             abort(403);
         }
 
-        $orderCode   = sprintf('ORD-%04d', $order->id);
-        $today       = now()->format('M d, Y');
+        // eager-load products so we can use them in the view
+        $order->load(['products']); // requires Order::products() relationship
 
+        $orderCode = sprintf('ORD-%04d', $order->id);
+        $today     = now()->format('M d, Y');
+
+        // Build items array from JSON (kept as-is)
         $items = [];
         if (!empty($order->order_items_json)) {
             $items = json_decode($order->order_items_json, true) ?: [];
         }
-
-        // Guarantee at least one empty item so the UI shows something
         if (empty($items)) {
             $items = [[
                 'name' => '', 'qty' => '', 'material' => '',
@@ -133,13 +135,16 @@ class ArtistController extends Controller
             ]];
         }
 
-        $attachments = !empty($order->orderAttachment)
-            ? array_filter(array_map('trim', explode(',', $order->orderAttachment)))
-            : [];
-
+        // Attachments (kept as-is, using helper)
         $attachments = $this->getOrderAttachments($order);
 
-        return view('artist.orders.edit', compact('order','orderCode','today','attachments','items'));
+        // Products from DB
+        $products = $order->products;          // collection (may be empty)
+        $product  = $products->first();         // first product for single-block UI
+
+         return view('artist.orders.edit', compact(
+            'order', 'orderCode', 'today', 'attachments', 'items', 'products', 'product'
+        ));
     }
 
     public function update(Request $request, Order $order)

@@ -58,4 +58,10 @@ class Order extends Model
         ];
         return $map[$this->orderStatus] ?? ucfirst($this->orderStatus);
     }
+
+    public function products()
+    {
+        return $this->hasMany(\App\Models\Product::class, 'OrderID', 'id');
+    }
+
 }
