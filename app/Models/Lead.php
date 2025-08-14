@@ -44,4 +44,8 @@ class Lead extends Model
     {
         return $this->hasMany(Note::class);
     }
+    public function meetings()
+    {
+        return $this->hasMany(Meeting::class);
+    }
 }

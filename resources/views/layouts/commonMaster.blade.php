@@ -22,6 +22,19 @@
   data-base-url="{{ url('/') }}" data-framework="laravel" data-template="{{ $configData['myLayout'] }}-menu-template"
   data-bs-theme="{{ $configData['themeOpt'] }}" @if ($isAdminLayout && $semiDarkEnabled) data-semidark-menu="true" @endif>
 
+    
+    <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}" />
+    <!-- Vendors CSS -->
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
+    <!-- endbuild -->
+ 
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
+    <!-- Page CSS -->
+    @if (Request::is('sales/calendar') || Request::is('calendar'))
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
@@ -61,6 +74,133 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
   @endif
 
+      @if (Request::is('sales/leads') ||Request::is('sales/calendar') )
+      <meta name="csrf-token" content="{{ csrf_token() }}">
+      <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+      <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />    
+      @endif
+    <!-- Helpers -->
+    <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
+    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
+    <!--? Template customizer: To hide customizer set displayCustomizer value false in config.js.  -->
+    <!-- <script src="{{ asset('assets/vendor/js/template-customizer.js') }}" ></script> UNCOMMENT-CUSTOMIZER-->
+    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
+    <script src="{{ asset('assets/js/config.js') }}" ></script>
+    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}" ></script>
+    
+
+    <script>
+    $(document).ready(function() {
+    // Mark as read when clicked
+    $('.dropdown-notifications-read').on('click', function(e) {
+        e.preventDefault();
+        let url = $(this).attr('href');
+        let notificationItem = $(this).closest('.dropdown-notifications-item');
+        let notificationId = notificationItem.data('id');
+
+        if (!notificationId) {
+            console.error('Notification ID is undefined');
+            alert('Error: Notification ID is missing.');
+            return;
+        }
+
+        let markAsReadUrl = '{{ route('notifications.markAsRead', ['id' => 'PLACEHOLDER']) }}'.replace('PLACEHOLDER', notificationId);
+
+        $.ajax({
+            url: markAsReadUrl,
+            type: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}'
+            },
+            success: function() {
+                notificationItem.addClass('marked-as-read');
+                let count = parseInt($('.badge-notifications').text() || 0);
+                if (count > 0) {
+                    $('.badge-notifications').text(count - 1);
+                    if (count - 1 === 0) $('.badge-notifications').remove();
+                }
+                window.location.href = url;
+            },
+            error: function(xhr) {
+                console.error('Error marking notification as read: ', xhr.responseText);
+                alert('Error marking notification as read: ' + xhr.responseText);
+            }
+        });
+    });
+
+    // Mark all as read
+    $('.dropdown-notifications-all').on('click', function() {
+        $.ajax({
+            url: '{{ route('notifications.markAllAsRead') }}',
+            type: 'POST',
+            data: { _token: '{{ csrf_token() }}' },
+            success: function() {
+                $('.dropdown-notifications-item').addClass('marked-as-read');
+                $('.badge-notifications').remove();
+            },
+            error: function(xhr) {
+                console.error('Error marking all notifications as read: ', xhr.responseText);
+                alert('Error marking all notifications as read: ' + xhr.responseText);
+            }
+        });
+    });
+
+    // Archive notification
+    $('.dropdown-notifications-archive').on('click', function(e) {
+        e.preventDefault();
+        let notificationItem = $(this).closest('.dropdown-notifications-item');
+        let notificationId = notificationItem.data('id');
+
+        if (!notificationId) {
+            console.error('Notification ID is undefined');
+            alert('Error: Notification ID is missing.');
+            return;
+        }
+
+        let archiveUrl = '{{ route('notifications.archive', ['id' => 'PLACEHOLDER']) }}'.replace('PLACEHOLDER', notificationId);
+
+        $.ajax({
+            url: archiveUrl,
+            type: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}'
+            },
+            success: function() {
+                notificationItem.remove();
+                let count = parseInt($('.badge-notifications').text() || 0);
+                if (count > 0) {
+                    $('.badge-notifications').text(count - 1);
+                    if (count - 1 === 0) $('.badge-notifications').remove();
+                }
+            },
+            error: function(xhr) {
+                console.error('Error archiving notification: ', xhr.responseText);
+                alert('Error archiving notification: ' + xhr.responseText);
+            }
+        });
+    });
+
+    // Real-time notification count update
+    setInterval(function() {
+        $.ajax({
+            url: '{{ route('notifications.count') }}',
+            success: function(count) {
+                if (count > 0) {
+                    $('.badge-notifications').text(count).show();
+                    $('.bx-bell').addClass('animate__animated animate__tada');
+                    setTimeout(() => $('.bx-bell').removeClass('animate__animated animate__tada'), 1000);
+                } else {
+                    $('.badge-notifications').remove();
+                }
+            },
+            error: function(xhr) {
+                console.error('Error fetching notification count: ', xhr.responseText);
+            }
+        });
+    }, 60000); // Check every minute
+});
+    </script>
+  </head>
   {{-- DataTables CSS for pages that need it --}}
   @if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/*') || Request::is('sales/leads'))
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
@@ -132,8 +272,40 @@
     <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.print.js') }}"></script>
   @endif
 
-  <!-- Main JS -->
-  <script src="{{ asset('assets/js/main.js') }}"></script>
+    <!-- endbuild -->
+    {{ Request::path() }}
+
+    <!-- Vendors JS --> 
+    @if (Request::is('sales/calendar') || Request::is('calendar'))
+    <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}" ></script>
+        <!-- Page JS -->
+    <!-- <script src="{{ asset('assets/js/app-calendar-events.js') }}" ></script> -->
+    <script src="{{ asset('assets/js/app-calendar.js') }}" ></script>
+    @endif
+
+    <script src="{{ asset('assets/vendor/libs/@form-validation/popular.js') }}" ></script>
+    <script src="{{ asset('assets/vendor/libs/@form-validation/bootstrap5.js') }}" ></script>
+    <script src="{{ asset('assets/vendor/libs/@form-validation/auto-focus.js') }}" ></script>
+    <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}" ></script>
+    <script src="{{ asset('assets/vendor/libs/moment/moment.js') }}" ></script>
+    <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}" ></script>
+
+    
+    @if (Request::is('sales/dashboard') || Request::is('dashboard/*'))
+     <!-- <script src="{{ asset('assets/js/dashboards-crm.js') }}"></script> -->
+      <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
+    @endif
+    <!-- Main JS -->
+    <script src="{{ asset('assets/js/main.js') }}" ></script>
+
+
+    @if (Request::is('sales/leads'))
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}" ></script>
+    <!-- <script src="{{ asset('assets/js/tables-datatables-advanced.js') }}" ></script> -->
+    @endif
+
+    <!-- Main JS -->
+    <script src="{{ asset('assets/js/main.js') }}"></script>
 
   {{-- View-level scripts --}}
   @stack('scripts')

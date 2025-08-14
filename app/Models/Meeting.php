@@ -14,11 +14,12 @@ class Meeting extends Model
         'end_time',
         'type',
         'location',
-        'attendees_email',
+        'url', // Add url to fillable
         'note',
         'status',
         'new_start_time',
         'new_end_time',
+        'duration',
     ];
 
     protected $casts = [
@@ -26,12 +27,28 @@ class Meeting extends Model
         'end_time' => 'datetime',
         'new_start_time' => 'datetime',
         'new_end_time' => 'datetime',
+        'duration' => 'integer',
     ];
+
+    protected static function booted()
+    {
+        static::created(function ($meeting) {
+            $reminderTime = $meeting->start_time->subMinutes(15);
+            $reminder = $meeting->lead->reminders()->create([
+                'title' => 'Meeting Reminder: ' . $meeting->title,
+                'due_date' => $reminderTime,
+                'status' => 'upcoming',
+                'is_auto' => true,
+            ]);
+
+            $reminder->notifyUser();
+        });
+    }
 
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id')
-            ->where('role', 'salesperson'); // Restrict to salesperson role
+            ->where('role', 'salesperson');
     }
 
     public function lead()
