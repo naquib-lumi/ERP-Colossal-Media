@@ -191,10 +191,10 @@ document.addEventListener('DOMContentLoaded', function () {
           filteredEvents = filteredEvents.map(event => {
             if (event.extendedProps.type === 'reminder') {
               const startDate = new Date(event.start);
-              //  const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // +10 minutes
+              const endDate = new Date(startDate.getTime() + 10 * 60 * 1000); // +10 minutes
               return {
                 ...event,
-                //  end: endDate.toISOString(),
+                end: endDate.toISOString(),
                 allDay: false
               };
             }
