@@ -36,12 +36,7 @@
 <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}" />
 <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}" />
 <!-- Vendors CSS -->
-<link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
-<!-- endbuild -->
 
-<link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
-<link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
-<link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
 <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
 
 <head>
@@ -68,8 +63,7 @@
 
     <!-- Core CSS -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/pickr/pickr-themes.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}" />
+
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
@@ -240,10 +234,6 @@
 
 {{-- Page-level extra styles from views --}}
 @stack('styles')
-
-<!-- Helpers + Config (keep in head) -->
-<script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
-<script src="{{ asset('assets/js/config.js') }}"></script>
 </head>
 
 <body>
@@ -251,7 +241,6 @@
     @yield('layoutContent')
 
     <!-- Core JS (bottom, in order) -->
-    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
     <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/@algolia/autocomplete-js.js') }}"></script>

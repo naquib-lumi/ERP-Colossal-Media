@@ -16,10 +16,10 @@ class ProductItem extends Model
     public $timestamps = true;
 
     protected $fillable = [
-        'ProductID', 'MaterialID', 'itemName', 'quantity',
-        'sizeWidth', 'sizeHeight', 'sizeLength',
-        'bleedWidth', 'bleedHeight', 'bleedLength',
-        'finishing', 'renderTime',
+        'ProductID','itemName','quantity',
+        'sizeWidth','sizeHeight','sizeLength',
+        'bleedTop','bleedBottom','bleedLeft','bleedRight',
+        'finishing','renderTime','material',
     ];
 
     // ── Relations
@@ -37,7 +37,21 @@ class ProductItem extends Model
     // If you attach many materials to an item (via materials.ItemID)
     public function materials()
     {
-        return $this->hasMany(Material::class, 'ItemID', 'ItemID');
+        return $this->belongsToMany(
+            Material::class,
+            'item_material', // adjust if your pivot table is different
+            'ItemID',
+            'MaterialID'
+        );
+    }
+
+    protected $casts = [
+        'material' => 'array',  
+    ];
+
+    public function spec()
+    {
+        return $this->hasOne(Specification::class, 'ItemID', 'ItemID');
     }
 
     public function specification()

@@ -9,6 +9,12 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;   // ← add this
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Models\Product;
+use App\Models\ProductItem;
+use App\Models\DeliveryBreakdown;
+use App\Models\Specification;
+
 
 class ArtistController extends Controller
 {
@@ -42,7 +48,7 @@ class ArtistController extends Controller
         // Salesperson filter for the donut chart
         $salespersons = User::where('role', 'salesperson')
             ->orderBy('name')
-            ->get(['id','name']);
+            ->get(['id', 'name']);
 
         // Initial donut counts (all salespersons)
         $initial = Meeting::selectRaw("
@@ -104,128 +110,263 @@ class ArtistController extends Controller
             ->latest('orderDate')
             ->paginate(1000);
 
-        return view('artist.orders', compact('orders','metrics'));
+        return view('artist.orders', compact('orders', 'metrics'));
     }
 
     public function edit(Order $order)
     {
         $user = Auth::user();
-
-        // Normal artist can only open orders assigned to them
         if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
             abort(403);
         }
 
-        // eager-load products so we can use them in the view
-        $order->load(['products']); // requires Order::products() relationship
-
         $orderCode = sprintf('ORD-%04d', $order->id);
         $today     = now()->format('M d, Y');
 
-        // Build items array from JSON (kept as-is)
-        $items = [];
-        if (!empty($order->order_items_json)) {
-            $items = json_decode($order->order_items_json, true) ?: [];
-        }
-        if (empty($items)) {
-            $items = [[
-                'name' => '', 'qty' => '', 'material' => '',
-                'size' => ['w'=>'','h'=>'','l'=>'','top'=>'','bottom'=>'','left'=>'','right'=>''],
-                'lamination' => '', 'printer' => '', 'cutter' => '', 'finishing' => ''
-            ]];
-        }
+        // ✅ load product items and their spec (NOT materials)
+        $product = Product::with([
+            'items.spec',      // hasOne specs by ItemID
+            'breakdowns',
+        ])
+        ->where('OrderID', $order->id)
+        ->first();
 
-        // Attachments (kept as-is, using helper)
+        $items       = $product ? $product->items : collect();
         $attachments = $this->getOrderAttachments($order);
 
-        // Products from DB
-        $products = $order->products;          // collection (may be empty)
-        $product  = $products->first();         // first product for single-block UI
-
-         return view('artist.orders.edit', compact(
-            'order', 'orderCode', 'today', 'attachments', 'items', 'products', 'product'
+        return view('artist.orders.edit', compact(
+            'order','orderCode','today','attachments','product','items'
         ));
     }
 
     public function update(Request $request, Order $order)
     {
+        // AuthZ: artist can only edit own orders unless head-artist
+        $user = Auth::user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            abort(403);
+        }
+
+        // Validate payload
+        $validated = $request->validate([
+            'design_confirmed'  => ['required', 'boolean'],
+            'is_draft'          => ['required', 'in:0,1'],
+
+            // Product block (optional)
+            'product.id'        => ['nullable', 'integer'],
+            'product.name'      => ['nullable', 'string', 'max:255'],
+            'product.qty_total' => ['nullable', 'integer', 'min:0'],
+            'product.material'  => ['nullable', 'string', 'max:255'],
+            'product.remarks'   => ['nullable', 'string'],
+
+            // Items
+            'items'                          => ['array'],
+            'items.*.id'                     => ['nullable', 'integer'],
+            'items.*.itemName'               => ['nullable', 'string', 'max:255'],
+            'items.*.quantity'               => ['nullable', 'integer', 'min:0'],
+
+            'items.*.sizeWidth'              => ['nullable', 'numeric'],
+            'items.*.sizeHeight'             => ['nullable', 'numeric'],
+            'items.*.sizeLength'             => ['nullable', 'numeric'],
+
+            'items.*.bleedTop'             => ['nullable','numeric'],
+            'items.*.bleedBottom'          => ['nullable','numeric'],
+            'items.*.bleedLeft'            => ['nullable','numeric'],
+            'items.*.bleedRight'           => ['nullable','numeric'],
+
+            'items.*.finishing'              => ['nullable', 'string', 'max:255'],
+            'items.*.renderTime'             => ['nullable', 'integer', 'min:0'],
+            'items.*.material'           => ['nullable'],
+            'items.*.material.*'         => ['nullable','string','max:255'],
+
+            // spec (optional)
+            'items.*.lamination'             => ['nullable', 'string', 'max:255'],
+            'items.*.printer'                => ['nullable', 'string', 'max:255'],
+            'items.*.cutter'                 => ['nullable', 'string', 'max:255'],
+
+            // Delivery breakdowns
+            'breakdowns'                     => ['array'],
+            'breakdowns.*.id'                => ['nullable', 'integer'],
+            'breakdowns.*.method'            => ['nullable', 'string', 'max:255'],
+            'breakdowns.*.quantity'          => ['nullable', 'integer', 'min:0'],
+            'breakdowns.*.date'              => ['nullable', 'date'],
+            'breakdowns.*.time'              => ['nullable', 'date_format:H:i'],
+            'breakdowns.*.location'          => ['nullable', 'string', 'max:255'],
+
+            // Attachments (kept from your old flow)
+            'attachments.*'        => ['file', 'mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx', 'max:20480'],
+            'delete_attachments'   => ['array'],
+            'delete_attachments.*' => ['string'],
+        ]);
+
         try {
-            // 1) Validate once
-            $data = $request->validate([
-                'design_confirmed'       => ['required','boolean'],
-                'is_draft'               => ['required','in:0,1'],
+            DB::transaction(function () use ($request, $order) {
 
-                // form fields (add/remove as needed)
-                'leadName'               => ['nullable','string','max:255'],
-                'leadPhone'              => ['nullable','string','max:30'],
-                'companyName'            => ['nullable','string','max:255'],
-                'deadline'               => ['nullable','date'],
-                'leadEmail'              => ['nullable','email','max:255'],
-                'orderTitle'             => ['nullable','string','max:255'],
-                'orderDetail'            => ['nullable','string'],
+                // ---------------- 1) Update order core fields you allow here ----------------
+                // Keep existing values as default so we don't blank-out columns
+                $order->leadName    = $request->input('leadName',    $order->leadName);
+                $order->leadPhone   = $request->input('leadPhone',   $order->leadPhone);
+                $order->companyName = $request->input('companyName', $order->companyName);
+                $order->deadline    = $request->input('deadline',    $order->deadline);
+                $order->leadEmail   = $request->input('leadEmail',   $order->leadEmail);
+                $order->orderTitle  = $request->input('orderTitle',  $order->orderTitle);
+                $order->orderDetail = $request->input('orderDetail', $order->orderDetail);
 
-                // attachments
-                'attachments.*'          => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx'],
-                'delete_attachments'     => ['array'],
-                'delete_attachments.*'   => ['string'],
-            ]);
+                $order->draft       = (int) $request->input('is_draft', 0); // from submit buttons
+                $order->orderStatus = 'in_progress';
+                $order->approval    = $request->boolean('design_confirmed');
 
-            // 2) Only patch fields that are present in the request (prevents wiping)
-            $updatable = [
-                'leadName','leadPhone','companyName','deadline',
-                'leadEmail','orderTitle','orderDetail',
-            ];
-            foreach ($updatable as $key) {
-                if ($request->has($key)) {
-                    // use ->input so empty string is a valid update if user cleared it on purpose
-                    $order->{$key} = $request->input($key);
+                // ---------------- 2) Attachments: delete selected + add newly uploaded ------
+                $existing = collect($this->getOrderAttachments($order));
+
+                $toDelete = collect($request->input('delete_attachments', []));
+                if ($toDelete->isNotEmpty()) {
+                    $toDelete->each(fn($p) => Storage::disk('public')->delete($p));
+                    $existing = $existing->reject(fn($p) => $toDelete->contains($p));
                 }
-            }
-
-            // 3) Flags
-            $order->draft       = (int) $data['is_draft'];     // 1 = draft, 0 = submit
-            $order->orderStatus = 'in_progress';
-            $order->approval    = (bool) $data['design_confirmed'];
-
-            // 4) Attachments (consistent path + same column)
-            $paths = collect($this->getOrderAttachments($order)); // reads orderAttachment (comma list)
-
-            // deletions (optional)
-            foreach ($request->input('delete_attachments', []) as $delPath) {
-                Storage::disk('public')->delete($delPath);
-                $paths = $paths->reject(fn ($p) => trim($p) === trim($delPath));
-            }
-
-            // new files (store to SAME place as before)
-            if ($request->hasFile('attachments')) {
-                foreach ($request->file('attachments') as $file) {
-                    if ($file && $file->isValid()) {
-                        $stored = $file->store("orders/{$order->id}/attachments", 'public');
-                        $paths->push($stored);
+                if ($request->hasFile('attachments')) {
+                    foreach ($request->file('attachments') as $file) {
+                        if (!$file->isValid()) continue;
+                        $path = $file->store("orders/{$order->id}/attachments", 'public');
+                        $existing->push($path);
                     }
                 }
-            }
+                $this->putOrderAttachments($order, $existing->values()->all());
+                $order->save();
 
-            // write list back to the SAME column
-            $this->putOrderAttachments($order, $paths->values()->all());
+                // ---------------- 3) Upsert Product (create stub if children exist) ----------
+                $product = Product::where('OrderID', $order->id)->first();
 
-            // 5) Save once
-            $order->save();
+                $p = $request->input('product', []);
+                $hasProduct    = isset($p['name']) || isset($p['qty_total']) || isset($p['material']) || isset($p['remarks']);
+                $hasItems      = filled($request->input('items', []));
+                $hasBreakdowns = filled($request->input('breakdowns', []));
 
-            $msg = $order->draft ? 'Draft saved successfully.' : 'Order submitted successfully.';
+                if (!$product && ($hasProduct || $hasItems || $hasBreakdowns)) {
+                    $product = new Product();
+                    $product->OrderID = $order->id;
+                }
 
-            if ($request->ajax() || $request->wantsJson()) {
-                return response()->json(['ok' => true, 'message' => $msg], 200);
-            }
-            return back()->with('success', $msg);
+                // Only touch fields that were posted
+                if ($product) {
+                    if (array_key_exists('name', $p))       $product->productName    = $p['name'];
+                    if (array_key_exists('qty_total', $p))  $product->totalQuantity  = $p['qty_total'];
+                    if (array_key_exists('material', $p))   $product->materialRemark = $p['material'];
+                    if (array_key_exists('remarks', $p))    $product->productRemark  = $p['remarks'];
+                    $product->save();
+                }
 
+                if (!$product) return; // nothing else to do
+
+                // ---------------- 4) Upsert Items (+ optional Specification) -----------------
+                $postedItems = collect($request->input('items', []))
+                    ->filter(fn($row) => is_array($row));
+
+                $keepItemIds = [];
+                foreach ($postedItems as $row) {
+                    // completely empty rows are ignored
+                    $isEmpty = collect($row)->filter(fn($v, $k) => $k !== 'id' && $v !== null && $v !== '')->isEmpty();
+                    if ($isEmpty) continue;
+
+                    $item = null;
+                    if (!empty($row['id'])) {
+                        $item = ProductItem::where('ItemID', (int)$row['id'])
+                            ->where('ProductID', $product->ProductID)
+                            ->first();
+                    }
+                    if (!$item) {
+                        $item = new ProductItem();
+                        $item->ProductID = $product->ProductID;
+                    }
+
+                    foreach (
+                        [
+                            'itemName','quantity',
+                            'sizeWidth','sizeHeight','sizeLength',
+                            'bleedTop','bleedBottom','bleedLeft','bleedRight',
+                            'finishing','renderTime'
+                        ] as $key
+                    ) {
+                        if (array_key_exists($key, $row)) {
+                            $item->{$key} = $row[$key];
+                        }
+                    }
+
+                    if (array_key_exists('material', $row)) {
+                        if (is_array($row['material'])) {
+                            $clean = array_values(array_filter(array_map('trim', $row['material']), fn($v) => $v !== ''));
+                            $item->material = $clean ?: null;
+                        } else {
+                            $clean = array_values(array_filter(array_map('trim', explode(',', (string)$row['material'])), fn($v) => $v !== ''));
+                            $item->material = $clean ?: null;
+                        }
+                    }
+
+                    $item->save();
+                    $keepItemIds[] = $item->ItemID;
+
+                    // Optional: one-to-one specification row for lamination/printer/cutter
+                    if (
+                        array_key_exists('lamination', $row) ||
+                        array_key_exists('printer', $row) ||
+                        array_key_exists('cutter', $row)
+                    ) {
+
+                        $spec = Specification::firstOrNew(['ItemID' => $item->ItemID]);
+                        if (array_key_exists('lamination', $row)) $spec->lamination = $row['lamination'];
+                        if (array_key_exists('printer',   $row)) $spec->printer    = $row['printer'];
+                        if (array_key_exists('cutter',    $row)) $spec->cutter     = $row['cutter'];
+                        $spec->save();
+                    }
+                }
+
+                // delete items removed in UI (optional — comment to keep old ones)
+                if (count($keepItemIds)) {
+                    ProductItem::where('ProductID', $product->ProductID)
+                        ->whereNotIn('ItemID', $keepItemIds)
+                        ->delete();
+                }
+
+                // ---------------- 5) Upsert Delivery Breakdowns ------------------------------
+                $postedBreakdowns = collect($request->input('breakdowns', []))
+                    ->filter(fn($row) => is_array($row));
+
+                $keepBreakIds = [];
+                foreach ($postedBreakdowns as $row) {
+                    $isEmpty = collect($row)->filter(fn($v, $k) => $k !== 'id' && $v !== null && $v !== '')->isEmpty();
+                    if ($isEmpty) continue;
+
+                    $bd = null;
+                    if (!empty($row['id'])) {
+                        $bd = DeliveryBreakdown::where('BreakdownID', (int)$row['id'])
+                            ->where('ProductID', $product->ProductID)
+                            ->first();
+                    }
+                    if (!$bd) {
+                        $bd = new DeliveryBreakdown();
+                        $bd->ProductID = $product->ProductID;
+                    }
+
+                    foreach (['method', 'quantity', 'date', 'time', 'location'] as $key) {
+                        if (array_key_exists($key, $row)) {
+                            $bd->{$key} = $row[$key];
+                        }
+                    }
+                    $bd->save();
+                    $keepBreakIds[] = $bd->BreakdownID;
+                }
+
+                if (count($keepBreakIds)) {
+                    DeliveryBreakdown::where('ProductID', $product->ProductID)
+                        ->whereNotIn('BreakdownID', $keepBreakIds)
+                        ->delete();
+                }
+            });
+
+            return back()->with('success', $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
         } catch (\Throwable $e) {
-            $err = 'Save failed: ' . $e->getMessage();
-            if ($request->ajax() || $request->wantsJson()) {
-                // 422 if it’s a validation-like issue, 500 otherwise — your call
-                return response()->json(['ok' => false, 'message' => $err], 500);
-            }
-            return back()->with('error', $err)->withInput();
+            Log::error('Artist update failed', ['order_id' => $order->id, 'err' => $e]);
+            return back()->with('error', 'Failed to save. Please try again.');
         }
     }
 
@@ -245,7 +386,7 @@ class ArtistController extends Controller
 
         // Normal artist
         return $q->where('artist_id', $user->id)
-                 ->whereNotIn('orderStatus', ['to_assign', 'assigned']);
+            ->whereNotIn('orderStatus', ['to_assign', 'assigned']);
     }
 
     private function isHeadArtist($user): bool
@@ -312,11 +453,10 @@ class ArtistController extends Controller
 
         // remove from DB list
         $list = collect($this->getOrderAttachments($order))
-            ->reject(fn ($p) => trim($p) === $path)
+            ->reject(fn($p) => trim($p) === $path)
             ->values()->all();
         $this->putOrderAttachments($order, $list);
 
         return response()->json(['ok' => true]);
     }
-
 }
