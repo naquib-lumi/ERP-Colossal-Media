@@ -14,6 +14,7 @@ class ProductItem extends Model
     public $incrementing = true;
     protected $keyType = 'int';
     public $timestamps = true;
+    protected $casts = ['material' => 'array'];
 
     protected $fillable = [
         'ProductID','itemName','quantity',
@@ -45,16 +46,7 @@ class ProductItem extends Model
         );
     }
 
-    protected $casts = [
-        'material' => 'array',  
-    ];
-
     public function spec()
-    {
-        return $this->hasOne(Specification::class, 'ItemID', 'ItemID');
-    }
-
-    public function specification()
     {
         return $this->hasOne(Specification::class, 'ItemID', 'ItemID');
     }

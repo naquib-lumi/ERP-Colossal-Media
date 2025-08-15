@@ -315,7 +315,7 @@
               {{-- Items repeater --}}
               @php
               // existing items from DB or from old() after validation errors
-              $items = old('items', $order->items ?? [[]]);
+              $itemsData = old('items', $items);
               @endphp
 
               <div class="d-flex justify-content-between align-items-center mb-2">
@@ -324,426 +324,430 @@
                   <i class="bx bx-plus me-1"></i> Add Item
                 </button>
               </div>
-
-              <div class="accordion" id="productItems" data-start-number="2" data-next-index="1">
+              <div class="accordion" id="productItems" data-start-number="{{ (is_countable($itemsData)?count($itemsData):$itemsData->count()) + 1 }}"
+                data-next-index="{{ is_countable($itemsData)?count($itemsData):$itemsData->count() }}">
                 @foreach($items as $i => $item)
-                  @php
-                    $qtyLabel     = data_get($item, 'quantity', data_get($item, 'qty'));
-                    $spec         = data_get($item, 'spec'); // hasOne (lamination/printer/cutter)
-                    $materialVal  = data_get($item, 'material');
-                    if (is_array($materialVal)) {
-                      $materialVal = implode(', ', $materialVal); // show JSON array nicely
-                    }
-                  @endphp
+                @php
+                $qtyLabel = data_get($item, 'quantity', data_get($item, 'qty'));
+                $spec = data_get($item, 'spec'); // hasOne (lamination/printer/cutter)
+                $materialVal = data_get($item, 'material');
+                if (is_array($materialVal)) {
+                $materialVal = implode(', ', $materialVal); // show JSON array nicely
+                }
+                @endphp
 
-                  <div class="accordion-item mb-3 border rounded" id="item{{ $i }}">
-                    <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
-                      <div>
-                        <span class="fw-semibold">Item {{ $i+1 }}</span>
-                        <span class="text-body-secondary ms-2 small">
-                          {{ data_get($item, 'itemName', data_get($item, 'name', '')) }}
-                          {{ $qtyLabel ? ' ' . $qtyLabel : '' }}
-                        </span>
-                      </div>
-
-                      <div class="d-flex align-items-center gap-2">
-                        {{-- Trash Icon --}}
-                        @if ($i > 0)
-                          <button type="button" class="btn btn-link text-danger p-0" onclick="removeItem({{ $i }}, event)">
-                            <i class="bx bx-trash fs-5"></i>
-                          </button>
-                        @endif
-
-                        {{-- Collapse Toggle Icon --}}
-                        <button class="btn btn-link p-0" type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#itemPane{{ $i }}"
-                                aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
-                                aria-controls="itemPane{{ $i }}">
-                          <i class="bx bx-chevron-down fs-4"></i>
-                        </button>
-                      </div>
+                <div class="accordion-item mb-3 border rounded" id="item{{ $i }}">
+                  <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
+                    <div>
+                      <span class="fw-semibold">Item {{ $i+1 }}</span>
+                      <span class="text-body-secondary ms-2 small">
+                        {{ data_get($item, 'itemName', data_get($item, 'name', '')) }}
+                        {{ $qtyLabel ? ' ' . $qtyLabel : '' }}
+                      </span>
                     </div>
 
-                    <div id="itemPane{{ $i }}" class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}" data-bs-parent="#productItems">
-                      <div class="accordion-body">
-                        @if ($i > 0)
-                          <div class="item-actions sticky-top d-flex justify-content-end">
-                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem({{ $i }}, event)">
-                              <i class="bx bx-trash me-1"></i> Delete
-                            </button>
-                          </div>
-                        @endif
+                    <div class="d-flex align-items-center gap-2">
+                      {{-- Trash Icon --}}
+                      @if ($i > 0)
+                      <button type="button" class="btn btn-link text-danger p-0" onclick="removeItem({{ $i }}, event)">
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
+                      @endif
 
-                        {{-- Hidden ID so we UPDATE instead of always creating --}}
-                        <input type="hidden" name="items[{{ $i }}][id]" value="{{ old("items.$i.id", data_get($item, 'ItemID')) }}">
+                      {{-- Collapse Toggle Icon --}}
+                      <button class="btn btn-link p-0" type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#itemPane{{ $i }}"
+                        aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
+                        aria-controls="itemPane{{ $i }}">
+                        <i class="bx bx-chevron-down fs-4"></i>
+                      </button>
+                    </div>
+                  </div>
 
-                        <div class="row g-3">
-                          <div class="col-md-6">
-                            <label class="form-label">Item Name</label>
-                            <input type="text" class="form-control"
-                                  name="items[{{ $i }}][itemName]"
-                                  value="{{ old("items.$i.itemName", data_get($item,'itemName', data_get($item,'name'))) }}">
-                          </div>
+                  <div id="itemPane{{ $i }}" class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}" data-bs-parent="#productItems">
+                    <div class="accordion-body">
+                      @if ($i > 0)
+                      <div class="item-actions sticky-top d-flex justify-content-end">
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem({{ $i }}, event)">
+                          <i class="bx bx-trash me-1"></i> Delete
+                        </button>
+                      </div>
+                      @endif
 
-                          <div class="col-md-6">
-                            <label class="form-label">Quantity</label>
-                            <input type="number" class="form-control"
-                                  name="items[{{ $i }}][quantity]"
-                                  value="{{ old("items.$i.quantity", data_get($item,'quantity', data_get($item,'qty'))) }}">
-                          </div>
+                      {{-- Hidden ID so we UPDATE instead of always creating --}}
+                      <!-- <input type="hidden" name="items[{{ $i }}][id]" value="{{ old('items.$i.id', data_get($item, 'ItemID')) }}"> -->
 
-                          <div class="col-12">
-                            <label class="form-label">Material</label>
-                            @php
-                              $materialVal = data_get($item, 'material');
-                              if (is_array($materialVal)) { $materialVal = implode(', ', $materialVal); }
-                            @endphp
-                            <input type="text" class="form-control"
-                                  name="items[{{ $i }}][material]"
-                                  value="{{ old("items.$i.material", $materialVal) }}">
-                          </div>
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label">Item Name</label>
+                          @php $v = old("items.$i.itemName"); @endphp
+                          <input class="form-control" name="items[{{ $i }}][itemName]"
+                            value="{{ filled($v) ? $v : (data_get($item,'itemName') ?? '') }}">
+                        </div>
 
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Size (inches) – Width</label>
-                            <input name="items[{{ $i }}][sizeWidth]" type="number" step="0.01" class="form-control"
-                                  value="{{ old("items.$i.sizeWidth", data_get($item,'sizeWidth', data_get($item,'size.w'))) }}">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Height</label>
-                            <input name="items[{{ $i }}][sizeHeight]" type="number" step="0.01" class="form-control"
-                                  value="{{ old("items.$i.sizeHeight", data_get($item,'sizeHeight', data_get($item,'size.h'))) }}">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Length</label>
-                            <input name="items[{{ $i }}][sizeLength]" type="number" step="0.01" class="form-control"
-                                  value="{{ old("items.$i.sizeLength", data_get($item,'sizeLength', data_get($item,'size.l'))) }}">
-                          </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Quantity</label>
+                          @php $v = old("items.$i.quantity"); @endphp
+                          <input type="number" class="form-control" name="items[{{ $i }}][quantity]"
+                            value="{{ filled($v) ? $v : (data_get($item,'quantity') ?? '') }}">
+                        </div>
 
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Bleed (Top)</label>
-                            <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
-                                  value="{{ old("items.$i.bleedTop", data_get($item,'bleedTop')) }}">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Bottom</label>
-                            <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
-                                  value="{{ old("items.$i.bleedBottom", data_get($item,'bleedBottom')) }}">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Left</label>
-                            <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
-                                  value="{{ old("items.$i.bleedLeft", data_get($item,'bleedLeft')) }}">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Right</label>
-                            <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
-                                  value="{{ old("items.$i.bleedRight", data_get($item,'bleedRight')) }}">
-                          </div>
+                        <div class="col-12">
+                          <label class="form-label">Material</label>
+                          @php
+                          $v = old("items.$i.material");
+                          $materialVal = filled($v) ? $v : (data_get($item,'material') ?? '');
+                          @endphp
+                          <input type="text" class="form-control" name="items[{{ $i }}][material]"
+                            value="{{ $materialVal }}">
+                        </div>
 
-                          <div class="col-md-3">
-                            <label class="form-label">Lamination</label>
-                            @php $lam = old("items.$i.lamination", data_get($item,'spec.lamination')); @endphp
-                            <select name="items[{{ $i }}][lamination]" class="form-select">
-                              <option value="">-</option>
-                              <option {{ $lam==='Gloss' ? 'selected' : '' }}>Gloss</option>
-                              <option {{ $lam==='Matte' ? 'selected' : '' }}>Matte</option>
-                            </select>
-                          </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Size (inches) – Width</label>
+                          <input name="items[{{ $i }}][sizeWidth]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeWidth", data_get($item,'sizeWidth')) }}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Height</label>
+                          <input name="items[{{ $i }}][sizeHeight]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeHeight", data_get($item,'sizeHeight')) }}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Length</label>
+                          <input name="items[{{ $i }}][sizeLength]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeLength", data_get($item,'sizeLength')) }}">
+                        </div>
 
-                          <div class="col-md-3">
-                            <label class="form-label">Printer</label>
-                            @php $prt = old("items.$i.printer", data_get($item,'spec.printer')); @endphp
-                            <select name="items[{{ $i }}][printer]" class="form-select">
-                              <option value="">-</option>
-                              <option {{ $prt==='Printer' ? 'selected' : '' }}>Printer</option>
-                            </select>
-                          </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bleed (Top)</label>
+                          <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedTop", data_get($item,'bleedTop')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bottom</label>
+                          <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedBottom", data_get($item,'bleedBottom')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Left</label>
+                          <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedLeft", data_get($item,'bleedLeft')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Right</label>
+                          <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedRight", data_get($item,'bleedRight')) }}">
+                        </div>
 
-                          <div class="col-md-3">
-                            <label class="form-label">Cutter</label>
-                            @php $cut = old("items.$i.cutter", data_get($item,'spec.cutter')); @endphp
-                            <select name="items[{{ $i }}][cutter]" class="form-select">
-                              <option value="">-</option>
-                              <option {{ $cut==='Cutter' ? 'selected' : '' }}>Cutter</option>
-                            </select>
-                          </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Lamination</label>
+                          @php $lam = filled(old("items.$i.lamination"))
+                          ? old("items.$i.lamination")
+                          : data_get($item,'lamination'); @endphp
+                          <select name="items[{{ $i }}][lamination]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $lam==='Gloss' ? 'selected' : '' }}>Gloss</option>
+                            <option {{ $lam==='Matte' ? 'selected' : '' }}>Matte</option>
+                          </select>
+                        </div>
 
-                          <div class="col-md-12">
-                            <label class="form-label">Finishing</label>
-                            <input name="items[{{ $i }}][finishing]" type="text" class="form-control"
-                                  placeholder="Coating, lamination, etc…"
-                                  value="{{ old("items.$i.finishing", data_get($item,'finishing')) }}">
-                          </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Printer</label>
+                          @php $prt = filled(old("items.$i.printer"))
+                          ? old("items.$i.printer")
+                          : data_get($item,'printer'); @endphp
+                          <select name="items[{{ $i }}][printer]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $prt==='Printer' ? 'selected' : '' }}>Printer</option>
+                          </select>
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label">Cutter</label>
+                          @php $cut = filled(old("items.$i.cutter"))
+                          ? old("items.$i.cutter")
+                          : data_get($item,'cutter'); @endphp
+                          <select name="items[{{ $i }}][cutter]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $cut==='Cutter' ? 'selected' : '' }}>Cutter</option>
+                          </select>
+                        </div>
+                        <div class="col-md-12">
+                          <label class="form-label">Finishing</label>
+                          <input name="items[{{ $i }}][finishing]" type="text" class="form-control"
+                            placeholder="Coating, lamination, etc…"
+                            value="{{ old("items.$i.finishing", data_get($item,'finishing')) }}">
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
                 @endforeach
               </div>
 
-            {{-- Template used for a new item (placeholders __i__ and __n__) --}}
-            <template id="itemTemplate">
-              <div class="accordion-item mb-3 border rounded" data-kind="item" id="itemWrap__INDEX__">
-                <div class="accordion-header d-flex align-items-center px-3 py-2" id="itemHdr__INDEX__">
-                  <span class="fw-semibold">
-                    Item <span class="item-number"></span>
-                  </span>
+              {{-- Template used for a new item (placeholders __i__ and __n__) --}}
+              <template id="itemTemplate">
+                <div class="accordion-item mb-3 border rounded" data-kind="item" id="itemWrap__INDEX__">
+                  <div class="accordion-header d-flex align-items-center px-3 py-2" id="itemHdr__INDEX__">
+                    <span class="fw-semibold">
+                      Item <span class="item-number"></span>
+                    </span>
 
-                  <!-- actions on the far right -->
-                  <div class="ms-auto d-flex align-items-center gap-2">
-                    <!-- delete -->
-                    <button type="button"
-                      class="btn btn-link p-0 text-danger delete-item"
-                      data-index="__INDEX__" title="Delete item">
-                      <i class="bx bx-trash fs-5"></i>
-                    </button>
+                    <!-- actions on the far right -->
+                    <div class="ms-auto d-flex align-items-center gap-2">
+                      <!-- delete -->
+                      <button type="button"
+                        class="btn btn-link p-0 text-danger delete-item"
+                        data-index="__INDEX__" title="Delete item">
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
 
-                    <!-- chevron: only this toggles collapse -->
-                    <button type="button"
-                      class="btn btn-link p-0 chevron"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#itemPane__INDEX__"
-                      aria-controls="itemPane__INDEX__"
-                      aria-expanded="false"
-                      title="Expand/Collapse">
-                      <i class="bx bx-chevron-down fs-4"></i>
-                    </button>
+                      <!-- chevron: only this toggles collapse -->
+                      <button type="button"
+                        class="btn btn-link p-0 chevron"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#itemPane__INDEX__"
+                        aria-controls="itemPane__INDEX__"
+                        aria-expanded="false"
+                        title="Expand/Collapse">
+                        <i class="bx bx-chevron-down fs-4"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div id="itemPane__INDEX__"
+                    class="accordion-collapse collapse show"
+                    data-bs-parent="#productItems">
+                    <div class="accordion-body">
+
+                      <input type="hidden" name="items[__INDEX__][id]" value="">
+
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label">Item Name</label>
+                          <input type="text" class="form-control"
+                            name="items[__INDEX__][itemName]" value="">
+                        </div>
+
+                        <div class="col-md-6">
+                          <label class="form-label">Quantity</label>
+                          <input type="number" class="form-control"
+                            name="items[__INDEX__][quantity]" value="">
+                        </div>
+
+                        <div class="col-12">
+                          <label class="form-label">Material</label>
+                          <input type="text" class="form-control"
+                            name="items[__INDEX__][material]" placeholder="Coating, lamination, etc…" value="">
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Size (inches) – Width</label>
+                          <input name="items[__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Height</label>
+                          <input name="items[__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Length</label>
+                          <input name="items[__INDEX__][sizeLength]" type="number" step="0.01" class="form-control" value="">
+                        </div>
+
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bleed (Top)</label>
+                          <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
+                            value="{{ old('items.'.$i.'.bleedTop', data_get($item,'bleedTop')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bottom</label>
+                          <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
+                            value="{{ old('items.'.$i.'.bleedBottom', data_get($item,'bleedBottom')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Left</label>
+                          <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
+                            value="{{ old('items.'.$i.'.bleedLeft', data_get($item,'bleedLeft')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Right</label>
+                          <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
+                            value="{{ old('items.'.$i.'.bleedRight', data_get($item,'bleedRight')) }}">
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label">Lamination</label>
+                          <select name="items[0][lamination]" class="form-select">
+                            <option value="">-</option>
+                            <option>Gloss</option>
+                            <option>Matte</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Printer</label>
+                          <select name="items[0][printer]" class="form-select">
+                            <option>Printer</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Cutter</label>
+                          <select name="items[0][cutter]" class="form-select">
+                            <option>Cutter</option>
+                          </select>
+                        </div>
+                        <div class="col-md-12">
+                          <label class="form-label">Finishing</label>
+                          <input name="items[0][finishing]" type="text" class="form-control" placeholder="Coating, lamination, etc…">
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </template>
 
-                <div id="itemPane__INDEX__"
-                  class="accordion-collapse collapse show"
-                  data-bs-parent="#productItems">
-                  <div class="accordion-body">
+              {{-- Delivery Breakdown (repeater) --}}
+              <div class="d-flex align-items-center justify-content-between mt-4 mb-2">
+                <h6 class="mb-0">Delivery Breakdown</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="addDeliveryBtn">
+                  <i class="bx bx-plus me-1"></i> Add Delivery Breakdown
+                </button>
+              </div>
 
-                    <input type="hidden" name="items[__INDEX__][id]" value="">
+              <div id="deliveriesWrap" class="vstack gap-3">
+                <div class="card border shadow-none" data-delivery>
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <strong>Delivery <span class="delivery-index">1</span></strong>
+                      <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
+                    </div>
 
                     <div class="row g-3">
-                      <div class="col-md-6">
-                        <label class="form-label">Item Name</label>
-                        <input type="text" class="form-control"
-                          name="items[__INDEX__][itemName]" value="">
+                      <div class="col-12 col-md-3">
+                        <label class="form-label">Delivery Method</label>
+                        <select name="deliveries[0][method]" class="form-select">
+                          <option value="">Method</option>
+                          <option value="courier">Courier</option>
+                          <option value="pickup">Pickup</option>
+                          <option value="install">Install</option>
+                        </select>
                       </div>
 
-                      <div class="col-md-6">
+                      <div class="col-12 col-md-3">
+                        <label class="form-label">Location Address</label>
+                        <input name="deliveries[0][location]" type="text" class="form-control" placeholder="Location">
+                      </div>
+
+                      <div class="col-12 col-md-2">
                         <label class="form-label">Quantity</label>
-                        <input type="number" class="form-control"
-                          name="items[__INDEX__][quantity]" value="">
-                      </div>
-
-                      <div class="col-12">
-                        <label class="form-label">Material</label>
-                        <input type="text" class="form-control"
-                          name="items[__INDEX__][material]" placeholder="Coating, lamination, etc…" value="">
+                        <input name="deliveries[0][qty]" type="number" min="0" class="form-control" placeholder="Qty">
                       </div>
 
                       <div class="col-12 col-md-4">
-                        <label class="form-label">Size (inches) – Width</label>
-                        <input name="items[__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="">
-                      </div>
-                      <div class="col-12 col-md-4">
-                        <label class="form-label">Height</label>
-                        <input name="items[__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="">
-                      </div>
-                      <div class="col-12 col-md-4">
-                        <label class="form-label">Length</label>
-                        <input name="items[__INDEX__][sizeLength]" type="number" step="0.01" class="form-control" value="">
-                      </div>
-
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Bleed (Top)</label>
-                        <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
-                              value="{{ old('items.'.$i.'.bleedTop', data_get($item,'bleedTop')) }}">
-                      </div>
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Bottom</label>
-                        <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
-                              value="{{ old('items.'.$i.'.bleedBottom', data_get($item,'bleedBottom')) }}">
-                      </div>
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Left</label>
-                        <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
-                              value="{{ old('items.'.$i.'.bleedLeft', data_get($item,'bleedLeft')) }}">
-                      </div>
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Right</label>
-                        <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
-                              value="{{ old('items.'.$i.'.bleedRight', data_get($item,'bleedRight')) }}">
-                      </div>
-
-                      <div class="col-md-3">
-                        <label class="form-label">Lamination</label>
-                        <select name="items[0][lamination]" class="form-select">
-                          <option value="">-</option>
-                          <option>Gloss</option>
-                          <option>Matte</option>
-                        </select>
-                      </div>
-                      <div class="col-md-3">
-                        <label class="form-label">Printer</label>
-                        <select name="items[0][printer]" class="form-select">
-                          <option>Printer</option>
-                        </select>
-                      </div>
-                      <div class="col-md-3">
-                        <label class="form-label">Cutter</label>
-                        <select name="items[0][cutter]" class="form-select">
-                          <option>Cutter</option>
-                        </select>
-                      </div>
-                      <div class="col-md-12">
-                        <label class="form-label">Finishing</label>
-                        <input name="items[0][finishing]" type="text" class="form-control" placeholder="Coating, lamination, etc…">
+                        <label class="form-label">Date & Time</label>
+                        <input name="deliveries[0][datetime]" type="datetime-local" class="form-control">
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </template>
 
-            {{-- Delivery Breakdown (repeater) --}}
-            <div class="d-flex align-items-center justify-content-between mt-4 mb-2">
-              <h6 class="mb-0">Delivery Breakdown</h6>
-              <button type="button" class="btn btn-sm btn-outline-primary" id="addDeliveryBtn">
-                <i class="bx bx-plus me-1"></i> Add Delivery Breakdown
-              </button>
-            </div>
-
-            <div id="deliveriesWrap" class="vstack gap-3">
-              <div class="card border shadow-none" data-delivery>
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <strong>Delivery <span class="delivery-index">1</span></strong>
-                    <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
-                      <i class="bx bx-trash fs-5"></i>
-                    </button>
-                  </div>
-
-                  <div class="row g-3">
-                    <div class="col-12 col-md-3">
-                      <label class="form-label">Delivery Method</label>
-                      <select name="deliveries[0][method]" class="form-select">
-                        <option value="">Method</option>
-                        <option value="courier">Courier</option>
-                        <option value="pickup">Pickup</option>
-                        <option value="install">Install</option>
-                      </select>
+              {{-- Template used when clicking “Add Delivery Breakdown” --}}
+              <template id="deliveryTemplate">
+                <div class="card border shadow-none" data-delivery>
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <strong>Delivery <span class="delivery-index">__INDEX_HUMAN__</span></strong>
+                      <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
                     </div>
 
-                    <div class="col-12 col-md-3">
-                      <label class="form-label">Location Address</label>
-                      <input name="deliveries[0][location]" type="text" class="form-control" placeholder="Location">
-                    </div>
+                    <div class="row g-3">
+                      <div class="col-12 col-md-3">
+                        <label class="form-label">Delivery Method</label>
+                        <select name="deliveries[__INDEX__][method]" class="form-select">
+                          <option value="">Method</option>
+                          <option value="courier">Courier</option>
+                          <option value="pickup">Pickup</option>
+                          <option value="install">Install</option>
+                        </select>
+                      </div>
 
-                    <div class="col-12 col-md-2">
-                      <label class="form-label">Quantity</label>
-                      <input name="deliveries[0][qty]" type="number" min="0" class="form-control" placeholder="Qty">
-                    </div>
+                      <div class="col-12 col-md-3">
+                        <label class="form-label">Location Address</label>
+                        <input name="deliveries[__INDEX__][location]" type="text" class="form-control" placeholder="Location">
+                      </div>
 
-                    <div class="col-12 col-md-4">
-                      <label class="form-label">Date & Time</label>
-                      <input name="deliveries[0][datetime]" type="datetime-local" class="form-control">
+                      <div class="col-12 col-md-2">
+                        <label class="form-label">Quantity</label>
+                        <input name="deliveries[__INDEX__][qty]" type="number" min="0" class="form-control" placeholder="Qty">
+                      </div>
+
+                      <div class="col-12 col-md-4">
+                        <label class="form-label">Date & Time</label>
+                        <input name="deliveries[__INDEX__][datetime]" type="datetime-local" class="form-control">
+                      </div>
                     </div>
                   </div>
                 </div>
+              </template>
+
+              {{-- Product Remarks --}}
+              <div class="mt-4">
+                <h6 class="mb-2">Product Remarks</h6>
+                <textarea
+                  name="product[remarks]"
+                  rows="3"
+                  class="form-control"
+                  placeholder="Client requested matte finish on cover page. Ensure color matching with Pantone 286C.">{{ old('product.remarks', $product->productRemark ?? '') }}</textarea>
               </div>
+
             </div>
-
-            {{-- Template used when clicking “Add Delivery Breakdown” --}}
-            <template id="deliveryTemplate">
-              <div class="card border shadow-none" data-delivery>
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <strong>Delivery <span class="delivery-index">__INDEX_HUMAN__</span></strong>
-                    <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
-                      <i class="bx bx-trash fs-5"></i>
-                    </button>
-                  </div>
-
-                  <div class="row g-3">
-                    <div class="col-12 col-md-3">
-                      <label class="form-label">Delivery Method</label>
-                      <select name="deliveries[__INDEX__][method]" class="form-select">
-                        <option value="">Method</option>
-                        <option value="courier">Courier</option>
-                        <option value="pickup">Pickup</option>
-                        <option value="install">Install</option>
-                      </select>
-                    </div>
-
-                    <div class="col-12 col-md-3">
-                      <label class="form-label">Location Address</label>
-                      <input name="deliveries[__INDEX__][location]" type="text" class="form-control" placeholder="Location">
-                    </div>
-
-                    <div class="col-12 col-md-2">
-                      <label class="form-label">Quantity</label>
-                      <input name="deliveries[__INDEX__][qty]" type="number" min="0" class="form-control" placeholder="Qty">
-                    </div>
-
-                    <div class="col-12 col-md-4">
-                      <label class="form-label">Date & Time</label>
-                      <input name="deliveries[__INDEX__][datetime]" type="datetime-local" class="form-control">
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
-
-            {{-- Product Remarks --}}
-            <div class="mt-4">
-              <h6 class="mb-2">Product Remarks</h6>
-              <textarea
-                name="product[remarks]"
-                rows="3"
-                class="form-control"
-                placeholder="Client requested matte finish on cover page. Ensure color matching with Pantone 286C.">{{ old('product.remarks', $product->productRemark ?? '') }}</textarea>
-            </div>
-
           </div>
+
+          {{-- Attachments (bottom) --}}
+          <div class="card mt-4">
+            <div class="card-header">
+              <h5 class="card-title mb-0">Attachments</h5>
+            </div>
+
+            <div class="card-body">
+              <div id="attach-box" class="attach-box">
+                <div class="attach-inner">
+                  <div class="attach-icon" aria-hidden="true"><i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i></div>
+                  <div class="attach-title">Drop files here or click to upload</div>
+                  <div class="attach-hint">(PDF, images, docs, xlsx, ppt.)</div>
+                </div>
+
+                <!-- This input sits on top, invisible, and owns the click -->
+                <input id="fileInput" type="file" multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
+                  class="file-overlay">
+              </div>
+
+              <div id="attach-msg" class="mt-2 text-sm"></div>
+              <ul id="preview" class="mt-3 space-y-2"></ul>
+            </div>
+          </div>
+
+          <div id="form-errors" class="mt-3 text-red-600 text-sm"></div>
+
         </div>
+      </div>
 
-        {{-- Attachments (bottom) --}}
-        <div class="card mt-4">
-          <div class="card-header">
-            <h5 class="card-title mb-0">Attachments</h5>
-          </div>
+    </div>
 
-          <div class="card-body">
-            <div id="attach-box" class="attach-box">
-              <div class="attach-inner">
-                <div class="attach-icon" aria-hidden="true"><i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i></div>
-                <div class="attach-title">Drop files here or click to upload</div>
-                <div class="attach-hint">(PDF, images, docs, xlsx, ppt.)</div>
-              </div>
-
-              <!-- This input sits on top, invisible, and owns the click -->
-              <input id="fileInput" type="file" multiple
-                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
-                class="file-overlay">
-            </div>
-
-            <div id="attach-msg" class="mt-2 text-sm"></div>
-            <ul id="preview" class="mt-3 space-y-2"></ul>
-          </div>
-        </div>
-
-        <div id="form-errors" class="mt-3 text-red-600 text-sm"></div>
-
+    {{-- Sticky save bar --}}
+    <div class="col-12">
+      <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
+        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
+        <button type="submit" name="is_draft" value="1" class="btn btn-secondary">Save Draft</button>
+        <button type="submit" name="is_draft" value="0" class="btn btn-primary">Save & Submit</button>
       </div>
     </div>
-
-  </div>
-
-  {{-- Sticky save bar --}}
-  <div class="col-12">
-    <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
-      <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
-      <button type="submit" name="is_draft" value="1" class="btn btn-secondary">Save Draft</button>
-      <button type="submit" name="is_draft" value="0" class="btn btn-primary">Save & Submit</button>
-    </div>
-  </div>
   </div>
 </form>
 

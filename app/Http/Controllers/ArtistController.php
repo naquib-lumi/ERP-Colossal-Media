@@ -113,31 +113,52 @@ class ArtistController extends Controller
         return view('artist.orders', compact('orders', 'metrics'));
     }
 
-    public function edit(Order $order)
-    {
-        $user = Auth::user();
-        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
-            abort(403);
-        }
+    // app/Http/Controllers/ArtistController.php
+public function edit(Order $order)
+{
+    $user = Auth::user();
+    if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) abort(403);
 
-        $orderCode = sprintf('ORD-%04d', $order->id);
-        $today     = now()->format('M d, Y');
+    $orderCode = sprintf('ORD-%04d', $order->id);
+    $today     = now()->format('M d, Y');
 
-        // ✅ load product items and their spec (NOT materials)
-        $product = Product::with([
-            'items.spec',      // hasOne specs by ItemID
-            'breakdowns',
-        ])
+    // Product (unchanged)
+    $product = \App\Models\Product::with('breakdowns')
         ->where('OrderID', $order->id)
         ->first();
 
-        $items       = $product ? $product->items : collect();
-        $attachments = $this->getOrderAttachments($order);
+    // ✅ Items via JOIN: product_items + specifications, filtered by this order’s product(s)
+    $items = DB::table('product_items as pi')
+        ->join('products as p', 'p.ProductID', '=', 'pi.ProductID')
+        ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
+        ->where('p.OrderID', $order->id)
+        ->orderBy('pi.ItemID')
+        ->selectRaw('
+            pi.ItemID, pi.ProductID, pi.itemName, pi.quantity,
+            pi.sizeWidth, pi.sizeHeight, pi.sizeLength,
+            pi.bleedTop, pi.bleedBottom, pi.bleedLeft, pi.bleedRight,
+            pi.finishing, pi.renderTime, pi.material,
+            s.lamination, s.printer, s.cutter
+        ')
+        ->get()
+        ->values(); // ensure indexes start at 0 (for your items[{{ $i }}] names)
 
-        return view('artist.orders.edit', compact(
-            'order','orderCode','today','attachments','product','items'
-        ));
-    }
+    // If you want material shown as a string instead of JSON
+    $items = $items->map(function ($row) {
+        if (is_string($row->material) && str_starts_with($row->material, '[')) {
+            $decoded = json_decode($row->material, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $row->material = implode(', ', $decoded);
+            }
+        }
+        return $row;
+    });
+
+    $attachments = $this->getOrderAttachments($order);
+    return view('artist.orders.edit', compact(
+        'order','orderCode','today','attachments','product','items'
+    ));
+}
 
     public function update(Request $request, Order $order)
     {
