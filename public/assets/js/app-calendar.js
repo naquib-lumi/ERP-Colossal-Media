@@ -34,11 +34,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const reminderSidebar = document.getElementById('addReminderSidebar');
     const meetingSidebar = document.getElementById('addMeetingSidebar');
 
-    const calendarColors = {
-      meeting: 'primary',
-      reminder: 'warning'
-    };
-
     const bsReminderSidebar = reminderSidebar ? new bootstrap.Offcanvas(reminderSidebar) : null;
     const bsMeetingSidebar = meetingSidebar ? new bootstrap.Offcanvas(meetingSidebar) : null;
 
@@ -187,14 +182,13 @@ document.addEventListener('DOMContentLoaded', function () {
           'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         },
         success: function(data) {
+          console.log('Fetched events:', data);
           let filteredEvents = data.filter(event => calendars.includes(event.extendedProps.type) || calendars.includes('all'));
           filteredEvents = filteredEvents.map(event => {
             if (event.extendedProps.type === 'reminder') {
               const startDate = new Date(event.start);
-              //  const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // +10 minutes
               return {
                 ...event,
-                //  end: endDate.toISOString(),
                 allDay: false
               };
             }
@@ -227,9 +221,14 @@ document.addEventListener('DOMContentLoaded', function () {
       direction: direction,
       initialDate: new Date(),
       navLinks: true,
-      eventClassNames: function ({ event: calendarEvent }) {
-        const colorName = calendarColors[calendarEvent._def.extendedProps.type];
-        return ['bg-label-' + colorName];
+      eventDidMount: function(info) {
+        info.el.style.backgroundColor = info.event.backgroundColor;
+        info.el.style.borderColor = info.event.borderColor;
+        info.el.style.color = info.event.textColor || '#fff';
+        const dotEl = info.el.querySelector('.fc-daygrid-event-dot');
+        if (dotEl) {
+          dotEl.style.borderColor = info.event.borderColor;
+        }
       },
       dateClick: function (info) {
         let date = moment(info.date).format('YYYY-MM-DDTHH:mm');
@@ -243,12 +242,22 @@ document.addEventListener('DOMContentLoaded', function () {
         let modalId = 'eventDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
         if (!$('#' + modalId).length) {
           const isReminder = info.event.extendedProps.type === 'reminder';
-          const modalBody = `
-            <p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-            <p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-            <p><strong>Status:</strong> <span id="eventStatusDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-            ${isReminder ? '<button type="button" class="btn btn-success btn-confirm-complete mt-2" data-event-id="' + info.event.id + '">Confirm Completed</button>' : ''}
-          `;
+             const modalBody = `
+  <p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+  <p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+  <p><strong>Status:</strong> 
+    <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
+      <option value="scheduled" ${info.event.extendedProps.status === "scheduled" ? "selected" : ""}>Scheduled</option>
+      <option value="canceled" ${info.event.extendedProps.status === "canceled" ? "selected" : ""}>Canceled</option>
+      <option value="postponed" ${info.event.extendedProps.status === "postponed" ? "selected" : ""}>Postponed</option>
+      ${isReminder 
+        ? `<option value="completed" ${info.event.extendedProps.status === "completed" ? "selected" : ""}>Completed</option>` 
+        : ""
+      }
+    </select>
+  </p>
+`;
+
           $('body').append(`
             <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
               <div class="modal-dialog modal-dialog-centered">
@@ -292,6 +301,8 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#eventTitleDetail_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '')).text(info.event.title || 'N/A');
         $('#eventTypeDetail_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '')).text(info.event.extendedProps.type || 'N/A');
         $('#eventStatusDetail_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '')).text(info.event.extendedProps.status || 'N/A');
+
+        
 
         const eventModal = new bootstrap.Modal(document.getElementById(modalId));
         eventModal.show();
@@ -356,10 +367,11 @@ document.addEventListener('DOMContentLoaded', function () {
               form.querySelector('[name="start_time"]').value = moment(info.event.start).format('YYYY-MM-DDTHH:mm') || '';
               form.querySelector('[name="duration"]').value = moment(info.event.end).diff(moment(info.event.start), 'minutes') || '';
               const meetingType = info.event.extendedProps.meeting_type || 'online';
+              const radios = form.querySelectorAll('[name="type"]');
+              radios.forEach(r => r.checked = false);
               const radio = form.querySelector(`[name="type"][value="${meetingType}"]`);
               if (radio) {
                 radio.checked = true;
-                // Explicitly set visibility before dispatching change event
                 const onlineUrl = document.getElementById('onlineUrl');
                 const offlineLocation = document.getElementById('offlineLocation');
                 if (onlineUrl && offlineLocation) {
@@ -379,6 +391,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
           }
         });
+
+  
+
 
         $('.btn-confirm-complete').off('click').on('click', function() {
           const eventId = $(this).data('event-id');
@@ -410,6 +425,31 @@ document.addEventListener('DOMContentLoaded', function () {
             }
           });
         });
+
+              $(`#eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}`).on('change', function() {
+    const newStatus = $(this).val();
+    const type = info.event.extendedProps.type;
+    const eventId = info.event.id.replace(`${type}-`, '');
+    $.ajax({
+      url: `/calendar/${type}s/${eventId}/update-status`,
+      type: 'POST',
+      data: {
+        _token: $('meta[name="csrf-token"]').attr('content'),
+        status: newStatus
+      },
+      success: function(response) {
+        if (response.success) {
+          calendar.refetchEvents();
+          eventModal.hide();
+        } else {
+          alert('Error updating status');
+        }
+      },
+      error: function(xhr) {
+        alert('Failed to update status');
+      }
+    });
+  });
       },
       datesSet: function () {
         modifyToggler();
@@ -436,6 +476,9 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('Reminder FormData:');
         for (let [key, value] of formData.entries()) {
           console.log(key, value);
+        }
+        if (formData.get('recurrence_time') === '') {
+          formData.delete('recurrence_time');
         }
         const isUpdate = this.querySelector('button[type="submit"]').classList.contains('btn-update-event');
         const url = isUpdate ? '/calendar/reminders/' + formData.get('id') : '/calendar/reminders';

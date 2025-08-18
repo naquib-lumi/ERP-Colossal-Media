@@ -3,7 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\LeadController;
-use App\Http\Controllers\JobOrderController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\NotificationController;
@@ -57,7 +57,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:salesperson')->group(function () {
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
-        Route::get('/sales/orders', [SalesController::class, 'orders'])->name('sales.orders');
+        Route::get('/sales/orders', [OrderController::class, 'index'])->name('sales.orders');
         Route::get('/sales/calendar', [CalendarController::class, 'index'])->name('sales.calendar');
         Route::get('/calendar/events', [CalendarController::class, 'events'])->name('calendar.events');
         Route::post('/calendar/reminders', [CalendarController::class, 'storeReminder'])->name('calendar.reminders.store');
@@ -65,13 +65,22 @@ Route::middleware('auth')->group(function () {
         Route::post('/calendar/reminders/{id}/complete', [CalendarController::class, 'completeReminder'])->name('calendar.reminders.complete');
         Route::post('/calendar/meetings', [CalendarController::class, 'storeMeeting'])->name('calendar.meetings.store');
         Route::put('/calendar/meetings/{id}', [CalendarController::class, 'updateMeeting'])->name('calendar.meetings.update');
-        Route::get('/leads/search', [CalendarController::class, 'searchLeads'])->name('leads.search');
+        Route::post('/calendar/meetings/{id}/update-status', [CalendarController::class, 'updateMeetingStatus']);
+        Route::post('/calendar/reminders/{id}/update-status', [CalendarController::class, 'updateReminderStatus']);
+        Route::get('/leads/search', [LeadController::class, 'searchLeads'])->name('leads.search');
         Route::get('/leads/{id}', [LeadController::class, 'getLead'])->name('leads.get');
         
+        
         // Add Order route
-       Route::get('/sales/orders/{id}/add-order', function ($id) {
-            return view('sales.add-order', compact('id'));
-        })->name('sales.orders.add');
+        Route::get('/orders/create/{lead_id?}', [OrderController::class, 'create'])->name('orders.create');
+        Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+        Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
+        Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
+        Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
+        Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
+        Route::post('/orders/get', [OrderController::class, 'getOrders'])->name('orders.get');
+        Route::get('/orders/leads/search', [OrderController::class, 'searchLeads'])->name('orders.leads.search');
+        Route::get('/orders/leads/{id}', [OrderController::class, 'getLead'])->name('orders.leads.get');
 
         // LEAD MANAGEMENT
         Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');

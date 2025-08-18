@@ -38,6 +38,13 @@ class CalendarController extends Controller
             ->with('lead')
             ->get()
             ->map(function ($meeting) {
+                $color = match($meeting->status) {
+                    'scheduled' => '#007bff',
+                    'canceled' => '#090a0bff',
+                    'postponed' => '#007bff',
+                    default => '#007bff'
+                };
+                $textColor = ($color === '#ffc107') ? '#000' : '#fff';
                 return [
                     'id' => 'meeting-' . $meeting->id,
                     'title' => $meeting->title,
@@ -55,8 +62,9 @@ class CalendarController extends Controller
                         'lead_text' => $meeting->lead ? $meeting->lead->company_name . ' - ' . $meeting->lead->name : 'Unknown',
                         'note' => $meeting->note,
                     ],
-                    'backgroundColor' => '#007bff',
-                    'borderColor' => '#007bff',
+                    'backgroundColor' => $color,
+                    'borderColor' => $color,
+                    'textColor' => $textColor,
                 ];
             });
 
@@ -68,6 +76,7 @@ class CalendarController extends Controller
             ->get()
             ->map(function ($reminder) {
                 $color = $reminder->status === 'completed' ? '#6c757d' : ($reminder->due_date->isPast() ? '#dc3545' : '#28a745');
+                $textColor = ($color === '#ffc107') ? '#000' : '#fff';
                 return [
                     'id' => 'reminder-' . $reminder->id,
                     'title' => $reminder->title,
@@ -84,40 +93,29 @@ class CalendarController extends Controller
                     ],
                     'backgroundColor' => $color,
                     'borderColor' => $color,
+                    'textColor' => $textColor,
                 ];
             });
 
         return response()->json($meetings->merge($reminders));
     }
 
-    public function searchLeads(Request $request)
-    {
-        $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+    public function updateMeetingStatus(Request $request, $id)
+{
+    $validated = $request->validate(['status' => 'required|in:scheduled,canceled,postponed']);
+    $meeting = Meeting::findOrFail($id);
+    $meeting->update(['status' => $validated['status']]);
+    return response()->json(['success' => true]);
+}
 
-        $query = $request->input('query');
-        if (!$query || strlen($query) < 2) {
-            return response()->json([]);
-        }
-
-        $leads = Lead::where('salesperson_id', $user->id)
-            ->where(function ($q) use ($query) {
-                $q->where('company_name', 'LIKE', '%' . $query . '%')
-                  ->orWhere('name', 'LIKE', '%' . $query . '%');
-            })
-            ->take(20)
-            ->get(['id', 'company_name', 'name'])
-            ->map(function ($lead) {
-                return [
-                    'id' => $lead->id,
-                    'text' => $lead->company_name . ' - ' . $lead->name
-                ];
-            });
-
-        return response()->json($leads);
-    }
+public function updateReminderStatus(Request $request, $id)
+{
+    $validated = $request->validate(['status' => 'required|in:upcoming,completed']);
+    $reminder = Reminder::findOrFail($id);
+    $reminder->update(['status' => $validated['status']]);
+    return response()->json(['success' => true]);
+}
+    
 
     public function storeReminder(Request $request)
     {
@@ -239,6 +237,12 @@ class CalendarController extends Controller
 
         $validated['user_id'] = $user->id;
         $validated['end_time'] = Carbon::parse($validated['start_time'])->addMinutes((int) $validated['duration']);
+        unset($validated['duration']);
+        if ($validated['type'] === 'online') {
+            $validated['location'] = null;
+        } else {
+            $validated['url'] = null;
+        }
 
         try {
             $meeting = Meeting::create($validated);
@@ -250,46 +254,51 @@ class CalendarController extends Controller
         }
     }
 
-  public function updateMeeting(Request $request, $id)
-{
-    $user = Auth::user();
-    if (!$user->hasRole('salesperson')) {
-        return response()->json(['error' => 'Unauthorized'], 403);
+    public function updateMeeting(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $meeting = Meeting::findOrFail($id);
+        if ($meeting->user_id != $user->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        Log::info('updateMeeting FormData:', $request->all());
+
+        $validated = $request->validate([
+            'lead_id' => 'required|exists:leads,id',
+            'title' => 'required|string|max:255',
+            'start_time' => 'required|date',
+            'duration' => 'required|integer|min:1',
+            'type' => 'required|in:online,offline',
+            'url' => 'nullable|url|required_if:type,online',
+            'location' => 'nullable|string|required_if:type,offline',
+            'note' => 'nullable|string',
+        ]);
+
+        $lead = Lead::findOrFail($validated['lead_id']);
+        if ($lead->salesperson_id !== $user->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated['end_time'] = Carbon::parse($validated['start_time'])->addMinutes((int) $validated['duration']);
+        unset($validated['duration']);
+        if ($validated['type'] === 'online') {
+            $validated['location'] = null;
+        } else {
+            $validated['url'] = null;
+        }
+
+        try {
+            $meeting->update($validated);
+            Log::info("Meeting ID {$id} updated for lead ID {$validated['lead_id']}");
+            return response()->json(['success' => true, 'meeting' => $meeting]);
+        } catch (\Exception $e) {
+            Log::error("Error updating meeting: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to update meeting'], 500);
+        }
     }
-
-    $meeting = Meeting::findOrFail($id);
-    if ($meeting->user_id != $user->id) {
-        return response()->json(['error' => 'Unauthorized'], 403);
-    }
-
-    Log::info('updateMeeting FormData:', $request->all());
-
-    $validated = $request->validate([
-        'lead_id'   => 'required|exists:leads,id',
-        'title'     => 'required|string|max:255',
-        'start_time'=> 'required|date',
-        'type'      => 'required|in:online,offline',
-        'url'       => 'nullable|url|required_if:type,online',
-        'location'  => 'nullable|string|required_if:type,offline',
-        'note'      => 'nullable|string',
-    ]);
-
-    $lead = Lead::findOrFail($validated['lead_id']);
-    if ($lead->salesperson_id !== $user->id) {
-        return response()->json(['error' => 'Unauthorized'], 403);
-    }
-
-    // Just set end_time based on your logic (example: +1 hour from start_time)
-    $validated['end_time'] = Carbon::parse($validated['start_time'])->addHour();
-
-    try {
-        $meeting->update($validated);
-        Log::info("Meeting ID {$id} updated for lead ID {$validated['lead_id']}");
-        return response()->json(['success' => true, 'meeting' => $meeting]);
-    } catch (\Exception $e) {
-        Log::error("Error updating meeting: " . $e->getMessage());
-        return response()->json(['error' => 'Failed to update meeting'], 500);
-    }
-}
-
 }

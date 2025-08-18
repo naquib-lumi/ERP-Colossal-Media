@@ -1,4 +1,4 @@
-<!-- Common Master Blade -->
+<!-- Common Master Blade Updated -->
 <!DOCTYPE html>
 @php
     use Illuminate\Support\Str;
@@ -36,12 +36,7 @@
 <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}" />
 <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}" />
 <!-- Vendors CSS -->
-<link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
-<!-- endbuild -->
 
-<link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
-<link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
-<link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
 <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
 
 <head>
@@ -68,8 +63,7 @@
 
     <!-- Core CSS -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/pickr/pickr-themes.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}" />
+
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}" />
@@ -208,9 +202,9 @@
                     success: function(count) {
                         if (count > 0) {
                             $('.badge-notifications').text(count).show();
-                            $('.bx-bell').addClass('animate__animated animate__tada');
+                            $('.bx-bell').addClass('animate_animated animate_tada');
                             setTimeout(() => $('.bx-bell').removeClass(
-                                'animate__animated animate__tada'), 1000);
+                                'animate_animated animate_tada'), 1000);
                         } else {
                             $('.badge-notifications').remove();
                         }
@@ -224,7 +218,8 @@
     </script>
 </head>
 {{-- DataTables CSS for pages that need it --}}
-@if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/*') || Request::is('sales/leads'))
+
+@if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') || Request::is('sales/leads'))
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet"
         href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
@@ -239,17 +234,13 @@
 
 {{-- Page-level extra styles from views --}}
 @stack('styles')
-
-<!-- Helpers + Config (keep in head) -->
-<script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
-<script src="{{ asset('assets/js/config.js') }}"></script>
 </head>
 
 <body>
+
     @yield('layoutContent')
 
     <!-- Core JS (bottom, in order) -->
-    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
     <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/@algolia/autocomplete-js.js') }}"></script>
@@ -278,25 +269,14 @@
     @endif
 
     {{-- DataTables JS + export deps (AFTER jQuery) --}}
-    @if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/*') )
+    @if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') )
         <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.bootstrap5.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/datatables-select-bs5/select.bootstrap5.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/datatables-fixedcolumns-bs5/fixedcolumns.bootstrap5.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/datatables-fixedheader-bs5/fixedheader.bootstrap5.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/dropzone/dropzone-min.js') }}"></script>
 
-        <!-- Export deps -->
-        <script src="{{ asset('assets/vendor/libs/jszip/jszip.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/pdfmake/pdfmake.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/pdfmake/vfs_fonts.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.html5.js') }}"></script>
-        <script src="{{ asset('assets/vendor/libs/datatables-buttons-bs5/buttons.print.js') }}"></script>
     @endif
 
     <!-- endbuild -->
+
 
     <!-- Vendors JS -->
     @if (Request::is('sales/calendar') || Request::is('calendar'))

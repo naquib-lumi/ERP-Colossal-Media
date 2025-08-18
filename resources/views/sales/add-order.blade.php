@@ -115,13 +115,11 @@
         color: #b91c1c
     }
 </style>
-
 @endpush
 
-<form id="order-form" action="" method="POST" enctype="multipart/form-data">
+<form id="order-form" action="{{ route('orders.store') }}" method="POST" enctype="multipart/form-data">
     @csrf
-    @method('PUT')
-    <input type="hidden" name="is_draft" id="is_draft" value="0">
+    <input type="hidden" name="lead_id" id="lead_id" value="{{ $lead->id ?? '' }}">
 
     <div class="row g-4">
         <div class="col-12">
@@ -138,29 +136,33 @@
                         <div class="col-lg-6 d-flex">
                             <div class="card h-100 flex-fill mb-0">
                                 <div class="card-header">
-                                    <h5 class="mb-0">Lead Information</h5>
+                                    <h5 mb-0>Lead Information</h5>
                                 </div>
                                 <div class="card-body">
+                                    @if(!$lead)
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Search Lead</label>
+                                        <select id="leadSelect" class="form-select" style="width: 100%;">
+                                            <option value="">Search for a lead</option>
+                                        </select>
+                                    </div>
+                                    @endif
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label">Company Name</label>
-                                            <input type="text" class="form-control" value="">
-                                            <input type="hidden" name="company_name" value="">
+                                            <input id="companyDisplay" type="text" class="form-control" value="{{ $lead->company_name ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Lead Name</label>
-                                            <input type="text" class="form-control" value="">
-                                            <input type="hidden" name="lead_name" value="">
+                                            <input id="leadNameDisplay" type="text" class="form-control" value="{{ $lead->name ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Phone</label>
-                                            <input type="text" class="form-control">
-                                            <input type="hidden" name="phone_num" value="">
+                                            <input id="phoneDisplay" type="text" class="form-control" value="{{ $lead->phone ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Email</label>
-                                            <input type="text" class="form-control">
-                                            <input type="hidden" name="email" value="">
+                                            <input id="emailDisplay" type="text" class="form-control" value="{{ $lead->email ?? '' }}" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -171,40 +173,48 @@
                         <div class="col-lg-6 d-flex">
                             <div class="card h-100 flex-fill mb-0">
                                 <div class="card-header">
-                                    <h5 class="mb-0">Job Order Details</h5>
+                                    <h5 mb-0>Job Order Details</h5>
                                 </div>
                                 <div class="card-body">
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label">Job Title</label>
-                                            <input name="job_title" type="text" class="form-control">
+                                            <input name="orderTitle" type="text" class="form-control" value="{{ old('orderTitle') }}">
+                                            @error('orderTitle')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Created Date</label>
-                                            <input type="text" class="form-control">
-                                            <input type="hidden" name="created_date" value="">
+                                            <input type="text" class="form-control" value="{{ now()->format('d/m/Y') }}" readonly>
+                                            <input type="hidden" name="orderDate" value="{{ now() }}">
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Deadline</label>
-                                            <input type="text" class="form-control">
-                                            <input type="hidden" name="deadline" value="">
+                                            <input name="deadline" type="date" class="form-control" value="{{ old('deadline') }}">
+                                            @error('deadline')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
                                         </div>
                                         <div class="col-md-6 mb-4">
                                             <label class="form-label">Created By</label>
-                                            <input type="text" class="form-control" readonly>
-                                            <input type="hidden" name="created_by" value="">
+                                            <input type="text" class="form-control" value="{{ Auth::user()->name }}" readonly>
+                                            <input type="hidden" name="created_by" value="{{ Auth::user()->id }}">
                                         </div>
 
                                         <div class="col-12">
                                             <label class="form-label d-block mb-4">Design from artist would need client approval</label>
                                             <div class="d-flex gap-4">
                                                 <label class="form-check-label">
-                                                    <input class="form-check-input me-1" type="radio" name="design_confirmed" value="1"> YES
+                                                    <input class="form-check-input me-1" type="radio" name="approval" value="1" {{ old('approval') == 1 ? 'checked' : '' }}> YES
                                                 </label>
                                                 <label class="form-check-label">
-                                                    <input class="form-check-input me-1" type="radio" name="design_confirmed" value="0"> NO
+                                                    <input class="form-check-input me-1" type="radio" name="approval" value="0" {{ old('approval') == 0 ? 'checked' : '' }}> NO
                                                 </label>
                                             </div>
+                                            @error('approval')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
                                         </div>
                                     </div>
                                 </div>
@@ -251,23 +261,95 @@
                                 <!-- This input sits on top, invisible, and owns the click -->
                                 <input id="fileInput" type="file" multiple
                                     accept=".xlsx,.xls,.csv"
-                                    class="file-overlay">
+                                    class="file-overlay" name="csv_file">
                             </div>
+                            @error('csv_file')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
 
                             <div id="attach-msg" class="mt-2 text-sm"></div>
                             <ul id="preview" class="mt-3 space-y-2"></ul>
 
-                            <div id="product-list" class="mt-3"></div>
+                            <div id="product-list" class="mt-3">
+                                @foreach (old('products', []) as $index => $product)
+                                    <div class="border rounded p-3 mb-2 product-item" data-index="{{ $index }}">
+                                        <div class="d-flex justify-content-between">
+                                            <h6>Product {{ $index + 1 }}</h6>
+                                            <button type="button" class="btn btn-sm btn-danger remove-product">Remove</button>
+                                        </div>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label>Product Name</label>
+                                                <input name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}">
+                                                @error("products.$index.product_name")
+                                                    <span class="text-danger">{{ $message }}</span>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Quantity</label>
+                                                <input name="products[{{ $index }}][quantity]" type="number" class="form-control" value="{{ $product['quantity'] ?? '' }}">
+                                                @error("products.$index.quantity")
+                                                    <span class="text-danger">{{ $message }}</span>
+                                                @enderror
+                                            </div>
+                                            <div class="col-12">
+                                                <label>Remark</label>
+                                                <textarea name="products[{{ $index }}][remark]" class="form-control">{{ $product['remark'] ?? '' }}</textarea>
+                                                @error("products.$index.remark")
+                                                    <span class="text-danger">{{ $message }}</span>
+                                                @enderror
+                                            </div>
+                                            <div class="col-12">
+                                                <label>Material Info</label>
+                                                <textarea name="products[{{ $index }}][material_info]" class="form-control">{{ $product['material_info'] ?? '' }}</textarea>
+                                                @error("products.$index.material_info")
+                                                    <span class="text-danger">{{ $message }}</span>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Location</label>
+                                                <input name="products[{{ $index }}][location]" class="form-control" value="{{ $product['location'] ?? '' }}">
+                                                @error("products.$index.location")
+                                                    <span class="text-danger">{{ $message }}</span>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Date & Time</label>
+                                                <input name="products[{{ $index }}][date_time]" type="date" class="form-control" value="{{ $product['date_time'] ?? '' }}">
+                                                @error("products.$index.date_time")
+                                                    <span class="text-danger">{{ $message }}</span>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
 
                             <!-- Remarks -->
                             <div class="mt-3">
                                 <label class="form-label">Remarks</label>
-                                <textarea id="remarks" name="remarks" rows="3" class="form-control" placeholder="Remarks"></textarea>
+                                <textarea name="orderDetail" rows="3" class="form-control" placeholder="Remarks">{{ old('orderDetail') }}</textarea>
+                                @error('orderDetail')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
                             </div>
                         </div>
                     </div>
 
-                    <div id="form-errors" class="mt-3 text-red-600 text-sm"></div>
+                    @if ($errors->has('products') || $errors->has('products.*'))
+                    <div class="mt-3 text-danger text-sm">
+                        <ul>
+                            @foreach ($errors->get('products') as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                            @foreach ($errors->get('products.*') as $fieldErrors)
+                                @foreach ($fieldErrors as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            @endforeach
+                        </ul>
+                    </div>
+                    @endif
 
                 </div>
             </div>
@@ -278,7 +360,7 @@
         <div class="col-12">
             <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
                 <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
-                <button type="button" name="action" value="submit" id="btn-submit" class="btn btn-primary">Save and Submit</button>
+                <button type="submit" class="btn btn-primary">Save and Submit</button>
             </div>
         </div>
     </div>
@@ -330,71 +412,152 @@
             </div>
 
             <div class="modal-body p-3">
-                @include('sales.partials.add-product-form')
+                <form id="addProductForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label>Product Name</label>
+                            <input id="product_name" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Quantity</label>
+                            <input id="quantity" type="number" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label>Remark</label>
+                            <textarea id="remark" class="form-control"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label>Material Info</label>
+                            <textarea id="material_info" class="form-control"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Location</label>
+                            <input id="location" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Date & Time</label>
+                            <input id="date_time" type="date" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Add</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 </div>
 
-
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script>
-    (function() {
-
-        // delivery breakdown ----------------------------------------------------------------------------------
-        const wrap = document.getElementById('deliveriesWrap');
-        const addDeliveryBtn = document.getElementById('addDeliveryBtn');
-        const tpl = document.getElementById('deliveryTemplate');
-
-        function reindexDeliveries() {
-            wrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
-                // Update the visible number
-                const numEl = card.querySelector('.delivery-index');
-                if (numEl) numEl.textContent = i + 1;
-
-                // Fix names: deliveries[<i>][...]
-                card.querySelectorAll('[name]').forEach((el) => {
-                    el.name = el.name.replace(/\[deliveries\]\[\d+\]|\[deliveries\]\[__INDEX__\]/g, ''); // safety if pasted differently
-                    el.name = el.name.replace(/\[?\bdeliveries\b\]?\[\d+\]/, 'deliveries[' + i + ']')
-                        .replace(/\[\d+\]/, '[' + i + ']');
-                    // More robust: always rewrite first index occurrence
-                    el.name = el.name.replace(/deliveries\[\d+\]/, 'deliveries[' + i + ']');
-                });
-            });
-        }
-
-        function addDelivery() {
-            const index = wrap.querySelectorAll('[data-delivery]').length;
-            const html = tpl.innerHTML
-                .replace(/__INDEX__/g, index)
-                .replace(/__INDEX_HUMAN__/g, index + 1);
-
-            const temp = document.createElement('div');
-            temp.innerHTML = html.trim();
-            const node = temp.firstElementChild;
-
-            wrap.appendChild(node);
-            reindexDeliveries();
-        }
-
-        // Add delivery
-        addDeliveryBtn.addEventListener('click', addDelivery);
-
-        // Remove delivery (event delegation)
-        wrap.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-remove]');
-            if (!btn) return;
-
-            const card = btn.closest('[data-delivery]');
-            if (card) {
-                card.remove();
-                reindexDeliveries();
+    $(document).ready(function() {
+        var leadSelect = $('#leadSelect');
+        leadSelect.select2({
+            placeholder: 'Search for a lead',
+            dropdownParent: leadSelect.parent(),
+            minimumInputLength: 2,
+            ajax: {
+                url: '{{ route('orders.leads.search') }}',
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        query: params.term,
+                        _token: '{{ csrf_token() }}'
+                    };
+                },
+                processResults: function(data) {
+                    return {
+                        results: data.map(lead => ({
+                            id: lead.id,
+                            text: lead.text
+                        }))
+                    };
+                },
+                cache: true
+            },
+            escapeMarkup: function(markup) {
+                return markup;
             }
         });
-    })();
 
-    // upload attachemnt -------------------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
+        leadSelect.on('select2:select', function (e) {
+            var data = e.params.data;
+            var getLeadBase = "{{ route('orders.leads.get', ':id') }}";
+            $.ajax({
+                url: getLeadBase.replace(':id', data.id),
+                type: 'GET',
+                success: function(lead) {
+                    $('#companyDisplay').val(lead.company_name);
+                    $('#leadNameDisplay').val(lead.name);
+                    $('#phoneDisplay').val(lead.phone);
+                    $('#emailDisplay').val(lead.email);
+                    $('#lead_id').val(lead.id);
+                }
+            });
+        });
+
+        $('#addProductForm').on('submit', function(e) {
+            e.preventDefault();
+            if ($('.product-item').length >= 5) {
+                alert('Maximum 5 products allowed');
+                return;
+            }
+            var index = $('.product-item').length;
+            var html = `
+                <div class="border rounded p-3 mb-2 product-item" data-index="${index}">
+                    <div class="d-flex justify-content-between">
+                        <h6>Product ${index + 1}</h6>
+                        <button type="button" class="btn btn-sm btn-danger remove-product">Remove</button>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label>Product Name</label>
+                            <input name="products[${index}][product_name]" class="form-control" value="${$('#product_name').val()}">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Quantity</label>
+                            <input name="products[${index}][quantity]" type="number" class="form-control" value="${$('#quantity').val()}">
+                        </div>
+                        <div class="col-12">
+                            <label>Remark</label>
+                            <textarea name="products[${index}][remark]" class="form-control">${$('#remark').val()}</textarea>
+                        </div>
+                        <div class="col-12">
+                            <label>Material Info</label>
+                            <textarea name="products[${index}][material_info]" class="form-control">${$('#material_info').val()}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Location</label>
+                            <input name="products[${index}][location]" class="form-control" value="${$('#location').val()}">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Date & Time</label>
+                            <input name="products[${index}][date_time]" type="date" class="form-control" value="${$('#date_time').val()}">
+                        </div>
+                    </div>
+                </div>
+            `;
+            $('#product-list').append(html);
+            $('#addProductModal').modal('hide');
+            $('#addProductForm')[0].reset();
+        });
+
+        $(document).on('click', '.remove-product', function() {
+            $(this).closest('.product-item').remove();
+            $('.product-item').each(function(i) {
+                $(this).attr('data-index', i);
+                $(this).find('h6').text('Product ' + (i + 1));
+                $(this).find('[name]').each(function() {
+                    let name = $(this).attr('name').replace(/\[\d+\]/, '[' + i + ']');
+                    $(this).attr('name', name);
+                });
+            });
+        });
+
+        // CSV upload handling
         const input = document.getElementById('fileInput');
         const listEl = document.getElementById('preview');
         const msgEl = document.getElementById('attach-msg');
@@ -416,16 +579,10 @@
                 if (selected.has(key)) errors.push('Duplicate');
 
                 if (errors.length) {
-                    addRow(f, {
-                        status: 'error',
-                        note: errors.join(', ')
-                    });
+                    addRow(f, { status: 'error', note: errors.join(', ') });
                 } else {
                     selected.set(key, f);
-                    addRow(f, {
-                        key,
-                        status: 'ready'
-                    });
+                    addRow(f, { key, status: 'ready' });
                 }
             });
 
@@ -433,21 +590,17 @@
             input.value = '';
         });
 
-        function addRow(file, {
-            key = null,
-            status = 'ready',
-            note = ''
-        }) {
+        function addRow(file, { key = null, status = 'ready', note = '' }) {
             const li = document.createElement('li');
             li.dataset.key = key || '';
             li.innerHTML = `
-            <span>${file.name}${
-            status === 'error'
-                ? ` – <span class="err">${note}</span>`
-                : ` – <span class="ok">ready</span>`
-            }</span>
-            <button class="remove-x" title="Remove">×</button>
-        `;
+                <span>${file.name}${
+                    status === 'error'
+                        ? ` – <span class="err">${note}</span>`
+                        : ` – <span class="ok">ready</span>`
+                }</span>
+                <button class="remove-x" title="Remove">×</button>
+            `;
 
             li.querySelector('.remove-x').addEventListener('click', () => {
                 const k = li.dataset.key;
@@ -468,7 +621,6 @@
 
         window.getSelectedFiles = () => Array.from(selected.values());
 
-        // Highlight attach box on drag — noop if you already do something similar
         const box = document.getElementById('attach-box');
         if (box) {
             ['dragenter', 'dragover'].forEach(evt =>
@@ -485,30 +637,12 @@
             );
         }
 
-        // CSV template download stub (replace href if you have a real asset)
         const tmpl = document.getElementById('csvTemplateBtn');
         if (tmpl && !tmpl.dataset.wired) {
             tmpl.dataset.wired = '1';
             tmpl.addEventListener('click', (e) => {
                 e.preventDefault();
                 alert('CSV template download coming soon.');
-            });
-        }
-
-        // Add product button stub (keeps your existing functions intact)
-        const addBtn = document.getElementById('addProductBtn');
-        if (addBtn && !addBtn.dataset.wired) {
-            addBtn.dataset.wired = '1';
-            addBtn.addEventListener('click', () => {
-                // If you already have a function, call it here instead:
-                // if (window.addProductCard) return window.addProductCard();
-                const list = document.getElementById('product-list');
-                if (list) {
-                    const div = document.createElement('div');
-                    div.className = 'border rounded p-3 mb-2';
-                    div.textContent = 'Product item placeholder';
-                    list.appendChild(div);
-                }
             });
         }
     });

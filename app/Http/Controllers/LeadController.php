@@ -44,6 +44,37 @@ class LeadController extends Controller
         ]);
     }
 
+   public function searchLeads(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->hasRole('salesperson')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+
+    $query = $request->input('query');
+    if (!$query || strlen($query) < 2) {
+        return response()->json([]);
+    }
+
+    $leads = Lead::where('salesperson_id', $user->id)
+        ->where(function ($q) use ($query) {
+            $q->where('company_name', 'LIKE', '%' . $query . '%')
+              ->orWhere('name', 'LIKE', '%' . $query . '%');
+        })
+        ->take(20)
+        ->get(['id', 'company_name', 'name'])
+        ->map(function ($lead) {
+            return [
+                'id' => $lead->id,
+                'text' => $lead->company_name . ' - ' . $lead->name
+            ];
+        });
+
+    return response()->json($leads);
+}
+
+
+
     public function getLeads(Request $request)
     {
         \Log::info('getLeads called for user: ' . Auth::user()->email);
@@ -68,6 +99,8 @@ class LeadController extends Controller
                       ->orWhere('id', 'like', "%{$search}%");
             });
         }
+
+        
 
         return DataTables::of($leads)
             ->addColumn('lead_data', function ($lead) use ($user) {
@@ -156,6 +189,7 @@ class LeadController extends Controller
                     
                     // Customize relative time for overdue
                     if ($dueDate->isPast() && $reminder->status != 'completed') {
+                        $reminder->status = 'overdue'; $reminder->save();
                         $relativeTime = 'Overdue (' . $dueDate->format('Y-m-d H:i') . ')';
                     } elseif ($reminder->status == 'completed') {
                         $relativeTime = 'Completed (' . $dueDate->format('Y-m-d H:i') . ')';
@@ -441,7 +475,7 @@ public function addAttachment(Request $request, $id)
         }
 
         $request->validate([
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'artist', 'head-artist'])->pluck('id')->toArray()),
+            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
         ]);
 
         $lead->update(['salesperson_id' => $request->input('salesperson_id')]);
