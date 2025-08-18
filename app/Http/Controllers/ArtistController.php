@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Meeting;
+use App\Models\Material;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
@@ -122,11 +123,9 @@ class ArtistController extends Controller
         $today     = now()->format('M d, Y');
 
         // Product (unchanged)
-        $product = \App\Models\Product::with('breakdowns')
-            ->where('OrderID', $order->id)
-            ->first();
+        $product   = Product::with('items.spec','breakdowns')
+                    ->where('OrderID', $order->id)->first();
 
-        // ✅ Items via JOIN: product_items + specifications, filtered by this order’s product(s)
         $items = DB::table('product_items as pi')
             ->join('products as p', 'p.ProductID', '=', 'pi.ProductID')
             ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
@@ -153,26 +152,31 @@ class ArtistController extends Controller
             return $row;
         });
 
+        $materials = Material::orderBy('materialName')->pluck('materialName')->filter()->values()->all();
+
+        $allMaterials = Material::orderBy('materialName')->pluck('materialName')->values()->all();
+
         $attachments = $this->getOrderAttachments($order);
+
         return view('artist.orders.edit', compact(
-            'order','orderCode','today','attachments','product','items'
+            'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials'
         ));
     }
 
     public function update(Request $request, Order $order)
     {
-        // AuthZ: artist can only edit own orders unless head-artist
+        // AuthZ
         $user = Auth::user();
         if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
             abort(403);
         }
 
-        // Validate payload
+        // Validation
         $validated = $request->validate([
             'design_confirmed'  => ['required', 'boolean'],
             'is_draft'          => ['required', 'in:0,1'],
 
-            // Product block (optional)
+            // Product (optional)
             'product.id'        => ['nullable', 'integer'],
             'product.name'      => ['nullable', 'string', 'max:255'],
             'product.qty_total' => ['nullable', 'integer', 'min:0'],
@@ -180,50 +184,50 @@ class ArtistController extends Controller
             'product.remarks'   => ['nullable', 'string'],
 
             // Items
-            'items'                          => ['array'],
-            'items.*.id'                     => ['nullable', 'integer'],
-            'items.*.itemName'               => ['nullable', 'string', 'max:255'],
-            'items.*.quantity'               => ['nullable', 'integer', 'min:0'],
+            'items'                    => ['array'],
+            'items.*.id'               => ['nullable', 'integer'],
+            'items.*.itemName'         => ['nullable', 'string', 'max:255'],
+            'items.*.quantity'         => ['nullable', 'integer', 'min:0'],
 
-            'items.*.sizeWidth'              => ['nullable', 'numeric'],
-            'items.*.sizeHeight'             => ['nullable', 'numeric'],
-            'items.*.sizeLength'             => ['nullable', 'numeric'],
+            'items.*.sizeWidth'        => ['nullable', 'numeric'],
+            'items.*.sizeHeight'       => ['nullable', 'numeric'],
+            'items.*.sizeLength'       => ['nullable', 'numeric'],
 
-            'items.*.bleedTop'             => ['nullable','numeric'],
-            'items.*.bleedBottom'          => ['nullable','numeric'],
-            'items.*.bleedLeft'            => ['nullable','numeric'],
-            'items.*.bleedRight'           => ['nullable','numeric'],
+            'items.*.bleedTop'         => ['nullable','numeric'],
+            'items.*.bleedBottom'      => ['nullable','numeric'],
+            'items.*.bleedLeft'        => ['nullable','numeric'],
+            'items.*.bleedRight'       => ['nullable','numeric'],
 
-            'items.*.finishing'              => ['nullable', 'string', 'max:255'],
-            'items.*.renderTime'             => ['nullable', 'integer', 'min:0'],
-            'items.*.material'           => ['nullable'],
-            'items.*.material.*'         => ['nullable','string','max:255'],
+            'items.*.finishing'        => ['nullable', 'string', 'max:255'],
+            'items.*.renderTime'       => ['nullable', 'integer', 'min:0'],
+
+            'items.*.material'         => ['nullable'],
+            'items.*.material.*'       => ['nullable', 'string', 'max:255'],
 
             // spec (optional)
-            'items.*.lamination'             => ['nullable', 'string', 'max:255'],
-            'items.*.printer'                => ['nullable', 'string', 'max:255'],
-            'items.*.cutter'                 => ['nullable', 'string', 'max:255'],
+            'items.*.lamination'       => ['nullable', 'string', 'max:255'],
+            'items.*.printer'          => ['nullable', 'string', 'max:255'],
+            'items.*.cutter'           => ['nullable', 'string', 'max:255'],
 
             // Delivery breakdowns
-            'breakdowns'                     => ['array'],
-            'breakdowns.*.id'                => ['nullable', 'integer'],
-            'breakdowns.*.method'            => ['nullable', 'string', 'max:255'],
-            'breakdowns.*.quantity'          => ['nullable', 'integer', 'min:0'],
-            'breakdowns.*.date'              => ['nullable', 'date'],
-            'breakdowns.*.time'              => ['nullable', 'date_format:H:i'],
-            'breakdowns.*.location'          => ['nullable', 'string', 'max:255'],
+            'breakdowns'               => ['array'],
+            'breakdowns.*.id'          => ['nullable', 'integer'],
+            'breakdowns.*.method'      => ['nullable', 'string', 'max:255'],
+            'breakdowns.*.quantity'    => ['nullable', 'integer', 'min:0'],
+            'breakdowns.*.date'        => ['nullable', 'date'],
+            'breakdowns.*.time'        => ['nullable', 'date_format:H:i'],
+            'breakdowns.*.location'    => ['nullable', 'string', 'max:255'],
 
-            // Attachments (kept from your old flow)
-            'attachments.*'        => ['file', 'mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx', 'max:20480'],
-            'delete_attachments'   => ['array'],
-            'delete_attachments.*' => ['string'],
+            // Attachments
+            'attachments.*'            => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx','max:20480'],
+            'delete_attachments'       => ['array'],
+            'delete_attachments.*'     => ['string'],
         ]);
 
         try {
             DB::transaction(function () use ($request, $order) {
 
-                // ---------------- 1) Update order core fields you allow here ----------------
-                // Keep existing values as default so we don't blank-out columns
+                // 1) Order core
                 $order->leadName    = $request->input('leadName',    $order->leadName);
                 $order->leadPhone   = $request->input('leadPhone',   $order->leadPhone);
                 $order->companyName = $request->input('companyName', $order->companyName);
@@ -232,13 +236,12 @@ class ArtistController extends Controller
                 $order->orderTitle  = $request->input('orderTitle',  $order->orderTitle);
                 $order->orderDetail = $request->input('orderDetail', $order->orderDetail);
 
-                $order->draft       = (int) $request->input('is_draft', 0); // from submit buttons
+                $order->draft       = (int) $request->input('is_draft', 0);
                 $order->orderStatus = 'in_progress';
                 $order->approval    = $request->boolean('design_confirmed');
 
-                // ---------------- 2) Attachments: delete selected + add newly uploaded ------
+                // 2) Attachments
                 $existing = collect($this->getOrderAttachments($order));
-
                 $toDelete = collect($request->input('delete_attachments', []));
                 if ($toDelete->isNotEmpty()) {
                     $toDelete->each(fn($p) => Storage::disk('public')->delete($p));
@@ -254,7 +257,7 @@ class ArtistController extends Controller
                 $this->putOrderAttachments($order, $existing->values()->all());
                 $order->save();
 
-                // ---------------- 3) Upsert Product (create stub if children exist) ----------
+                // 3) Upsert product (reuse existing product row)
                 $product = Product::where('OrderID', $order->id)->first();
 
                 $p = $request->input('product', []);
@@ -267,7 +270,6 @@ class ArtistController extends Controller
                     $product->OrderID = $order->id;
                 }
 
-                // Only touch fields that were posted
                 if ($product) {
                     if (array_key_exists('name', $p))       $product->productName    = $p['name'];
                     if (array_key_exists('qty_total', $p))  $product->totalQuantity  = $p['qty_total'];
@@ -276,18 +278,19 @@ class ArtistController extends Controller
                     $product->save();
                 }
 
-                if (!$product) return; // nothing else to do
+                if (!$product) return;
 
-                // ---------------- 4) Upsert Items (+ optional Specification) -----------------
+                // 4) Upsert items (+spec)
                 $postedItems = collect($request->input('items', []))
                     ->filter(fn($row) => is_array($row));
 
                 $keepItemIds = [];
                 foreach ($postedItems as $row) {
-                    // completely empty rows are ignored
+                    // ignore fully empty rows
                     $isEmpty = collect($row)->filter(fn($v, $k) => $k !== 'id' && $v !== null && $v !== '')->isEmpty();
                     if ($isEmpty) continue;
 
+                    // locate or create item
                     $item = null;
                     if (!empty($row['id'])) {
                         $item = ProductItem::where('ItemID', (int)$row['id'])
@@ -299,25 +302,25 @@ class ArtistController extends Controller
                         $item->ProductID = $product->ProductID;
                     }
 
-                    foreach (
-                        [
-                            'itemName','quantity',
-                            'sizeWidth','sizeHeight','sizeLength',
-                            'bleedTop','bleedBottom','bleedLeft','bleedRight',
-                            'finishing','renderTime'
-                        ] as $key
-                    ) {
+                    // simple columns
+                    foreach ([
+                        'itemName','quantity',
+                        'sizeWidth','sizeHeight','sizeLength',
+                        'bleedTop','bleedBottom','bleedLeft','bleedRight',
+                        'finishing','renderTime'
+                    ] as $key) {
                         if (array_key_exists($key, $row)) {
-                            $item->{$key} = $row[$key];
+                            $item->{$key} = $row[$key] === '' ? null : $row[$key];
                         }
                     }
 
+                    // ✅ MATERIALS (multi-select or string)
                     if (array_key_exists('material', $row)) {
                         if (is_array($row['material'])) {
                             $clean = array_values(array_filter(array_map('trim', $row['material']), fn($v) => $v !== ''));
                             $item->material = $clean ?: null;
                         } else {
-                            $clean = array_values(array_filter(array_map('trim', explode(',', (string)$row['material'])), fn($v) => $v !== ''));
+                            $clean = array_values(array_filter(array_map('trim', explode(',', (string) $row['material'])), fn($v) => $v !== ''));
                             $item->material = $clean ?: null;
                         }
                     }
@@ -325,29 +328,28 @@ class ArtistController extends Controller
                     $item->save();
                     $keepItemIds[] = $item->ItemID;
 
-                    // Optional: one-to-one specification row for lamination/printer/cutter
+                    // One-to-one spec (optional)
                     if (
                         array_key_exists('lamination', $row) ||
-                        array_key_exists('printer', $row) ||
-                        array_key_exists('cutter', $row)
+                        array_key_exists('printer',   $row) ||
+                        array_key_exists('cutter',    $row)
                     ) {
-
                         $spec = Specification::firstOrNew(['ItemID' => $item->ItemID]);
-                        if (array_key_exists('lamination', $row)) $spec->lamination = $row['lamination'];
-                        if (array_key_exists('printer',   $row)) $spec->printer    = $row['printer'];
-                        if (array_key_exists('cutter',    $row)) $spec->cutter     = $row['cutter'];
+                        if (array_key_exists('lamination', $row)) $spec->lamination = $row['lamination'] ?: null;
+                        if (array_key_exists('printer',   $row)) $spec->printer    = $row['printer'] ?: null;
+                        if (array_key_exists('cutter',    $row)) $spec->cutter     = $row['cutter'] ?: null;
                         $spec->save();
                     }
                 }
 
-                // delete items removed in UI (optional — comment to keep old ones)
+                // delete removed items (only when some were posted)
                 if (count($keepItemIds)) {
                     ProductItem::where('ProductID', $product->ProductID)
                         ->whereNotIn('ItemID', $keepItemIds)
                         ->delete();
                 }
 
-                // ---------------- 5) Upsert Delivery Breakdowns ------------------------------
+                // 5) Upsert delivery breakdowns
                 $postedBreakdowns = collect($request->input('breakdowns', []))
                     ->filter(fn($row) => is_array($row));
 
@@ -369,7 +371,7 @@ class ArtistController extends Controller
 
                     foreach (['method', 'quantity', 'date', 'time', 'location'] as $key) {
                         if (array_key_exists($key, $row)) {
-                            $bd->{$key} = $row[$key];
+                            $bd->{$key} = $row[$key] === '' ? null : $row[$key];
                         }
                     }
                     $bd->save();

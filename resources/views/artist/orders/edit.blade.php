@@ -137,6 +137,86 @@
     border: 1px solid #e5e7eb;
     border-radius: 8px;
   }
+
+  .ti-wrap {
+    position: relative;
+    overflow: visible
+  }
+
+  .ti {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    min-height: 44px;
+    padding: .375rem .5rem;
+    border: 1px solid #ced4da;
+    border-radius: .375rem;
+    flex-wrap: wrap;
+    background: #fff;
+    cursor: text
+  }
+
+  .ti:focus-within {
+    outline: 0;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .25)
+  }
+
+  .ti-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: #edf2ff;
+    border: 1px solid #cfe2ff;
+    color: #244;
+    padding: .2rem .5rem;
+    border-radius: 999px;
+    font-size: .85rem
+  }
+
+  .ti-chip button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: #6b7280;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 .1rem;
+    line-height: 1
+  }
+
+  .ti-input {
+    border: 0;
+    outline: 0;
+    min-width: 120px;
+    flex: 1 0 120px;
+    padding: .2rem
+  }
+
+  .ti-dd {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .375rem;
+    margin-top: .25rem;
+    box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+    max-height: 220px;
+    overflow: auto;
+    display: none
+  }
+
+  .ti-dd-item {
+    padding: .45rem .6rem;
+    cursor: pointer
+  }
+
+  .ti-dd-item:hover,
+  .ti-dd-item.is-active {
+    background: #f5f8ff
+  }
 </style>
 
 @endpush
@@ -324,15 +404,24 @@
                   <i class="bx bx-plus me-1"></i> Add Item
                 </button>
               </div>
-              <div class="accordion" id="productItems" data-start-number="{{ (is_countable($itemsData)?count($itemsData):$itemsData->count()) + 1 }}" data-next-index="{{ is_countable($itemsData)?count($itemsData):$itemsData->count() }}">
+              <div class="accordion" id="productItems" data-start-number="1" data-next-index="{{ count($items ?? []) }}">
                 @foreach($items as $i => $it)
                   @php
-                    $qtyLabel = data_get($it, 'quantity', data_get($it, 'qty'));
-                    $spec = data_get($it, 'spec'); // hasOne (lamination/printer/cutter)
                     $materialVal = data_get($it, 'material');
-                    if (is_array($materialVal)) {
-                    $materialVal = implode(', ', $materialVal); // show JSON array nicely
+
+                    if (is_string($materialVal)) {
+                        $decoded = json_decode($materialVal, true);
+                        if (json_last_error() === JSON_ERROR_NONE) {
+                            $materialVal = $decoded;
+                        }
                     }
+
+                    $materialVal = collect($materialVal ?? [])->filter()->values();
+
+                    $materialSuggestions = collect($materials ?? [])
+                        ->pluck('materialName')
+                        ->filter()
+                        ->values();
                   @endphp
 
                   <div class="accordion-item mb-3 border rounded" id="item{{ $i }}" data-item-id="{{ data_get($it,'ItemID') }}">
@@ -348,21 +437,21 @@
                       <div class="d-flex align-items-center gap-2">
                         {{-- Trash Icon --}}
                         <button type="button"
-                                class="btn btn-link text-danger p-0"
-                                title="Delete this item"
-                                data-action="delete-item"
-                                data-item-id="{{ data_get($it,'ItemID') }}"
-                                data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID') ?: 0]) }}">
+                          class="btn btn-link text-danger p-0"
+                          title="Delete this item"
+                          data-action="delete-item"
+                          data-item-id="{{ data_get($it,'ItemID') }}"
+                          data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID') ?: 0]) }}">
                           <i class="bx bx-trash fs-5"></i>
                         </button>
 
                         {{-- Collapse Toggle Icon --}}
                         <button class="btn btn-link p-0"
-                                type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#itemPane{{ $i }}"
-                                aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
-                                aria-controls="itemPane{{ $i }}">
+                          type="button"
+                          data-bs-toggle="collapse"
+                          data-bs-target="#itemPane{{ $i }}"
+                          aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
+                          aria-controls="itemPane{{ $i }}">
                           <i class="bx bx-chevron-down fs-4"></i>
                         </button>
                       </div>
@@ -386,14 +475,22 @@
                               value="{{ filled($v) ? $v : (data_get($it,'quantity') ?? '') }}">
                           </div>
 
+                          <!-- display all material to select -->
+                          @php
+                            // $it is your looped item
+                            $values = $it->material ?? []; // because of the cast this is an array
+                          @endphp
+
                           <div class="col-12">
                             <label class="form-label">Material</label>
-                            @php
-                            $v = old("items.$i.material");
-                            $materialVal = filled($v) ? $v : (data_get($it,'material') ?? '');
-                            @endphp
-                            <input type="text" class="form-control" name="items[{{ $i }}][material]"
-                              value="{{ $materialVal }}">
+                            @php $materialValues = $item->material ?? []; @endphp
+                            <div
+                              class="tags-input"
+                              data-name="items[{{ $i }}][material][]"
+                              data-suggestions='@json($materialSuggestions)'
+                              data-values='@json($materialVal)'
+                              data-allow-custom="1">
+                            </div>
                           </div>
 
                           <div class="col-12 col-md-4">
@@ -484,7 +581,7 @@
                 <div class="accordion-item mb-3 border rounded" data-kind="item" id="itemWrap__INDEX__">
                   <div class="accordion-header d-flex align-items-center px-3 py-2" id="itemHdr__INDEX__">
                     <span class="fw-semibold">
-                      Item <span class="item-number"></span>
+                      Item <span class="item-number">__INDEX_HUMAN__</span>
                     </span>
 
                     <!-- actions on the far right -->
@@ -531,8 +628,13 @@
 
                         <div class="col-12">
                           <label class="form-label">Material</label>
-                          <input type="text" class="form-control"
-                            name="items[__INDEX__][material]" placeholder="Coating, lamination, etc…" value="">
+                          <div
+                            class="tags-input"
+                            data-name="items[__INDEX__][material][]"
+                            data-suggestions='@json($allMaterials ?? [])'
+                            data-values='[]'
+                            data-allow-custom="1">
+                          </div>
                         </div>
 
                         <div class="col-12 col-md-4">
@@ -864,273 +966,388 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-  window.CSRF_TOKEN = @json(csrf_token());
+  window.CSRF_TOKEN = "{{ csrf_token() }}";
   (function() {
-    // add item --------------------------------------------------------------------------------------------
-    function openOnly(id) {
-      // id like '#itemPane3'
-      document.querySelectorAll('#productItems .accordion-collapse.show')
-        .forEach(el => new bootstrap.Collapse(el, {
-          toggle: false
-        }).hide());
-      new bootstrap.Collapse(document.querySelector(id), {
-        toggle: true
-      }).show();
-    }
+      // -------------------------------------------------------------
+      // Accordion: setup
+      // -------------------------------------------------------------
+      function openOnly(id) {
+        document.querySelectorAll('#productItems .accordion-collapse.show')
+          .forEach(el => new bootstrap.Collapse(el, {
+            toggle: false
+          }).hide());
+        new bootstrap.Collapse(document.querySelector(id), {
+          toggle: true
+        }).show();
+      }
 
-    const container = document.getElementById('productItems');
-    const addBtn = document.getElementById('addItemBtn');
-    const tplEl = document.getElementById('itemTemplate');
+      const acc   = document.getElementById('productItems');
+      const tplEl = document.getElementById('itemTemplate');
+      if (!acc || !tplEl) { console.warn('[edit] Missing #productItems or #itemTemplate'); return; }
 
-    // read the starting display number and next array index from data-attrs
-    const startNumber = parseInt(container?.dataset.startNumber ?? '1', 10);
+      function normalize(v) { return (v || '').trim(); }
 
-    // seed nextIndex from data-next-index, else fall back to current count
-    let nextIndex = parseInt(container?.dataset.nextIndex ??
-      container.querySelectorAll('.accordion-item[data-kind="item"]').length, 10);
+      function hidden(name, val) {
+        const h = document.createElement('input');
+        h.type = 'hidden';
+        h.name = name;
+        h.value = val;
+        return h;
+      }
 
-    function addItem() {
-      const raw = tplEl.innerHTML;
-      const idx = nextIndex++;
-      const html = raw.replace(/__INDEX__/g, idx);
-      const frag = document.createRange().createContextualFragment(html);
-      container.appendChild(frag);
-      renumberAndLockFirst();
-    }
+      function initTagsInput(container) {
+        if (!container || container.dataset._bound === '1') return;
+        container.dataset._bound = '1';
 
-    function renumberAndLockFirst() {
-      const items = [...container.querySelectorAll('.accordion-item[data-kind="item"]')];
-      items.forEach((wrap, i) => {
-        // keep the display numbering using your startNumber
-        wrap.querySelector('.item-number').textContent = startNumber + i;
+        // read data-* from Blade
+        const name        = container.dataset.name; // e.g. items[3][material][]
+        const suggestions = JSON.parse(container.dataset.suggestions || '[]');
+        const initial     = JSON.parse(container.dataset.values || '[]');
+        const allowCustom = container.dataset.allowCustom === '1';
 
-        const del = wrap.querySelector('.delete-item');
-        if (del) del.classList.remove('d-none');
-      });
-    }
+        // build UI
+        container.innerHTML = '';
+        const wrap  = document.createElement('div'); wrap.className = 'ti-wrap';
+        const box   = document.createElement('div'); box.className  = 'ti'; box.tabIndex = 0;
+        const input = document.createElement('input'); input.className = 'ti-input'; input.placeholder = 'Click to select…'; input.readOnly = true;
+        const dd    = document.createElement('div'); dd.className   = 'ti-dd';
+        box.appendChild(input); wrap.appendChild(box); wrap.appendChild(dd);
+        container.appendChild(wrap);
 
-    // Keep header mini summary (name • qty) updated
-    function updateSummary(wrap) {
-      const name = wrap.querySelector('input[name^="items"][name$="[name]"]')?.value || '';
-      const qty = wrap.querySelector('input[name^="items"][name$="[qty]"]')?.value || '';
-      wrap.querySelector('.item-summary').textContent = name + (qty ? ` • ${qty}` : '');
-    }
+        const selected = new Set(initial.map(v => (v || '').trim()).filter(Boolean));
 
-    // Delegated events for delete, chevron, and summary update
-    container.addEventListener('click', (e) => {
-      // Delete
-      const delBtn = e.target.closest('.delete-item');
-      if (delBtn) {
-        const wrap = delBtn.closest('.accordion-item');
-        if (wrap) {
-          wrap.remove();
-          renumberAndLockFirst();
+        const hidden = (n, v) => {
+          const h = document.createElement('input');
+          h.type = 'hidden'; h.name = n; h.value = v;
+          return h;
+        };
+
+        function renderChips() {
+          [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
+          [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
+          selected.forEach(v => {
+            const chip = document.createElement('span');
+            chip.className = 'ti-chip';
+            chip.textContent = v;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.innerHTML = '&times;';
+            btn.addEventListener('click', () => { selected.delete(v); renderChips(); buildList(); });
+            chip.appendChild(btn);
+            box.insertBefore(chip, input);
+            container.appendChild(hidden(name, v));    // ← hidden inputs appended to container
+          });
         }
-        e.preventDefault();
-        e.stopPropagation();
-        return;
+
+        function buildList() {
+          const avail = suggestions.filter(s => !selected.has(s));
+          dd.innerHTML = '';
+          if (!avail.length) { dd.style.display = 'none'; return; }
+          avail.forEach((v) => {
+            const it = document.createElement('div');
+            it.className = 'ti-dd-item';
+            it.textContent = v;
+            it.addEventListener('click', () => { selected.add(v); renderChips(); buildList(); });
+            dd.appendChild(it);
+          });
+          dd.style.display = 'block';
+        }
+
+        box.addEventListener('click', () => { buildList(); dd.style.display = 'block'; });
+        input.addEventListener('focus', () => { buildList(); dd.style.display = 'block'; });
+        document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) dd.style.display = 'none'; });
+
+        renderChips(); // ← show chips for initial values from DB
       }
 
-      // Chevron is handled by Bootstrap via data-attrs.
-      // We only stop it from bubbling in case the header has listeners.
-      const chev = e.target.closest('.chevron');
-      if (chev) {
-        e.stopPropagation();
+          function initAllTagsInputs(root = document) {
+        root.querySelectorAll('.tags-input').forEach(initTagsInput);
       }
-    });
 
-    container.addEventListener('input', (e) => {
-      const wrap = e.target.closest('.accordion-item[data-kind="item"]');
-      if (wrap) updateSummary(wrap);
-    });
+      initAllTagsInputs(document);
 
-    // Add item
-    if (addBtn) addBtn.addEventListener('click', addItem);
+      // seed nextIndex from data-next-index, else fall back to current count
+      let nextIndex = parseInt(acc.dataset.nextIndex ?? String(acc.querySelectorAll('.accordion-item[data-kind="item"]').length), 10);
 
-    // Initialize summaries & first-item trash hide for server-rendered items
-    renumberAndLockFirst();
-    container.querySelectorAll('.accordion-item[data-kind="item"]').forEach(updateSummary);
+      function addItemRow() {
+          const humanNum = acc.querySelectorAll('.accordion-item[data-kind="item"]').length + 1;
 
-    // delivery breakdown ----------------------------------------------------------------------------------
-    const wrap = document.getElementById('deliveriesWrap');
-    const addDeliveryBtn = document.getElementById('addDeliveryBtn');
-    const tpl = document.getElementById('deliveryTemplate');
+        const html = tplEl.innerHTML.replace(/__INDEX__/g, String(nextIndex)).replace(/__INDEX_HUMAN__/g, String(humanNum)); ;
+  const frag = document.createRange().createContextualFragment(html);
+  const row  = frag.firstElementChild;
+        if (!row) return;
 
-    function reindexDeliveries() {
-      wrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
-        // Update the visible number
-        const numEl = card.querySelector('.delivery-index');
-        if (numEl) numEl.textContent = i + 1;
+        acc.appendChild(row);
 
-        // Fix names: deliveries[<i>][...]
-        card.querySelectorAll('[name]').forEach((el) => {
-          el.name = el.name.replace(/\[deliveries\]\[\d+\]|\[deliveries\]\[__INDEX__\]/g, ''); // safety if pasted differently
-          el.name = el.name.replace(/\[?\bdeliveries\b\]?\[\d+\]/, 'deliveries[' + i + ']')
-            .replace(/\[\d+\]/, '[' + i + ']');
-          // More robust: always rewrite first index occurrence
-          el.name = el.name.replace(/deliveries\[\d+\]/, 'deliveries[' + i + ']');
-        });
+        // open new collapse via Bootstrap
+        const pane = row.querySelector('.accordion-collapse');
+        const btn  = row.querySelector('[data-bs-toggle="collapse"]');
+        if (pane) {
+          pane.setAttribute('data-bs-parent', '#productItems');
+          bootstrap.Collapse.getOrCreateInstance(pane, { toggle: false }).show();
+        }
+        if (btn) {
+          btn.classList.remove('collapsed');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+
+        nextIndex++;
+        acc.dataset.nextIndex = String(nextIndex);
+        initAllTagsInputs(row);
+        // wire dynamic controls inside this new row exactly once
+        wireRow(row);
+        initAllTagsInputs(row);
+        updateSummary(row);
+
+        row.querySelectorAll('.item-number').forEach(n => n.textContent = String(humanNum));
+
+  // keep your global counter and a full renumber pass if you want
+  nextIndex++;
+  acc.dataset.nextIndex = String(nextIndex);
+        renumberOnly(); // just update labels (no re-wiring)
+      }
+
+      function wireRow(wrap) {
+        if (!wrap || wrap.dataset.wired === '1') return;
+        wrap.dataset.wired = '1';
+
+        // delete button
+        const delBtn = wrap.querySelector('.remove-item-btn, .delete-item');
+        if (delBtn) {
+          delBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            wrap.remove();
+            renumberOnly();                 // no re-wiring; rows already wired
+            acc.dataset.nextIndex = String(acc.querySelectorAll('.accordion-item').length);
+          });
+        }
+
+        // inputs to keep summary updated
+        wrap.addEventListener('input', () => updateSummary(wrap), { passive: true });
+      }
+
+      // Keep header mini summary (name • qty) updated
+      function updateSummary(wrap) {
+        const name = wrap.querySelector('input[name^="items"][name$="[name]"]')?.value || '';
+        const qty  = wrap.querySelector('input[name^="items"][name$="[qty]"]')?.value || '';
+        const el   = wrap.querySelector('.item-summary');
+        if (el) el.textContent = name + (qty ? ` • ${qty}` : '');
+      }
+
+      function renumberOnly() {
+        const items = acc.querySelectorAll('.accordion-item[data-kind="item"]');
+  items.forEach((el, idx) => {
+    el.querySelectorAll('.item-number').forEach(n => n.textContent = String(idx + 1));
+    // also keep collapse ids in sync if needed
+    const pane = el.querySelector('.accordion-collapse');
+    if (pane) pane.id = `itemPane${idx}`;
+    const btn  = el.querySelector('[data-bs-toggle="collapse"]');
+    if (btn) { btn.setAttribute('data-bs-target', `#itemPane${idx}`); btn.setAttribute('aria-controls', `itemPane${idx}`); }
+    el.id = `item${idx}`;
+  });
+  acc.dataset.nextIndex = String(items.length);
+      }
+
+      // Delegated events for delete, chevron, and summary update
+      acc.querySelectorAll('.accordion-item[data-kind="item"]').forEach((wrap) => {
+        wireRow(wrap);
+        updateSummary(wrap);
+        initAllTagsInputs(wrap);     // ✅ add this
       });
-    }
+      renumberOnly();
+      
+      document.getElementById('addItemBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        addItemRow();
+      });
 
-    function addDelivery() {
-      const index = wrap.querySelectorAll('[data-delivery]').length;
-      const html = tpl.innerHTML
-        .replace(/__INDEX__/g, index)
-        .replace(/__INDEX_HUMAN__/g, index + 1);
+      // delivery breakdown ----------------------------------------------------------------------------------
+      const wrap = document.getElementById('deliveriesWrap');
+      const addDeliveryBtn = document.getElementById('addDeliveryBtn');
+      const tpl = document.getElementById('deliveryTemplate');
 
-      const temp = document.createElement('div');
-      temp.innerHTML = html.trim();
-      const node = temp.firstElementChild;
+      function reindexDeliveries() {
+        wrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
+          // Update the visible number
+          const numEl = card.querySelector('.delivery-index');
+          if (numEl) numEl.textContent = i + 1;
 
-      wrap.appendChild(node);
-      reindexDeliveries();
-    }
+          // Fix names: deliveries[<i>][...]
+          card.querySelectorAll('[name]').forEach((el) => {
+            el.name = el.name.replace(/\[deliveries\]\[\d+\]|\[deliveries\]\[__INDEX__\]/g, ''); // safety if pasted differently
+            el.name = el.name.replace(/\[?\bdeliveries\b\]?\[\d+\]/, 'deliveries[' + i + ']')
+              .replace(/\[\d+\]/, '[' + i + ']');
+            // More robust: always rewrite first index occurrence
+            el.name = el.name.replace(/deliveries\[\d+\]/, 'deliveries[' + i + ']');
+          });
+        });
+      }
 
-    // Add delivery
-    addDeliveryBtn.addEventListener('click', addDelivery);
+      function addDelivery() {
+        const index = wrap.querySelectorAll('[data-delivery]').length;
+        const html = tpl.innerHTML
+          .replace(/__INDEX__/g, index)
+          .replace(/__INDEX_HUMAN__/g, index + 1);
 
-    // Remove delivery (event delegation)
-    wrap.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-remove]');
-      if (!btn) return;
+        const temp = document.createElement('div');
+        temp.innerHTML = html.trim();
+        const node = temp.firstElementChild;
 
-      const card = btn.closest('[data-delivery]');
-      if (card) {
-        card.remove();
+        wrap.appendChild(node);
         reindexDeliveries();
       }
-    });
 
-    function renumberItems() {
-      // Update the "Item N" labels after a removal
-      const items = container.querySelectorAll('.accordion-item');
-      items.forEach((el, idx) => {
-        const title = el.querySelector('.fw-semibold');
-        if (title) title.textContent = `Item ${idx + 1}`;
-      });
-    }
+      // Add delivery
+      addDeliveryBtn.addEventListener('click', addDelivery);
 
-    async function deleteItemOnServer(url) {
-      const res = await fetch(url, {
-        method: 'DELETE',
-        headers: {
-          'X-CSRF-TOKEN': window.CSRF_TOKEN,
-          'Accept': 'application/json'
+      // Remove delivery (event delegation)
+      wrap.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-remove]');
+        if (!btn) return;
+
+        const card = btn.closest('[data-delivery]');
+        if (card) {
+          card.remove();
+          reindexDeliveries();
         }
       });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status}: ${txt || 'Delete failed'}`);
+
+      function renumberItems() {
+        // Use the single numbering function from above
+        renumberOnly();
       }
-      const data = await res.json();
-      if (!data?.ok) throw new Error('Delete failed');
-      return true;
-    }
 
-    document.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-action="delete-item"]');
-      if (!btn) return;
-
-      const itemEl = btn.closest('.accordion-item');
-      if (!itemEl) return;
-
-      const itemId = btn.dataset.itemId; // may be "" for unsaved items
-      const url    = btn.dataset.url;
-
-      // Confirm
-      if (window.Swal) {
-        const c = await Swal.fire({
-          icon: 'warning',
-          title: 'Delete this item?',
-          text: 'This cannot be undone.',
-          showCancelButton: true,
-          confirmButtonText: 'Delete',
-          confirmButtonColor: '#d33'
+      async function deleteItemOnServer(url) {
+        const res = await fetch(url, {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-TOKEN': window.CSRF_TOKEN,
+            'Accept': 'application/json'
+          }
         });
-        if (!c.isConfirmed) return;
-      } else if (!confirm('Delete this item?')) {
-        return;
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(`HTTP ${res.status}: ${txt || 'Delete failed'}`);
+        }
+        const data = await res.json();
+        if (!data?.ok) throw new Error('Delete failed');
+        return true;
       }
 
-      // If no ItemID (unsaved), just remove the block client-side
-      try {
-        if (!itemId) {
-          itemEl.remove();
-          renumberItems();
+      document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-action="delete-item"]');
+        if (!btn) return;
+
+        const itemEl = btn.closest('.accordion-item');
+        if (!itemEl) return;
+
+        const itemId = btn.dataset.itemId; // may be "" for unsaved items
+        const url = btn.dataset.url;
+
+        // Confirm
+        if (window.Swal) {
+          const c = await Swal.fire({
+            icon: 'warning',
+            title: 'Delete this item?',
+            text: 'This cannot be undone.',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            confirmButtonColor: '#d33'
+          });
+          if (!c.isConfirmed) return;
+        } else if (!confirm('Delete this item?')) {
           return;
         }
 
-        // Existing item → call server
-        await deleteItemOnServer(url);
+        // If no ItemID (unsaved), just remove the block client-side
+        try {
+          if (!itemId) {
+            itemEl.remove();
+            renumberItems();
+            return;
+          }
 
-        // Remove from DOM
-        itemEl.remove();
-        renumberItems();
+          // Existing item → call server
+          await deleteItemOnServer(url);
 
-        // Optional toast
-        if (window.Swal) {
-          Swal.fire({icon:'success', title:'Item deleted', timer:1200, showConfirmButton:false});
-        }
-      } catch (err) {
-        console.error(err);
-        if (window.Swal) {
-          Swal.fire({icon:'error', title:'Delete failed', text:String(err)});
-        } else {
-          alert('Delete failed: ' + err);
-        }
-      }
-    });
-  })();
+          // Remove from DOM
+          itemEl.remove();
+          renumberItems();
 
-  // upload attachemnt -------------------------------------------------------
-  document.addEventListener('DOMContentLoaded', () => {
-    const input = document.getElementById('fileInput');
-    const listEl = document.getElementById('preview');
-    const msgEl = document.getElementById('attach-msg');
-
-    const ALLOWED = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
-
-    const selected = new Map();
-
-    input.addEventListener('change', () => {
-      if (!input.files?.length) return;
-      const incoming = Array.from(input.files);
-
-      incoming.forEach(f => {
-        const ext = (f.name.split('.').pop() || '').toLowerCase();
-        const key = `${f.name}|${f.size}|${f.lastModified}`;
-
-        const errors = [];
-        if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
-        if (selected.has(key)) errors.push('Duplicate');
-
-        if (errors.length) {
-          addRow(f, {
-            status: 'error',
-            note: errors.join(', ')
-          });
-        } else {
-          selected.set(key, f);
-          addRow(f, {
-            key,
-            status: 'ready'
-          });
+          // Optional toast
+          if (window.Swal) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Item deleted',
+              timer: 1200,
+              showConfirmButton: false
+            });
+          }
+        } catch (err) {
+          console.error(err);
+          if (window.Swal) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Delete failed',
+              text: String(err)
+            });
+          } else {
+            alert('Delete failed: ' + err);
+          }
         }
       });
 
-      updateSummary();
-      input.value = '';
-    });
 
-    function addRow(file, {
-      key = null,
-      status = 'ready',
-      note = ''
-    }) {
-      const li = document.createElement('li');
-      li.dataset.key = key || '';
-      li.innerHTML = `
+    })();
+
+    // upload attachemnt -------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('fileInput');
+      const listEl = document.getElementById('preview');
+      const msgEl = document.getElementById('attach-msg');
+
+      const ALLOWED = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+
+      const selected = new Map();
+
+      input.addEventListener('change', () => {
+        if (!input.files?.length) return;
+        const incoming = Array.from(input.files);
+
+        incoming.forEach(f => {
+          const ext = (f.name.split('.').pop() || '').toLowerCase();
+          const key = `${f.name}|${f.size}|${f.lastModified}`;
+
+          const errors = [];
+          if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
+          if (selected.has(key)) errors.push('Duplicate');
+
+          if (errors.length) {
+            addRow(f, {
+              status: 'error',
+              note: errors.join(', ')
+            });
+          } else {
+            selected.set(key, f);
+            addRow(f, {
+              key,
+              status: 'ready'
+            });
+          }
+        });
+
+        updateSummary();
+        input.value = '';
+      });
+
+      function addRow(file, {
+        key = null,
+        status = 'ready',
+        note = ''
+      }) {
+        const li = document.createElement('li');
+        li.dataset.key = key || '';
+        li.innerHTML = `
         <span>${file.name}${
           status === 'error'
             ? ` – <span class="err">${note}</span>`
@@ -1139,228 +1356,188 @@
         <button class="remove-x" title="Remove">×</button>
       `;
 
-      li.querySelector('.remove-x').addEventListener('click', () => {
-        const k = li.dataset.key;
-        if (k && selected.has(k)) selected.delete(k);
-        li.remove();
-        updateSummary();
+        li.querySelector('.remove-x').addEventListener('click', () => {
+          const k = li.dataset.key;
+          if (k && selected.has(k)) selected.delete(k);
+          li.remove();
+          updateSummary();
+        });
+
+        listEl.appendChild(li);
+      }
+
+      function updateSummary() {
+        const count = selected.size;
+        msgEl.innerHTML = count ?
+          `<span class="ok">${count} file(s) selected for upload</span>` :
+          '';
+      }
+
+      window.getSelectedFiles = () => Array.from(selected.values());
+
+      // submit order form
+      const form = document.getElementById('order-form');
+      const btnDraft = document.getElementById('btn-draft');
+      const btnSubmit = document.getElementById('btn-submit');
+      const isDraftEl = document.getElementById('is_draft');
+      const overlay = document.getElementById('loading-overlay');
+
+      const action = @json(route('artist.orders.update', $order));
+      const csrf = @json(csrf_token());
+
+      function getSelectedFiles() {
+        return (typeof window.getSelectedFiles === 'function') ? window.getSelectedFiles() : [];
+      }
+
+      function loading(on) {
+        overlay.classList.toggle('is-open', !!on);
+        btnDraft.disabled = btnSubmit.disabled = !!on;
+      }
+      const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
+
+      async function send(isDraft) {
+        isDraftEl.value = isDraft ? 1 : 0;
+
+        const fd = new FormData(form);
+        fd.set('is_draft', isDraftEl.value);
+        fd.append('_method', 'PUT');
+        for (const f of getSelectedFiles()) fd.append('attachments[]', f);
+
+        // 1) show loading and allow the browser to paint it
+        loading(true);
+        await nextPaint(); // ensures "Saving… please wait" is visible
+
+        let res, data;
+        try {
+          res = await fetch(action, {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: {
+              'X-CSRF-TOKEN': csrf,
+              'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
+            }
+          });
+
+          if (res.status === 422) {
+            data = await res.json().catch(() => ({}));
+            // 2) hide loading BEFORE showing SweetAlert
+            loading(false);
+            const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
+            await Swal.fire({
+              icon: 'error',
+              title: 'Validation error',
+              text: msg
+            });
+            return;
+          }
+
+          data = await res.json().catch(() => ({}));
+
+          // 2) hide loading BEFORE showing SweetAlert
+          loading(false);
+
+          if (res.ok && data?.ok) {
+            await Swal.fire({
+              icon: 'success',
+              title: isDraft ? 'Draft saved' : 'Order saved',
+              text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
+            });
+            // optional refresh
+            window.location.reload();
+          } else {
+            await Swal.fire({
+              icon: 'error',
+              title: 'Save failed',
+              text: data?.message || `HTTP ${res.status} — please try again`
+            });
+          }
+        } catch (e) {
+          console.error(e);
+          loading(false); // be sure to hide on network errors too
+          await Swal.fire({
+            icon: 'error',
+            title: 'Network error',
+            text: 'Could not save. Please try again.'
+          });
+        }
+      }
+
+      const draftBtn = document.getElementById('btn-draft');
+      const submitBtn = document.getElementById('btn-submit');
+
+      if (draftBtn) draftBtn.addEventListener('click', () => send(true));
+      if (submitBtn) submitBtn.addEventListener('click', () => send(false));
+
+      const acc = document.getElementById('productItems');
+      if (!acc) return;
+
+      // Set next index based on how many items exist on load
+      const existingCount = acc.querySelectorAll('.accordion-item').length;
+      acc.dataset.nextIndex = String(existingCount);
+
+      // Wire existing remove buttons
+      acc.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const idx = parseInt(btn.dataset.index, 10);
+          removeItem(idx);
+        });
       });
 
-      listEl.appendChild(li);
-    }
+      // Public function for inline onclick="removeItem(i, event)" compatibility
+      window.removeItem = function(idx, ev) {
+        if (ev) ev.preventDefault();
+        const el = document.getElementById(`item${idx}`);
+        if (el) el.remove();
+        reindexItems();
+      };
 
-    function updateSummary() {
-      const count = selected.size;
-      msgEl.innerHTML = count ?
-        `<span class="ok">${count} file(s) selected for upload</span>` :
-        '';
-    }
+      // ---------- helpers for Material tags ----------
+      
 
-    window.getSelectedFiles = () => Array.from(selected.values());
+      function reindexItems() {
+        const items = [...acc.querySelectorAll('.accordion-item[data-kind="item"]')];
+        items.forEach((itemEl, newIdx) => {
+          const oldId = itemEl.id; // e.g., "item3"
+          const oldIdxMatch = oldId.match(/^item(\d+)$/);
+          const oldIdx = oldIdxMatch ? parseInt(oldIdxMatch[1], 10) : newIdx;
 
-    // submit order form
-    const form = document.getElementById('order-form');
-    const btnDraft = document.getElementById('btn-draft');
-    const btnSubmit = document.getElementById('btn-submit');
-    const isDraftEl = document.getElementById('is_draft');
-    const overlay = document.getElementById('loading-overlay');
+          // IDs
+          itemEl.id = `item${newIdx}`;
 
-    const action = @json(route('artist.orders.update', $order));
-    const csrf = @json(csrf_token());
+          const header = itemEl.querySelector('.fw-semibold');
+          if (header) header.textContent = `Item ${newIdx + 1}`;
 
-    function getSelectedFiles() {
-      return (typeof window.getSelectedFiles === 'function') ? window.getSelectedFiles() : [];
-    }
+          // Collapse ids/targets
+          const pane = itemEl.querySelector('.accordion-collapse');
+          if (pane) {
+            pane.id = `itemPane${newIdx}`;
+            pane.setAttribute('data-bs-parent', '#productItems');
+          }
+          const toggleBtn = itemEl.querySelector('[data-bs-toggle="collapse"]');
+          if (toggleBtn) {
+            toggleBtn.setAttribute('data-bs-target', `#itemPane${newIdx}`);
+            toggleBtn.setAttribute('aria-controls', `itemPane${newIdx}`);
+          }
 
-    function loading(on) {
-      overlay.classList.toggle('is-open', !!on);
-      btnDraft.disabled = btnSubmit.disabled = !!on;
-    }
-    const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
+          // Hidden id input stays the same value, but rename the name index
+          // Update all [name="items[<n>]..."] to the new index
+          itemEl.querySelectorAll('[name^="items["]').forEach(inp => {
+            inp.name = inp.name.replace(/items\[\d+\]/, `items[${newIdx}]`);
+          });
 
-    async function send(isDraft) {
-      isDraftEl.value = isDraft ? 1 : 0;
-
-      const fd = new FormData(form);
-      fd.set('is_draft', isDraftEl.value);
-      fd.append('_method', 'PUT');
-      for (const f of getSelectedFiles()) fd.append('attachments[]', f);
-
-      // 1) show loading and allow the browser to paint it
-      loading(true);
-      await nextPaint(); // ensures "Saving… please wait" is visible
-
-      let res, data;
-      try {
-        res = await fetch(action, {
-          method: 'POST',
-          body: fd,
-          credentials: 'same-origin',
-          headers: {
-            'X-CSRF-TOKEN': csrf,
-            'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
+          // Update remove button index
+          const del = itemEl.querySelector('.remove-item-btn');
+          if (del) {
+            del.dataset.index = String(newIdx);
           }
         });
 
-        if (res.status === 422) {
-          data = await res.json().catch(() => ({}));
-          // 2) hide loading BEFORE showing SweetAlert
-          loading(false);
-          const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
-          await Swal.fire({
-            icon: 'error',
-            title: 'Validation error',
-            text: msg
-          });
-          return;
-        }
-
-        data = await res.json().catch(() => ({}));
-
-        // 2) hide loading BEFORE showing SweetAlert
-        loading(false);
-
-        if (res.ok && data?.ok) {
-          await Swal.fire({
-            icon: 'success',
-            title: isDraft ? 'Draft saved' : 'Order saved',
-            text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
-          });
-          // optional refresh
-          window.location.reload();
-        } else {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Save failed',
-            text: data?.message || `HTTP ${res.status} — please try again`
-          });
-        }
-      } catch (e) {
-        console.error(e);
-        loading(false); // be sure to hide on network errors too
-        await Swal.fire({
-          icon: 'error',
-          title: 'Network error',
-          text: 'Could not save. Please try again.'
-        });
+        // Set nextIndex to count
+        acc.dataset.nextIndex = String(items.length);
       }
-    }
-
-    document.getElementById('btn-draft').addEventListener('click', () => send(true));
-    document.getElementById('btn-submit').addEventListener('click', () => send(false));
-
-    const acc = document.getElementById('productItems');
-    if (!acc) return;
-
-    // Set next index based on how many items exist on load
-    const existingCount = acc.querySelectorAll('.accordion-item').length;
-    acc.dataset.nextIndex = String(existingCount);
-
-    // Wire existing remove buttons
-    acc.querySelectorAll('.remove-item-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const idx = parseInt(btn.dataset.index, 10);
-        removeItem(idx);
-      });
+      
     });
-
-    // Public function for inline onclick="removeItem(i, event)" compatibility
-    window.removeItem = function(idx, ev) {
-      if (ev) ev.preventDefault();
-      const el = document.getElementById(`item${idx}`);
-      if (el) el.remove();
-      reindexItems();
-    };
-
-    // Add item button (ensure you have a button with id="addItemBtn")
-    const addBtn = document.getElementById('addItemBtn');
-    if (addBtn) {
-      addBtn.addEventListener('click', addItem);
-    }
-
-    function addItem() {
-      const tpl = document.getElementById('item-template');
-      if (!tpl) return;
-
-      const next = parseInt(acc.dataset.nextIndex || '0', 10);
-      const html = tpl.innerHTML
-        .replaceAll('__INDEX__', next)
-        .replaceAll('__HUMAN_INDEX__', next + 1);
-
-      // insert at end
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = html.trim();
-      const node = wrapper.firstElementChild;
-
-      // Hide the delete icon on the very first item only; for new we keep it visible
-      // (no change needed here—your template already shows it)
-
-      acc.appendChild(node);
-
-      // Wire its delete button
-      const del = node.querySelector('.remove-item-btn');
-      if (del) {
-        del.dataset.index = String(next);
-        del.addEventListener('click', (e) => {
-          e.preventDefault();
-          node.remove();
-          reindexItems();
-        });
-      }
-
-      // Bootstrap: ensure only the newly-added item is expanded (optional)
-      // collapse others
-      acc.querySelectorAll('.accordion-collapse.show').forEach(pane => {
-        pane.classList.remove('show');
-      });
-      node.querySelector('.accordion-collapse')?.classList.add('show');
-
-      // bump counter
-      acc.dataset.nextIndex = String(next + 1);
-    }
-
-    function reindexItems() {
-      const items = Array.from(acc.querySelectorAll('.accordion-item'));
-      items.forEach((itemEl, newIdx) => {
-        const oldId = itemEl.id; // e.g., "item3"
-        const oldIdxMatch = oldId.match(/^item(\d+)$/);
-        const oldIdx = oldIdxMatch ? parseInt(oldIdxMatch[1], 10) : newIdx;
-
-        // IDs
-        itemEl.id = `item${newIdx}`;
-
-        const header = itemEl.querySelector('.fw-semibold');
-        if (header) header.textContent = `Item ${newIdx + 1}`;
-
-        // Collapse ids/targets
-        const pane = itemEl.querySelector('.accordion-collapse');
-        if (pane) {
-          pane.id = `itemPane${newIdx}`;
-          pane.setAttribute('data-bs-parent', '#productItems');
-        }
-        const toggleBtn = itemEl.querySelector('[data-bs-toggle="collapse"]');
-        if (toggleBtn) {
-          toggleBtn.setAttribute('data-bs-target', `#itemPane${newIdx}`);
-          toggleBtn.setAttribute('aria-controls', `itemPane${newIdx}`);
-        }
-
-        // Hidden id input stays the same value, but rename the name index
-        // Update all [name="items[<n>]..."] to the new index
-        itemEl.querySelectorAll('[name^="items["]').forEach(inp => {
-          inp.name = inp.name.replace(/items\[\d+\]/, `items[${newIdx}]`);
-        });
-
-        // Update remove button index
-        const del = itemEl.querySelector('.remove-item-btn');
-        if (del) {
-          del.dataset.index = String(newIdx);
-        }
-      });
-
-      // Set nextIndex to count
-      acc.dataset.nextIndex = String(items.length);
-    }
-  });
 </script>
 @endpush
