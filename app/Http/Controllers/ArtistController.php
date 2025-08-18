@@ -113,52 +113,51 @@ class ArtistController extends Controller
         return view('artist.orders', compact('orders', 'metrics'));
     }
 
-    // app/Http/Controllers/ArtistController.php
-public function edit(Order $order)
-{
-    $user = Auth::user();
-    if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) abort(403);
+    public function edit(Order $order)
+    {
+        $user = Auth::user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) abort(403);
 
-    $orderCode = sprintf('ORD-%04d', $order->id);
-    $today     = now()->format('M d, Y');
+        $orderCode = sprintf('ORD-%04d', $order->id);
+        $today     = now()->format('M d, Y');
 
-    // Product (unchanged)
-    $product = \App\Models\Product::with('breakdowns')
-        ->where('OrderID', $order->id)
-        ->first();
+        // Product (unchanged)
+        $product = \App\Models\Product::with('breakdowns')
+            ->where('OrderID', $order->id)
+            ->first();
 
-    // ✅ Items via JOIN: product_items + specifications, filtered by this order’s product(s)
-    $items = DB::table('product_items as pi')
-        ->join('products as p', 'p.ProductID', '=', 'pi.ProductID')
-        ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
-        ->where('p.OrderID', $order->id)
-        ->orderBy('pi.ItemID')
-        ->selectRaw('
-            pi.ItemID, pi.ProductID, pi.itemName, pi.quantity,
-            pi.sizeWidth, pi.sizeHeight, pi.sizeLength,
-            pi.bleedTop, pi.bleedBottom, pi.bleedLeft, pi.bleedRight,
-            pi.finishing, pi.renderTime, pi.material,
-            s.lamination, s.printer, s.cutter
-        ')
-        ->get()
-        ->values(); // ensure indexes start at 0 (for your items[{{ $i }}] names)
+        // ✅ Items via JOIN: product_items + specifications, filtered by this order’s product(s)
+        $items = DB::table('product_items as pi')
+            ->join('products as p', 'p.ProductID', '=', 'pi.ProductID')
+            ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
+            ->where('p.OrderID', $order->id)
+            ->orderBy('pi.ItemID')
+            ->selectRaw('
+                pi.ItemID, pi.ProductID, pi.itemName, pi.quantity,
+                pi.sizeWidth, pi.sizeHeight, pi.sizeLength,
+                pi.bleedTop, pi.bleedBottom, pi.bleedLeft, pi.bleedRight,
+                pi.finishing, pi.renderTime, pi.material,
+                s.lamination, s.printer, s.cutter
+            ')
+            ->get()
+            ->values(); // ensure indexes start at 0 (for your items[{{ $i }}] names)
 
-    // If you want material shown as a string instead of JSON
-    $items = $items->map(function ($row) {
-        if (is_string($row->material) && str_starts_with($row->material, '[')) {
-            $decoded = json_decode($row->material, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $row->material = implode(', ', $decoded);
+        // If you want material shown as a string instead of JSON
+        $items = $items->map(function ($row) {
+            if (is_string($row->material) && str_starts_with($row->material, '[')) {
+                $decoded = json_decode($row->material, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $row->material = implode(', ', $decoded);
+                }
             }
-        }
-        return $row;
-    });
+            return $row;
+        });
 
-    $attachments = $this->getOrderAttachments($order);
-    return view('artist.orders.edit', compact(
-        'order','orderCode','today','attachments','product','items'
-    ));
-}
+        $attachments = $this->getOrderAttachments($order);
+        return view('artist.orders.edit', compact(
+            'order','orderCode','today','attachments','product','items'
+        ));
+    }
 
     public function update(Request $request, Order $order)
     {
@@ -477,6 +476,26 @@ public function edit(Order $order)
             ->reject(fn($p) => trim($p) === $path)
             ->values()->all();
         $this->putOrderAttachments($order, $list);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function destroyItem(Request $request, Order $order, ProductItem $item)
+    {
+        // Permission: artist must be assigned OR head-artist
+        $user = Auth::user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            return response()->json(['ok' => false, 'msg' => 'Forbidden'], 403);
+        }
+
+        // Safety: ensure the item belongs to this order
+        $item->loadMissing('product'); // product relation must exist on ProductItem
+        if (!$item->product || $item->product->OrderID !== $order->id) {
+            return response()->json(['ok' => false, 'msg' => 'Not found'], 404);
+        }
+
+        // Delete the item; FK ON DELETE CASCADE will remove the specification row
+        $item->delete();
 
         return response()->json(['ok' => true]);
     }

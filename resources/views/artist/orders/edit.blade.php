@@ -324,165 +324,158 @@
                   <i class="bx bx-plus me-1"></i> Add Item
                 </button>
               </div>
-              <div class="accordion" id="productItems" data-start-number="{{ (is_countable($itemsData)?count($itemsData):$itemsData->count()) + 1 }}"
-                data-next-index="{{ is_countable($itemsData)?count($itemsData):$itemsData->count() }}">
-                @foreach($items as $i => $item)
-                @php
-                $qtyLabel = data_get($item, 'quantity', data_get($item, 'qty'));
-                $spec = data_get($item, 'spec'); // hasOne (lamination/printer/cutter)
-                $materialVal = data_get($item, 'material');
-                if (is_array($materialVal)) {
-                $materialVal = implode(', ', $materialVal); // show JSON array nicely
-                }
-                @endphp
+              <div class="accordion" id="productItems" data-start-number="{{ (is_countable($itemsData)?count($itemsData):$itemsData->count()) + 1 }}" data-next-index="{{ is_countable($itemsData)?count($itemsData):$itemsData->count() }}">
+                @foreach($items as $i => $it)
+                  @php
+                    $qtyLabel = data_get($it, 'quantity', data_get($it, 'qty'));
+                    $spec = data_get($it, 'spec'); // hasOne (lamination/printer/cutter)
+                    $materialVal = data_get($it, 'material');
+                    if (is_array($materialVal)) {
+                    $materialVal = implode(', ', $materialVal); // show JSON array nicely
+                    }
+                  @endphp
 
-                <div class="accordion-item mb-3 border rounded" id="item{{ $i }}">
-                  <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
-                    <div>
-                      <span class="fw-semibold">Item {{ $i+1 }}</span>
-                      <span class="text-body-secondary ms-2 small">
-                        {{ data_get($item, 'itemName', data_get($item, 'name', '')) }}
-                        {{ $qtyLabel ? ' ' . $qtyLabel : '' }}
-                      </span>
-                    </div>
+                  <div class="accordion-item mb-3 border rounded" id="item{{ $i }}" data-item-id="{{ data_get($it,'ItemID') }}">
+                    <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
+                      <div>
+                        <span class="fw-semibold">Item {{ $i+1 }}</span>
+                        <span class="text-body-secondary ms-2 small">
+                          {{ data_get($it, 'itemName') }}
+                          {{ data_get($it, 'quantity') ? ' ×'.data_get($it,'quantity') : '' }}
+                        </span>
+                      </div>
 
-                    <div class="d-flex align-items-center gap-2">
-                      {{-- Trash Icon --}}
-                      @if ($i > 0)
-                      <button type="button" class="btn btn-link text-danger p-0" onclick="removeItem({{ $i }}, event)">
-                        <i class="bx bx-trash fs-5"></i>
-                      </button>
-                      @endif
+                      <div class="d-flex align-items-center gap-2">
+                        {{-- Trash Icon --}}
+                        <button type="button"
+                                class="btn btn-link text-danger p-0"
+                                title="Delete this item"
+                                data-action="delete-item"
+                                data-item-id="{{ data_get($it,'ItemID') }}"
+                                data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID') ?: 0]) }}">
+                          <i class="bx bx-trash fs-5"></i>
+                        </button>
 
-                      {{-- Collapse Toggle Icon --}}
-                      <button class="btn btn-link p-0" type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#itemPane{{ $i }}"
-                        aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
-                        aria-controls="itemPane{{ $i }}">
-                        <i class="bx bx-chevron-down fs-4"></i>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div id="itemPane{{ $i }}" class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}" data-bs-parent="#productItems">
-                    <div class="accordion-body">
-                      @if ($i > 0)
-                      <div class="item-actions sticky-top d-flex justify-content-end">
-                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem({{ $i }}, event)">
-                          <i class="bx bx-trash me-1"></i> Delete
+                        {{-- Collapse Toggle Icon --}}
+                        <button class="btn btn-link p-0"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#itemPane{{ $i }}"
+                                aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
+                                aria-controls="itemPane{{ $i }}">
+                          <i class="bx bx-chevron-down fs-4"></i>
                         </button>
                       </div>
-                      @endif
+                    </div>
 
-                      {{-- Hidden ID so we UPDATE instead of always creating --}}
-                      <!-- <input type="hidden" name="items[{{ $i }}][id]" value="{{ old('items.$i.id', data_get($item, 'ItemID')) }}"> -->
+                    <div id="itemPane{{ $i }}" class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}" data-bs-parent="#productItems">
+                      <div class="accordion-body">
 
-                      <div class="row g-3">
-                        <div class="col-md-6">
-                          <label class="form-label">Item Name</label>
-                          @php $v = old("items.$i.itemName"); @endphp
-                          <input class="form-control" name="items[{{ $i }}][itemName]"
-                            value="{{ filled($v) ? $v : (data_get($item,'itemName') ?? '') }}">
-                        </div>
+                        <div class="row g-3">
+                          <div class="col-md-6">
+                            <label class="form-label">Item Name</label>
+                            @php $v = old("items.$i.itemName"); @endphp
+                            <input class="form-control" name="items[{{ $i }}][itemName]"
+                              value="{{ filled($v) ? $v : (data_get($it,'itemName') ?? '') }}">
+                          </div>
 
-                        <div class="col-md-6">
-                          <label class="form-label">Quantity</label>
-                          @php $v = old("items.$i.quantity"); @endphp
-                          <input type="number" class="form-control" name="items[{{ $i }}][quantity]"
-                            value="{{ filled($v) ? $v : (data_get($item,'quantity') ?? '') }}">
-                        </div>
+                          <div class="col-md-6">
+                            <label class="form-label">Quantity</label>
+                            @php $v = old("items.$i.quantity"); @endphp
+                            <input type="number" class="form-control" name="items[{{ $i }}][quantity]"
+                              value="{{ filled($v) ? $v : (data_get($it,'quantity') ?? '') }}">
+                          </div>
 
-                        <div class="col-12">
-                          <label class="form-label">Material</label>
-                          @php
-                          $v = old("items.$i.material");
-                          $materialVal = filled($v) ? $v : (data_get($item,'material') ?? '');
-                          @endphp
-                          <input type="text" class="form-control" name="items[{{ $i }}][material]"
-                            value="{{ $materialVal }}">
-                        </div>
+                          <div class="col-12">
+                            <label class="form-label">Material</label>
+                            @php
+                            $v = old("items.$i.material");
+                            $materialVal = filled($v) ? $v : (data_get($it,'material') ?? '');
+                            @endphp
+                            <input type="text" class="form-control" name="items[{{ $i }}][material]"
+                              value="{{ $materialVal }}">
+                          </div>
 
-                        <div class="col-12 col-md-4">
-                          <label class="form-label">Size (inches) – Width</label>
-                          <input name="items[{{ $i }}][sizeWidth]" type="number" step="0.01" class="form-control"
-                            value="{{ old("items.$i.sizeWidth", data_get($item,'sizeWidth')) }}">
-                        </div>
-                        <div class="col-12 col-md-4">
-                          <label class="form-label">Height</label>
-                          <input name="items[{{ $i }}][sizeHeight]" type="number" step="0.01" class="form-control"
-                            value="{{ old("items.$i.sizeHeight", data_get($item,'sizeHeight')) }}">
-                        </div>
-                        <div class="col-12 col-md-4">
-                          <label class="form-label">Length</label>
-                          <input name="items[{{ $i }}][sizeLength]" type="number" step="0.01" class="form-control"
-                            value="{{ old("items.$i.sizeLength", data_get($item,'sizeLength')) }}">
-                        </div>
+                          <div class="col-12 col-md-4">
+                            <label class="form-label">Size (inches) – Width</label>
+                            <input name="items[{{ $i }}][sizeWidth]" type="number" step="0.01" class="form-control"
+                              value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}">
+                          </div>
+                          <div class="col-12 col-md-4">
+                            <label class="form-label">Height</label>
+                            <input name="items[{{ $i }}][sizeHeight]" type="number" step="0.01" class="form-control"
+                              value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}">
+                          </div>
+                          <div class="col-12 col-md-4">
+                            <label class="form-label">Length</label>
+                            <input name="items[{{ $i }}][sizeLength]" type="number" step="0.01" class="form-control"
+                              value="{{ old("items.$i.sizeLength", data_get($it,'sizeLength')) }}">
+                          </div>
 
-                        <div class="col-12 col-md-3">
-                          <label class="form-label">Bleed (Top)</label>
-                          <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
-                            value="{{ old("items.$i.bleedTop", data_get($item,'bleedTop')) }}">
-                        </div>
-                        <div class="col-12 col-md-3">
-                          <label class="form-label">Bottom</label>
-                          <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
-                            value="{{ old("items.$i.bleedBottom", data_get($item,'bleedBottom')) }}">
-                        </div>
-                        <div class="col-12 col-md-3">
-                          <label class="form-label">Left</label>
-                          <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
-                            value="{{ old("items.$i.bleedLeft", data_get($item,'bleedLeft')) }}">
-                        </div>
-                        <div class="col-12 col-md-3">
-                          <label class="form-label">Right</label>
-                          <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
-                            value="{{ old("items.$i.bleedRight", data_get($item,'bleedRight')) }}">
-                        </div>
+                          <div class="col-12 col-md-3">
+                            <label class="form-label">Bleed (Top)</label>
+                            <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
+                              value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}">
+                          </div>
+                          <div class="col-12 col-md-3">
+                            <label class="form-label">Bottom</label>
+                            <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
+                              value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}">
+                          </div>
+                          <div class="col-12 col-md-3">
+                            <label class="form-label">Left</label>
+                            <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
+                              value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}">
+                          </div>
+                          <div class="col-12 col-md-3">
+                            <label class="form-label">Right</label>
+                            <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
+                              value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}">
+                          </div>
 
-                        <div class="col-md-3">
-                          <label class="form-label">Lamination</label>
-                          @php $lam = filled(old("items.$i.lamination"))
-                          ? old("items.$i.lamination")
-                          : data_get($item,'lamination'); @endphp
-                          <select name="items[{{ $i }}][lamination]" class="form-select">
-                            <option value="">-</option>
-                            <option {{ $lam==='Gloss' ? 'selected' : '' }}>Gloss</option>
-                            <option {{ $lam==='Matte' ? 'selected' : '' }}>Matte</option>
-                          </select>
-                        </div>
+                          <div class="col-md-3">
+                            <label class="form-label">Lamination</label>
+                            @php $lam = filled(old("items.$i.lamination"))
+                            ? old("items.$i.lamination")
+                            : data_get($it,'lamination'); @endphp
+                            <select name="items[{{ $i }}][lamination]" class="form-select">
+                              <option value="">-</option>
+                              <option {{ $lam==='Gloss' ? 'selected' : '' }}>Gloss</option>
+                              <option {{ $lam==='Matte' ? 'selected' : '' }}>Matte</option>
+                            </select>
+                          </div>
 
-                        <div class="col-md-3">
-                          <label class="form-label">Printer</label>
-                          @php $prt = filled(old("items.$i.printer"))
-                          ? old("items.$i.printer")
-                          : data_get($item,'printer'); @endphp
-                          <select name="items[{{ $i }}][printer]" class="form-select">
-                            <option value="">-</option>
-                            <option {{ $prt==='Printer' ? 'selected' : '' }}>Printer</option>
-                          </select>
-                        </div>
+                          <div class="col-md-3">
+                            <label class="form-label">Printer</label>
+                            @php $prt = filled(old("items.$i.printer"))
+                            ? old("items.$i.printer")
+                            : data_get($it,'printer'); @endphp
+                            <select name="items[{{ $i }}][printer]" class="form-select">
+                              <option value="">-</option>
+                              <option {{ $prt==='Printer' ? 'selected' : '' }}>Printer</option>
+                            </select>
+                          </div>
 
-                        <div class="col-md-3">
-                          <label class="form-label">Cutter</label>
-                          @php $cut = filled(old("items.$i.cutter"))
-                          ? old("items.$i.cutter")
-                          : data_get($item,'cutter'); @endphp
-                          <select name="items[{{ $i }}][cutter]" class="form-select">
-                            <option value="">-</option>
-                            <option {{ $cut==='Cutter' ? 'selected' : '' }}>Cutter</option>
-                          </select>
-                        </div>
-                        <div class="col-md-12">
-                          <label class="form-label">Finishing</label>
-                          <input name="items[{{ $i }}][finishing]" type="text" class="form-control"
-                            placeholder="Coating, lamination, etc…"
-                            value="{{ old("items.$i.finishing", data_get($item,'finishing')) }}">
+                          <div class="col-md-3">
+                            <label class="form-label">Cutter</label>
+                            @php $cut = filled(old("items.$i.cutter"))
+                            ? old("items.$i.cutter")
+                            : data_get($it,'cutter'); @endphp
+                            <select name="items[{{ $i }}][cutter]" class="form-select">
+                              <option value="">-</option>
+                              <option {{ $cut==='Cutter' ? 'selected' : '' }}>Cutter</option>
+                            </select>
+                          </div>
+                          <div class="col-md-12">
+                            <label class="form-label">Finishing</label>
+                            <input name="items[{{ $i }}][finishing]" type="text" class="form-control"
+                              placeholder="Coating, lamination, etc…"
+                              value="{{ old("items.$i.finishing", data_get($it,'finishing')) }}">
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
                 @endforeach
               </div>
 
@@ -557,28 +550,28 @@
 
                         <div class="col-12 col-md-3">
                           <label class="form-label">Bleed (Top)</label>
-                          <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
-                            value="{{ old('items.'.$i.'.bleedTop', data_get($item,'bleedTop')) }}">
+                          <input name="items[__INDEX__][bleedTop]" type="number" step="0.01" class="form-control"
+                            value="">
                         </div>
                         <div class="col-12 col-md-3">
                           <label class="form-label">Bottom</label>
-                          <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
-                            value="{{ old('items.'.$i.'.bleedBottom', data_get($item,'bleedBottom')) }}">
+                          <input name="items[__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control"
+                            value="">
                         </div>
                         <div class="col-12 col-md-3">
                           <label class="form-label">Left</label>
-                          <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
-                            value="{{ old('items.'.$i.'.bleedLeft', data_get($item,'bleedLeft')) }}">
+                          <input name="items[__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control"
+                            value="">
                         </div>
                         <div class="col-12 col-md-3">
                           <label class="form-label">Right</label>
-                          <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
-                            value="{{ old('items.'.$i.'.bleedRight', data_get($item,'bleedRight')) }}">
+                          <input name="items[__INDEX__][bleedRight]" type="number" step="0.01" class="form-control"
+                            value="">
                         </div>
 
                         <div class="col-md-3">
                           <label class="form-label">Lamination</label>
-                          <select name="items[0][lamination]" class="form-select">
+                          <select name="items[__INDEX__][lamination]" class="form-select">
                             <option value="">-</option>
                             <option>Gloss</option>
                             <option>Matte</option>
@@ -586,19 +579,19 @@
                         </div>
                         <div class="col-md-3">
                           <label class="form-label">Printer</label>
-                          <select name="items[0][printer]" class="form-select">
+                          <select name="items[__INDEX__][printer]" class="form-select">
                             <option>Printer</option>
                           </select>
                         </div>
                         <div class="col-md-3">
                           <label class="form-label">Cutter</label>
-                          <select name="items[0][cutter]" class="form-select">
+                          <select name="items[__INDEX__][cutter]" class="form-select">
                             <option>Cutter</option>
                           </select>
                         </div>
                         <div class="col-md-12">
                           <label class="form-label">Finishing</label>
-                          <input name="items[0][finishing]" type="text" class="form-control" placeholder="Coating, lamination, etc…">
+                          <input name="items[__INDEX__][finishing]" type="text" class="form-control" placeholder="Coating, lamination, etc…">
                         </div>
                       </div>
                     </div>
@@ -871,6 +864,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+  window.CSRF_TOKEN = @json(csrf_token());
   (function() {
     // add item --------------------------------------------------------------------------------------------
     function openOnly(id) {
@@ -1005,6 +999,86 @@
       if (card) {
         card.remove();
         reindexDeliveries();
+      }
+    });
+
+    function renumberItems() {
+      // Update the "Item N" labels after a removal
+      const items = container.querySelectorAll('.accordion-item');
+      items.forEach((el, idx) => {
+        const title = el.querySelector('.fw-semibold');
+        if (title) title.textContent = `Item ${idx + 1}`;
+      });
+    }
+
+    async function deleteItemOnServer(url) {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-TOKEN': window.CSRF_TOKEN,
+          'Accept': 'application/json'
+        }
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${txt || 'Delete failed'}`);
+      }
+      const data = await res.json();
+      if (!data?.ok) throw new Error('Delete failed');
+      return true;
+    }
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action="delete-item"]');
+      if (!btn) return;
+
+      const itemEl = btn.closest('.accordion-item');
+      if (!itemEl) return;
+
+      const itemId = btn.dataset.itemId; // may be "" for unsaved items
+      const url    = btn.dataset.url;
+
+      // Confirm
+      if (window.Swal) {
+        const c = await Swal.fire({
+          icon: 'warning',
+          title: 'Delete this item?',
+          text: 'This cannot be undone.',
+          showCancelButton: true,
+          confirmButtonText: 'Delete',
+          confirmButtonColor: '#d33'
+        });
+        if (!c.isConfirmed) return;
+      } else if (!confirm('Delete this item?')) {
+        return;
+      }
+
+      // If no ItemID (unsaved), just remove the block client-side
+      try {
+        if (!itemId) {
+          itemEl.remove();
+          renumberItems();
+          return;
+        }
+
+        // Existing item → call server
+        await deleteItemOnServer(url);
+
+        // Remove from DOM
+        itemEl.remove();
+        renumberItems();
+
+        // Optional toast
+        if (window.Swal) {
+          Swal.fire({icon:'success', title:'Item deleted', timer:1200, showConfirmButton:false});
+        }
+      } catch (err) {
+        console.error(err);
+        if (window.Swal) {
+          Swal.fire({icon:'error', title:'Delete failed', text:String(err)});
+        } else {
+          alert('Delete failed: ' + err);
+        }
       }
     });
   })();
