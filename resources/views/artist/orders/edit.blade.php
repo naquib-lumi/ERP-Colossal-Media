@@ -372,7 +372,7 @@
 
                 <div class="col-12 col-md-6 col-xl-3">
                   <label class="form-label">Total Quantity</label>
-                  <input
+                  <input id="totalQty"
                     name="product[qty_total]"
                     type="number"
                     min="0"
@@ -406,173 +406,173 @@
               </div>
               <div class="accordion" id="productItems" data-start-number="1" data-next-index="{{ count($items ?? []) }}">
                 @foreach($items as $i => $it)
-                  @php
-                    $materialVal = data_get($it, 'material');
+                @php
+                $materialVal = data_get($it, 'material');
 
-                    if (is_string($materialVal)) {
-                        $decoded = json_decode($materialVal, true);
-                        if (json_last_error() === JSON_ERROR_NONE) {
-                            $materialVal = $decoded;
-                        }
-                    }
+                if (is_string($materialVal)) {
+                $decoded = json_decode($materialVal, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                $materialVal = $decoded;
+                }
+                }
 
-                    $materialVal = collect($materialVal ?? [])->filter()->values();
+                $materialVal = collect($materialVal ?? [])->filter()->values();
 
-                    $materialSuggestions = collect($materials ?? [])
-                        ->pluck('materialName')
-                        ->filter()
-                        ->values();
-                  @endphp
+                $materialSuggestions = collect($materials ?? [])
+                ->pluck('materialName')
+                ->filter()
+                ->values();
+                @endphp
 
-                  <div class="accordion-item mb-3 border rounded" id="item{{ $i }}" data-item-id="{{ data_get($it,'ItemID') }}">
-                    <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
-                      <div>
-                        <span class="fw-semibold">Item {{ $i+1 }}</span>
-                        <span class="text-body-secondary ms-2 small">
-                          {{ data_get($it, 'itemName') }}
-                          {{ data_get($it, 'quantity') ? ' ×'.data_get($it,'quantity') : '' }}
-                        </span>
-                      </div>
-
-                      <div class="d-flex align-items-center gap-2">
-                        {{-- Trash Icon --}}
-                        <button type="button"
-                          class="btn btn-link text-danger p-0"
-                          title="Delete this item"
-                          data-action="delete-item"
-                          data-item-id="{{ data_get($it,'ItemID') }}"
-                          data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID') ?: 0]) }}">
-                          <i class="bx bx-trash fs-5"></i>
-                        </button>
-
-                        {{-- Collapse Toggle Icon --}}
-                        <button class="btn btn-link p-0"
-                          type="button"
-                          data-bs-toggle="collapse"
-                          data-bs-target="#itemPane{{ $i }}"
-                          aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
-                          aria-controls="itemPane{{ $i }}">
-                          <i class="bx bx-chevron-down fs-4"></i>
-                        </button>
-                      </div>
+                <div class="accordion-item mb-3 border rounded" id="item{{ $i }}" data-item-id="{{ data_get($it,'ItemID') }}">
+                  <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
+                    <div>
+                      <span class="fw-semibold">Item {{ $i+1 }}</span>
+                      <span class="text-body-secondary ms-2 small">
+                        {{ data_get($it, 'itemName') }}
+                        {{ data_get($it, 'quantity') ? ' ×'.data_get($it,'quantity') : '' }}
+                      </span>
                     </div>
 
-                    <div id="itemPane{{ $i }}" class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}" data-bs-parent="#productItems">
-                      <div class="accordion-body">
+                    <div class="d-flex align-items-center gap-2">
+                      {{-- Trash Icon --}}
+                      <button type="button"
+                        class="btn btn-link text-danger p-0"
+                        title="Delete this item"
+                        data-action="delete-item"
+                        data-item-id="{{ data_get($it,'ItemID') }}"
+                        data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID') ?: 0]) }}">
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
 
-                        <div class="row g-3">
-                          <div class="col-md-6">
-                            <label class="form-label">Item Name</label>
-                            @php $v = old("items.$i.itemName"); @endphp
-                            <input class="form-control" name="items[{{ $i }}][itemName]"
-                              value="{{ filled($v) ? $v : (data_get($it,'itemName') ?? '') }}">
-                          </div>
+                      {{-- Collapse Toggle Icon --}}
+                      <button class="btn btn-link p-0"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#itemPane{{ $i }}"
+                        aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
+                        aria-controls="itemPane{{ $i }}">
+                        <i class="bx bx-chevron-down fs-4"></i>
+                      </button>
+                    </div>
+                  </div>
 
-                          <div class="col-md-6">
-                            <label class="form-label">Quantity</label>
-                            @php $v = old("items.$i.quantity"); @endphp
-                            <input type="number" class="form-control" name="items[{{ $i }}][quantity]"
-                              value="{{ filled($v) ? $v : (data_get($it,'quantity') ?? '') }}">
-                          </div>
+                  <div id="itemPane{{ $i }}" class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}" data-bs-parent="#productItems">
+                    <div class="accordion-body">
 
-                          <!-- display all material to select -->
-                          @php
-                            // $it is your looped item
-                            $values = $it->material ?? []; // because of the cast this is an array
-                          @endphp
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label">Item Name</label>
+                          @php $v = old("items.$i.itemName"); @endphp
+                          <input class="form-control" name="items[{{ $i }}][itemName]"
+                            value="{{ filled($v) ? $v : (data_get($it,'itemName') ?? '') }}">
+                        </div>
 
-                          <div class="col-12">
-                            <label class="form-label">Material</label>
-                            @php $materialValues = $item->material ?? []; @endphp
-                            <div
-                              class="tags-input"
-                              data-name="items[{{ $i }}][material][]"
-                              data-suggestions='@json($materialSuggestions)'
-                              data-values='@json($materialVal)'
-                              data-allow-custom="1">
-                            </div>
-                          </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Quantity</label>
+                          @php $v = old("items.$i.quantity"); @endphp
+                          <input type="number" class="form-control" name="items[{{ $i }}][quantity]"
+                            value="{{ filled($v) ? $v : (data_get($it,'quantity') ?? '') }}">
+                        </div>
 
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Size (inches) – Width</label>
-                            <input name="items[{{ $i }}][sizeWidth]" type="number" step="0.01" class="form-control"
-                              value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Height</label>
-                            <input name="items[{{ $i }}][sizeHeight]" type="number" step="0.01" class="form-control"
-                              value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Length</label>
-                            <input name="items[{{ $i }}][sizeLength]" type="number" step="0.01" class="form-control"
-                              value="{{ old("items.$i.sizeLength", data_get($it,'sizeLength')) }}">
-                          </div>
+                        <!-- display all material to select -->
+                        @php
+                        // $it is your looped item
+                        $values = $it->material ?? []; // because of the cast this is an array
+                        @endphp
 
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Bleed (Top)</label>
-                            <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
-                              value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}">
+                        <div class="col-12">
+                          <label class="form-label">Material</label>
+                          @php $materialValues = $item->material ?? []; @endphp
+                          <div
+                            class="tags-input"
+                            data-name="items[{{ $i }}][material][]"
+                            data-suggestions='@json($materialSuggestions)'
+                            data-values='@json($materialVal)'
+                            data-allow-custom="1">
                           </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Bottom</label>
-                            <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
-                              value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Left</label>
-                            <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
-                              value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Right</label>
-                            <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
-                              value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}">
-                          </div>
+                        </div>
 
-                          <div class="col-md-3">
-                            <label class="form-label">Lamination</label>
-                            @php $lam = filled(old("items.$i.lamination"))
-                            ? old("items.$i.lamination")
-                            : data_get($it,'lamination'); @endphp
-                            <select name="items[{{ $i }}][lamination]" class="form-select">
-                              <option value="">-</option>
-                              <option {{ $lam==='Gloss' ? 'selected' : '' }}>Gloss</option>
-                              <option {{ $lam==='Matte' ? 'selected' : '' }}>Matte</option>
-                            </select>
-                          </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Size (inches) – Width</label>
+                          <input name="items[{{ $i }}][sizeWidth]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Height</label>
+                          <input name="items[{{ $i }}][sizeHeight]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Length</label>
+                          <input name="items[{{ $i }}][sizeLength]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeLength", data_get($it,'sizeLength')) }}">
+                        </div>
 
-                          <div class="col-md-3">
-                            <label class="form-label">Printer</label>
-                            @php $prt = filled(old("items.$i.printer"))
-                            ? old("items.$i.printer")
-                            : data_get($it,'printer'); @endphp
-                            <select name="items[{{ $i }}][printer]" class="form-select">
-                              <option value="">-</option>
-                              <option {{ $prt==='Printer' ? 'selected' : '' }}>Printer</option>
-                            </select>
-                          </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bleed (Top)</label>
+                          <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bottom</label>
+                          <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Left</label>
+                          <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Right</label>
+                          <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}">
+                        </div>
 
-                          <div class="col-md-3">
-                            <label class="form-label">Cutter</label>
-                            @php $cut = filled(old("items.$i.cutter"))
-                            ? old("items.$i.cutter")
-                            : data_get($it,'cutter'); @endphp
-                            <select name="items[{{ $i }}][cutter]" class="form-select">
-                              <option value="">-</option>
-                              <option {{ $cut==='Cutter' ? 'selected' : '' }}>Cutter</option>
-                            </select>
-                          </div>
-                          <div class="col-md-12">
-                            <label class="form-label">Finishing</label>
-                            <input name="items[{{ $i }}][finishing]" type="text" class="form-control"
-                              placeholder="Coating, lamination, etc…"
-                              value="{{ old("items.$i.finishing", data_get($it,'finishing')) }}">
-                          </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Lamination</label>
+                          @php $lam = filled(old("items.$i.lamination"))
+                          ? old("items.$i.lamination")
+                          : data_get($it,'lamination'); @endphp
+                          <select name="items[{{ $i }}][lamination]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $lam==='Gloss' ? 'selected' : '' }}>Gloss</option>
+                            <option {{ $lam==='Matte' ? 'selected' : '' }}>Matte</option>
+                          </select>
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label">Printer</label>
+                          @php $prt = filled(old("items.$i.printer"))
+                          ? old("items.$i.printer")
+                          : data_get($it,'printer'); @endphp
+                          <select name="items[{{ $i }}][printer]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $prt==='Printer' ? 'selected' : '' }}>Printer</option>
+                          </select>
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label">Cutter</label>
+                          @php $cut = filled(old("items.$i.cutter"))
+                          ? old("items.$i.cutter")
+                          : data_get($it,'cutter'); @endphp
+                          <select name="items[{{ $i }}][cutter]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $cut==='Cutter' ? 'selected' : '' }}>Cutter</option>
+                          </select>
+                        </div>
+                        <div class="col-md-12">
+                          <label class="form-label">Finishing</label>
+                          <input name="items[{{ $i }}][finishing]" type="text" class="form-control"
+                            placeholder="Coating, lamination, etc…"
+                            value="{{ old("items.$i.finishing", data_get($it,'finishing')) }}">
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
                 @endforeach
               </div>
 
@@ -722,7 +722,7 @@
                     <div class="row g-3">
                       <div class="col-12 col-md-3">
                         <label class="form-label">Delivery Method</label>
-                        <select name="deliveries[0][method]" class="form-select">
+                        <select name="deliveries[__INDEX__][method]" class="form-select">
                           <option value="">Method</option>
                           <option value="courier">Courier</option>
                           <option value="pickup">Pickup</option>
@@ -732,17 +732,17 @@
 
                       <div class="col-12 col-md-3">
                         <label class="form-label">Location Address</label>
-                        <input name="deliveries[0][location]" type="text" class="form-control" placeholder="Location">
+                        <input name="deliveries[__INDEX__][location]" type="text" class="form-control" placeholder="Location">
                       </div>
 
                       <div class="col-12 col-md-2">
                         <label class="form-label">Quantity</label>
-                        <input name="deliveries[0][qty]" type="number" min="0" class="form-control" placeholder="Qty">
+                        <input name="deliveries[__INDEX__][quantity]" type="number" min="0" class="form-control" placeholder="Qty">
                       </div>
 
                       <div class="col-12 col-md-4">
                         <label class="form-label">Date & Time</label>
-                        <input name="deliveries[0][datetime]" type="datetime-local" class="form-control">
+                        <input name="deliveries[__INDEX__][date]" type="datetime-local" class="form-control">
                       </div>
                     </div>
                   </div>
@@ -968,386 +968,422 @@
 <script>
   window.CSRF_TOKEN = "{{ csrf_token() }}";
   (function() {
-      // -------------------------------------------------------------
-      // Accordion: setup
-      // -------------------------------------------------------------
-      function openOnly(id) {
-        document.querySelectorAll('#productItems .accordion-collapse.show')
-          .forEach(el => new bootstrap.Collapse(el, {
-            toggle: false
-          }).hide());
-        new bootstrap.Collapse(document.querySelector(id), {
-          toggle: true
-        }).show();
-      }
+    // -------------------------------------------------------------
+    // Accordion: setup
+    // -------------------------------------------------------------
+    function openOnly(id) {
+      document.querySelectorAll('#productItems .accordion-collapse.show')
+        .forEach(el => new bootstrap.Collapse(el, {
+          toggle: false
+        }).hide());
+      new bootstrap.Collapse(document.querySelector(id), {
+        toggle: true
+      }).show();
+    }
 
-      const acc   = document.getElementById('productItems');
-      const tplEl = document.getElementById('itemTemplate');
-      if (!acc || !tplEl) { console.warn('[edit] Missing #productItems or #itemTemplate'); return; }
+    const acc = document.getElementById('productItems');
+    const tplEl = document.getElementById('itemTemplate');
+    if (!acc || !tplEl) {
+      console.warn('[edit] Missing #productItems or #itemTemplate');
+      return;
+    }
 
-      function normalize(v) { return (v || '').trim(); }
+    function normalize(v) {
+      return (v || '').trim();
+    }
 
-      function hidden(name, val) {
+    function hidden(name, val) {
+      const h = document.createElement('input');
+      h.type = 'hidden';
+      h.name = name;
+      h.value = val;
+      return h;
+    }
+
+    function initTagsInput(container) {
+      if (!container || container.dataset._bound === '1') return;
+      container.dataset._bound = '1';
+
+      // read data-* from Blade
+      const name = container.dataset.name; // e.g. items[3][material][]
+      const suggestions = JSON.parse(container.dataset.suggestions || '[]');
+      const initial = JSON.parse(container.dataset.values || '[]');
+      const allowCustom = container.dataset.allowCustom === '1';
+
+      // build UI
+      container.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'ti-wrap';
+      const box = document.createElement('div');
+      box.className = 'ti';
+      box.tabIndex = 0;
+      const input = document.createElement('input');
+      input.className = 'ti-input';
+      input.placeholder = 'Click to select…';
+      input.readOnly = true;
+      const dd = document.createElement('div');
+      dd.className = 'ti-dd';
+      box.appendChild(input);
+      wrap.appendChild(box);
+      wrap.appendChild(dd);
+      container.appendChild(wrap);
+
+      const selected = new Set(initial.map(v => (v || '').trim()).filter(Boolean));
+
+      const hidden = (n, v) => {
         const h = document.createElement('input');
         h.type = 'hidden';
-        h.name = name;
-        h.value = val;
+        h.name = n;
+        h.value = v;
         return h;
-      }
+      };
 
-      function initTagsInput(container) {
-        if (!container || container.dataset._bound === '1') return;
-        container.dataset._bound = '1';
-
-        // read data-* from Blade
-        const name        = container.dataset.name; // e.g. items[3][material][]
-        const suggestions = JSON.parse(container.dataset.suggestions || '[]');
-        const initial     = JSON.parse(container.dataset.values || '[]');
-        const allowCustom = container.dataset.allowCustom === '1';
-
-        // build UI
-        container.innerHTML = '';
-        const wrap  = document.createElement('div'); wrap.className = 'ti-wrap';
-        const box   = document.createElement('div'); box.className  = 'ti'; box.tabIndex = 0;
-        const input = document.createElement('input'); input.className = 'ti-input'; input.placeholder = 'Click to select…'; input.readOnly = true;
-        const dd    = document.createElement('div'); dd.className   = 'ti-dd';
-        box.appendChild(input); wrap.appendChild(box); wrap.appendChild(dd);
-        container.appendChild(wrap);
-
-        const selected = new Set(initial.map(v => (v || '').trim()).filter(Boolean));
-
-        const hidden = (n, v) => {
-          const h = document.createElement('input');
-          h.type = 'hidden'; h.name = n; h.value = v;
-          return h;
-        };
-
-        function renderChips() {
-          [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
-          [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
-          selected.forEach(v => {
-            const chip = document.createElement('span');
-            chip.className = 'ti-chip';
-            chip.textContent = v;
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.innerHTML = '&times;';
-            btn.addEventListener('click', () => { selected.delete(v); renderChips(); buildList(); });
-            chip.appendChild(btn);
-            box.insertBefore(chip, input);
-            container.appendChild(hidden(name, v));    // ← hidden inputs appended to container
+      function renderChips() {
+        [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
+        [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
+        selected.forEach(v => {
+          const chip = document.createElement('span');
+          chip.className = 'ti-chip';
+          chip.textContent = v;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.innerHTML = '&times;';
+          btn.addEventListener('click', () => {
+            selected.delete(v);
+            renderChips();
+            buildList();
           });
-        }
-
-        function buildList() {
-          const avail = suggestions.filter(s => !selected.has(s));
-          dd.innerHTML = '';
-          if (!avail.length) { dd.style.display = 'none'; return; }
-          avail.forEach((v) => {
-            const it = document.createElement('div');
-            it.className = 'ti-dd-item';
-            it.textContent = v;
-            it.addEventListener('click', () => { selected.add(v); renderChips(); buildList(); });
-            dd.appendChild(it);
-          });
-          dd.style.display = 'block';
-        }
-
-        box.addEventListener('click', () => { buildList(); dd.style.display = 'block'; });
-        input.addEventListener('focus', () => { buildList(); dd.style.display = 'block'; });
-        document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) dd.style.display = 'none'; });
-
-        renderChips(); // ← show chips for initial values from DB
-      }
-
-          function initAllTagsInputs(root = document) {
-        root.querySelectorAll('.tags-input').forEach(initTagsInput);
-      }
-
-      initAllTagsInputs(document);
-
-      // seed nextIndex from data-next-index, else fall back to current count
-      let nextIndex = parseInt(acc.dataset.nextIndex ?? String(acc.querySelectorAll('.accordion-item[data-kind="item"]').length), 10);
-
-      function addItemRow() {
-          const humanNum = acc.querySelectorAll('.accordion-item[data-kind="item"]').length + 1;
-
-        const html = tplEl.innerHTML.replace(/__INDEX__/g, String(nextIndex)).replace(/__INDEX_HUMAN__/g, String(humanNum)); ;
-  const frag = document.createRange().createContextualFragment(html);
-  const row  = frag.firstElementChild;
-        if (!row) return;
-
-        acc.appendChild(row);
-
-        // open new collapse via Bootstrap
-        const pane = row.querySelector('.accordion-collapse');
-        const btn  = row.querySelector('[data-bs-toggle="collapse"]');
-        if (pane) {
-          pane.setAttribute('data-bs-parent', '#productItems');
-          bootstrap.Collapse.getOrCreateInstance(pane, { toggle: false }).show();
-        }
-        if (btn) {
-          btn.classList.remove('collapsed');
-          btn.setAttribute('aria-expanded', 'true');
-        }
-
-        nextIndex++;
-        acc.dataset.nextIndex = String(nextIndex);
-        initAllTagsInputs(row);
-        // wire dynamic controls inside this new row exactly once
-        wireRow(row);
-        initAllTagsInputs(row);
-        updateSummary(row);
-
-        row.querySelectorAll('.item-number').forEach(n => n.textContent = String(humanNum));
-
-  // keep your global counter and a full renumber pass if you want
-  nextIndex++;
-  acc.dataset.nextIndex = String(nextIndex);
-        renumberOnly(); // just update labels (no re-wiring)
-      }
-
-      function wireRow(wrap) {
-        if (!wrap || wrap.dataset.wired === '1') return;
-        wrap.dataset.wired = '1';
-
-        // delete button
-        const delBtn = wrap.querySelector('.remove-item-btn, .delete-item');
-        if (delBtn) {
-          delBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            wrap.remove();
-            renumberOnly();                 // no re-wiring; rows already wired
-            acc.dataset.nextIndex = String(acc.querySelectorAll('.accordion-item').length);
-          });
-        }
-
-        // inputs to keep summary updated
-        wrap.addEventListener('input', () => updateSummary(wrap), { passive: true });
-      }
-
-      // Keep header mini summary (name • qty) updated
-      function updateSummary(wrap) {
-        const name = wrap.querySelector('input[name^="items"][name$="[name]"]')?.value || '';
-        const qty  = wrap.querySelector('input[name^="items"][name$="[qty]"]')?.value || '';
-        const el   = wrap.querySelector('.item-summary');
-        if (el) el.textContent = name + (qty ? ` • ${qty}` : '');
-      }
-
-      function renumberOnly() {
-        const items = acc.querySelectorAll('.accordion-item[data-kind="item"]');
-  items.forEach((el, idx) => {
-    el.querySelectorAll('.item-number').forEach(n => n.textContent = String(idx + 1));
-    // also keep collapse ids in sync if needed
-    const pane = el.querySelector('.accordion-collapse');
-    if (pane) pane.id = `itemPane${idx}`;
-    const btn  = el.querySelector('[data-bs-toggle="collapse"]');
-    if (btn) { btn.setAttribute('data-bs-target', `#itemPane${idx}`); btn.setAttribute('aria-controls', `itemPane${idx}`); }
-    el.id = `item${idx}`;
-  });
-  acc.dataset.nextIndex = String(items.length);
-      }
-
-      // Delegated events for delete, chevron, and summary update
-      acc.querySelectorAll('.accordion-item[data-kind="item"]').forEach((wrap) => {
-        wireRow(wrap);
-        updateSummary(wrap);
-        initAllTagsInputs(wrap);     // ✅ add this
-      });
-      renumberOnly();
-      
-      document.getElementById('addItemBtn')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        addItemRow();
-      });
-
-      // delivery breakdown ----------------------------------------------------------------------------------
-      const wrap = document.getElementById('deliveriesWrap');
-      const addDeliveryBtn = document.getElementById('addDeliveryBtn');
-      const tpl = document.getElementById('deliveryTemplate');
-
-      function reindexDeliveries() {
-        wrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
-          // Update the visible number
-          const numEl = card.querySelector('.delivery-index');
-          if (numEl) numEl.textContent = i + 1;
-
-          // Fix names: deliveries[<i>][...]
-          card.querySelectorAll('[name]').forEach((el) => {
-            el.name = el.name.replace(/\[deliveries\]\[\d+\]|\[deliveries\]\[__INDEX__\]/g, ''); // safety if pasted differently
-            el.name = el.name.replace(/\[?\bdeliveries\b\]?\[\d+\]/, 'deliveries[' + i + ']')
-              .replace(/\[\d+\]/, '[' + i + ']');
-            // More robust: always rewrite first index occurrence
-            el.name = el.name.replace(/deliveries\[\d+\]/, 'deliveries[' + i + ']');
-          });
+          chip.appendChild(btn);
+          box.insertBefore(chip, input);
+          container.appendChild(hidden(name, v)); // ← hidden inputs appended to container
         });
       }
 
-      function addDelivery() {
-        const index = wrap.querySelectorAll('[data-delivery]').length;
-        const html = tpl.innerHTML
-          .replace(/__INDEX__/g, index)
-          .replace(/__INDEX_HUMAN__/g, index + 1);
+      function buildList() {
+        const avail = suggestions.filter(s => !selected.has(s));
+        dd.innerHTML = '';
+        if (!avail.length) {
+          dd.style.display = 'none';
+          return;
+        }
+        avail.forEach((v) => {
+          const it = document.createElement('div');
+          it.className = 'ti-dd-item';
+          it.textContent = v;
+          it.addEventListener('click', () => {
+            selected.add(v);
+            renderChips();
+            buildList();
+          });
+          dd.appendChild(it);
+        });
+        dd.style.display = 'block';
+      }
 
-        const temp = document.createElement('div');
-        temp.innerHTML = html.trim();
-        const node = temp.firstElementChild;
+      box.addEventListener('click', () => {
+        buildList();
+        dd.style.display = 'block';
+      });
+      input.addEventListener('focus', () => {
+        buildList();
+        dd.style.display = 'block';
+      });
+      document.addEventListener('click', (e) => {
+        if (!wrap.contains(e.target)) dd.style.display = 'none';
+      });
 
-        wrap.appendChild(node);
+      renderChips(); // ← show chips for initial values from DB
+    }
+
+    function initAllTagsInputs(root = document) {
+      root.querySelectorAll('.tags-input').forEach(initTagsInput);
+    }
+
+    initAllTagsInputs(document);
+
+    // seed nextIndex from data-next-index, else fall back to current count
+    let nextIndex = parseInt(acc.dataset.nextIndex ?? String(acc.querySelectorAll('.accordion-item[data-kind="item"]').length), 10);
+
+    function addItemRow() {
+      const humanNum = acc.querySelectorAll('.accordion-item[data-kind="item"]').length + 1;
+
+      const html = tplEl.innerHTML.replace(/__INDEX__/g, String(nextIndex)).replace(/__INDEX_HUMAN__/g, String(humanNum));
+      const frag = document.createRange().createContextualFragment(html);
+      const row = frag.firstElementChild;
+      if (!row) return;
+
+      acc.appendChild(row);
+
+      // open new collapse via Bootstrap
+      const pane = row.querySelector('.accordion-collapse');
+      const btn = row.querySelector('[data-bs-toggle="collapse"]');
+      if (pane) {
+        pane.setAttribute('data-bs-parent', '#productItems');
+        bootstrap.Collapse.getOrCreateInstance(pane, {
+          toggle: false
+        }).show();
+      }
+      if (btn) {
+        btn.classList.remove('collapsed');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+
+      row.querySelectorAll('.item-number').forEach(n => n.textContent = String(humanNum));
+      nextIndex++;
+      acc.dataset.nextIndex = String(nextIndex);
+
+      wireRow(row);
+      initAllTagsInputs(row);
+      updateSummary(row);
+      renumberOnly(); // just update labels (no re-wiring)
+    }
+
+    function wireRow(wrap) {
+      if (!wrap || wrap.dataset.wired === '1') return;
+      wrap.dataset.wired = '1';
+
+      // delete button
+      const delBtn = wrap.querySelector('.remove-item-btn, .delete-item');
+      if (delBtn) {
+        delBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          wrap.remove();
+          renumberOnly(); // no re-wiring; rows already wired
+          acc.dataset.nextIndex = String(acc.querySelectorAll('.accordion-item').length);
+        });
+      }
+
+      // inputs to keep summary updated
+      wrap.addEventListener('input', () => updateSummary(wrap), {
+        passive: true
+      });
+    }
+
+    // Keep header mini summary (name • qty) updated
+    function updateSummary(wrap) {
+      const name = wrap.querySelector('input[name^="items"][name$="[name]"]')?.value || '';
+      const qty = wrap.querySelector('input[name^="items"][name$="[qty]"]')?.value || '';
+      const el = wrap.querySelector('.item-summary');
+      if (el) el.textContent = name + (qty ? ` • ${qty}` : '');
+    }
+
+    function renumberOnly() {
+      const items = acc.querySelectorAll('.accordion-item[data-kind="item"]');
+      items.forEach((el, idx) => {
+        el.querySelectorAll('.item-number').forEach(n => n.textContent = String(idx + 1));
+        // also keep collapse ids in sync if needed
+        const pane = el.querySelector('.accordion-collapse');
+        if (pane) pane.id = `itemPane${idx}`;
+        const btn = el.querySelector('[data-bs-toggle="collapse"]');
+        if (btn) {
+          btn.setAttribute('data-bs-target', `#itemPane${idx}`);
+          btn.setAttribute('aria-controls', `itemPane${idx}`);
+        }
+        el.id = `item${idx}`;
+      });
+      acc.dataset.nextIndex = String(items.length);
+    }
+
+    // Delegated events for delete, chevron, and summary update
+    acc.querySelectorAll('.accordion-item[data-kind="item"]').forEach((wrap) => {
+      wireRow(wrap);
+      updateSummary(wrap);
+      initAllTagsInputs(wrap); // ✅ add this
+    });
+    renumberOnly();
+
+    document.getElementById('addItemBtn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      addItemRow();
+    });
+
+    // delivery breakdown ----------------------------------------------------------------------------------
+    const wrap = document.getElementById('deliveriesWrap');
+    const addDeliveryBtn = document.getElementById('addDeliveryBtn');
+    const tpl = document.getElementById('deliveryTemplate');
+
+    function reindexDeliveries() {
+      wrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
+        // Update the visible number
+        const numEl = card.querySelector('.delivery-index');
+        if (numEl) numEl.textContent = i + 1;
+
+        // Fix names: deliveries[<i>][...]
+        card.querySelectorAll('[name]').forEach((el) => {
+          el.name = el.name.replace(/\[deliveries\]\[\d+\]|\[deliveries\]\[__INDEX__\]/g, ''); // safety if pasted differently
+          el.name = el.name.replace(/\[?\bdeliveries\b\]?\[\d+\]/, 'deliveries[' + i + ']')
+            .replace(/\[\d+\]/, '[' + i + ']');
+          // More robust: always rewrite first index occurrence
+          el.name = el.name.replace(/deliveries\[\d+\]/, 'deliveries[' + i + ']');
+        });
+      });
+    }
+
+    function addDelivery() {
+      const index = wrap.querySelectorAll('[data-delivery]').length;
+      const html = tpl.innerHTML
+        .replace(/__INDEX__/g, index)
+        .replace(/__INDEX_HUMAN__/g, index + 1);
+
+      const temp = document.createElement('div');
+      temp.innerHTML = html.trim();
+      const node = temp.firstElementChild;
+
+      wrap.appendChild(node);
+      reindexDeliveries();
+    }
+
+    // Add delivery
+    addDeliveryBtn.addEventListener('click', addDelivery);
+
+    // Remove delivery (event delegation)
+    wrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove]');
+      if (!btn) return;
+
+      const card = btn.closest('[data-delivery]');
+      if (card) {
+        card.remove();
         reindexDeliveries();
       }
+    });
 
-      // Add delivery
-      addDeliveryBtn.addEventListener('click', addDelivery);
+    function renumberItems() {
+      // Use the single numbering function from above
+      renumberOnly();
+    }
 
-      // Remove delivery (event delegation)
-      wrap.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-remove]');
-        if (!btn) return;
-
-        const card = btn.closest('[data-delivery]');
-        if (card) {
-          card.remove();
-          reindexDeliveries();
+    async function deleteItemOnServer(url) {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-TOKEN': window.CSRF_TOKEN,
+          'Accept': 'application/json'
         }
       });
-
-      function renumberItems() {
-        // Use the single numbering function from above
-        renumberOnly();
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${txt || 'Delete failed'}`);
       }
+      const data = await res.json();
+      if (!data?.ok) throw new Error('Delete failed');
+      return true;
+    }
 
-      async function deleteItemOnServer(url) {
-        const res = await fetch(url, {
-          method: 'DELETE',
-          headers: {
-            'X-CSRF-TOKEN': window.CSRF_TOKEN,
-            'Accept': 'application/json'
-          }
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action="delete-item"]');
+      if (!btn) return;
+
+      const itemEl = btn.closest('.accordion-item');
+      if (!itemEl) return;
+
+      const itemId = btn.dataset.itemId; // may be "" for unsaved items
+      const url = btn.dataset.url;
+
+      // Confirm
+      if (window.Swal) {
+        const c = await Swal.fire({
+          icon: 'warning',
+          title: 'Delete this item?',
+          text: 'This cannot be undone.',
+          showCancelButton: true,
+          confirmButtonText: 'Delete',
+          confirmButtonColor: '#d33'
         });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          throw new Error(`HTTP ${res.status}: ${txt || 'Delete failed'}`);
-        }
-        const data = await res.json();
-        if (!data?.ok) throw new Error('Delete failed');
-        return true;
+        if (!c.isConfirmed) return;
+      } else if (!confirm('Delete this item?')) {
+        return;
       }
 
-      document.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-action="delete-item"]');
-        if (!btn) return;
-
-        const itemEl = btn.closest('.accordion-item');
-        if (!itemEl) return;
-
-        const itemId = btn.dataset.itemId; // may be "" for unsaved items
-        const url = btn.dataset.url;
-
-        // Confirm
-        if (window.Swal) {
-          const c = await Swal.fire({
-            icon: 'warning',
-            title: 'Delete this item?',
-            text: 'This cannot be undone.',
-            showCancelButton: true,
-            confirmButtonText: 'Delete',
-            confirmButtonColor: '#d33'
-          });
-          if (!c.isConfirmed) return;
-        } else if (!confirm('Delete this item?')) {
+      // If no ItemID (unsaved), just remove the block client-side
+      try {
+        if (!itemId) {
+          itemEl.remove();
+          renumberItems();
           return;
         }
 
-        // If no ItemID (unsaved), just remove the block client-side
-        try {
-          if (!itemId) {
-            itemEl.remove();
-            renumberItems();
-            return;
-          }
+        // Existing item → call server
+        await deleteItemOnServer(url);
 
-          // Existing item → call server
-          await deleteItemOnServer(url);
+        // Remove from DOM
+        itemEl.remove();
+        renumberItems();
 
-          // Remove from DOM
-          itemEl.remove();
-          renumberItems();
+        // Optional toast
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Item deleted',
+            timer: 1200,
+            showConfirmButton: false
+          });
+        }
+      } catch (err) {
+        console.error(err);
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Delete failed',
+            text: String(err)
+          });
+        } else {
+          alert('Delete failed: ' + err);
+        }
+      }
+    });
 
-          // Optional toast
-          if (window.Swal) {
-            Swal.fire({
-              icon: 'success',
-              title: 'Item deleted',
-              timer: 1200,
-              showConfirmButton: false
-            });
-          }
-        } catch (err) {
-          console.error(err);
-          if (window.Swal) {
-            Swal.fire({
-              icon: 'error',
-              title: 'Delete failed',
-              text: String(err)
-            });
-          } else {
-            alert('Delete failed: ' + err);
-          }
+
+  })();
+
+  // upload attachemnt -------------------------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('fileInput');
+    const listEl = document.getElementById('preview');
+    const msgEl = document.getElementById('attach-msg');
+
+    const ALLOWED = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+
+    const selected = new Map();
+
+    input.addEventListener('change', () => {
+      if (!input.files?.length) return;
+      const incoming = Array.from(input.files);
+
+      incoming.forEach(f => {
+        const ext = (f.name.split('.').pop() || '').toLowerCase();
+        const key = `${f.name}|${f.size}|${f.lastModified}`;
+
+        const errors = [];
+        if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
+        if (selected.has(key)) errors.push('Duplicate');
+
+        if (errors.length) {
+          addRow(f, {
+            status: 'error',
+            note: errors.join(', ')
+          });
+        } else {
+          selected.set(key, f);
+          addRow(f, {
+            key,
+            status: 'ready'
+          });
         }
       });
 
+      updateSummary();
+      input.value = '';
+    });
 
-    })();
-
-    // upload attachemnt -------------------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      const input = document.getElementById('fileInput');
-      const listEl = document.getElementById('preview');
-      const msgEl = document.getElementById('attach-msg');
-
-      const ALLOWED = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
-
-      const selected = new Map();
-
-      input.addEventListener('change', () => {
-        if (!input.files?.length) return;
-        const incoming = Array.from(input.files);
-
-        incoming.forEach(f => {
-          const ext = (f.name.split('.').pop() || '').toLowerCase();
-          const key = `${f.name}|${f.size}|${f.lastModified}`;
-
-          const errors = [];
-          if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
-          if (selected.has(key)) errors.push('Duplicate');
-
-          if (errors.length) {
-            addRow(f, {
-              status: 'error',
-              note: errors.join(', ')
-            });
-          } else {
-            selected.set(key, f);
-            addRow(f, {
-              key,
-              status: 'ready'
-            });
-          }
-        });
-
-        updateSummary();
-        input.value = '';
-      });
-
-      function addRow(file, {
-        key = null,
-        status = 'ready',
-        note = ''
-      }) {
-        const li = document.createElement('li');
-        li.dataset.key = key || '';
-        li.innerHTML = `
+    function addRow(file, {
+      key = null,
+      status = 'ready',
+      note = ''
+    }) {
+      const li = document.createElement('li');
+      li.dataset.key = key || '';
+      li.innerHTML = `
         <span>${file.name}${
           status === 'error'
             ? ` – <span class="err">${note}</span>`
@@ -1356,188 +1392,271 @@
         <button class="remove-x" title="Remove">×</button>
       `;
 
-        li.querySelector('.remove-x').addEventListener('click', () => {
-          const k = li.dataset.key;
-          if (k && selected.has(k)) selected.delete(k);
-          li.remove();
-          updateSummary();
-        });
-
-        listEl.appendChild(li);
-      }
-
-      function updateSummary() {
-        const count = selected.size;
-        msgEl.innerHTML = count ?
-          `<span class="ok">${count} file(s) selected for upload</span>` :
-          '';
-      }
-
-      window.getSelectedFiles = () => Array.from(selected.values());
-
-      // submit order form
-      const form = document.getElementById('order-form');
-      const btnDraft = document.getElementById('btn-draft');
-      const btnSubmit = document.getElementById('btn-submit');
-      const isDraftEl = document.getElementById('is_draft');
-      const overlay = document.getElementById('loading-overlay');
-
-      const action = @json(route('artist.orders.update', $order));
-      const csrf = @json(csrf_token());
-
-      function getSelectedFiles() {
-        return (typeof window.getSelectedFiles === 'function') ? window.getSelectedFiles() : [];
-      }
-
-      function loading(on) {
-        overlay.classList.toggle('is-open', !!on);
-        btnDraft.disabled = btnSubmit.disabled = !!on;
-      }
-      const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
-
-      async function send(isDraft) {
-        isDraftEl.value = isDraft ? 1 : 0;
-
-        const fd = new FormData(form);
-        fd.set('is_draft', isDraftEl.value);
-        fd.append('_method', 'PUT');
-        for (const f of getSelectedFiles()) fd.append('attachments[]', f);
-
-        // 1) show loading and allow the browser to paint it
-        loading(true);
-        await nextPaint(); // ensures "Saving… please wait" is visible
-
-        let res, data;
-        try {
-          res = await fetch(action, {
-            method: 'POST',
-            body: fd,
-            credentials: 'same-origin',
-            headers: {
-              'X-CSRF-TOKEN': csrf,
-              'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
-            }
-          });
-
-          if (res.status === 422) {
-            data = await res.json().catch(() => ({}));
-            // 2) hide loading BEFORE showing SweetAlert
-            loading(false);
-            const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
-            await Swal.fire({
-              icon: 'error',
-              title: 'Validation error',
-              text: msg
-            });
-            return;
-          }
-
-          data = await res.json().catch(() => ({}));
-
-          // 2) hide loading BEFORE showing SweetAlert
-          loading(false);
-
-          if (res.ok && data?.ok) {
-            await Swal.fire({
-              icon: 'success',
-              title: isDraft ? 'Draft saved' : 'Order saved',
-              text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
-            });
-            // optional refresh
-            window.location.reload();
-          } else {
-            await Swal.fire({
-              icon: 'error',
-              title: 'Save failed',
-              text: data?.message || `HTTP ${res.status} — please try again`
-            });
-          }
-        } catch (e) {
-          console.error(e);
-          loading(false); // be sure to hide on network errors too
-          await Swal.fire({
-            icon: 'error',
-            title: 'Network error',
-            text: 'Could not save. Please try again.'
-          });
-        }
-      }
-
-      const draftBtn = document.getElementById('btn-draft');
-      const submitBtn = document.getElementById('btn-submit');
-
-      if (draftBtn) draftBtn.addEventListener('click', () => send(true));
-      if (submitBtn) submitBtn.addEventListener('click', () => send(false));
-
-      const acc = document.getElementById('productItems');
-      if (!acc) return;
-
-      // Set next index based on how many items exist on load
-      const existingCount = acc.querySelectorAll('.accordion-item').length;
-      acc.dataset.nextIndex = String(existingCount);
-
-      // Wire existing remove buttons
-      acc.querySelectorAll('.remove-item-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          const idx = parseInt(btn.dataset.index, 10);
-          removeItem(idx);
-        });
+      li.querySelector('.remove-x').addEventListener('click', () => {
+        const k = li.dataset.key;
+        if (k && selected.has(k)) selected.delete(k);
+        li.remove();
+        updateSummary();
       });
 
-      // Public function for inline onclick="removeItem(i, event)" compatibility
-      window.removeItem = function(idx, ev) {
-        if (ev) ev.preventDefault();
-        const el = document.getElementById(`item${idx}`);
-        if (el) el.remove();
-        reindexItems();
-      };
+      listEl.appendChild(li);
+    }
 
-      // ---------- helpers for Material tags ----------
-      
+    function updateSummary() {
+      const count = selected.size;
+      msgEl.innerHTML = count ?
+        `<span class="ok">${count} file(s) selected for upload</span>` :
+        '';
+    }
 
-      function reindexItems() {
-        const items = [...acc.querySelectorAll('.accordion-item[data-kind="item"]')];
-        items.forEach((itemEl, newIdx) => {
-          const oldId = itemEl.id; // e.g., "item3"
-          const oldIdxMatch = oldId.match(/^item(\d+)$/);
-          const oldIdx = oldIdxMatch ? parseInt(oldIdxMatch[1], 10) : newIdx;
+    window.getSelectedFiles = () => Array.from(selected.values());
 
-          // IDs
-          itemEl.id = `item${newIdx}`;
+    // submit order form
+    const form = document.getElementById('order-form');
+    const btnDraft = document.getElementById('btn-draft');
+    const btnSubmit = document.getElementById('btn-submit');
+    const isDraftEl = document.getElementById('is_draft');
+    const overlay = document.getElementById('loading-overlay');
 
-          const header = itemEl.querySelector('.fw-semibold');
-          if (header) header.textContent = `Item ${newIdx + 1}`;
+    const action = @json(route('artist.orders.update', $order));
+    const csrf = @json(csrf_token());
 
-          // Collapse ids/targets
-          const pane = itemEl.querySelector('.accordion-collapse');
-          if (pane) {
-            pane.id = `itemPane${newIdx}`;
-            pane.setAttribute('data-bs-parent', '#productItems');
-          }
-          const toggleBtn = itemEl.querySelector('[data-bs-toggle="collapse"]');
-          if (toggleBtn) {
-            toggleBtn.setAttribute('data-bs-target', `#itemPane${newIdx}`);
-            toggleBtn.setAttribute('aria-controls', `itemPane${newIdx}`);
-          }
+    function getSelectedFiles() {
+      return (typeof window.getSelectedFiles === 'function') ? window.getSelectedFiles() : [];
+    }
 
-          // Hidden id input stays the same value, but rename the name index
-          // Update all [name="items[<n>]..."] to the new index
-          itemEl.querySelectorAll('[name^="items["]').forEach(inp => {
-            inp.name = inp.name.replace(/items\[\d+\]/, `items[${newIdx}]`);
-          });
+    function loading(on) {
+      overlay.classList.toggle('is-open', !!on);
+      btnDraft.disabled = btnSubmit.disabled = !!on;
+    }
+    const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
 
-          // Update remove button index
-          const del = itemEl.querySelector('.remove-item-btn');
-          if (del) {
-            del.dataset.index = String(newIdx);
+    async function send(isDraft) {
+      isDraftEl.value = isDraft ? 1 : 0;
+
+      const fd = new FormData(form);
+      fd.set('is_draft', isDraftEl.value);
+      fd.append('_method', 'PUT');
+      for (const f of getSelectedFiles()) fd.append('attachments[]', f);
+
+      // 1) show loading and allow the browser to paint it
+      loading(true);
+      await nextPaint(); // ensures "Saving… please wait" is visible
+
+      let res, data;
+      try {
+        res = await fetch(action, {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: {
+            'X-CSRF-TOKEN': csrf,
+            'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
           }
         });
 
-        // Set nextIndex to count
-        acc.dataset.nextIndex = String(items.length);
+        if (res.status === 422) {
+          data = await res.json().catch(() => ({}));
+          // 2) hide loading BEFORE showing SweetAlert
+          loading(false);
+          const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
+          await Swal.fire({
+            icon: 'error',
+            title: 'Validation error',
+            text: msg
+          });
+          return;
+        }
+
+        data = await res.json().catch(() => ({}));
+
+        // 2) hide loading BEFORE showing SweetAlert
+        loading(false);
+
+        if (res.ok && data?.ok) {
+          await Swal.fire({
+            icon: 'success',
+            title: isDraft ? 'Draft saved' : 'Order saved',
+            text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
+          });
+          // optional refresh
+          window.location.reload();
+        } else {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Save failed',
+            text: data?.message || `HTTP ${res.status} — please try again`
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        loading(false); // be sure to hide on network errors too
+        await Swal.fire({
+          icon: 'error',
+          title: 'Network error',
+          text: 'Could not save. Please try again.'
+        });
       }
-      
+    }
+
+    const draftBtn = document.getElementById('btn-draft');
+    const submitBtn = document.getElementById('btn-submit');
+
+    if (draftBtn) draftBtn.addEventListener('click', () => send(true));
+    if (submitBtn) submitBtn.addEventListener('click', () => send(false));
+
+    const acc = document.getElementById('productItems');
+    if (!acc) return;
+
+    // Set next index based on how many items exist on load
+    const existingCount = acc.querySelectorAll('.accordion-item').length;
+    acc.dataset.nextIndex = String(existingCount);
+
+    // Wire existing remove buttons
+    acc.querySelectorAll('.remove-item-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const idx = parseInt(btn.dataset.index, 10);
+        removeItem(idx);
+      });
     });
+
+    // Public function for inline onclick="removeItem(i, event)" compatibility
+    window.removeItem = function(idx, ev) {
+      if (ev) ev.preventDefault();
+      const el = document.getElementById(`item${idx}`);
+      if (el) el.remove();
+      reindexItems();
+    };
+
+    function reindexItems() {
+      const items = [...acc.querySelectorAll('.accordion-item[data-kind="item"]')];
+      items.forEach((itemEl, newIdx) => {
+        const oldId = itemEl.id; // e.g., "item3"
+        const oldIdxMatch = oldId.match(/^item(\d+)$/);
+        const oldIdx = oldIdxMatch ? parseInt(oldIdxMatch[1], 10) : newIdx;
+
+        // IDs
+        itemEl.id = `item${newIdx}`;
+
+        const header = itemEl.querySelector('.fw-semibold');
+        if (header) header.textContent = `Item ${newIdx + 1}`;
+
+        // Collapse ids/targets
+        const pane = itemEl.querySelector('.accordion-collapse');
+        if (pane) {
+          pane.id = `itemPane${newIdx}`;
+          pane.setAttribute('data-bs-parent', '#productItems');
+        }
+        const toggleBtn = itemEl.querySelector('[data-bs-toggle="collapse"]');
+        if (toggleBtn) {
+          toggleBtn.setAttribute('data-bs-target', `#itemPane${newIdx}`);
+          toggleBtn.setAttribute('aria-controls', `itemPane${newIdx}`);
+        }
+
+        // Hidden id input stays the same value, but rename the name index
+        // Update all [name="items[<n>]..."] to the new index
+        itemEl.querySelectorAll('[name^="items["]').forEach(inp => {
+          inp.name = inp.name.replace(/items\[\d+\]/, `items[${newIdx}]`);
+        });
+
+        // Update remove button index
+        const del = itemEl.querySelector('.remove-item-btn');
+        if (del) {
+          del.dataset.index = String(newIdx);
+        }
+      });
+
+      // Set nextIndex to count
+      acc.dataset.nextIndex = String(items.length);
+    }
+
+    // --- Delivery quantity limit -------------------------------------------------
+    function getTotalAllowed() {
+      // Adjust selector if your "Total Quantity" has a different id
+      const el = document.getElementById('totalQty');
+      return parseFloat(el?.value || '0') || 0;
+    }
+
+    function sumDeliveryQty() {
+      let sum = 0;
+      wrap.querySelectorAll('.del-qty').forEach(inp => {
+        const v = parseFloat(inp.value || '0');
+        if (!isNaN(v)) sum += v;
+      });
+      return sum;
+    }
+
+    // Simple UI helper (you can style ".is-invalid" with Bootstrap or your CSS)
+    function setQtyValidity(ok, msg = '') {
+      const msgBoxId = 'del-qty-msg';
+      let msgBox = document.getElementById(msgBoxId);
+      if (!msgBox) {
+        msgBox = document.createElement('div');
+        msgBox.id = msgBoxId;
+        msgBox.className = 'mt-2 small text-danger';
+        // put message under the deliveries section
+        wrap.parentElement.insertBefore(msgBox, wrap.nextSibling);
+      }
+      msgBox.textContent = ok ? '' : msg;
+
+      // toggle invalid styles on each quantity field
+      wrap.querySelectorAll('.del-qty').forEach(inp => {
+        inp.classList.toggle('is-invalid', !ok);
+        inp.setAttribute('aria-invalid', String(!ok));
+      });
+
+      // disable submit buttons if invalid
+      document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
+      document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
+    }
+
+    function validateDeliveries() {
+      const total = getTotalAllowed();
+      const sum = sumDeliveryQty();
+      const ok = sum <= total;
+      const remaining = Math.max(0, total - sum);
+      setQtyValidity(
+        ok,
+        `Delivery quantities (${sum}) exceed Total Quantity (${total}). Reduce by ${sum - total}.`
+      );
+      // optional: show remaining somewhere, or set as data attr
+      wrap.dataset.remaining = String(remaining);
+    }
+
+    // Wire validation on existing rows
+    wrap.addEventListener('input', (e) => {
+      if (e.target.matches('.del-qty') || e.target.closest('.del-qty')) {
+        validateDeliveries();
+      }
+    });
+
+    // Re-run when total quantity changes
+    document.getElementById('totalQty')?.addEventListener('input', validateDeliveries);
+
+    // Call after you add/remove a delivery:
+    const _origAddDelivery = addDelivery;
+    addDelivery = function () {
+      _origAddDelivery();       // your existing function appends a card and calls reindexDeliveries()
+      validateDeliveries();     // <— validate after adding
+    };
+
+    // When you remove a delivery in your existing delegated handler,
+    // just call validateDeliveries() after the card is removed.
+    wrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove]');
+      if (!btn) return;
+      const card = btn.closest('[data-delivery]');
+      if (card) {
+        card.remove();
+        reindexDeliveries();
+        validateDeliveries();   // <— validate after removing
+      }
+    });
+
+    // Run once on load (so previously saved deliveries are checked)
+    validateDeliveries();
+
+  });
 </script>
 @endpush

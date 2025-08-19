@@ -8,14 +8,16 @@ use App\Models\Material;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;   // ← add this
+use Illuminate\Support\Facades\Auth;  
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\DeliveryBreakdown;
 use App\Models\Specification;
-
+use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
+use Illuminate\Support\Arr;
 
 class ArtistController extends Controller
 {
@@ -152,7 +154,7 @@ class ArtistController extends Controller
             return $row;
         });
 
-        $materials = Material::orderBy('materialName')->pluck('materialName')->filter()->values()->all();
+        $materials = Material::orderBy('materialName')->get(['materialName']);
 
         $allMaterials = Material::orderBy('materialName')->pluck('materialName')->values()->all();
 
@@ -161,6 +163,10 @@ class ArtistController extends Controller
         return view('artist.orders.edit', compact(
             'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials'
         ));
+
+        return view('artist.orders.edit', [
+            'materials' => $materials,
+        ]);
     }
 
     public function update(Request $request, Order $order)
@@ -171,8 +177,9 @@ class ArtistController extends Controller
             abort(403);
         }
 
-        // Validation
-        $validated = $request->validate([
+        // -------------------- VALIDATION --------------------
+        // NOTE: Use "breakdowns.*" everywhere (you POST/handle "breakdowns", not "deliveries")
+        $rules = [
             'design_confirmed'  => ['required', 'boolean'],
             'is_draft'          => ['required', 'in:0,1'],
 
@@ -209,20 +216,47 @@ class ArtistController extends Controller
             'items.*.printer'          => ['nullable', 'string', 'max:255'],
             'items.*.cutter'           => ['nullable', 'string', 'max:255'],
 
-            // Delivery breakdowns
-            'breakdowns'               => ['array'],
-            'breakdowns.*.id'          => ['nullable', 'integer'],
-            'breakdowns.*.method'      => ['nullable', 'string', 'max:255'],
-            'breakdowns.*.quantity'    => ['nullable', 'integer', 'min:0'],
-            'breakdowns.*.date'        => ['nullable', 'date'],
-            'breakdowns.*.time'        => ['nullable', 'date_format:H:i'],
-            'breakdowns.*.location'    => ['nullable', 'string', 'max:255'],
+            // ✅ Delivery breakdowns — use the key you actually post: "breakdowns"
+            'breakdowns'                 => ['array'],
+            'breakdowns.*.id'            => ['nullable','integer'],
+            'breakdowns.*.method'        => ['nullable','string','max:255'],
+            'breakdowns.*.location'      => ['nullable','string','max:255'],
+            'breakdowns.*.quantity'      => ['nullable','numeric','min:0'],
+            'breakdowns.*.date'          => ['nullable','date'],
+            'breakdowns.*.time'          => ['nullable','date_format:H:i'],
 
             // Attachments
             'attachments.*'            => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx','max:20480'],
             'delete_attachments'       => ['array'],
             'delete_attachments.*'     => ['string'],
-        ]);
+        ];
+
+        // We need a custom “sum ≤ total” check, so build a validator:
+        $validator = Validator::make($request->all(), $rules);
+
+        $validator->after(function ($v) use ($request, $order) {
+            // Read intended total from the form (product.qty_total) with fallback
+            $formTotal = (int) data_get($request->input('product', []), 'qty_total', 0);
+
+            // If not posted (readonly), fallback to current product row:
+            $prodRow = Product::where('OrderID', $order->id)->first();
+            $productTotalQty = $formTotal > 0
+                ? $formTotal
+                : (int) ($prodRow->totalQuantity ?? 0);
+
+            $sumBreakdowns = collect($request->input('breakdowns', []))
+                ->sum(fn($r) => (int) ($r['quantity'] ?? 0));
+
+            if ($sumBreakdowns > $productTotalQty) {
+                $v->errors()->add('breakdowns', "Delivery quantities ($sumBreakdowns) exceed Total Quantity ($productTotalQty).");
+            }
+        });
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $validated = $validator->validated();
 
         try {
             DB::transaction(function () use ($request, $order) {
@@ -353,6 +387,15 @@ class ArtistController extends Controller
                 $postedBreakdowns = collect($request->input('breakdowns', []))
                     ->filter(fn($row) => is_array($row));
 
+                $sumBreakdowns = (int) $postedBreakdowns->sum(fn($r) => (int)($r['quantity'] ?? 0));
+                $totalAllowed  = (int) ($product->totalQuantity ?? 0);
+                if ($sumBreakdowns > $totalAllowed) {
+                    // Throwing here makes the whole txn roll back
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'breakdowns' => ["Delivery quantities ($sumBreakdowns) exceed Total Quantity ($totalAllowed)."]
+                    ]);
+                }
+
                 $keepBreakIds = [];
                 foreach ($postedBreakdowns as $row) {
                     $isEmpty = collect($row)->filter(fn($v, $k) => $k !== 'id' && $v !== null && $v !== '')->isEmpty();
@@ -382,8 +425,36 @@ class ArtistController extends Controller
                     DeliveryBreakdown::where('ProductID', $product->ProductID)
                         ->whereNotIn('BreakdownID', $keepBreakIds)
                         ->delete();
+                } else {
+                    // if no rows posted at all, you can choose to delete all or keep old
+                    // DeliveryBreakdown::where('ProductID', $product->ProductID)->delete();
                 }
             });
+
+            // -- DELIVERY BREAKDOWNS -------------------------------------------------
+            $productTotalQty = (int) ($request->input('qty_total') ?? $order->TotalQuantity ?? 0);
+            $deliveries = $this->extractDeliveries($request);
+            [$deliveries, $sum] = $this->validateDeliveries($deliveries, $productTotalQty);
+            
+            DB::table('delivery_breakdowns')->where('ProductID', $order->ProductID ?? $order->id)->delete();
+
+            if (!empty($deliveries)) {
+                $now = now();
+                $rows = collect($deliveries)->map(function ($r) use ($order, $now) {
+                    return [
+                        'ProductID'  => $order->ProductID ?? $order->id, // <- FK to your order/product
+                        'method'     => $r['method'],
+                        'location'   => $r['location'],
+                        'quantity'   => $r['quantity'],
+                        'date'       => $r['date'],  // DATE column
+                        'time'       => $r['time'],  // TIME column
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                })->all();
+
+                DB::table('delivery_breakdowns')->insert($rows);
+            }
 
             return back()->with('success', $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
         } catch (\Throwable $e) {
@@ -500,5 +571,75 @@ class ArtistController extends Controller
         $item->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Normalize delivery rows from the request into a clean array.
+     * Accepts either a single datetime string or separate date/time.
+     */
+    private function extractDeliveries(\Illuminate\Http\Request $request): array
+    {
+        // Expecting names like: deliveries[0][method], deliveries[0][location], deliveries[0][quantity], deliveries[0][datetime]
+        // or deliveries[0][date] + deliveries[0][time]
+        $rows = $request->input('deliveries', []);
+        if (!is_array($rows)) return [];
+
+        // Keep only non-empty rows (at least quantity or method present)
+        return collect($rows)->map(function ($row) {
+            $row = is_array($row) ? $row : [];
+
+            // handle datetime in either format
+            $date = trim((string)Arr::get($row, 'date', ''));
+            $time = trim((string)Arr::get($row, 'time', ''));
+            $dt   = trim((string)Arr::get($row, 'datetime', '')); // in case your input is a single control
+
+            if ($dt !== '') {
+                try {
+                    $c = Carbon::parse($dt);
+                    $date = $c->toDateString();
+                    $time = $c->format('H:i:s');
+                } catch (\Throwable $e) {}
+            }
+
+            return [
+                'method'   => trim((string)Arr::get($row, 'method', '')),
+                'location' => trim((string)Arr::get($row, 'location', '')),
+                'quantity' => (int)Arr::get($row, 'quantity', 0),
+                'date'     => $date ?: null,
+                'time'     => $time ?: null,
+            ];
+        })
+        // filter out rows that have nothing at all
+        ->filter(fn ($r) => $r['method'] !== '' || $r['location'] !== '' || $r['quantity'] > 0)
+        ->values()
+        ->all();
+    }
+
+    /**
+     * Validate deliveries and enforce the total ≤ product quantity rule.
+     * Returns an array [deliveries, totalQty] or throws \Illuminate\Validation\ValidationException.
+     */
+    private function validateDeliveries(array $deliveries, int $maxQty): array
+    {
+        // Per-row validation
+        $v = Validator::make(['deliveries' => $deliveries], [
+            'deliveries'               => ['array'],
+            'deliveries.*.method'      => ['required','string','max:255'],
+            'deliveries.*.location'    => ['nullable','string','max:255'],
+            'deliveries.*.quantity'    => ['required','integer','min:1'],
+            'deliveries.*.date'        => ['nullable','date'],
+            'deliveries.*.time'        => ['nullable'],
+        ]);
+
+        $v->after(function ($v) use ($deliveries, $maxQty) {
+            $sum = collect($deliveries)->sum('quantity');
+            if ($sum > $maxQty) {
+                $v->errors()->add('deliveries', 'Total delivery quantity ('.$sum.') cannot exceed product total ('.$maxQty.').');
+            }
+        });
+
+        $v->validate();
+
+        return [$deliveries, collect($deliveries)->sum('quantity')];
     }
 }
