@@ -742,7 +742,7 @@
 
                       <div class="col-12 col-md-4">
                         <label class="form-label">Date & Time</label>
-                        <input name="deliveries[__INDEX__][date]" type="datetime-local" class="form-control">
+                        <input class="form-control del-datetime" type="datetime-local" name="deliveries[__INDEX__][datetime]" placeholder="dd/mm/yyyy --:--">
                       </div>
                     </div>
                   </div>
@@ -778,12 +778,12 @@
 
                       <div class="col-12 col-md-2">
                         <label class="form-label">Quantity</label>
-                        <input name="deliveries[__INDEX__][qty]" type="number" min="0" class="form-control" placeholder="Qty">
+                        <input name="deliveries[__INDEX__][quantity]" type="number" min="0" class="form-control" placeholder="Qty">
                       </div>
 
                       <div class="col-12 col-md-4">
                         <label class="form-label">Date & Time</label>
-                        <input name="deliveries[__INDEX__][datetime]" type="datetime-local" class="form-control">
+                        <input class="form-control del-datetime" type="datetime-local" name="deliveries[__INDEX__][datetime]" placeholder="dd/mm/yyyy --:--">
                       </div>
                     </div>
                   </div>
@@ -963,7 +963,6 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
   window.CSRF_TOKEN = "{{ csrf_token() }}";
@@ -1198,55 +1197,82 @@
     });
 
     // delivery breakdown ----------------------------------------------------------------------------------
-    const wrap = document.getElementById('deliveriesWrap');
+    const delWrap        = document.getElementById('deliveriesWrap');
+    const totalQtyEl     = document.querySelector('input[name="product[qty_total]"]');
     const addDeliveryBtn = document.getElementById('addDeliveryBtn');
-    const tpl = document.getElementById('deliveryTemplate');
+    const delTpl         = document.getElementById('deliveryTemplate');
 
-    function reindexDeliveries() {
-      wrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
-        // Update the visible number
-        const numEl = card.querySelector('.delivery-index');
-        if (numEl) numEl.textContent = i + 1;
+    if (delWrap && addDeliveryBtn && delTpl) {
+      function reindexDeliveries() {
+        delWrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
+          const numEl = card.querySelector('.delivery-index');
+          if (numEl) numEl.textContent = i + 1;
 
-        // Fix names: deliveries[<i>][...]
-        card.querySelectorAll('[name]').forEach((el) => {
-          el.name = el.name.replace(/\[deliveries\]\[\d+\]|\[deliveries\]\[__INDEX__\]/g, ''); // safety if pasted differently
-          el.name = el.name.replace(/\[?\bdeliveries\b\]?\[\d+\]/, 'deliveries[' + i + ']')
-            .replace(/\[\d+\]/, '[' + i + ']');
-          // More robust: always rewrite first index occurrence
-          el.name = el.name.replace(/deliveries\[\d+\]/, 'deliveries[' + i + ']');
+          // Fix names: deliveries[<i>][field]
+          card.querySelectorAll('[name]').forEach((el) => {
+            const m = el.name.match(/^deliveries\[(\d+|__INDEX__)\]\[(.+)\]$/);
+            if (m) el.name = `deliveries[${i}][${m[2]}]`;
+          });
         });
-      });
-    }
+      }
 
-    function addDelivery() {
-      const index = wrap.querySelectorAll('[data-delivery]').length;
-      const html = tpl.innerHTML
-        .replace(/__INDEX__/g, index)
-        .replace(/__INDEX_HUMAN__/g, index + 1);
+      function addDelivery() {
+        const index = delWrap.querySelectorAll('[data-delivery]').length;
+        const html  = delTpl.innerHTML
+          .replace(/__INDEX__/g, index)
+          .replace(/__INDEX_HUMAN__/g, index + 1);
 
-      const temp = document.createElement('div');
-      temp.innerHTML = html.trim();
-      const node = temp.firstElementChild;
-
-      wrap.appendChild(node);
-      reindexDeliveries();
-    }
-
-    // Add delivery
-    addDeliveryBtn.addEventListener('click', addDelivery);
-
-    // Remove delivery (event delegation)
-    wrap.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-remove]');
-      if (!btn) return;
-
-      const card = btn.closest('[data-delivery]');
-      if (card) {
-        card.remove();
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html.trim();
+        const node = tmp.firstElementChild;
+        delWrap.appendChild(node);
         reindexDeliveries();
       }
-    });
+
+      addDeliveryBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        addDelivery();
+      });
+
+      // remove card
+      delWrap.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-remove]');
+        if (!btn) return;
+        const card = btn.closest('[data-delivery]');
+        if (card) {
+          card.remove();
+          reindexDeliveries();
+        }
+      });
+
+      // simple client validation (optional)
+      function sumQty() {
+        let s = 0;
+        delWrap.querySelectorAll('.del-qty').forEach(inp => {
+          const v = parseFloat(inp.value);
+          if (!Number.isNaN(v)) s += v;
+        });
+        return s;
+      }
+      function validateDeliveries() {
+        const total = parseFloat(totalQtyEl?.value || '0') || 0;
+        const sum   = sumQty();
+        const ok    = sum <= total;
+
+        // you can display a message somewhere or disable submit
+        document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
+        document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
+      }
+
+      delWrap.addEventListener('input', (e) => {
+        if (e.target.matches('.del-qty')) validateDeliveries();
+      });
+      totalQtyEl?.addEventListener('input', validateDeliveries);
+
+      // on load
+      reindexDeliveries();
+      validateDeliveries();
+    }
 
     function renumberItems() {
       // Use the single numbering function from above
@@ -1610,52 +1636,6 @@
       document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
       document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
     }
-
-    function validateDeliveries() {
-      const total = getTotalAllowed();
-      const sum = sumDeliveryQty();
-      const ok = sum <= total;
-      const remaining = Math.max(0, total - sum);
-      setQtyValidity(
-        ok,
-        `Delivery quantities (${sum}) exceed Total Quantity (${total}). Reduce by ${sum - total}.`
-      );
-      // optional: show remaining somewhere, or set as data attr
-      wrap.dataset.remaining = String(remaining);
-    }
-
-    // Wire validation on existing rows
-    wrap.addEventListener('input', (e) => {
-      if (e.target.matches('.del-qty') || e.target.closest('.del-qty')) {
-        validateDeliveries();
-      }
-    });
-
-    // Re-run when total quantity changes
-    document.getElementById('totalQty')?.addEventListener('input', validateDeliveries);
-
-    // Call after you add/remove a delivery:
-    const _origAddDelivery = addDelivery;
-    addDelivery = function () {
-      _origAddDelivery();       // your existing function appends a card and calls reindexDeliveries()
-      validateDeliveries();     // <— validate after adding
-    };
-
-    // When you remove a delivery in your existing delegated handler,
-    // just call validateDeliveries() after the card is removed.
-    wrap.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-remove]');
-      if (!btn) return;
-      const card = btn.closest('[data-delivery]');
-      if (card) {
-        card.remove();
-        reindexDeliveries();
-        validateDeliveries();   // <— validate after removing
-      }
-    });
-
-    // Run once on load (so previously saved deliveries are checked)
-    validateDeliveries();
 
   });
 </script>

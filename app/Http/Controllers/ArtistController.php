@@ -384,77 +384,88 @@ class ArtistController extends Controller
                 }
 
                 // 5) Upsert delivery breakdowns
-                $postedBreakdowns = collect($request->input('breakdowns', []))
+                $postedDeliveries = collect($request->input('deliveries', []))
                     ->filter(fn($row) => is_array($row));
 
-                $sumBreakdowns = (int) $postedBreakdowns->sum(fn($r) => (int)($r['quantity'] ?? 0));
-                $totalAllowed  = (int) ($product->totalQuantity ?? 0);
-                if ($sumBreakdowns > $totalAllowed) {
-                    // Throwing here makes the whole txn roll back
+                // normalize + skip empty cards
+                $deliveries = [];
+                foreach ($postedDeliveries as $row) {
+                    $row = array_change_key_case($row, CASE_LOWER);
+
+                    // Pull values
+                    $method   = trim($row['method']   ?? '');
+                    $location = trim($row['location'] ?? '');
+                    $qty      = $row['quantity']      ?? null;
+                    $date     = $row['date']          ?? null;
+                    $time     = $row['time']          ?? null;
+                    $id       = isset($row['id']) ? (int)$row['id'] : null;
+
+                    // If you used a single datetime input, split it here
+                    if ((!$date || !$time) && !empty($row['datetime'])) {
+                        // Expect formats like "YYYY-MM-DD HH:mm" or browser locale — adjust as needed
+                        try {
+                            $dt   = \Carbon\Carbon::parse($row['datetime']);
+                            $date = $date ?: $dt->toDateString();
+                            $time = $time ?: $dt->format('H:i:s');
+                        } catch (\Throwable $e) {
+                            // leave as null; will fail validation below if required
+                        }
+                    }
+
+                    // detect empty card (everything blank)
+                    $isEmpty = ($method === '' && $location === '' && ($qty === null || $qty === '') && !$date && !$time);
+                    if ($isEmpty) continue;
+
+                    $deliveries[] = [
+                        'id'       => $id,
+                        'method'   => $method ?: null,
+                        'location' => $location ?: null,
+                        'quantity' => is_numeric($qty) ? (int)$qty : 0,
+                        'date'     => $date ?: null,
+                        'time'     => $time ?: null,
+                    ];
+                }
+
+                // business rule: sum ≤ product total
+                $productTotal = (int)($request->input('product.qty_total') ?? $product->totalQuantity ?? 0);
+                $sumQty = array_sum(array_column($deliveries, 'quantity'));
+                if ($sumQty > $productTotal) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'breakdowns' => ["Delivery quantities ($sumBreakdowns) exceed Total Quantity ($totalAllowed)."]
+                        'deliveries' => ["Delivery quantities ($sumQty) exceed Total Quantity ($productTotal)."],
                     ]);
                 }
 
-                $keepBreakIds = [];
-                foreach ($postedBreakdowns as $row) {
-                    $isEmpty = collect($row)->filter(fn($v, $k) => $k !== 'id' && $v !== null && $v !== '')->isEmpty();
-                    if ($isEmpty) continue;
-
+                // Upsert rows for this product
+                $keepIds = [];
+                foreach ($deliveries as $d) {
                     $bd = null;
-                    if (!empty($row['id'])) {
-                        $bd = DeliveryBreakdown::where('BreakdownID', (int)$row['id'])
+                    if (!empty($d['id'])) {
+                        $bd = \App\Models\DeliveryBreakdown::where('BreakdownID', $d['id'])
                             ->where('ProductID', $product->ProductID)
                             ->first();
                     }
                     if (!$bd) {
-                        $bd = new DeliveryBreakdown();
+                        $bd = new \App\Models\DeliveryBreakdown();
                         $bd->ProductID = $product->ProductID;
                     }
 
-                    foreach (['method', 'quantity', 'date', 'time', 'location'] as $key) {
-                        if (array_key_exists($key, $row)) {
-                            $bd->{$key} = $row[$key] === '' ? null : $row[$key];
-                        }
-                    }
+                    $bd->method   = $d['method'];
+                    $bd->location = $d['location'];
+                    $bd->quantity = $d['quantity'];
+                    $bd->date     = $d['date'];   // DATE column
+                    $bd->time     = $d['time'];   // TIME column
                     $bd->save();
-                    $keepBreakIds[] = $bd->BreakdownID;
+
+                    $keepIds[] = $bd->BreakdownID;
                 }
 
-                if (count($keepBreakIds)) {
-                    DeliveryBreakdown::where('ProductID', $product->ProductID)
-                        ->whereNotIn('BreakdownID', $keepBreakIds)
+                // Delete rows removed in the UI (only if we posted at least one row)
+                if (count($deliveries)) {
+                    \App\Models\DeliveryBreakdown::where('ProductID', $product->ProductID)
+                        ->whereNotIn('BreakdownID', $keepIds)
                         ->delete();
-                } else {
-                    // if no rows posted at all, you can choose to delete all or keep old
-                    // DeliveryBreakdown::where('ProductID', $product->ProductID)->delete();
                 }
             });
-
-            // -- DELIVERY BREAKDOWNS -------------------------------------------------
-            $productTotalQty = (int) ($request->input('qty_total') ?? $order->TotalQuantity ?? 0);
-            $deliveries = $this->extractDeliveries($request);
-            [$deliveries, $sum] = $this->validateDeliveries($deliveries, $productTotalQty);
-            
-            DB::table('delivery_breakdowns')->where('ProductID', $order->ProductID ?? $order->id)->delete();
-
-            if (!empty($deliveries)) {
-                $now = now();
-                $rows = collect($deliveries)->map(function ($r) use ($order, $now) {
-                    return [
-                        'ProductID'  => $order->ProductID ?? $order->id, // <- FK to your order/product
-                        'method'     => $r['method'],
-                        'location'   => $r['location'],
-                        'quantity'   => $r['quantity'],
-                        'date'       => $r['date'],  // DATE column
-                        'time'       => $r['time'],  // TIME column
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                })->all();
-
-                DB::table('delivery_breakdowns')->insert($rows);
-            }
 
             return back()->with('success', $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
         } catch (\Throwable $e) {

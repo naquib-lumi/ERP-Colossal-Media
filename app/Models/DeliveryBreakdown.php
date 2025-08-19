@@ -19,6 +19,11 @@ class DeliveryBreakdown extends Model
         'ProductID', 'method', 'quantity', 'date', 'time', 'location',
     ];
 
+    protected $casts = [
+        'date' => 'date',
+        'time' => 'datetime:H:i:s', // or 'string' if you prefer
+    ];
+
     public function product()
     {
         return $this->belongsTo(Product::class, 'ProductID', 'ProductID');
