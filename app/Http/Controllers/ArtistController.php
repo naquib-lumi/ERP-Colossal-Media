@@ -124,9 +124,27 @@ class ArtistController extends Controller
         $orderCode = sprintf('ORD-%04d', $order->id);
         $today     = now()->format('M d, Y');
 
-        // Product (unchanged)
-        $product   = Product::with('items.spec','breakdowns')
-                    ->where('OrderID', $order->id)->first();
+        $product = Product::with([
+            'deliveryBreakdowns' => function ($q) {
+                // select only real columns – no "id" here
+                $q->select('BreakdownID', 'ProductID', 'method', 'location', 'quantity', 'date', 'time')
+                ->orderBy('BreakdownID');
+            },
+        ])->where('OrderID', $order->id)->first();
+
+        $deliveries = $product ? $product->deliveryBreakdowns : collect();
+        if ($product) {
+            $deliveries = DeliveryBreakdown::where('ProductID', $product->ProductID)
+                ->orderBy('BreakdownID')
+                ->get([
+                    'BreakdownID as id',
+                    'method',
+                    'location',
+                    'quantity',
+                    'date',
+                    'time',
+                ]);
+        }
 
         $items = DB::table('product_items as pi')
             ->join('products as p', 'p.ProductID', '=', 'pi.ProductID')
@@ -161,11 +179,14 @@ class ArtistController extends Controller
         $attachments = $this->getOrderAttachments($order);
 
         return view('artist.orders.edit', compact(
-            'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials'
+            'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries'
         ));
 
         return view('artist.orders.edit', [
+            'order'       => $order,
             'materials' => $materials,
+            'product'     => $product,
+            'deliveries'  => $deliveries,
         ]);
     }
 
@@ -222,6 +243,7 @@ class ArtistController extends Controller
             'breakdowns.*.method'        => ['nullable','string','max:255'],
             'breakdowns.*.location'      => ['nullable','string','max:255'],
             'breakdowns.*.quantity'      => ['nullable','numeric','min:0'],
+            'breakdowns.*.datetime'      => ['nullable','date'],
             'breakdowns.*.date'          => ['nullable','date'],
             'breakdowns.*.time'          => ['nullable','date_format:H:i'],
 
@@ -383,6 +405,8 @@ class ArtistController extends Controller
                         ->delete();
                 }
 
+                $deliveries = $this->extractDeliveries($request);
+
                 // 5) Upsert delivery breakdowns
                 $postedDeliveries = collect($request->input('deliveries', []))
                     ->filter(fn($row) => is_array($row));
@@ -412,6 +436,27 @@ class ArtistController extends Controller
                         }
                     }
 
+                    foreach ($deliveries as $row) {
+                        $bd = null;
+                        if (!empty($row['id'])) {
+                            $bd = DeliveryBreakdown::where('BreakdownID', (int)$row['id'])
+                                ->where('ProductID', $product->ProductID)
+                                ->first();
+                        }
+                        if (!$bd) {
+                            $bd = new DeliveryBreakdown();
+                            $bd->ProductID = $product->ProductID;
+                        }
+
+                        foreach (['method','quantity','date','time','location'] as $key) {
+                            if (array_key_exists($key, $row)) {
+                                $bd->{$key} = $row[$key] === '' ? null : $row[$key];
+                            }
+                        }
+                        $bd->save();
+                        $keepBreakIds[] = $bd->BreakdownID;
+                    }
+
                     // detect empty card (everything blank)
                     $isEmpty = ($method === '' && $location === '' && ($qty === null || $qty === '') && !$date && !$time);
                     if ($isEmpty) continue;
@@ -424,6 +469,7 @@ class ArtistController extends Controller
                         'date'     => $date ?: null,
                         'time'     => $time ?: null,
                     ];
+                    
                 }
 
                 // business rule: sum ≤ product total
@@ -588,42 +634,52 @@ class ArtistController extends Controller
      * Normalize delivery rows from the request into a clean array.
      * Accepts either a single datetime string or separate date/time.
      */
-    private function extractDeliveries(\Illuminate\Http\Request $request): array
+    private function extractDeliveries(Request $request): array
     {
-        // Expecting names like: deliveries[0][method], deliveries[0][location], deliveries[0][quantity], deliveries[0][datetime]
-        // or deliveries[0][date] + deliveries[0][time]
-        $rows = $request->input('deliveries', []);
-        if (!is_array($rows)) return [];
+        $posted = $request->input('deliveries', []);
+        if (!is_array($posted)) return [];
 
-        // Keep only non-empty rows (at least quantity or method present)
-        return collect($rows)->map(function ($row) {
-            $row = is_array($row) ? $row : [];
+        $rows = [];
+        foreach ($posted as $row) {
+            if (!is_array($row)) continue;
 
-            // handle datetime in either format
-            $date = trim((string)Arr::get($row, 'date', ''));
-            $time = trim((string)Arr::get($row, 'time', ''));
-            $dt   = trim((string)Arr::get($row, 'datetime', '')); // in case your input is a single control
+            // normalize keys
+            $row = array_change_key_case($row, CASE_LOWER);
 
-            if ($dt !== '') {
+            $method   = trim((string)($row['method']   ?? ''));
+            $location = trim((string)($row['location'] ?? ''));
+            $qty      = $row['quantity'] ?? null;
+            $date     = $row['date']     ?? null;
+            $time     = $row['time']     ?? null;
+            $id       = isset($row['id']) ? (int)$row['id'] : null;
+
+            // Support a single datetime-local input
+            // e.g. "2025-08-19T13:55"
+            if ((!$date || !$time) && !empty($row['datetime'])) {
                 try {
-                    $c = Carbon::parse($dt);
-                    $date = $c->toDateString();
-                    $time = $c->format('H:i:s');
-                } catch (\Throwable $e) {}
+                    $dt   = \Carbon\Carbon::parse($row['datetime']);
+                    $date = $date ?: $dt->toDateString();   // "YYYY-MM-DD"
+                    $time = $time ?: $dt->format('H:i');    // "HH:mm"
+                } catch (\Throwable $e) {
+                    // leave as null; optional fields anyway
+                }
             }
 
-            return [
-                'method'   => trim((string)Arr::get($row, 'method', '')),
-                'location' => trim((string)Arr::get($row, 'location', '')),
-                'quantity' => (int)Arr::get($row, 'quantity', 0),
+            // empty-card guard (everything blank)
+            $isEmpty = ($method === '' && $location === '' && ($qty === null || $qty === '') && !$date && !$time);
+            if ($isEmpty) continue;
+
+            $rows[] = [
+                'id'       => $id,
+                'method'   => $method ?: null,
+                'location' => $location ?: null,
+                'quantity' => is_numeric($qty) ? (int)$qty : 0,
                 'date'     => $date ?: null,
                 'time'     => $time ?: null,
             ];
-        })
-        // filter out rows that have nothing at all
-        ->filter(fn ($r) => $r['method'] !== '' || $r['location'] !== '' || $r['quantity'] > 0)
-        ->values()
-        ->all();
+        }
+
+        return $rows;
     }
 
     /**

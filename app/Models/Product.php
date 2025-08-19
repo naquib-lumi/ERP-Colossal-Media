@@ -32,9 +32,10 @@ class Product extends Model
         return $this->hasMany(ProductItem::class, 'ProductID', 'ProductID');
     }
 
-    public function breakdowns()
+    public function deliveryBreakdowns()
     {
-        return $this->hasMany(DeliveryBreakdown::class, 'ProductID', 'ProductID');
+        return $this->hasMany(DeliveryBreakdown::class, 'ProductID', 'ProductID')
+                    ->orderBy('BreakdownID');
     }
 
     public function progress()

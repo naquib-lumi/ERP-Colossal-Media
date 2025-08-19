@@ -708,45 +708,70 @@
                   <i class="bx bx-plus me-1"></i> Add Delivery Breakdown
                 </button>
               </div>
+              
 
               <div id="deliveriesWrap" class="vstack gap-3">
-                <div class="card border shadow-none" data-delivery>
-                  <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <strong>Delivery <span class="delivery-index">1</span></strong>
-                      <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
-                        <i class="bx bx-trash fs-5"></i>
-                      </button>
-                    </div>
-
-                    <div class="row g-3">
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Delivery Method</label>
-                        <select name="deliveries[__INDEX__][method]" class="form-select">
-                          <option value="">Method</option>
-                          <option value="courier">Courier</option>
-                          <option value="pickup">Pickup</option>
-                          <option value="install">Install</option>
-                        </select>
+                @forelse($deliveries as $i => $d)
+                  <div class="card mb-3" data-delivery>
+                    <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fw-semibold">Delivery <span class="delivery-index">{{ $i + 1 }}</span></div>
+                        <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
+                          <i class="bx bx-trash fs-5"></i>
+                        </button>
                       </div>
+                      @php
+                          $dtValue = '';
 
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Location Address</label>
-                        <input name="deliveries[__INDEX__][location]" type="text" class="form-control" placeholder="Location">
-                      </div>
+                          try {
+                              $dateOnly = !empty($d->date)
+                                  ? \Illuminate\Support\Carbon::parse($d->date)->toDateString()
+                                  : null;
 
-                      <div class="col-12 col-md-2">
-                        <label class="form-label">Quantity</label>
-                        <input name="deliveries[__INDEX__][quantity]" type="number" min="0" class="form-control" placeholder="Qty">
-                      </div>
+                              $timeOnly = !empty($d->time)
+                                  ? \Illuminate\Support\Carbon::parse($d->time)->format('H:i')
+                                  : null;
 
-                      <div class="col-12 col-md-4">
-                        <label class="form-label">Date & Time</label>
-                        <input class="form-control del-datetime" type="datetime-local" name="deliveries[__INDEX__][datetime]" placeholder="dd/mm/yyyy --:--">
+                              if ($dateOnly && $timeOnly) {
+                                  $dtValue = $dateOnly . 'T' . $timeOnly;   // "YYYY-MM-DDTHH:MM"
+                              } elseif ($dateOnly) {
+                                  $dtValue = $dateOnly . 'T00:00';
+                              }
+                          } catch (\Throwable $e) {
+                              $dtValue = '';
+                          }
+                      @endphp
+                      {{-- Keep ID so update() can upsert instead of always inserting --}}
+                      <input type="hidden" name="deliveries[{{ $i }}][id]" value="{{ $d->BreakdownID }}">
+
+                      <div class="row g-3">
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Delivery Method</label>
+                          <input class="form-control" name="deliveries[{{ $i }}][method]" value="{{ $d->method }}">
+                        </div>
+
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Location</label>
+                          <input class="form-control" name="deliveries[{{ $i }}][location]" value="{{ $d->location }}">
+                        </div>
+
+                        <div class="col-12 col-md-2">
+                          <label class="form-label">Quantity</label>
+                          <input type="number" class="form-control del-qty" name="deliveries[{{ $i }}][quantity]" value="{{ $d->quantity }}">
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Date &amp; Time</label>
+                          <input type="datetime-local"
+                                class="form-control"
+                                name="deliveries[{{ $i }}][datetime]"
+                                value="{{ $dtValue }}">
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                @empty
+                @endforelse
               </div>
 
               {{-- Template used when clicking “Add Delivery Breakdown” --}}
@@ -765,25 +790,28 @@
                         <label class="form-label">Delivery Method</label>
                         <select name="deliveries[__INDEX__][method]" class="form-select">
                           <option value="">Method</option>
-                          <option value="courier">Courier</option>
-                          <option value="pickup">Pickup</option>
-                          <option value="install">Install</option>
+                          <option value="Courier">Courier</option>
+                          <option value="Pickup">Pickup</option>
+                          <option value="Truck">Truck</option>
                         </select>
                       </div>
 
                       <div class="col-12 col-md-3">
                         <label class="form-label">Location Address</label>
-                        <input name="deliveries[__INDEX__][location]" type="text" class="form-control" placeholder="Location">
+                        <input type="text" name="deliveries[__INDEX__][location]" class="form-control" value="">
                       </div>
 
                       <div class="col-12 col-md-2">
                         <label class="form-label">Quantity</label>
-                        <input name="deliveries[__INDEX__][quantity]" type="number" min="0" class="form-control" placeholder="Qty">
+                        <input type="number" step="1" min="0" name="deliveries[__INDEX__][quantity]" class="form-control del-qty" value="">
                       </div>
 
                       <div class="col-12 col-md-4">
                         <label class="form-label">Date & Time</label>
-                        <input class="form-control del-datetime" type="datetime-local" name="deliveries[__INDEX__][datetime]" placeholder="dd/mm/yyyy --:--">
+                        <input type="datetime-local"
+                                class="form-control"
+                                name="deliveries[__INDEX__][datetime]"
+                                value="">
                       </div>
                     </div>
                   </div>
