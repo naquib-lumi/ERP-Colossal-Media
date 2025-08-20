@@ -89,37 +89,101 @@ class ArtistController extends Controller
         ]);
     }
 
-    public function orders()
+    public function orders(Request $request)
     {
-        $user  = Auth::user();
-        $base  = $this->visibleOrders();
-        $isTop = $this->isHeadArtist($user);
+        $user    = Auth::user();
+        $isHead  = $this->isHeadArtist($user);
 
+        $base = $this->visibleOrders(); 
+
+        $raw = strtolower(preg_replace('/[^a-z]/', '', (string) $request->query('status', '')));
+
+        $map = [
+            'toassign'   => 'to_assign',
+            'assigned'   => 'assigned',
+            'inprogress' => 'in_progress',
+            'completed'  => 'completed',
+            'rejected'   => 'rejected',
+        ];
+
+        $query = clone $base;
+
+        if ($raw !== '') {
+            if ($raw === 'pending') {
+                $query->where('orderStatus', 'assigned')
+                    ->where('pending', 1);
+
+                if ($isHead) {
+                    $query->whereRaw('1=0');
+                }
+            } else {
+                $db = $map[$raw] ?? $raw; 
+                $query->where('orderStatus', $db);
+
+                if (!$isHead && $db === 'in_progress') {
+                    $query->where('artist_id', $user->id)
+                        ->where('pending', 0);
+                }
+            }
+        }
+
+        if ($s = trim($request->query('q', ''))) {
+            $query->where(function ($q) use ($s) {
+                $q->where('orderTitle', 'like', "%{$s}%")
+                ->orWhere('companyName', 'like', "%{$s}%")
+                ->orWhere('leadName', 'like', "%{$s}%");
+            });
+        }
+
+        // 4) Metrics from the same base visibility
         $metrics = [
             'total'       => (clone $base)->count(),
-            'pending'     => (clone $base)->where('orderStatus', 'pending')->count(),
+            'pending'     => (clone $base)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
             'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
             'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
             'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
         ];
-
-        if ($isTop) {
+        if ($isHead) {
             $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
             $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
         }
 
-        $orders = (clone $base)
-            ->with(['artist:id,name', 'salesperson:id,name'])
-            ->latest('orderDate')
-            ->paginate(1000);
+        // 5) Rows
+        $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
+                        ->latest('orderDate')
+                        ->paginate(20)
+                        ->withQueryString();
 
-        return view('artist.orders', compact('orders', 'metrics'));
+        // Pass the *raw UI token* back so the dropdown can mark "selected"
+        $statusRaw = $raw;
+
+        if ($request->ajax()) {
+            return view('artist.partials.orders-table', compact('orders'))->render();
+        }
+
+        return view('artist.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
     }
 
     public function edit(Order $order)
     {
         $user = Auth::user();
+        $isHead = $this->isHeadArtist($user);
         if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) abort(403);
+
+        if (!$this->isHeadArtist(Auth::user())
+            && $order->orderStatus === 'assigned'
+            && (int) $order->pending === 1) {
+
+            $order->orderStatus = 'in_progress';
+            $order->pending     = 0;
+
+            // make sure the order is owned by this artist from now on
+            if (!$order->artist_id) {
+                $order->artist_id = Auth::id();
+            }
+
+            $order->save();
+        }
 
         $orderCode = sprintf('ORD-%04d', $order->id);
         $today     = now()->format('M d, Y');
@@ -526,7 +590,7 @@ class ArtistController extends Controller
 
         // Normal artist
         return $q->where('artist_id', $user->id)
-            ->whereNotIn('orderStatus', ['to_assign', 'assigned']);
+            ->whereNotIn('orderStatus', ['to_assign']);
     }
 
     private function isHeadArtist($user): bool

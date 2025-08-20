@@ -64,4 +64,8 @@ class Order extends Model
         return $this->hasMany(\App\Models\Product::class, 'OrderID', 'id');
     }
 
+    public function getEffectiveStatusAttribute(): string
+    {
+        return $this->pending ? 'pending' : (string) $this->orderStatus;
+    }
 }
