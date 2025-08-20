@@ -273,6 +273,21 @@ class ArtistController extends Controller
                 ? $formTotal
                 : (int) ($prodRow->totalQuantity ?? 0);
 
+            // Sum item quantities (support both [quantity] and legacy [qty])
+            $sumItems = collect($request->input('items', []))
+                ->filter(fn($r) => is_array($r))
+                ->sum(function ($r) {
+                    $q = $r['quantity'] ?? $r['qty'] ?? 0;
+                    return (int) $q;
+                });
+
+            if ($sumItems > $productTotalQty) {
+                $v->errors()->add(
+                    'items',
+                    "Item quantities ($sumItems) exceed Total Quantity ($productTotalQty)."
+                );
+            }
+
             $sumBreakdowns = collect($request->input('deliveries', []))
                 ->sum(fn($r) => (int) ($r['quantity'] ?? 0));
 
