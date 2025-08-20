@@ -36,4 +36,29 @@ class MeetingController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Meeting created successfully']);
     }
+
+  public function index()
+{
+    $user = Auth::user();
+    if (in_array($user->role, ['head-artist', 'head-salesperson'])) {
+        $meetings = Meeting::with('lead', 'user')->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END, start_time ASC")->get();
+    } else {
+        $meetings = Meeting::with('lead', 'user')->where('user_id', $user->id)->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END, start_time ASC")->get();
+    }
+    return response()->json($meetings);
+}
+
+    public function updateStatus(Request $request, $id)
+    {
+        $meeting = Meeting::findOrFail($id);
+        if ($meeting->user_id != Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        $validated = $request->validate([
+            'status' => 'required|in:scheduled,completed,cancelled,missed',
+        ]);
+        $meeting->status = $validated['status'];
+        $meeting->save();
+        return response()->json(['success' => true]);
+    }
 }
