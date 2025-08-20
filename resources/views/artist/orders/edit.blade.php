@@ -708,68 +708,68 @@
                   <i class="bx bx-plus me-1"></i> Add Delivery Breakdown
                 </button>
               </div>
-              
+
 
               <div id="deliveriesWrap" class="vstack gap-3">
                 @forelse($deliveries as $i => $d)
-                  <div class="card mb-3" data-delivery>
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="fw-semibold">Delivery <span class="delivery-index">{{ $i + 1 }}</span></div>
-                        <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
-                          <i class="bx bx-trash fs-5"></i>
-                        </button>
+                <div class="card mb-3" data-delivery data-id="{{ $d->id }}" data-url="{{ route('artist.orders.delivery.destroy', [$order->id, $d->id]) }}">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <div class="fw-semibold">Delivery <span class="delivery-index">{{ $i + 1 }}</span></div>
+                      <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete" data-remove>
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
+                    </div>
+                    @php
+                    $dtValue = '';
+
+                    try {
+                    $dateOnly = !empty($d->date)
+                    ? \Illuminate\Support\Carbon::parse($d->date)->toDateString()
+                    : null;
+
+                    $timeOnly = !empty($d->time)
+                    ? \Illuminate\Support\Carbon::parse($d->time)->format('H:i')
+                    : null;
+
+                    if ($dateOnly && $timeOnly) {
+                    $dtValue = $dateOnly . 'T' . $timeOnly; // "YYYY-MM-DDTHH:MM"
+                    } elseif ($dateOnly) {
+                    $dtValue = $dateOnly . 'T00:00';
+                    }
+                    } catch (\Throwable $e) {
+                    $dtValue = '';
+                    }
+                    @endphp
+
+                    <input type="hidden" name="deliveries[{{ $i }}][id]" value="{{ $d->id }}">
+
+                    <div class="row g-3">
+                      <div class="col-12 col-md-3">
+                        <label class="form-label">Delivery Method</label>
+                        <input class="form-control" name="deliveries[{{ $i }}][method]" value="{{ $d->method }}">
                       </div>
-                      @php
-                          $dtValue = '';
 
-                          try {
-                              $dateOnly = !empty($d->date)
-                                  ? \Illuminate\Support\Carbon::parse($d->date)->toDateString()
-                                  : null;
+                      <div class="col-12 col-md-3">
+                        <label class="form-label">Location</label>
+                        <input class="form-control" name="deliveries[{{ $i }}][location]" value="{{ $d->location }}">
+                      </div>
 
-                              $timeOnly = !empty($d->time)
-                                  ? \Illuminate\Support\Carbon::parse($d->time)->format('H:i')
-                                  : null;
+                      <div class="col-12 col-md-2">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" class="form-control del-qty" name="deliveries[{{ $i }}][quantity]" value="{{ $d->quantity }}">
+                      </div>
 
-                              if ($dateOnly && $timeOnly) {
-                                  $dtValue = $dateOnly . 'T' . $timeOnly;   // "YYYY-MM-DDTHH:MM"
-                              } elseif ($dateOnly) {
-                                  $dtValue = $dateOnly . 'T00:00';
-                              }
-                          } catch (\Throwable $e) {
-                              $dtValue = '';
-                          }
-                      @endphp
-                      {{-- Keep ID so update() can upsert instead of always inserting --}}
-                      <input type="hidden" name="deliveries[{{ $i }}][id]" value="{{ $d->BreakdownID }}">
-
-                      <div class="row g-3">
-                        <div class="col-12 col-md-3">
-                          <label class="form-label">Delivery Method</label>
-                          <input class="form-control" name="deliveries[{{ $i }}][method]" value="{{ $d->method }}">
-                        </div>
-
-                        <div class="col-12 col-md-3">
-                          <label class="form-label">Location</label>
-                          <input class="form-control" name="deliveries[{{ $i }}][location]" value="{{ $d->location }}">
-                        </div>
-
-                        <div class="col-12 col-md-2">
-                          <label class="form-label">Quantity</label>
-                          <input type="number" class="form-control del-qty" name="deliveries[{{ $i }}][quantity]" value="{{ $d->quantity }}">
-                        </div>
-
-                        <div class="col-12 col-md-4">
-                          <label class="form-label">Date &amp; Time</label>
-                          <input type="datetime-local"
-                                class="form-control"
-                                name="deliveries[{{ $i }}][datetime]"
-                                value="{{ $dtValue }}">
-                        </div>
+                      <div class="col-12 col-md-4">
+                        <label class="form-label">Date &amp; Time</label>
+                        <input type="datetime-local"
+                          class="form-control"
+                          name="deliveries[{{ $i }}][datetime]"
+                          value="{{ $dtValue }}">
                       </div>
                     </div>
                   </div>
+                </div>
                 @empty
                 @endforelse
               </div>
@@ -780,10 +780,12 @@
                   <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                       <strong>Delivery <span class="delivery-index">__INDEX_HUMAN__</span></strong>
-                      <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
+                      <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete" data-remove>
                         <i class="bx bx-trash fs-5"></i>
                       </button>
                     </div>
+
+                    <input type="hidden" name="deliveries[__INDEX__][id]" value="">
 
                     <div class="row g-3">
                       <div class="col-12 col-md-3">
@@ -809,9 +811,9 @@
                       <div class="col-12 col-md-4">
                         <label class="form-label">Date & Time</label>
                         <input type="datetime-local"
-                                class="form-control"
-                                name="deliveries[__INDEX__][datetime]"
-                                value="">
+                          class="form-control"
+                          name="deliveries[__INDEX__][datetime]"
+                          value="">
                       </div>
                     </div>
                   </div>
@@ -1008,296 +1010,400 @@
       }).show();
     }
 
-    const acc = document.getElementById('productItems');
+    const acc   = document.getElementById('productItems');
     const tplEl = document.getElementById('itemTemplate');
-    if (!acc || !tplEl) {
-      console.warn('[edit] Missing #productItems or #itemTemplate');
-      return;
-    }
+    if (acc && tplEl) {
+      
 
-    function normalize(v) {
-      return (v || '').trim();
-    }
+      function normalize(v) {
+        return (v || '').trim();
+      }
 
-    function hidden(name, val) {
-      const h = document.createElement('input');
-      h.type = 'hidden';
-      h.name = name;
-      h.value = val;
-      return h;
-    }
-
-    function initTagsInput(container) {
-      if (!container || container.dataset._bound === '1') return;
-      container.dataset._bound = '1';
-
-      // read data-* from Blade
-      const name = container.dataset.name; // e.g. items[3][material][]
-      const suggestions = JSON.parse(container.dataset.suggestions || '[]');
-      const initial = JSON.parse(container.dataset.values || '[]');
-      const allowCustom = container.dataset.allowCustom === '1';
-
-      // build UI
-      container.innerHTML = '';
-      const wrap = document.createElement('div');
-      wrap.className = 'ti-wrap';
-      const box = document.createElement('div');
-      box.className = 'ti';
-      box.tabIndex = 0;
-      const input = document.createElement('input');
-      input.className = 'ti-input';
-      input.placeholder = 'Click to select…';
-      input.readOnly = true;
-      const dd = document.createElement('div');
-      dd.className = 'ti-dd';
-      box.appendChild(input);
-      wrap.appendChild(box);
-      wrap.appendChild(dd);
-      container.appendChild(wrap);
-
-      const selected = new Set(initial.map(v => (v || '').trim()).filter(Boolean));
-
-      const hidden = (n, v) => {
+      function hidden(name, val) {
         const h = document.createElement('input');
         h.type = 'hidden';
-        h.name = n;
-        h.value = v;
+        h.name = name;
+        h.value = val;
         return h;
-      };
-
-      function renderChips() {
-        [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
-        [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
-        selected.forEach(v => {
-          const chip = document.createElement('span');
-          chip.className = 'ti-chip';
-          chip.textContent = v;
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.innerHTML = '&times;';
-          btn.addEventListener('click', () => {
-            selected.delete(v);
-            renderChips();
-            buildList();
-          });
-          chip.appendChild(btn);
-          box.insertBefore(chip, input);
-          container.appendChild(hidden(name, v)); // ← hidden inputs appended to container
-        });
       }
 
-      function buildList() {
-        const avail = suggestions.filter(s => !selected.has(s));
-        dd.innerHTML = '';
-        if (!avail.length) {
-          dd.style.display = 'none';
-          return;
+      function initTagsInput(container) {
+        if (!container || container.dataset._bound === '1') return;
+        container.dataset._bound = '1';
+
+        // read data-* from Blade
+        const name = container.dataset.name; // e.g. items[3][material][]
+        const suggestions = JSON.parse(container.dataset.suggestions || '[]');
+        const initial = JSON.parse(container.dataset.values || '[]');
+        const allowCustom = container.dataset.allowCustom === '1';
+
+        // build UI
+        container.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'ti-wrap';
+        const box = document.createElement('div');
+        box.className = 'ti';
+        box.tabIndex = 0;
+        const input = document.createElement('input');
+        input.className = 'ti-input';
+        input.placeholder = 'Click to select…';
+        input.readOnly = true;
+        const dd = document.createElement('div');
+        dd.className = 'ti-dd';
+        box.appendChild(input);
+        wrap.appendChild(box);
+        wrap.appendChild(dd);
+        container.appendChild(wrap);
+
+        const selected = new Set(initial.map(v => (v || '').trim()).filter(Boolean));
+
+        const hidden = (n, v) => {
+          const h = document.createElement('input');
+          h.type = 'hidden';
+          h.name = n;
+          h.value = v;
+          return h;
+        };
+
+        function renderChips() {
+          [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
+          [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
+          selected.forEach(v => {
+            const chip = document.createElement('span');
+            chip.className = 'ti-chip';
+            chip.textContent = v;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.innerHTML = '&times;';
+            btn.addEventListener('click', () => {
+              selected.delete(v);
+              renderChips();
+              buildList();
+            });
+            chip.appendChild(btn);
+            box.insertBefore(chip, input);
+            container.appendChild(hidden(name, v)); // ← hidden inputs appended to container
+          });
         }
-        avail.forEach((v) => {
-          const it = document.createElement('div');
-          it.className = 'ti-dd-item';
-          it.textContent = v;
-          it.addEventListener('click', () => {
-            selected.add(v);
-            renderChips();
-            buildList();
+
+        function buildList() {
+          const avail = suggestions.filter(s => !selected.has(s));
+          dd.innerHTML = '';
+          if (!avail.length) {
+            dd.style.display = 'none';
+            return;
+          }
+          avail.forEach((v) => {
+            const it = document.createElement('div');
+            it.className = 'ti-dd-item';
+            it.textContent = v;
+            it.addEventListener('click', () => {
+              selected.add(v);
+              renderChips();
+              buildList();
+            });
+            dd.appendChild(it);
           });
-          dd.appendChild(it);
+          dd.style.display = 'block';
+        }
+
+        box.addEventListener('click', () => {
+          buildList();
+          dd.style.display = 'block';
         });
-        dd.style.display = 'block';
-      }
-
-      box.addEventListener('click', () => {
-        buildList();
-        dd.style.display = 'block';
-      });
-      input.addEventListener('focus', () => {
-        buildList();
-        dd.style.display = 'block';
-      });
-      document.addEventListener('click', (e) => {
-        if (!wrap.contains(e.target)) dd.style.display = 'none';
-      });
-
-      renderChips(); // ← show chips for initial values from DB
-    }
-
-    function initAllTagsInputs(root = document) {
-      root.querySelectorAll('.tags-input').forEach(initTagsInput);
-    }
-
-    initAllTagsInputs(document);
-
-    // seed nextIndex from data-next-index, else fall back to current count
-    let nextIndex = parseInt(acc.dataset.nextIndex ?? String(acc.querySelectorAll('.accordion-item[data-kind="item"]').length), 10);
-
-    function addItemRow() {
-      const humanNum = acc.querySelectorAll('.accordion-item[data-kind="item"]').length + 1;
-
-      const html = tplEl.innerHTML.replace(/__INDEX__/g, String(nextIndex)).replace(/__INDEX_HUMAN__/g, String(humanNum));
-      const frag = document.createRange().createContextualFragment(html);
-      const row = frag.firstElementChild;
-      if (!row) return;
-
-      acc.appendChild(row);
-
-      // open new collapse via Bootstrap
-      const pane = row.querySelector('.accordion-collapse');
-      const btn = row.querySelector('[data-bs-toggle="collapse"]');
-      if (pane) {
-        pane.setAttribute('data-bs-parent', '#productItems');
-        bootstrap.Collapse.getOrCreateInstance(pane, {
-          toggle: false
-        }).show();
-      }
-      if (btn) {
-        btn.classList.remove('collapsed');
-        btn.setAttribute('aria-expanded', 'true');
-      }
-
-      row.querySelectorAll('.item-number').forEach(n => n.textContent = String(humanNum));
-      nextIndex++;
-      acc.dataset.nextIndex = String(nextIndex);
-
-      wireRow(row);
-      initAllTagsInputs(row);
-      updateSummary(row);
-      renumberOnly(); // just update labels (no re-wiring)
-    }
-
-    function wireRow(wrap) {
-      if (!wrap || wrap.dataset.wired === '1') return;
-      wrap.dataset.wired = '1';
-
-      // delete button
-      const delBtn = wrap.querySelector('.remove-item-btn, .delete-item');
-      if (delBtn) {
-        delBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          wrap.remove();
-          renumberOnly(); // no re-wiring; rows already wired
-          acc.dataset.nextIndex = String(acc.querySelectorAll('.accordion-item').length);
+        input.addEventListener('focus', () => {
+          buildList();
+          dd.style.display = 'block';
         });
+        document.addEventListener('click', (e) => {
+          if (!wrap.contains(e.target)) dd.style.display = 'none';
+        });
+
+        renderChips(); // ← show chips for initial values from DB
       }
 
-      // inputs to keep summary updated
-      wrap.addEventListener('input', () => updateSummary(wrap), {
-        passive: true
-      });
-    }
+      function initAllTagsInputs(root = document) {
+        root.querySelectorAll('.tags-input').forEach(initTagsInput);
+      }
 
-    // Keep header mini summary (name • qty) updated
-    function updateSummary(wrap) {
-      const name = wrap.querySelector('input[name^="items"][name$="[name]"]')?.value || '';
-      const qty = wrap.querySelector('input[name^="items"][name$="[qty]"]')?.value || '';
-      const el = wrap.querySelector('.item-summary');
-      if (el) el.textContent = name + (qty ? ` • ${qty}` : '');
-    }
+      initAllTagsInputs(document);
 
-    function renumberOnly() {
-      const items = acc.querySelectorAll('.accordion-item[data-kind="item"]');
-      items.forEach((el, idx) => {
-        el.querySelectorAll('.item-number').forEach(n => n.textContent = String(idx + 1));
-        // also keep collapse ids in sync if needed
-        const pane = el.querySelector('.accordion-collapse');
-        if (pane) pane.id = `itemPane${idx}`;
-        const btn = el.querySelector('[data-bs-toggle="collapse"]');
+      // seed nextIndex from data-next-index, else fall back to current count
+      let nextIndex = parseInt(acc.dataset.nextIndex ?? String(acc.querySelectorAll('.accordion-item[data-kind="item"]').length), 10);
+
+      function addItemRow() {
+        const humanNum = acc.querySelectorAll('.accordion-item[data-kind="item"]').length + 1;
+
+        const html = tplEl.innerHTML.replace(/__INDEX__/g, String(nextIndex)).replace(/__INDEX_HUMAN__/g, String(humanNum));
+        const frag = document.createRange().createContextualFragment(html);
+        const row = frag.firstElementChild;
+        if (!row) return;
+
+        acc.appendChild(row);
+
+        // open new collapse via Bootstrap
+        const pane = row.querySelector('.accordion-collapse');
+        const btn = row.querySelector('[data-bs-toggle="collapse"]');
+        if (pane) {
+          pane.setAttribute('data-bs-parent', '#productItems');
+          bootstrap.Collapse.getOrCreateInstance(pane, {
+            toggle: false
+          }).show();
+        }
         if (btn) {
-          btn.setAttribute('data-bs-target', `#itemPane${idx}`);
-          btn.setAttribute('aria-controls', `itemPane${idx}`);
+          btn.classList.remove('collapsed');
+          btn.setAttribute('aria-expanded', 'true');
         }
-        el.id = `item${idx}`;
+
+        row.querySelectorAll('.item-number').forEach(n => n.textContent = String(humanNum));
+        nextIndex++;
+        acc.dataset.nextIndex = String(nextIndex);
+
+        wireRow(row);
+        initAllTagsInputs(row);
+        updateSummary(row);
+        renumberOnly(); // just update labels (no re-wiring)
+      }
+
+      function wireRow(wrap) {
+        if (!wrap || wrap.dataset.wired === '1') return;
+        wrap.dataset.wired = '1';
+
+        // delete button
+        const delBtn = wrap.querySelector('.remove-item-btn, .delete-item');
+        if (delBtn) {
+          delBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            wrap.remove();
+            renumberOnly(); // no re-wiring; rows already wired
+            acc.dataset.nextIndex = String(acc.querySelectorAll('.accordion-item').length);
+          });
+        }
+
+        // inputs to keep summary updated
+        wrap.addEventListener('input', () => updateSummary(wrap), {
+          passive: true
+        });
+      }
+
+      // Keep header mini summary (name • qty) updated
+      function updateSummary(wrap) {
+        const name = wrap.querySelector('input[name^="items"][name$="[name]"]')?.value || '';
+        const qty = wrap.querySelector('input[name^="items"][name$="[qty]"]')?.value || '';
+        const el = wrap.querySelector('.item-summary');
+        if (el) el.textContent = name + (qty ? ` • ${qty}` : '');
+      }
+
+      function renumberOnly() {
+        const items = acc.querySelectorAll('.accordion-item[data-kind="item"]');
+        items.forEach((el, idx) => {
+          el.querySelectorAll('.item-number').forEach(n => n.textContent = String(idx + 1));
+          // also keep collapse ids in sync if needed
+          const pane = el.querySelector('.accordion-collapse');
+          if (pane) pane.id = `itemPane${idx}`;
+          const btn = el.querySelector('[data-bs-toggle="collapse"]');
+          if (btn) {
+            btn.setAttribute('data-bs-target', `#itemPane${idx}`);
+            btn.setAttribute('aria-controls', `itemPane${idx}`);
+          }
+          el.id = `item${idx}`;
+        });
+        acc.dataset.nextIndex = String(items.length);
+      }
+
+      // Delegated events for delete, chevron, and summary update
+      acc.querySelectorAll('.accordion-item[data-kind="item"]').forEach((wrap) => {
+        wireRow(wrap);
+        updateSummary(wrap);
+        initAllTagsInputs(wrap); // ✅ add this
       });
-      acc.dataset.nextIndex = String(items.length);
+      renumberOnly();
+
+      document.getElementById('addItemBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        addItemRow();
+      });
     }
-
-    // Delegated events for delete, chevron, and summary update
-    acc.querySelectorAll('.accordion-item[data-kind="item"]').forEach((wrap) => {
-      wireRow(wrap);
-      updateSummary(wrap);
-      initAllTagsInputs(wrap); // ✅ add this
-    });
-    renumberOnly();
-
-    document.getElementById('addItemBtn')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      addItemRow();
-    });
 
     // delivery breakdown ----------------------------------------------------------------------------------
     const delWrap        = document.getElementById('deliveriesWrap');
-    const totalQtyEl     = document.querySelector('input[name="product[qty_total]"]');
     const addDeliveryBtn = document.getElementById('addDeliveryBtn');
     const delTpl         = document.getElementById('deliveryTemplate');
+    const form           = document.getElementById('order-form');
 
-    if (delWrap && addDeliveryBtn && delTpl) {
+    // You may have either of these in your form.
+    // Prefer product[qty_total], else fallback to #totalQty.
+    const totalQtyEl =
+      document.querySelector('input[name="product[qty_total]"]') ||
+      document.getElementById('totalQty');
+
+    if (delWrap && delTpl && form) {
+
       function reindexDeliveries() {
         delWrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
-          const numEl = card.querySelector('.delivery-index');
-          if (numEl) numEl.textContent = i + 1;
+          const idxEl = card.querySelector('.delivery-index');
+          if (idxEl) idxEl.textContent = i + 1;
 
-          // Fix names: deliveries[<i>][field]
           card.querySelectorAll('[name]').forEach((el) => {
-            const m = el.name.match(/^deliveries\[(\d+|__INDEX__)\]\[(.+)\]$/);
-            if (m) el.name = `deliveries[${i}][${m[2]}]`;
+            // for template names like deliveries[__INDEX__][field]
+            el.name = el.name
+              .replace(/deliveries\[__INDEX__\]/g, `deliveries[${i}]`)
+              // for existing rows like deliveries[3][field]
+              .replace(/deliveries\[\d+\]/, `deliveries[${i}]`);
           });
         });
       }
 
       function addDelivery() {
-        const index = delWrap.querySelectorAll('[data-delivery]').length;
-        const html  = delTpl.innerHTML
-          .replace(/__INDEX__/g, index)
-          .replace(/__INDEX_HUMAN__/g, index + 1);
+        const idx  = delWrap.querySelectorAll('[data-delivery]').length;
+        const html = delTpl.innerHTML
+          .replace(/__INDEX__/g, idx)
+          .replace(/__INDEX_HUMAN__/g, idx + 1);
 
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html.trim();
-        const node = tmp.firstElementChild;
+        const temp = document.createElement('div');
+        temp.innerHTML = html.trim();
+        const node = temp.firstElementChild;
+
         delWrap.appendChild(node);
         reindexDeliveries();
+        validateDeliveries(); // keep totals in check
       }
 
-      addDeliveryBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        addDelivery();
-      });
+      if (addDeliveryBtn) {
+        addDeliveryBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          addDelivery();
+        });
+      }
 
-      // remove card
-      delWrap.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-remove]');
+      // Delete (supports two paths)
+      // 1) If card has data-url (server DELETE endpoint) → use AJAX
+      // 2) Else (no data-url) → fall back to hidden input delete_deliveries[] + submit
+      delWrap.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.delete-delivery');
         if (!btn) return;
+
+        e.preventDefault();
         const card = btn.closest('[data-delivery]');
-        if (card) {
+        if (!card) return;
+
+        const id   = card.dataset.id || card.querySelector('input[name$="[id]"]')?.value || '';
+        const url  = card.dataset.url || '';
+
+        const confirmed = await (window.Swal
+          ? Swal.fire({
+              icon: 'warning',
+              title: 'Delete this delivery?',
+              text: id ? 'This will delete it permanently.' : 'This will remove the row.',
+              showCancelButton: true,
+              confirmButtonText: 'Delete',
+              confirmButtonColor: '#d33'
+            }).then(r => r.isConfirmed)
+          : Promise.resolve(confirm('Delete this delivery?')));
+
+        if (!confirmed) return;
+
+        async function removeCard() {
           card.remove();
           reindexDeliveries();
+          validateDeliveries();
+          if (window.Swal) {
+            Swal.fire({ icon: 'success', title: 'Deleted', timer: 1100, showConfirmButton: false });
+          }
         }
+
+        // AJAX path
+        if (id && url) {
+          try {
+            const res = await fetch(url, {
+              method: 'DELETE',
+              headers: { 'X-CSRF-TOKEN': window.CSRF_TOKEN, 'Accept': 'application/json' }
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data?.ok) {
+              await removeCard();
+              return;
+            }
+            const msg = data?.message || `HTTP ${res.status}`;
+            if (window.Swal) Swal.fire({ icon: 'error', title: 'Delete failed', text: msg });
+            else alert('Delete failed: ' + msg);
+            return;
+          } catch (err) {
+            if (window.Swal) Swal.fire({ icon: 'error', title: 'Network error', text: String(err) });
+            else alert('Network error: ' + err);
+            return;
+          }
+        }
+
+        // Fallback (hidden input + submit)
+        if (id) {
+          const h = document.createElement('input');
+          h.type  = 'hidden';
+          h.name  = 'delete_deliveries[]';
+          h.value = id;
+          form.appendChild(h);
+        }
+        await removeCard();
+
+        if (form.requestSubmit) form.requestSubmit();
+        else form.submit();
       });
 
-      // simple client validation (optional)
-      function sumQty() {
-        let s = 0;
-        delWrap.querySelectorAll('.del-qty').forEach(inp => {
-          const v = parseFloat(inp.value);
-          if (!Number.isNaN(v)) s += v;
-        });
-        return s;
+      // ---------- Quantity guard: sum(deliveries.quantity) ≤ total ----------
+      function getTotalAllowed() {
+        const v = (totalQtyEl?.value ?? '').trim();
+        const n = parseFloat(v);
+        return Number.isFinite(n) ? n : 0;
       }
-      function validateDeliveries() {
-        const total = parseFloat(totalQtyEl?.value || '0') || 0;
-        const sum   = sumQty();
-        const ok    = sum <= total;
 
-        // you can display a message somewhere or disable submit
+      function sumDeliveryQty() {
+        let sum = 0;
+        delWrap.querySelectorAll('.del-qty').forEach(inp => {
+          const v = parseFloat(inp.value || '0');
+          if (!Number.isNaN(v)) sum += v;
+        });
+        return sum;
+      }
+
+      function setQtyValidity(ok, msg = '') {
+        const id = 'del-qty-msg';
+        let box = document.getElementById(id);
+        if (!box) {
+          box = document.createElement('div');
+          box.id = id;
+          box.className = 'mt-2 small text-danger';
+          delWrap.parentElement.insertBefore(box, delWrap.nextSibling);
+        }
+        box.textContent = ok ? '' : msg;
+
+        delWrap.querySelectorAll('.del-qty').forEach(inp => {
+          inp.classList.toggle('is-invalid', !ok);
+          inp.setAttribute('aria-invalid', String(!ok));
+        });
+
         document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
         document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
       }
 
+      function validateDeliveries() {
+        const total = getTotalAllowed();
+        const sum   = sumDeliveryQty();
+        const ok    = sum <= total;
+        setQtyValidity(ok,
+          ok ? '' : `Delivery quantities (${sum}) exceed Total Quantity (${total}).`);
+      }
+
+      // Delegate validation on qty inputs
       delWrap.addEventListener('input', (e) => {
-        if (e.target.matches('.del-qty')) validateDeliveries();
+        if (e.target.matches('.del-qty') || e.target.closest('.del-qty')) {
+          validateDeliveries();
+        }
       });
+
+      // Also re-validate when the overall total changes
       totalQtyEl?.addEventListener('input', validateDeliveries);
 
-      // on load
+      // initial pass
       reindexDeliveries();
       validateDeliveries();
     }
@@ -1558,112 +1664,6 @@
 
     if (draftBtn) draftBtn.addEventListener('click', () => send(true));
     if (submitBtn) submitBtn.addEventListener('click', () => send(false));
-
-    const acc = document.getElementById('productItems');
-    if (!acc) return;
-
-    // Set next index based on how many items exist on load
-    const existingCount = acc.querySelectorAll('.accordion-item').length;
-    acc.dataset.nextIndex = String(existingCount);
-
-    // Wire existing remove buttons
-    acc.querySelectorAll('.remove-item-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const idx = parseInt(btn.dataset.index, 10);
-        removeItem(idx);
-      });
-    });
-
-    // Public function for inline onclick="removeItem(i, event)" compatibility
-    window.removeItem = function(idx, ev) {
-      if (ev) ev.preventDefault();
-      const el = document.getElementById(`item${idx}`);
-      if (el) el.remove();
-      reindexItems();
-    };
-
-    function reindexItems() {
-      const items = [...acc.querySelectorAll('.accordion-item[data-kind="item"]')];
-      items.forEach((itemEl, newIdx) => {
-        const oldId = itemEl.id; // e.g., "item3"
-        const oldIdxMatch = oldId.match(/^item(\d+)$/);
-        const oldIdx = oldIdxMatch ? parseInt(oldIdxMatch[1], 10) : newIdx;
-
-        // IDs
-        itemEl.id = `item${newIdx}`;
-
-        const header = itemEl.querySelector('.fw-semibold');
-        if (header) header.textContent = `Item ${newIdx + 1}`;
-
-        // Collapse ids/targets
-        const pane = itemEl.querySelector('.accordion-collapse');
-        if (pane) {
-          pane.id = `itemPane${newIdx}`;
-          pane.setAttribute('data-bs-parent', '#productItems');
-        }
-        const toggleBtn = itemEl.querySelector('[data-bs-toggle="collapse"]');
-        if (toggleBtn) {
-          toggleBtn.setAttribute('data-bs-target', `#itemPane${newIdx}`);
-          toggleBtn.setAttribute('aria-controls', `itemPane${newIdx}`);
-        }
-
-        // Hidden id input stays the same value, but rename the name index
-        // Update all [name="items[<n>]..."] to the new index
-        itemEl.querySelectorAll('[name^="items["]').forEach(inp => {
-          inp.name = inp.name.replace(/items\[\d+\]/, `items[${newIdx}]`);
-        });
-
-        // Update remove button index
-        const del = itemEl.querySelector('.remove-item-btn');
-        if (del) {
-          del.dataset.index = String(newIdx);
-        }
-      });
-
-      // Set nextIndex to count
-      acc.dataset.nextIndex = String(items.length);
-    }
-
-    // --- Delivery quantity limit -------------------------------------------------
-    function getTotalAllowed() {
-      // Adjust selector if your "Total Quantity" has a different id
-      const el = document.getElementById('totalQty');
-      return parseFloat(el?.value || '0') || 0;
-    }
-
-    function sumDeliveryQty() {
-      let sum = 0;
-      wrap.querySelectorAll('.del-qty').forEach(inp => {
-        const v = parseFloat(inp.value || '0');
-        if (!isNaN(v)) sum += v;
-      });
-      return sum;
-    }
-
-    // Simple UI helper (you can style ".is-invalid" with Bootstrap or your CSS)
-    function setQtyValidity(ok, msg = '') {
-      const msgBoxId = 'del-qty-msg';
-      let msgBox = document.getElementById(msgBoxId);
-      if (!msgBox) {
-        msgBox = document.createElement('div');
-        msgBox.id = msgBoxId;
-        msgBox.className = 'mt-2 small text-danger';
-        // put message under the deliveries section
-        wrap.parentElement.insertBefore(msgBox, wrap.nextSibling);
-      }
-      msgBox.textContent = ok ? '' : msg;
-
-      // toggle invalid styles on each quantity field
-      wrap.querySelectorAll('.del-qty').forEach(inp => {
-        inp.classList.toggle('is-invalid', !ok);
-        inp.setAttribute('aria-invalid', String(!ok));
-      });
-
-      // disable submit buttons if invalid
-      document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
-      document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
-    }
 
   });
 </script>

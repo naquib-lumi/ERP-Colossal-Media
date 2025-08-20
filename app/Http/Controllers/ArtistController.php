@@ -132,8 +132,13 @@ class ArtistController extends Controller
             },
         ])->where('OrderID', $order->id)->first();
 
-        $deliveries = $product ? $product->deliveryBreakdowns : collect();
-        if ($product) {
+            $deliveries = $product
+                ? DeliveryBreakdown::where('ProductID', $product->ProductID)
+                    ->orderBy('BreakdownID')
+                    ->get(['BreakdownID as id','method','location','quantity','date','time'])
+                : collect();
+
+            if ($product) {
             $deliveries = DeliveryBreakdown::where('ProductID', $product->ProductID)
                 ->orderBy('BreakdownID')
                 ->get([
@@ -237,15 +242,17 @@ class ArtistController extends Controller
             'items.*.printer'          => ['nullable', 'string', 'max:255'],
             'items.*.cutter'           => ['nullable', 'string', 'max:255'],
 
-            // ✅ Delivery breakdowns — use the key you actually post: "breakdowns"
-            'breakdowns'                 => ['array'],
-            'breakdowns.*.id'            => ['nullable','integer'],
-            'breakdowns.*.method'        => ['nullable','string','max:255'],
-            'breakdowns.*.location'      => ['nullable','string','max:255'],
-            'breakdowns.*.quantity'      => ['nullable','numeric','min:0'],
-            'breakdowns.*.datetime'      => ['nullable','date'],
-            'breakdowns.*.date'          => ['nullable','date'],
-            'breakdowns.*.time'          => ['nullable','date_format:H:i'],
+            // Delivery breakdowns — use the key you actually post: "breakdowns"
+            'deliveries'                 => ['array'],
+            'deliveries.*.id'            => ['nullable','integer'],
+            'deliveries.*.method'        => ['nullable','string','max:255'],
+            'deliveries.*.location'      => ['nullable','string','max:255'],
+            'deliveries.*.quantity'      => ['nullable','numeric','min:0'],
+            'deliveries.*.datetime'      => ['nullable','date'],
+            'deliveries.*.date'          => ['nullable','date'],
+            'deliveries.*.time'          => ['nullable','date_format:H:i'],
+            'delete_deliveries'          => ['array'],
+            'delete_deliveries.*'        => ['integer'],
 
             // Attachments
             'attachments.*'            => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx','max:20480'],
@@ -266,11 +273,11 @@ class ArtistController extends Controller
                 ? $formTotal
                 : (int) ($prodRow->totalQuantity ?? 0);
 
-            $sumBreakdowns = collect($request->input('breakdowns', []))
+            $sumBreakdowns = collect($request->input('deliveries', []))
                 ->sum(fn($r) => (int) ($r['quantity'] ?? 0));
 
             if ($sumBreakdowns > $productTotalQty) {
-                $v->errors()->add('breakdowns', "Delivery quantities ($sumBreakdowns) exceed Total Quantity ($productTotalQty).");
+                $v->errors()->add('deliveries', "Delivery quantities ($sumBreakdowns) exceed Total Quantity ($productTotalQty).");
             }
         });
 
@@ -370,7 +377,7 @@ class ArtistController extends Controller
                         }
                     }
 
-                    // ✅ MATERIALS (multi-select or string)
+                    // MATERIALS (multi-select or string)
                     if (array_key_exists('material', $row)) {
                         if (is_array($row['material'])) {
                             $clean = array_values(array_filter(array_map('trim', $row['material']), fn($v) => $v !== ''));
@@ -407,16 +414,14 @@ class ArtistController extends Controller
 
                 $deliveries = $this->extractDeliveries($request);
 
-                // 5) Upsert delivery breakdowns
+                // 5.1 Normalize posted deliveries (support datetime-local, skip empty)
                 $postedDeliveries = collect($request->input('deliveries', []))
                     ->filter(fn($row) => is_array($row));
 
-                // normalize + skip empty cards
                 $deliveries = [];
                 foreach ($postedDeliveries as $row) {
                     $row = array_change_key_case($row, CASE_LOWER);
 
-                    // Pull values
                     $method   = trim($row['method']   ?? '');
                     $location = trim($row['location'] ?? '');
                     $qty      = $row['quantity']      ?? null;
@@ -424,40 +429,18 @@ class ArtistController extends Controller
                     $time     = $row['time']          ?? null;
                     $id       = isset($row['id']) ? (int)$row['id'] : null;
 
-                    // If you used a single datetime input, split it here
+                    // If using <input type="datetime-local" name="deliveries[...][datetime]">
                     if ((!$date || !$time) && !empty($row['datetime'])) {
-                        // Expect formats like "YYYY-MM-DD HH:mm" or browser locale — adjust as needed
                         try {
                             $dt   = \Carbon\Carbon::parse($row['datetime']);
-                            $date = $date ?: $dt->toDateString();
-                            $time = $time ?: $dt->format('H:i:s');
+                            $date = $date ?: $dt->toDateString();     // YYYY-MM-DD
+                            $time = $time ?: $dt->format('H:i:s');    // HH:MM:SS
                         } catch (\Throwable $e) {
-                            // leave as null; will fail validation below if required
+                            // leave null if parse fails
                         }
                     }
 
-                    foreach ($deliveries as $row) {
-                        $bd = null;
-                        if (!empty($row['id'])) {
-                            $bd = DeliveryBreakdown::where('BreakdownID', (int)$row['id'])
-                                ->where('ProductID', $product->ProductID)
-                                ->first();
-                        }
-                        if (!$bd) {
-                            $bd = new DeliveryBreakdown();
-                            $bd->ProductID = $product->ProductID;
-                        }
-
-                        foreach (['method','quantity','date','time','location'] as $key) {
-                            if (array_key_exists($key, $row)) {
-                                $bd->{$key} = $row[$key] === '' ? null : $row[$key];
-                            }
-                        }
-                        $bd->save();
-                        $keepBreakIds[] = $bd->BreakdownID;
-                    }
-
-                    // detect empty card (everything blank)
+                    // Skip fully empty card
                     $isEmpty = ($method === '' && $location === '' && ($qty === null || $qty === '') && !$date && !$time);
                     if ($isEmpty) continue;
 
@@ -469,10 +452,9 @@ class ArtistController extends Controller
                         'date'     => $date ?: null,
                         'time'     => $time ?: null,
                     ];
-                    
                 }
 
-                // business rule: sum ≤ product total
+                // Business rule: sum ≤ product total
                 $productTotal = (int)($request->input('product.qty_total') ?? $product->totalQuantity ?? 0);
                 $sumQty = array_sum(array_column($deliveries, 'quantity'));
                 if ($sumQty > $productTotal) {
@@ -481,36 +463,29 @@ class ArtistController extends Controller
                     ]);
                 }
 
-                // Upsert rows for this product
+                // Upsert rows
                 $keepIds = [];
                 foreach ($deliveries as $d) {
                     $bd = null;
                     if (!empty($d['id'])) {
-                        $bd = \App\Models\DeliveryBreakdown::where('BreakdownID', $d['id'])
+                        $bd = DeliveryBreakdown::where('BreakdownID', $d['id'])
                             ->where('ProductID', $product->ProductID)
                             ->first();
                     }
                     if (!$bd) {
-                        $bd = new \App\Models\DeliveryBreakdown();
+                        $bd = new DeliveryBreakdown();
                         $bd->ProductID = $product->ProductID;
                     }
-
                     $bd->method   = $d['method'];
                     $bd->location = $d['location'];
                     $bd->quantity = $d['quantity'];
-                    $bd->date     = $d['date'];   // DATE column
-                    $bd->time     = $d['time'];   // TIME column
+                    $bd->date     = $d['date'];
+                    $bd->time     = $d['time'];
                     $bd->save();
 
                     $keepIds[] = $bd->BreakdownID;
                 }
 
-                // Delete rows removed in the UI (only if we posted at least one row)
-                if (count($deliveries)) {
-                    \App\Models\DeliveryBreakdown::where('ProductID', $product->ProductID)
-                        ->whereNotIn('BreakdownID', $keepIds)
-                        ->delete();
-                }
             });
 
             return back()->with('success', $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
@@ -708,5 +683,31 @@ class ArtistController extends Controller
         $v->validate();
 
         return [$deliveries, collect($deliveries)->sum('quantity')];
+    }
+
+    public function deleteDelivery(Request $request, Order $order, int $delivery)
+    {
+        $user = Auth::user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        // Find product for this order
+        $product = Product::where('OrderID', $order->id)->first();
+        if (!$product) {
+            return response()->json(['ok' => false, 'message' => 'No product for order'], 404);
+        }
+
+        // Only delete rows that belong to this product
+        $row = DeliveryBreakdown::where('BreakdownID', $delivery)
+            ->where('ProductID', $product->ProductID)
+            ->first();
+
+        if (!$row) {
+            return response()->json(['ok' => false, 'message' => 'Not found'], 404);
+        }
+
+        $row->delete();
+        return response()->json(['ok' => true]);
     }
 }

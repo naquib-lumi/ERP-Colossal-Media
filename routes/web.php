@@ -110,6 +110,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/artist/orders/{order}/attachments/upload', [ArtistController::class, 'uploadAttachment'])->name('artist.orders.attachments.upload');
         Route::post('/artist/orders/{order}/attachments/delete', [ArtistController::class, 'deleteAttachment'])->name('artist.orders.attachments.delete');
         Route::delete('/artist/orders/{order}/items/{item}', [ArtistController::class, 'destroyItem'])->name('artist.orders.items.destroy');
+        Route::delete('/artist/orders/{order}/deliveries/{delivery}', [ArtistController::class, 'deleteDelivery'])->name('artist.orders.delivery.destroy');
         
         // Actions ONLY a head-artist can do
         Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'assign'])
