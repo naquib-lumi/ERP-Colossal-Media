@@ -9,7 +9,7 @@ use Carbon\Carbon;
 
 class MeetingController extends Controller
 {
-    public function store(Request $request, $leadId)
+   public function store(Request $request, $leadId)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -20,6 +20,16 @@ class MeetingController extends Controller
             'location' => 'nullable|string|required_if:type,offline',
             'note' => 'nullable|string',
         ]);
+
+        // Check for existing meeting with same lead, title, and start time
+        $existingMeeting = Meeting::where('lead_id', $leadId)
+            ->where('title', $validated['title'])
+            ->where('start_time', Carbon::parse($validated['start_time']))
+            ->first();
+
+        if ($existingMeeting) {
+            return response()->json(['error' => 'A meeting with this title and time already exists for this lead.'], 422);
+        }
 
         $meeting = Meeting::create([
             'lead_id' => $leadId,
@@ -34,9 +44,8 @@ class MeetingController extends Controller
             'status' => 'scheduled',
         ]);
 
-        return response()->json(['success' => true, 'message' => 'Meeting created successfully']);
+        return response()->json(['success' => true, 'message' => 'Meeting created successfully', 'meeting' => $meeting]);
     }
-
   public function index()
 {
     $user = Auth::user();

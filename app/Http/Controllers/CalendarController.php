@@ -301,4 +301,38 @@ public function updateReminderStatus(Request $request, $id)
             return response()->json(['error' => 'Failed to update meeting'], 500);
         }
     }
+
+    public function destroyReminder($id)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $reminder = Reminder::findOrFail($id);
+        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $reminder->delete();
+        Log::info("Reminder ID {$id} deleted");
+        return response()->json(['success' => true]);
+    }
+
+    public function destroyMeeting($id)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $meeting = Meeting::findOrFail($id);
+        if ($meeting->user_id != $user->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $meeting->delete();
+        Log::info("Meeting ID {$id} deleted");
+        return response()->json(['success' => true]);
+    }
 }

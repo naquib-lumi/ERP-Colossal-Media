@@ -32,17 +32,7 @@ class Meeting extends Model
 
     protected static function booted()
     {
-        static::created(function ($meeting) {
-            $reminderTime = $meeting->start_time->subMinutes(15);
-            $reminder = $meeting->lead->reminders()->create([
-                'title' => 'Meeting Reminder: ' . $meeting->title,
-                'due_date' => $reminderTime,
-                'status' => 'upcoming',
-                'is_auto' => true,
-            ]);
-
-            $reminder->notifyUser();
-        });
+   
     }
 
     public function user()

@@ -101,9 +101,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
         Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
         Route::post('/leads/{lead}/meetings', [MeetingController::class, 'store'])->name('meetings.store');
-
         Route::get('/meetings', [MeetingController::class, 'index'])->name('meetings.index');
-Route::post('/meetings/{id}/update-status', [MeetingController::class, 'updateStatus'])->name('meetings.update.status');
+        Route::post('/meetings/{id}/update-status', [MeetingController::class, 'updateStatus'])->name('meetings.update.status');
+        Route::delete('/calendar/reminders/{id}', [CalendarController::class, 'destroyReminder']);
+        Route::delete('/calendar/meetings/{id}', [CalendarController::class, 'destroyMeeting']);
     });
 
 

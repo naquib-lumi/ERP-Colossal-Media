@@ -63,7 +63,7 @@
                     <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
                 </div>
                 <div class="offcanvas-body">
-                    <form class="pt-0" id="reminderForm" onsubmit="return false">
+                    <form class="pt-0" id="reminderForm">
                         @csrf
                         <input type="hidden" name="id">
                         <div class="mb-3">
@@ -108,7 +108,7 @@
                     <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
                 </div>
                 <div class="offcanvas-body">
-                    <form class="pt-0" id="meetingForm" onsubmit="return false">
+                    <form class="pt-0" id="meetingForm">
                         @csrf
                         <input type="hidden" name="id">
                         <div class="mb-3">
