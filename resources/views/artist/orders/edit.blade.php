@@ -6,23 +6,23 @@
 @push('styles')
 <style>
   .remove-item {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #dc3545 !important; 
-      margin-right: 20px;
-      margin-top: -0.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #dc3545 !important;
+    margin-right: 20px;
+    margin-top: -0.1rem;
   }
 
   .remove-item:hover {
-      color: #a71d2a !important; 
-      display: block !important;
+    color: #a71d2a !important;
+    display: block !important;
   }
 
   .item-actions {
-    top: -0.25rem;                  
+    top: -0.25rem;
     z-index: 10;
-    background: var(--bs-body-bg);  
+    background: var(--bs-body-bg);
     padding: .25rem 0 .5rem;
   }
 
@@ -30,6 +30,7 @@
     transform: rotate(180deg);
     transition: transform 0.2s ease;
   }
+
   [data-bs-toggle="collapse"] .bx-chevron-down {
     transition: transform 0.2s ease;
   }
@@ -48,43 +49,199 @@
     padding: 0;
     cursor: pointer;
   }
-    
-  .attach-box{position:relative;border:2px dashed #cbd5e1;border-radius:10px;padding:48px;display:flex;align-items:center;justify-content:center;background:#fff;cursor:pointer}
-  .attach-inner{text-align:center;pointer-events:none}
-  .attach-icon{width:42px;height:42px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:8px;font-size:20px}
-  .attach-title{color:#475569;font-weight:600}.attach-hint{color:#64748b;font-size:12px}
-  .file-overlay{position:absolute;inset:0;opacity:0;cursor:pointer}
-  .remove-x{border:0;background:none;color:#dc2626;font-weight:700;cursor:pointer;margin-left:8px}
-  .remove-x:hover{color:#b91c1c}
-  .ok{color:#15803d}.err{color:#b91c1c}
 
-  .overlay{
-    display:none;                  
-    position:fixed; inset:0;
-    background:rgba(184,184,184,.6);
-    z-index:1020;                 
-    align-items:center; justify-content:center;
-  }
-  .overlay.is-open{ display:flex; } 
-
-  .overlay-box{
-    padding:14px 18px; background:#fff;
-    border:1px solid #e5e7eb; border-radius:8px;
+  .attach-box {
+    position: relative;
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
+    padding: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    cursor: pointer
   }
 
+  .attach-inner {
+    text-align: center;
+    pointer-events: none
+  }
+
+  .attach-icon {
+    width: 42px;
+    height: 42px;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    border-radius: 8px;
+    font-size: 20px
+  }
+
+  .attach-title {
+    color: #475569;
+    font-weight: 600
+  }
+
+  .attach-hint {
+    color: #64748b;
+    font-size: 12px
+  }
+
+  .file-overlay {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer
+  }
+
+  .remove-x {
+    border: 0;
+    background: none;
+    color: #dc2626;
+    font-weight: 700;
+    cursor: pointer;
+    margin-left: 8px
+  }
+
+  .remove-x:hover {
+    color: #b91c1c
+  }
+
+  .ok {
+    color: #15803d
+  }
+
+  .err {
+    color: #b91c1c
+  }
+
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(184, 184, 184, .6);
+    z-index: 1020;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .overlay.is-open {
+    display: flex;
+  }
+
+  .overlay-box {
+    padding: 14px 18px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+  }
+
+  .ti-wrap {
+    position: relative;
+    overflow: visible
+  }
+
+  .ti {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    min-height: 44px;
+    padding: .375rem .5rem;
+    border: 1px solid #ced4da;
+    border-radius: .375rem;
+    flex-wrap: wrap;
+    background: #fff;
+    cursor: text
+  }
+
+  .ti:focus-within {
+    outline: 0;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .25)
+  }
+
+  .ti-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: #edf2ff;
+    border: 1px solid #cfe2ff;
+    color: #244;
+    padding: .2rem .5rem;
+    border-radius: 999px;
+    font-size: .85rem
+  }
+
+  .ti-chip button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: #6b7280;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 .1rem;
+    line-height: 1
+  }
+
+  .ti-input {
+    border: 0;
+    outline: 0;
+    min-width: 120px;
+    flex: 1 0 120px;
+    padding: .2rem
+  }
+
+  .ti-dd {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .375rem;
+    margin-top: .25rem;
+    box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+    max-height: 220px;
+    overflow: auto;
+    display: none
+  }
+
+  .ti-dd-item {
+    padding: .45rem .6rem;
+    cursor: pointer
+  }
+
+  .ti-dd-item:hover,
+  .ti-dd-item.is-active {
+    background: #f5f8ff
+  }
 </style>
 
 @endpush
 
 @if (session('success'))
-  @push('scripts')
-  <script>Swal.fire({icon:'success', title:'Success', text: @json(session('success'))});</script>
-  @endpush
+@push('scripts')
+<script>
+  Swal.fire({
+    icon: 'success',
+    title: 'Success',
+    text: @json(session('success'))
+  });
+</script>
+@endpush
 @endif
 @if (session('error'))
-  @push('scripts')
-  <script>Swal.fire({icon:'error', title:'Error', text: @json(session('error'))});</script>
-  @endpush
+@push('scripts')
+<script>
+  Swal.fire({
+    icon: 'error',
+    title: 'Error',
+    text: @json(session('error'))
+  });
+</script>
+@endpush
 @endif
 
 {{-- Loading overlay --}}
@@ -98,7 +255,6 @@
 <form id="order-form" action="{{ route('artist.orders.update', $order) }}" method="POST" enctype="multipart/form-data">
   @csrf
   @method('PUT')
-  <input type="hidden" name="is_draft" id="is_draft" value="0">
 
   <div class="row g-4">
     <div class="col-12">
@@ -122,33 +278,33 @@
                 <div class="col-12 col-md-4">
                   <label class="form-label">Company Name</label>
                   <input type="text" class="form-control"
-                        value="{{ old('company_name', $order->companyName ?? '') }}" readonly>
+                    value="{{ old('company_name', $order->companyName ?? '') }}" readonly>
                   <input type="hidden" name="company_name"
-                        value="{{ old('company_name', $order->companyName ?? '') }}">
+                    value="{{ old('company_name', $order->companyName ?? '') }}">
                 </div>
 
                 <div class="col-12 col-md-4">
                   <label class="form-label">Job Title</label>
                   <input type="text" class="form-control"
-                        value="{{ old('order_title', $order->orderTitle ?? '') }}" readonly>
+                    value="{{ old('order_title', $order->orderTitle ?? '') }}" readonly>
                   <input type="hidden" name="order_title"
-                        value="{{ old('order_title', $order->orderTitle ?? '') }}">
+                    value="{{ old('order_title', $order->orderTitle ?? '') }}">
                 </div>
 
                 <div class="col-12 col-md-4">
                   <label class="form-label">Created Date</label>
                   <input type="text" class="form-control"
-                        value="{{ old('created_date', optional($order->created_at)->format('Y-m-d')) }}" readonly>
+                    value="{{ old('created_date', optional($order->created_at)->format('Y-m-d')) }}" readonly>
                   <input type="hidden" name="created_date"
-                        value="{{ old('created_date', optional($order->created_at)->toDateString()) }}">
+                    value="{{ old('created_date', optional($order->created_at)->toDateString()) }}">
                 </div>
 
                 <div class="col-12 col-md-4">
                   <label class="form-label">Deadline</label>
                   <input type="text" class="form-control"
-                        value="{{ old('deadline', optional($order->deadline)->format('Y-m-d')) }}" readonly>
+                    value="{{ old('deadline', optional($order->deadline)->format('Y-m-d')) }}" readonly>
                   <input type="hidden" name="deadline"
-                        value="{{ old('deadline', optional($order->deadline)->toDateString()) }}">
+                    value="{{ old('deadline', optional($order->deadline)->toDateString()) }}">
                 </div>
 
                 <div class="col-12 col-md-4">
@@ -156,7 +312,7 @@
                   @php $dc = old('design_confirm', $order->design_confirm ?? null); @endphp
                   <select id="design_confirmed" name="design_confirmed" class="form-select">
                     <option value="1" {{ $order->approval ? 'selected' : '' }}>Yes</option>
-                    <option value="0"  {{ !$order->approval ? 'selected' : '' }}>No</option>
+                    <option value="0" {{ !$order->approval ? 'selected' : '' }}>No</option>
                   </select>
                 </div>
 
@@ -172,32 +328,34 @@
                     <span class="text-body-secondary small">(read-only here — upload at bottom section)</span>
                   </label>
 
-                    @isset($order->attachments)
-                    @if($order->attachments->count())
-                      <div class="d-flex flex-wrap gap-2">
-                        @foreach($order->attachments as $file)
-                          <a href="{{ Storage::url($file->file_location ?? $file->path) }}" target="_blank"
-                            class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center">
-                            <i class="bx bx-file me-1"></i>
-                            <span class="text-truncate" style="max-width:220px">
-                              {{ $file->original_name ?? basename($file->file_location ?? $file->path) }}
-                            </span>
-                          </a>
-                        @endforeach
-                      </div>
-                    @else
-                      <div class="text-body-secondary">No attachments</div>
-                    @endif
+                  @isset($order->attachments)
+                  @if($order->attachments->count())
+                  <div class="d-flex flex-wrap gap-2">
+                    @foreach($order->attachments as $file)
+                    <a href="{{ Storage::url($file->file_location ?? $file->path) }}" target="_blank"
+                      class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center">
+                      <i class="bx bx-file me-1"></i>
+                      <span class="text-truncate" style="max-width:220px">
+                        {{ $file->original_name ?? basename($file->file_location ?? $file->path) }}
+                      </span>
+                    </a>
+                    @endforeach
+                  </div>
+                  @else
+                  <div class="text-body-secondary">No attachments</div>
+                  @endif
                   @endisset
                 </div>
               </div>
             </div>
           </div>
 
-          {{-- Product block --}} 
+          {{-- Product block --}}
           <div class="card mb-6">
             <div class="card-header">
-              <h5 class="mb-0"><i class="bx bx-package me-2"></i>Product</h5>
+              <h5 class="mb-0">
+                <i class="bx bx-package me-2"></i>Product
+              </h5>
             </div>
 
             <div class="card-body p-4">
@@ -205,32 +363,39 @@
                 <div class="col-12 col-md-6 col-xl-3">
                   <label class="form-label">Product Name</label>
                   <input
-                    name="product[name]" type="text" class="form-control" placeholder="e.g. Business Card"
-                    value="{{ old('product.name', $product['productName'] ?? $product['product_name'] ?? '') }}" readonly
-                  >
+                    name="product[name]"
+                    type="text"
+                    class="form-control"
+                    placeholder="e.g. Business Card"
+                    value="{{ old('product.name', $product->productName ?? '') }}">
                 </div>
 
                 <div class="col-12 col-md-6 col-xl-3">
                   <label class="form-label">Total Quantity</label>
-                  <input
-                    name="product[qty_total]" type="number" min="0" class="form-control" placeholder="1000"
-                    value="{{ old('product.qty_total', $product['totalQuantity'] ?? $product['total_quantity'] ?? '') }}" readonly
-                  >
+                  <input id="totalQty"
+                    name="product[qty_total]"
+                    type="number"
+                    min="0"
+                    class="form-control"
+                    placeholder="1000"
+                    value="{{ old('product.qty_total', $product->totalQuantity ?? '') }}">
                 </div>
 
                 <div class="col-12 col-md-6 col-xl-6">
                   <label class="form-label">Material / Remark</label>
                   <input
-                    name="product[material]" type="text" class="form-control" placeholder="Premium Paper, Glossy"
-                    value="{{ old('product.material', $product['materialRemark'] ?? $product['material_remark'] ?? '') }}" readonly
-                  >
+                    name="product[material]"
+                    type="text"
+                    class="form-control"
+                    placeholder="Premium Paper, Glossy"
+                    value="{{ old('product.material', $product->materialRemark ?? '') }}">
                 </div>
               </div>
 
               {{-- Items repeater --}}
               @php
-                // existing items from DB or from old() after validation errors
-                $items = old('items', $order->items ?? [[]]);
+              // existing items from DB or from old() after validation errors
+              $itemsData = old('items', $items);
               @endphp
 
               <div class="d-flex justify-content-between align-items-center mb-2">
@@ -239,127 +404,175 @@
                   <i class="bx bx-plus me-1"></i> Add Item
                 </button>
               </div>
+              <div class="accordion" id="productItems" data-start-number="1" data-next-index="{{ count($items ?? []) }}">
+                @foreach($items as $i => $it)
+                @php
+                $materialVal = data_get($it, 'material');
 
-              <div class="accordion" id="productItems" data-start-number="2" data-next-index="1">
-                @foreach($items as $i => $item)
-                  <div class="accordion-item mb-3 border rounded" id="item{{ $i }}">
-                    <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
+                if (is_string($materialVal)) {
+                $decoded = json_decode($materialVal, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                $materialVal = $decoded;
+                }
+                }
 
-                      <div>
-                        <span class="fw-semibold">Item {{ $i+1 }}</span>
-                        <span class="text-body-secondary ms-2 small">
-                          {{ data_get($item, 'name', '') }}
-                          {{ data_get($item, 'quantity') ? ' ' . data_get($item, 'quantity') : '' }}
-                        </span>
-                      </div>
+                $materialVal = collect($materialVal ?? [])->filter()->values();
 
-                      <div class="d-flex align-items-center gap-2">
-                        {{-- Trash Icon --}}
-                        @if ($i > 0)
-                          <button type="button"
-                                  class="btn btn-link text-danger p-0"
-                                  onclick="removeItem({{ $i }}, event)">
-                            <i class="bx bx-trash fs-5"></i>
-                          </button>
-                        @endif
+                $materialSuggestions = collect($materials ?? [])
+                ->pluck('materialName')
+                ->filter()
+                ->values();
+                @endphp
 
-                        {{-- Collapse Toggle Icon --}}
-                        <button class="btn btn-link p-0"
-                                type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#itemPane{{ $i }}"
-                                aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
-                                aria-controls="itemPane{{ $i }}">
-                          <i class="bx bx-chevron-down fs-4"></i>
-                        </button>
-                      </div>
+                <div class="accordion-item mb-3 border rounded" id="item{{ $i }}" data-item-id="{{ data_get($it,'ItemID') }}">
+                  <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
+                    <div>
+                      <span class="fw-semibold">Item {{ $i+1 }}</span>
+                      <span class="text-body-secondary ms-2 small">
+                        {{ data_get($it, 'itemName') }}
+                        {{ data_get($it, 'quantity') ? ' ×'.data_get($it,'quantity') : '' }}
+                      </span>
                     </div>
 
-                    <div id="itemPane{{ $i }}"
-                      class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}"
-                      data-bs-parent="#productItems">
-                      <div class="accordion-body">
-                        @if ($i > 0)
-                          <div class="item-actions sticky-top d-flex justify-content-end">
-                            <button type="button"
-                                    class="btn btn-outline-danger btn-sm"
-                                    onclick="removeItem({{ $i }}, event)">
-                              <i class="bx bx-trash me-1"></i> Delete
-                            </button>
-                          </div>
-                        @endif
-                        <div class="row g-3">
-                          <div class="col-md-6">
-                            <label class="form-label">Item Name</label>
-                            <input type="text" class="form-control" name="items[{{ $i }}][name]" value="{{ old('items.$i.name', data_get($item,'name')) }}">
-                          </div>
+                    <div class="d-flex align-items-center gap-2">
+                      {{-- Trash Icon --}}
+                      <button type="button"
+                        class="btn btn-link text-danger p-0"
+                        title="Delete this item"
+                        data-action="delete-item"
+                        data-item-id="{{ data_get($it,'ItemID') }}"
+                        data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID') ?: 0]) }}">
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
 
-                          <div class="col-md-6">
-                            <label class="form-label">Quantity</label>
-                            <input type="number" class="form-control" name="items[{{ $i }}][qty]" value="{{ old('items.$i.qty', data_get($item,'qty')) }}">
-                          </div>
+                      {{-- Collapse Toggle Icon --}}
+                      <button class="btn btn-link p-0"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#itemPane{{ $i }}"
+                        aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
+                        aria-controls="itemPane{{ $i }}">
+                        <i class="bx bx-chevron-down fs-4"></i>
+                      </button>
+                    </div>
+                  </div>
 
-                          <div class="col-12">
-                            <label class="form-label">Material</label>
-                            <input type="text" class="form-control" name="items[{{ $i }}][material]" value="{{ old('items.$i.material', data_get($item,'material')) }}">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Size (inches) – Width</label>
-                            <input name="items[0][size][w]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Height</label>
-                            <input name="items[0][size][h]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Length</label>
-                            <input name="items[0][size][l]" type="text" class="form-control">
-                          </div>
+                  <div id="itemPane{{ $i }}" class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}" data-bs-parent="#productItems">
+                    <div class="accordion-body">
 
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Bleed (Top)</label>
-                            <input name="items[0][bleed][top]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Bottom</label>
-                            <input name="items[0][bleed][bottom]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Left</label>
-                            <input name="items[0][bleed][left]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Right</label>
-                            <input name="items[0][bleed][right]" type="text" class="form-control">
-                          </div>
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label">Item Name</label>
+                          @php $v = old("items.$i.itemName"); @endphp
+                          <input class="form-control" name="items[{{ $i }}][itemName]"
+                            value="{{ filled($v) ? $v : (data_get($it,'itemName') ?? '') }}">
+                        </div>
 
-                          <div class="col-md-3">
-                            <label class="form-label">Lamination</label>
-                            <select name="items[0][lamination]" class="form-select">
-                              <option value="">-</option>
-                              <option>Gloss</option><option>Matte</option>
-                            </select>
+                        <div class="col-md-6">
+                          <label class="form-label">Quantity</label>
+                          @php $v = old("items.$i.quantity"); @endphp
+                          <input type="number" class="form-control" name="items[{{ $i }}][quantity]"
+                            value="{{ filled($v) ? $v : (data_get($it,'quantity') ?? '') }}">
+                        </div>
+
+                        <!-- display all material to select -->
+                        @php
+                        // $it is your looped item
+                        $values = $it->material ?? []; // because of the cast this is an array
+                        @endphp
+
+                        <div class="col-12">
+                          <label class="form-label">Material</label>
+                          @php $materialValues = $item->material ?? []; @endphp
+                          <div
+                            class="tags-input"
+                            data-name="items[{{ $i }}][material][]"
+                            data-suggestions='@json($materialSuggestions)'
+                            data-values='@json($materialVal)'
+                            data-allow-custom="1">
                           </div>
-                          <div class="col-md-3">
-                            <label class="form-label">Printer</label>
-                            <select name="items[0][printer]" class="form-select">
-                              <option>Printer</option>
-                            </select>
-                          </div>
-                          <div class="col-md-3">
-                            <label class="form-label">Cutter</label>
-                            <select name="items[0][cutter]" class="form-select">
-                              <option>Cutter</option>
-                            </select>
-                          </div>
-                          <div class="col-md-12">
-                            <label class="form-label">Finishing</label>
-                            <input name="items[0][finishing]" type="text" class="form-control" placeholder="Coating, lamination, etc…">
-                          </div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Size (inches) – Width</label>
+                          <input name="items[{{ $i }}][sizeWidth]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Height</label>
+                          <input name="items[{{ $i }}][sizeHeight]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Length</label>
+                          <input name="items[{{ $i }}][sizeLength]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.sizeLength", data_get($it,'sizeLength')) }}">
+                        </div>
+
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bleed (Top)</label>
+                          <input name="items[{{ $i }}][bleedTop]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bottom</label>
+                          <input name="items[{{ $i }}][bleedBottom]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Left</label>
+                          <input name="items[{{ $i }}][bleedLeft]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Right</label>
+                          <input name="items[{{ $i }}][bleedRight]" type="number" step="0.01" class="form-control"
+                            value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}">
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label">Lamination</label>
+                          @php $lam = filled(old("items.$i.lamination"))
+                          ? old("items.$i.lamination")
+                          : data_get($it,'lamination'); @endphp
+                          <select name="items[{{ $i }}][lamination]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $lam==='Gloss' ? 'selected' : '' }}>Gloss</option>
+                            <option {{ $lam==='Matte' ? 'selected' : '' }}>Matte</option>
+                          </select>
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label">Printer</label>
+                          @php $prt = filled(old("items.$i.printer"))
+                          ? old("items.$i.printer")
+                          : data_get($it,'printer'); @endphp
+                          <select name="items[{{ $i }}][printer]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $prt==='Printer' ? 'selected' : '' }}>Printer</option>
+                          </select>
+                        </div>
+
+                        <div class="col-md-3">
+                          <label class="form-label">Cutter</label>
+                          @php $cut = filled(old("items.$i.cutter"))
+                          ? old("items.$i.cutter")
+                          : data_get($it,'cutter'); @endphp
+                          <select name="items[{{ $i }}][cutter]" class="form-select">
+                            <option value="">-</option>
+                            <option {{ $cut==='Cutter' ? 'selected' : '' }}>Cutter</option>
+                          </select>
+                        </div>
+                        <div class="col-md-12">
+                          <label class="form-label">Finishing</label>
+                          <input name="items[{{ $i }}][finishing]" type="text" class="form-control"
+                            placeholder="Coating, lamination, etc…"
+                            value="{{ old("items.$i.finishing", data_get($it,'finishing')) }}">
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
                 @endforeach
               </div>
 
@@ -368,105 +581,120 @@
                 <div class="accordion-item mb-3 border rounded" data-kind="item" id="itemWrap__INDEX__">
                   <div class="accordion-header d-flex align-items-center px-3 py-2" id="itemHdr__INDEX__">
                     <span class="fw-semibold">
-                      Item <span class="item-number"></span>
+                      Item <span class="item-number">__INDEX_HUMAN__</span>
                     </span>
 
                     <!-- actions on the far right -->
                     <div class="ms-auto d-flex align-items-center gap-2">
                       <!-- delete -->
                       <button type="button"
-                              class="btn btn-link p-0 text-danger delete-item"
-                              data-index="__INDEX__" title="Delete item">
+                        class="btn btn-link p-0 text-danger delete-item"
+                        data-index="__INDEX__" title="Delete item">
                         <i class="bx bx-trash fs-5"></i>
                       </button>
 
                       <!-- chevron: only this toggles collapse -->
                       <button type="button"
-                              class="btn btn-link p-0 chevron"
-                              data-bs-toggle="collapse"
-                              data-bs-target="#itemPane__INDEX__"
-                              aria-controls="itemPane__INDEX__"
-                              aria-expanded="false"
-                              title="Expand/Collapse">
+                        class="btn btn-link p-0 chevron"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#itemPane__INDEX__"
+                        aria-controls="itemPane__INDEX__"
+                        aria-expanded="false"
+                        title="Expand/Collapse">
                         <i class="bx bx-chevron-down fs-4"></i>
                       </button>
                     </div>
                   </div>
 
                   <div id="itemPane__INDEX__"
-                      class="accordion-collapse collapse"
-                      aria-labelledby="itemHdr__INDEX__"
-                      data-bs-parent="#productItems">
+                    class="accordion-collapse collapse show"
+                    data-bs-parent="#productItems">
                     <div class="accordion-body">
+
+                      <input type="hidden" name="items[__INDEX__][id]" value="">
+
                       <div class="row g-3">
                         <div class="col-md-6">
                           <label class="form-label">Item Name</label>
-                          <input type="text" class="form-control" name="items[__INDEX__][name]" value="">
+                          <input type="text" class="form-control"
+                            name="items[__INDEX__][itemName]" value="">
                         </div>
 
                         <div class="col-md-6">
                           <label class="form-label">Quantity</label>
-                          <input type="number" class="form-control" name="items[__INDEX__][qty]" value="">
+                          <input type="number" class="form-control"
+                            name="items[__INDEX__][quantity]" value="">
                         </div>
 
                         <div class="col-12">
                           <label class="form-label">Material</label>
-                          <input type="text" class="form-control" name="items[__INDEX__][material]" value="">
+                          <div
+                            class="tags-input"
+                            data-name="items[__INDEX__][material][]"
+                            data-suggestions='@json($allMaterials ?? [])'
+                            data-values='[]'
+                            data-allow-custom="1">
+                          </div>
                         </div>
 
                         <div class="col-12 col-md-4">
-                            <label class="form-label">Size (inches) – Width</label>
-                            <input name="items[0][size][w]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Height</label>
-                            <input name="items[0][size][h]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Length</label>
-                            <input name="items[0][size][l]" type="text" class="form-control">
-                          </div>
+                          <label class="form-label">Size (inches) – Width</label>
+                          <input name="items[__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Height</label>
+                          <input name="items[__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="">
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Length</label>
+                          <input name="items[__INDEX__][sizeLength]" type="number" step="0.01" class="form-control" value="">
+                        </div>
 
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Bleed (Top)</label>
-                            <input name="items[0][bleed][top]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Bottom</label>
-                            <input name="items[0][bleed][bottom]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Left</label>
-                            <input name="items[0][bleed][left]" type="text" class="form-control">
-                          </div>
-                          <div class="col-12 col-md-3">
-                            <label class="form-label">Right</label>
-                            <input name="items[0][bleed][right]" type="text" class="form-control">
-                          </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bleed (Top)</label>
+                          <input name="items[__INDEX__][bleedTop]" type="number" step="0.01" class="form-control"
+                            value="">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Bottom</label>
+                          <input name="items[__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control"
+                            value="">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Left</label>
+                          <input name="items[__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control"
+                            value="">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Right</label>
+                          <input name="items[__INDEX__][bleedRight]" type="number" step="0.01" class="form-control"
+                            value="">
+                        </div>
 
-                          <div class="col-md-3">
-                            <label class="form-label">Lamination</label>
-                            <select name="items[0][lamination]" class="form-select">
-                              <option value="">-</option>
-                              <option>Gloss</option><option>Matte</option>
-                            </select>
-                          </div>
-                          <div class="col-md-3">
-                            <label class="form-label">Printer</label>
-                            <select name="items[0][printer]" class="form-select">
-                              <option>Printer</option>
-                            </select>
-                          </div>
-                          <div class="col-md-3">
-                            <label class="form-label">Cutter</label>
-                            <select name="items[0][cutter]" class="form-select">
-                              <option>Cutter</option>
-                            </select>
-                          </div>
-                          <div class="col-md-12">
-                            <label class="form-label">Finishing</label>
-                            <input name="items[0][finishing]" type="text" class="form-control" placeholder="Coating, lamination, etc…">
-                          </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Lamination</label>
+                          <select name="items[__INDEX__][lamination]" class="form-select">
+                            <option value="">-</option>
+                            <option>Gloss</option>
+                            <option>Matte</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Printer</label>
+                          <select name="items[__INDEX__][printer]" class="form-select">
+                            <option>Printer</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Cutter</label>
+                          <select name="items[__INDEX__][cutter]" class="form-select">
+                            <option>Cutter</option>
+                          </select>
+                        </div>
+                        <div class="col-md-12">
+                          <label class="form-label">Finishing</label>
+                          <input name="items[__INDEX__][finishing]" type="text" class="form-control" placeholder="Coating, lamination, etc…">
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -480,45 +708,70 @@
                   <i class="bx bx-plus me-1"></i> Add Delivery Breakdown
                 </button>
               </div>
+              
 
               <div id="deliveriesWrap" class="vstack gap-3">
-                <div class="card border shadow-none" data-delivery>
-                  <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <strong>Delivery <span class="delivery-index">1</span></strong>
-                      <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
-                        <i class="bx bx-trash fs-5"></i>
-                      </button>
-                    </div>
-
-                    <div class="row g-3">
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Delivery Method</label>
-                        <select name="deliveries[0][method]" class="form-select">
-                          <option value="">Method</option>
-                          <option value="courier">Courier</option>
-                          <option value="pickup">Pickup</option>
-                          <option value="install">Install</option>
-                        </select>
+                @forelse($deliveries as $i => $d)
+                  <div class="card mb-3" data-delivery>
+                    <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fw-semibold">Delivery <span class="delivery-index">{{ $i + 1 }}</span></div>
+                        <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete delivery" data-remove>
+                          <i class="bx bx-trash fs-5"></i>
+                        </button>
                       </div>
+                      @php
+                          $dtValue = '';
 
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Location Address</label>
-                        <input name="deliveries[0][location]" type="text" class="form-control" placeholder="Location">
-                      </div>
+                          try {
+                              $dateOnly = !empty($d->date)
+                                  ? \Illuminate\Support\Carbon::parse($d->date)->toDateString()
+                                  : null;
 
-                      <div class="col-12 col-md-2">
-                        <label class="form-label">Quantity</label>
-                        <input name="deliveries[0][qty]" type="number" min="0" class="form-control" placeholder="Qty">
-                      </div>
+                              $timeOnly = !empty($d->time)
+                                  ? \Illuminate\Support\Carbon::parse($d->time)->format('H:i')
+                                  : null;
 
-                      <div class="col-12 col-md-4">
-                        <label class="form-label">Date & Time</label>
-                        <input name="deliveries[0][datetime]" type="datetime-local" class="form-control">
+                              if ($dateOnly && $timeOnly) {
+                                  $dtValue = $dateOnly . 'T' . $timeOnly;   // "YYYY-MM-DDTHH:MM"
+                              } elseif ($dateOnly) {
+                                  $dtValue = $dateOnly . 'T00:00';
+                              }
+                          } catch (\Throwable $e) {
+                              $dtValue = '';
+                          }
+                      @endphp
+                      {{-- Keep ID so update() can upsert instead of always inserting --}}
+                      <input type="hidden" name="deliveries[{{ $i }}][id]" value="{{ $d->BreakdownID }}">
+
+                      <div class="row g-3">
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Delivery Method</label>
+                          <input class="form-control" name="deliveries[{{ $i }}][method]" value="{{ $d->method }}">
+                        </div>
+
+                        <div class="col-12 col-md-3">
+                          <label class="form-label">Location</label>
+                          <input class="form-control" name="deliveries[{{ $i }}][location]" value="{{ $d->location }}">
+                        </div>
+
+                        <div class="col-12 col-md-2">
+                          <label class="form-label">Quantity</label>
+                          <input type="number" class="form-control del-qty" name="deliveries[{{ $i }}][quantity]" value="{{ $d->quantity }}">
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">Date &amp; Time</label>
+                          <input type="datetime-local"
+                                class="form-control"
+                                name="deliveries[{{ $i }}][datetime]"
+                                value="{{ $dtValue }}">
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                @empty
+                @endforelse
               </div>
 
               {{-- Template used when clicking “Add Delivery Breakdown” --}}
@@ -537,25 +790,28 @@
                         <label class="form-label">Delivery Method</label>
                         <select name="deliveries[__INDEX__][method]" class="form-select">
                           <option value="">Method</option>
-                          <option value="courier">Courier</option>
-                          <option value="pickup">Pickup</option>
-                          <option value="install">Install</option>
+                          <option value="Courier">Courier</option>
+                          <option value="Pickup">Pickup</option>
+                          <option value="Truck">Truck</option>
                         </select>
                       </div>
 
                       <div class="col-12 col-md-3">
                         <label class="form-label">Location Address</label>
-                        <input name="deliveries[__INDEX__][location]" type="text" class="form-control" placeholder="Location">
+                        <input type="text" name="deliveries[__INDEX__][location]" class="form-control" value="">
                       </div>
 
                       <div class="col-12 col-md-2">
                         <label class="form-label">Quantity</label>
-                        <input name="deliveries[__INDEX__][qty]" type="number" min="0" class="form-control" placeholder="Qty">
+                        <input type="number" step="1" min="0" name="deliveries[__INDEX__][quantity]" class="form-control del-qty" value="">
                       </div>
 
                       <div class="col-12 col-md-4">
                         <label class="form-label">Date & Time</label>
-                        <input name="deliveries[__INDEX__][datetime]" type="datetime-local" class="form-control">
+                        <input type="datetime-local"
+                                class="form-control"
+                                name="deliveries[__INDEX__][datetime]"
+                                value="">
                       </div>
                     </div>
                   </div>
@@ -566,15 +822,12 @@
               <div class="mt-4">
                 <h6 class="mb-2">Product Remarks</h6>
                 <textarea
-                  name="product[remarks]" rows="3" class="form-control"
-                  placeholder="Client requested matte finish on cover page. Ensure color matching with Pantone 286C."
-                >{{ old('product.remarks', $product['productRemark'] ?? $product['product_remark'] ?? '') }}</textarea>
+                  name="product[remarks]"
+                  rows="3"
+                  class="form-control"
+                  placeholder="Client requested matte finish on cover page. Ensure color matching with Pantone 286C.">{{ old('product.remarks', $product->productRemark ?? '') }}</textarea>
               </div>
 
-              {{-- Optional: keep ProductID hidden so you can update later --}}
-              @if(!empty($product?->ProductID))
-                <input type="hidden" name="product[id]" value="{{ $product->ProductID }}">
-              @endif
             </div>
           </div>
 
@@ -594,8 +847,8 @@
 
                 <!-- This input sits on top, invisible, and owns the click -->
                 <input id="fileInput" type="file" multiple
-                      accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
-                      class="file-overlay">
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
+                  class="file-overlay">
               </div>
 
               <div id="attach-msg" class="mt-2 text-sm"></div>
@@ -614,8 +867,8 @@
     <div class="col-12">
       <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
         <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
-        <button type="button" name="action" value="draft" id="btn-draft" class="btn btn-secondary">Save Draft</button>
-        <button type="button" name="action" value="submit" id="btn-submit" class="btn btn-primary">Save and Submit</button>
+        <button type="submit" name="is_draft" value="1" class="btn btn-secondary">Save Draft</button>
+        <button type="submit" name="is_draft" value="0" class="btn btn-primary">Save & Submit</button>
       </div>
     </div>
   </div>
@@ -677,7 +930,8 @@
           <label class="form-label">Lamination</label>
           <select name="items[IDX][lamination]" class="form-select">
             <option value="">-</option>
-            <option>Gloss</option><option>Matte</option>
+            <option>Gloss</option>
+            <option>Matte</option>
           </select>
         </div>
         <div class="col-md-3">
@@ -737,152 +991,414 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-  (function () {
-    // add item --------------------------------------------------------------------------------------------
+  window.CSRF_TOKEN = "{{ csrf_token() }}";
+  (function() {
+    // -------------------------------------------------------------
+    // Accordion: setup
+    // -------------------------------------------------------------
     function openOnly(id) {
-      // id like '#itemPane3'
       document.querySelectorAll('#productItems .accordion-collapse.show')
-        .forEach(el => new bootstrap.Collapse(el, {toggle:false}).hide());
-      new bootstrap.Collapse(document.querySelector(id), {toggle:true}).show();
+        .forEach(el => new bootstrap.Collapse(el, {
+          toggle: false
+        }).hide());
+      new bootstrap.Collapse(document.querySelector(id), {
+        toggle: true
+      }).show();
     }
 
-    const container = document.getElementById('productItems');
-    const addBtn    = document.getElementById('addItemBtn');
-    const tplEl     = document.getElementById('itemTemplate');
+    const acc = document.getElementById('productItems');
+    const tplEl = document.getElementById('itemTemplate');
+    if (!acc || !tplEl) {
+      console.warn('[edit] Missing #productItems or #itemTemplate');
+      return;
+    }
 
-    // read the starting display number and next array index from data-attrs
-    const startNumber = parseInt(container?.dataset.startNumber ?? '1', 10);
+    function normalize(v) {
+      return (v || '').trim();
+    }
+
+    function hidden(name, val) {
+      const h = document.createElement('input');
+      h.type = 'hidden';
+      h.name = name;
+      h.value = val;
+      return h;
+    }
+
+    function initTagsInput(container) {
+      if (!container || container.dataset._bound === '1') return;
+      container.dataset._bound = '1';
+
+      // read data-* from Blade
+      const name = container.dataset.name; // e.g. items[3][material][]
+      const suggestions = JSON.parse(container.dataset.suggestions || '[]');
+      const initial = JSON.parse(container.dataset.values || '[]');
+      const allowCustom = container.dataset.allowCustom === '1';
+
+      // build UI
+      container.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'ti-wrap';
+      const box = document.createElement('div');
+      box.className = 'ti';
+      box.tabIndex = 0;
+      const input = document.createElement('input');
+      input.className = 'ti-input';
+      input.placeholder = 'Click to select…';
+      input.readOnly = true;
+      const dd = document.createElement('div');
+      dd.className = 'ti-dd';
+      box.appendChild(input);
+      wrap.appendChild(box);
+      wrap.appendChild(dd);
+      container.appendChild(wrap);
+
+      const selected = new Set(initial.map(v => (v || '').trim()).filter(Boolean));
+
+      const hidden = (n, v) => {
+        const h = document.createElement('input');
+        h.type = 'hidden';
+        h.name = n;
+        h.value = v;
+        return h;
+      };
+
+      function renderChips() {
+        [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
+        [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
+        selected.forEach(v => {
+          const chip = document.createElement('span');
+          chip.className = 'ti-chip';
+          chip.textContent = v;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.innerHTML = '&times;';
+          btn.addEventListener('click', () => {
+            selected.delete(v);
+            renderChips();
+            buildList();
+          });
+          chip.appendChild(btn);
+          box.insertBefore(chip, input);
+          container.appendChild(hidden(name, v)); // ← hidden inputs appended to container
+        });
+      }
+
+      function buildList() {
+        const avail = suggestions.filter(s => !selected.has(s));
+        dd.innerHTML = '';
+        if (!avail.length) {
+          dd.style.display = 'none';
+          return;
+        }
+        avail.forEach((v) => {
+          const it = document.createElement('div');
+          it.className = 'ti-dd-item';
+          it.textContent = v;
+          it.addEventListener('click', () => {
+            selected.add(v);
+            renderChips();
+            buildList();
+          });
+          dd.appendChild(it);
+        });
+        dd.style.display = 'block';
+      }
+
+      box.addEventListener('click', () => {
+        buildList();
+        dd.style.display = 'block';
+      });
+      input.addEventListener('focus', () => {
+        buildList();
+        dd.style.display = 'block';
+      });
+      document.addEventListener('click', (e) => {
+        if (!wrap.contains(e.target)) dd.style.display = 'none';
+      });
+
+      renderChips(); // ← show chips for initial values from DB
+    }
+
+    function initAllTagsInputs(root = document) {
+      root.querySelectorAll('.tags-input').forEach(initTagsInput);
+    }
+
+    initAllTagsInputs(document);
 
     // seed nextIndex from data-next-index, else fall back to current count
-    let nextIndex = parseInt(container?.dataset.nextIndex ??
-                   container.querySelectorAll('.accordion-item[data-kind="item"]').length, 10);
+    let nextIndex = parseInt(acc.dataset.nextIndex ?? String(acc.querySelectorAll('.accordion-item[data-kind="item"]').length), 10);
 
-    function addItem() {
-      const raw = tplEl.innerHTML;
-      const idx = nextIndex++;
-      const html = raw.replace(/__INDEX__/g, idx);
+    function addItemRow() {
+      const humanNum = acc.querySelectorAll('.accordion-item[data-kind="item"]').length + 1;
+
+      const html = tplEl.innerHTML.replace(/__INDEX__/g, String(nextIndex)).replace(/__INDEX_HUMAN__/g, String(humanNum));
       const frag = document.createRange().createContextualFragment(html);
-      container.appendChild(frag);
-      renumberAndLockFirst();
+      const row = frag.firstElementChild;
+      if (!row) return;
+
+      acc.appendChild(row);
+
+      // open new collapse via Bootstrap
+      const pane = row.querySelector('.accordion-collapse');
+      const btn = row.querySelector('[data-bs-toggle="collapse"]');
+      if (pane) {
+        pane.setAttribute('data-bs-parent', '#productItems');
+        bootstrap.Collapse.getOrCreateInstance(pane, {
+          toggle: false
+        }).show();
+      }
+      if (btn) {
+        btn.classList.remove('collapsed');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+
+      row.querySelectorAll('.item-number').forEach(n => n.textContent = String(humanNum));
+      nextIndex++;
+      acc.dataset.nextIndex = String(nextIndex);
+
+      wireRow(row);
+      initAllTagsInputs(row);
+      updateSummary(row);
+      renumberOnly(); // just update labels (no re-wiring)
     }
 
-    function renumberAndLockFirst() {
-      const items = [...container.querySelectorAll('.accordion-item[data-kind="item"]')];
-      items.forEach((wrap, i) => {
-        // keep the display numbering using your startNumber
-        wrap.querySelector('.item-number').textContent = startNumber + i;
+    function wireRow(wrap) {
+      if (!wrap || wrap.dataset.wired === '1') return;
+      wrap.dataset.wired = '1';
 
-        const del = wrap.querySelector('.delete-item');
-        if (del) del.classList.remove('d-none');  
+      // delete button
+      const delBtn = wrap.querySelector('.remove-item-btn, .delete-item');
+      if (delBtn) {
+        delBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          wrap.remove();
+          renumberOnly(); // no re-wiring; rows already wired
+          acc.dataset.nextIndex = String(acc.querySelectorAll('.accordion-item').length);
+        });
+      }
+
+      // inputs to keep summary updated
+      wrap.addEventListener('input', () => updateSummary(wrap), {
+        passive: true
       });
     }
 
     // Keep header mini summary (name • qty) updated
     function updateSummary(wrap) {
       const name = wrap.querySelector('input[name^="items"][name$="[name]"]')?.value || '';
-      const qty  = wrap.querySelector('input[name^="items"][name$="[qty]"]')?.value || '';
-      wrap.querySelector('.item-summary').textContent = name + (qty ? ` • ${qty}` : '');
+      const qty = wrap.querySelector('input[name^="items"][name$="[qty]"]')?.value || '';
+      const el = wrap.querySelector('.item-summary');
+      if (el) el.textContent = name + (qty ? ` • ${qty}` : '');
+    }
+
+    function renumberOnly() {
+      const items = acc.querySelectorAll('.accordion-item[data-kind="item"]');
+      items.forEach((el, idx) => {
+        el.querySelectorAll('.item-number').forEach(n => n.textContent = String(idx + 1));
+        // also keep collapse ids in sync if needed
+        const pane = el.querySelector('.accordion-collapse');
+        if (pane) pane.id = `itemPane${idx}`;
+        const btn = el.querySelector('[data-bs-toggle="collapse"]');
+        if (btn) {
+          btn.setAttribute('data-bs-target', `#itemPane${idx}`);
+          btn.setAttribute('aria-controls', `itemPane${idx}`);
+        }
+        el.id = `item${idx}`;
+      });
+      acc.dataset.nextIndex = String(items.length);
     }
 
     // Delegated events for delete, chevron, and summary update
-    container.addEventListener('click', (e) => {
-      // Delete
-      const delBtn = e.target.closest('.delete-item');
-      if (delBtn) {
-        const wrap = delBtn.closest('.accordion-item');
-        if (wrap) {
-          wrap.remove();
-          renumberAndLockFirst();
-        }
+    acc.querySelectorAll('.accordion-item[data-kind="item"]').forEach((wrap) => {
+      wireRow(wrap);
+      updateSummary(wrap);
+      initAllTagsInputs(wrap); // ✅ add this
+    });
+    renumberOnly();
+
+    document.getElementById('addItemBtn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      addItemRow();
+    });
+
+    // delivery breakdown ----------------------------------------------------------------------------------
+    const delWrap        = document.getElementById('deliveriesWrap');
+    const totalQtyEl     = document.querySelector('input[name="product[qty_total]"]');
+    const addDeliveryBtn = document.getElementById('addDeliveryBtn');
+    const delTpl         = document.getElementById('deliveryTemplate');
+
+    if (delWrap && addDeliveryBtn && delTpl) {
+      function reindexDeliveries() {
+        delWrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
+          const numEl = card.querySelector('.delivery-index');
+          if (numEl) numEl.textContent = i + 1;
+
+          // Fix names: deliveries[<i>][field]
+          card.querySelectorAll('[name]').forEach((el) => {
+            const m = el.name.match(/^deliveries\[(\d+|__INDEX__)\]\[(.+)\]$/);
+            if (m) el.name = `deliveries[${i}][${m[2]}]`;
+          });
+        });
+      }
+
+      function addDelivery() {
+        const index = delWrap.querySelectorAll('[data-delivery]').length;
+        const html  = delTpl.innerHTML
+          .replace(/__INDEX__/g, index)
+          .replace(/__INDEX_HUMAN__/g, index + 1);
+
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html.trim();
+        const node = tmp.firstElementChild;
+        delWrap.appendChild(node);
+        reindexDeliveries();
+      }
+
+      addDeliveryBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        e.stopPropagation();
+        addDelivery();
+      });
+
+      // remove card
+      delWrap.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-remove]');
+        if (!btn) return;
+        const card = btn.closest('[data-delivery]');
+        if (card) {
+          card.remove();
+          reindexDeliveries();
+        }
+      });
+
+      // simple client validation (optional)
+      function sumQty() {
+        let s = 0;
+        delWrap.querySelectorAll('.del-qty').forEach(inp => {
+          const v = parseFloat(inp.value);
+          if (!Number.isNaN(v)) s += v;
+        });
+        return s;
+      }
+      function validateDeliveries() {
+        const total = parseFloat(totalQtyEl?.value || '0') || 0;
+        const sum   = sumQty();
+        const ok    = sum <= total;
+
+        // you can display a message somewhere or disable submit
+        document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
+        document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
+      }
+
+      delWrap.addEventListener('input', (e) => {
+        if (e.target.matches('.del-qty')) validateDeliveries();
+      });
+      totalQtyEl?.addEventListener('input', validateDeliveries);
+
+      // on load
+      reindexDeliveries();
+      validateDeliveries();
+    }
+
+    function renumberItems() {
+      // Use the single numbering function from above
+      renumberOnly();
+    }
+
+    async function deleteItemOnServer(url) {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-TOKEN': window.CSRF_TOKEN,
+          'Accept': 'application/json'
+        }
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${txt || 'Delete failed'}`);
+      }
+      const data = await res.json();
+      if (!data?.ok) throw new Error('Delete failed');
+      return true;
+    }
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action="delete-item"]');
+      if (!btn) return;
+
+      const itemEl = btn.closest('.accordion-item');
+      if (!itemEl) return;
+
+      const itemId = btn.dataset.itemId; // may be "" for unsaved items
+      const url = btn.dataset.url;
+
+      // Confirm
+      if (window.Swal) {
+        const c = await Swal.fire({
+          icon: 'warning',
+          title: 'Delete this item?',
+          text: 'This cannot be undone.',
+          showCancelButton: true,
+          confirmButtonText: 'Delete',
+          confirmButtonColor: '#d33'
+        });
+        if (!c.isConfirmed) return;
+      } else if (!confirm('Delete this item?')) {
         return;
       }
 
-      // Chevron is handled by Bootstrap via data-attrs.
-      // We only stop it from bubbling in case the header has listeners.
-      const chev = e.target.closest('.chevron');
-      if (chev) {
-        e.stopPropagation();
+      // If no ItemID (unsaved), just remove the block client-side
+      try {
+        if (!itemId) {
+          itemEl.remove();
+          renumberItems();
+          return;
+        }
+
+        // Existing item → call server
+        await deleteItemOnServer(url);
+
+        // Remove from DOM
+        itemEl.remove();
+        renumberItems();
+
+        // Optional toast
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Item deleted',
+            timer: 1200,
+            showConfirmButton: false
+          });
+        }
+      } catch (err) {
+        console.error(err);
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Delete failed',
+            text: String(err)
+          });
+        } else {
+          alert('Delete failed: ' + err);
+        }
       }
     });
 
-    container.addEventListener('input', (e) => {
-      const wrap = e.target.closest('.accordion-item[data-kind="item"]');
-      if (wrap) updateSummary(wrap);
-    });
 
-    // Add item
-    if (addBtn) addBtn.addEventListener('click', addItem);
-
-    // Initialize summaries & first-item trash hide for server-rendered items
-    renumberAndLockFirst();
-    container.querySelectorAll('.accordion-item[data-kind="item"]').forEach(updateSummary);
-
-    // delivery breakdown ----------------------------------------------------------------------------------
-    const wrap = document.getElementById('deliveriesWrap');
-    const addDeliveryBtn = document.getElementById('addDeliveryBtn');
-    const tpl = document.getElementById('deliveryTemplate');
-
-    function reindexDeliveries() {
-      wrap.querySelectorAll('[data-delivery]').forEach((card, i) => {
-        // Update the visible number
-        const numEl = card.querySelector('.delivery-index');
-        if (numEl) numEl.textContent = i + 1;
-
-        // Fix names: deliveries[<i>][...]
-        card.querySelectorAll('[name]').forEach((el) => {
-          el.name = el.name.replace(/\[deliveries\]\[\d+\]|\[deliveries\]\[__INDEX__\]/g, ''); // safety if pasted differently
-          el.name = el.name.replace(/\[?\bdeliveries\b\]?\[\d+\]/, 'deliveries[' + i + ']')
-                           .replace(/\[\d+\]/, '[' + i + ']');
-          // More robust: always rewrite first index occurrence
-          el.name = el.name.replace(/deliveries\[\d+\]/, 'deliveries[' + i + ']');
-        });
-      });
-    }
-
-    function addDelivery() {
-      const index = wrap.querySelectorAll('[data-delivery]').length;
-      const html = tpl.innerHTML
-        .replace(/__INDEX__/g, index)
-        .replace(/__INDEX_HUMAN__/g, index + 1);
-
-      const temp = document.createElement('div');
-      temp.innerHTML = html.trim();
-      const node = temp.firstElementChild;
-
-      wrap.appendChild(node);
-      reindexDeliveries();
-    }
-
-    // Add delivery
-    addDeliveryBtn.addEventListener('click', addDelivery);
-
-    // Remove delivery (event delegation)
-    wrap.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-remove]');
-      if (!btn) return;
-
-      const card = btn.closest('[data-delivery]');
-      if (card) {
-        card.remove();
-        reindexDeliveries();
-      }
-    });
   })();
 
   // upload attachemnt -------------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
-    const input  = document.getElementById('fileInput');
+    const input = document.getElementById('fileInput');
     const listEl = document.getElementById('preview');
-    const msgEl  = document.getElementById('attach-msg');
+    const msgEl = document.getElementById('attach-msg');
 
-    const ALLOWED = ['pdf','png','jpg','jpeg','webp','doc','docx','xls','xlsx','ppt','pptx'];
+    const ALLOWED = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
 
-    const selected = new Map(); 
+    const selected = new Map();
 
     input.addEventListener('change', () => {
       if (!input.files?.length) return;
@@ -894,21 +1410,31 @@
 
         const errors = [];
         if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
-        if (selected.has(key))      errors.push('Duplicate');
+        if (selected.has(key)) errors.push('Duplicate');
 
         if (errors.length) {
-          addRow(f, { status: 'error', note: errors.join(', ') });
+          addRow(f, {
+            status: 'error',
+            note: errors.join(', ')
+          });
         } else {
           selected.set(key, f);
-          addRow(f, { key, status: 'ready' });
+          addRow(f, {
+            key,
+            status: 'ready'
+          });
         }
       });
 
       updateSummary();
-      input.value = ''; 
+      input.value = '';
     });
 
-    function addRow(file, { key = null, status = 'ready', note = '' }) {
+    function addRow(file, {
+      key = null,
+      status = 'ready',
+      note = ''
+    }) {
       const li = document.createElement('li');
       li.dataset.key = key || '';
       li.innerHTML = `
@@ -922,7 +1448,7 @@
 
       li.querySelector('.remove-x').addEventListener('click', () => {
         const k = li.dataset.key;
-        if (k && selected.has(k)) selected.delete(k); 
+        if (k && selected.has(k)) selected.delete(k);
         li.remove();
         updateSummary();
       });
@@ -932,33 +1458,34 @@
 
     function updateSummary() {
       const count = selected.size;
-      msgEl.innerHTML = count
-        ? `<span class="ok">${count} file(s) selected for upload</span>`
-        : '';
+      msgEl.innerHTML = count ?
+        `<span class="ok">${count} file(s) selected for upload</span>` :
+        '';
     }
 
     window.getSelectedFiles = () => Array.from(selected.values());
 
     // submit order form
-    const form      = document.getElementById('order-form');
-    const btnDraft  = document.getElementById('btn-draft');
+    const form = document.getElementById('order-form');
+    const btnDraft = document.getElementById('btn-draft');
     const btnSubmit = document.getElementById('btn-submit');
     const isDraftEl = document.getElementById('is_draft');
-    const overlay   = document.getElementById('loading-overlay');
+    const overlay = document.getElementById('loading-overlay');
 
     const action = @json(route('artist.orders.update', $order));
-    const csrf   = @json(csrf_token());
+    const csrf = @json(csrf_token());
 
-    function getSelectedFiles(){
+    function getSelectedFiles() {
       return (typeof window.getSelectedFiles === 'function') ? window.getSelectedFiles() : [];
     }
-    function loading(on){
+
+    function loading(on) {
       overlay.classList.toggle('is-open', !!on);
       btnDraft.disabled = btnSubmit.disabled = !!on;
     }
     const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
 
-    async function send(isDraft){
+    async function send(isDraft) {
       isDraftEl.value = isDraft ? 1 : 0;
 
       const fd = new FormData(form);
@@ -987,7 +1514,11 @@
           // 2) hide loading BEFORE showing SweetAlert
           loading(false);
           const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
-          await Swal.fire({ icon:'error', title:'Validation error', text: msg });
+          await Swal.fire({
+            icon: 'error',
+            title: 'Validation error',
+            text: msg
+          });
           return;
         }
 
@@ -998,7 +1529,7 @@
 
         if (res.ok && data?.ok) {
           await Swal.fire({
-            icon:'success',
+            icon: 'success',
             title: isDraft ? 'Draft saved' : 'Order saved',
             text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
           });
@@ -1006,21 +1537,134 @@
           window.location.reload();
         } else {
           await Swal.fire({
-            icon:'error',
-            title:'Save failed',
+            icon: 'error',
+            title: 'Save failed',
             text: data?.message || `HTTP ${res.status} — please try again`
           });
         }
       } catch (e) {
         console.error(e);
         loading(false); // be sure to hide on network errors too
-        await Swal.fire({ icon:'error', title:'Network error', text:'Could not save. Please try again.' });
+        await Swal.fire({
+          icon: 'error',
+          title: 'Network error',
+          text: 'Could not save. Please try again.'
+        });
       }
     }
 
-    document.getElementById('btn-draft') .addEventListener('click', () => send(true));
-    document.getElementById('btn-submit').addEventListener('click', () => send(false));
+    const draftBtn = document.getElementById('btn-draft');
+    const submitBtn = document.getElementById('btn-submit');
+
+    if (draftBtn) draftBtn.addEventListener('click', () => send(true));
+    if (submitBtn) submitBtn.addEventListener('click', () => send(false));
+
+    const acc = document.getElementById('productItems');
+    if (!acc) return;
+
+    // Set next index based on how many items exist on load
+    const existingCount = acc.querySelectorAll('.accordion-item').length;
+    acc.dataset.nextIndex = String(existingCount);
+
+    // Wire existing remove buttons
+    acc.querySelectorAll('.remove-item-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const idx = parseInt(btn.dataset.index, 10);
+        removeItem(idx);
+      });
+    });
+
+    // Public function for inline onclick="removeItem(i, event)" compatibility
+    window.removeItem = function(idx, ev) {
+      if (ev) ev.preventDefault();
+      const el = document.getElementById(`item${idx}`);
+      if (el) el.remove();
+      reindexItems();
+    };
+
+    function reindexItems() {
+      const items = [...acc.querySelectorAll('.accordion-item[data-kind="item"]')];
+      items.forEach((itemEl, newIdx) => {
+        const oldId = itemEl.id; // e.g., "item3"
+        const oldIdxMatch = oldId.match(/^item(\d+)$/);
+        const oldIdx = oldIdxMatch ? parseInt(oldIdxMatch[1], 10) : newIdx;
+
+        // IDs
+        itemEl.id = `item${newIdx}`;
+
+        const header = itemEl.querySelector('.fw-semibold');
+        if (header) header.textContent = `Item ${newIdx + 1}`;
+
+        // Collapse ids/targets
+        const pane = itemEl.querySelector('.accordion-collapse');
+        if (pane) {
+          pane.id = `itemPane${newIdx}`;
+          pane.setAttribute('data-bs-parent', '#productItems');
+        }
+        const toggleBtn = itemEl.querySelector('[data-bs-toggle="collapse"]');
+        if (toggleBtn) {
+          toggleBtn.setAttribute('data-bs-target', `#itemPane${newIdx}`);
+          toggleBtn.setAttribute('aria-controls', `itemPane${newIdx}`);
+        }
+
+        // Hidden id input stays the same value, but rename the name index
+        // Update all [name="items[<n>]..."] to the new index
+        itemEl.querySelectorAll('[name^="items["]').forEach(inp => {
+          inp.name = inp.name.replace(/items\[\d+\]/, `items[${newIdx}]`);
+        });
+
+        // Update remove button index
+        const del = itemEl.querySelector('.remove-item-btn');
+        if (del) {
+          del.dataset.index = String(newIdx);
+        }
+      });
+
+      // Set nextIndex to count
+      acc.dataset.nextIndex = String(items.length);
+    }
+
+    // --- Delivery quantity limit -------------------------------------------------
+    function getTotalAllowed() {
+      // Adjust selector if your "Total Quantity" has a different id
+      const el = document.getElementById('totalQty');
+      return parseFloat(el?.value || '0') || 0;
+    }
+
+    function sumDeliveryQty() {
+      let sum = 0;
+      wrap.querySelectorAll('.del-qty').forEach(inp => {
+        const v = parseFloat(inp.value || '0');
+        if (!isNaN(v)) sum += v;
+      });
+      return sum;
+    }
+
+    // Simple UI helper (you can style ".is-invalid" with Bootstrap or your CSS)
+    function setQtyValidity(ok, msg = '') {
+      const msgBoxId = 'del-qty-msg';
+      let msgBox = document.getElementById(msgBoxId);
+      if (!msgBox) {
+        msgBox = document.createElement('div');
+        msgBox.id = msgBoxId;
+        msgBox.className = 'mt-2 small text-danger';
+        // put message under the deliveries section
+        wrap.parentElement.insertBefore(msgBox, wrap.nextSibling);
+      }
+      msgBox.textContent = ok ? '' : msg;
+
+      // toggle invalid styles on each quantity field
+      wrap.querySelectorAll('.del-qty').forEach(inp => {
+        inp.classList.toggle('is-invalid', !ok);
+        inp.setAttribute('aria-invalid', String(!ok));
+      });
+
+      // disable submit buttons if invalid
+      document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
+      document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
+    }
+
   });
 </script>
 @endpush
-
