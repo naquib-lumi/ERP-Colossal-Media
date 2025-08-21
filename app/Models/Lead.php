@@ -14,14 +14,9 @@ class Lead extends Model
         'name',
         'phone',
         'email',
-        'date',
         'status',
         'opportunity',
         'remark',
-    ];
-
-    protected $casts = [
-        'date' => 'date',
     ];
 
     public function user()

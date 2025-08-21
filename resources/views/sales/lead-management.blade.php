@@ -15,6 +15,31 @@
                 <div class="col-md-4">
                     <input type="text" class="form-control" id="globalSearch" placeholder="Search leads by ID, Company, or Name..." aria-label="Search leads">
                 </div>
+                @if(Auth::user()->hasRole('head-salesperson'))
+                <div class="col-md-3">
+                    <select id="salespersonFilter" class="form-control">
+                        <option value="">All Salespersons</option>
+                        @foreach($salespeople as $salesperson)
+                        <option value="{{ $salesperson->id }}">{{ $salesperson->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+                <div class="col-md-2">
+                    <select id="statusFilter" class="form-control">
+                        <option value="">All Status</option>
+                        <option value="accept">Accept</option>
+                        <option value="reject">Reject</option>
+                        <option value="followup">Followup</option>
+                        <option value="new">New</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" id="fromDate" class="form-control" placeholder="From Date">
+                </div>
+                <div class="col-md-3">
+                    <input type="date" id="toDate" class="form-control" placeholder="To Date">
+                </div>
             </div>
             <table class="datatables-ajax table table-striped table-hover" id="leadTable" style="width: 100%;">
                 <thead class="table-light sticky-top">
@@ -86,6 +111,12 @@
                 data: function(d) {
                     d._token = $('meta[name="csrf-token"]').attr('content');
                     d.search = { value: $('#globalSearch').val() };
+                    d.status = $('#statusFilter').val();
+                    d.from_date = $('#fromDate').val();
+                    d.to_date = $('#toDate').val();
+                    if ($('#salespersonFilter').length) {
+                        d.salesperson_id = $('#salespersonFilter').val();
+                    }
                     return d;
                 },
                 error: function(xhr, error, thrown) {
@@ -107,7 +138,7 @@
                 { data: 'reminder', name: 'reminder', orderable: true },
                 { data: 'actions', name: 'actions', orderable: false, searchable: false }
             ],
-            dom: 'Bfrtip',
+            dom: 'Brtip',
             buttons: [
                 { extend: 'copy', className: 'btn btn-outline-secondary btn-sm' },
                 { extend: 'csv', className: 'btn btn-outline-secondary btn-sm' },
@@ -128,12 +159,7 @@
                         'buttons'
                     ]
                 },
-                topEnd: {
-                    search: {
-                        placeholder: 'Search leads...',
-                        input: '<input type="search" class="form-control form-control-sm" placeholder="Search leads..." aria-label="Search">'
-                    }
-                },
+                topEnd: null,
                 bottomStart: {
                     rowClass: 'row mx-3 justify-content-between',
                     features: ['info']
@@ -156,6 +182,9 @@
             initComplete: function() {
                 $('#globalSearch').on('keyup', function() {
                     table.search(this.value).draw();
+                });
+                $('#statusFilter, #fromDate, #toDate, #salespersonFilter').on('change', function() {
+                    table.draw();
                 });
                 $('#leadTable tbody').on('click', 'tr', function(e) {
                     if (!$(e.target).closest('select, button, a, form').length) {

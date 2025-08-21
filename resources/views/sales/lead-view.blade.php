@@ -44,7 +44,7 @@
                                         <a href="{{route('leads.edit', $lead->id)}}" class="ms-auto text-primary"><i class="bx bx-pencil"></i></a>
                                     </div>
                                     <ul class="list-unstyled text-muted small">
-                                        <li><strong>Reminder Date:</strong> {{ $lead->date ? $lead->date->format('Y-m-d') : 'No Reminder' }}</li>
+                                        <li><strong>Created At:</strong> {{ $lead->created_at ? $lead->created_at->format('Y-m-d') : 'No Reminder' }}</li>
                                         <li><strong>Opportunity:</strong> {{ $lead->opportunity ?? 'None' }}</li>
                                         <li><strong>Company Name:</strong> {{ $lead->company_name }}</li>
                                         <li><strong>Company Phone:</strong> {{ $lead->company_phone ?? 'N/A' }}</li>

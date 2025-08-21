@@ -75,7 +75,7 @@
                                 </div>
                             </div>
 
-                            <!-- Assign To and Lead Date -->
+                            <!-- Assign To -->
                             <div class="col-md-6">
                                 <div class="form-floating">
                                     @if (Auth::user()->hasRole('salesperson'))
@@ -90,10 +90,7 @@
                                         <select class="form-select" id="assignTo" name="salesperson_id" required>
                                             <option value="">Select Salesperson</option>
                                             @foreach ($salespeople as $salesperson)
-                                                @php
-                                                    $selected = old('salesperson_id', $lead->salesperson_id ?? '') == $salesperson->id ? 'selected' : '';
-                                                @endphp
-                                                <option value="{{ $salesperson->id }}" {{ $selected }}>
+                                                <option value="{{ $salesperson->id }}" {{ old('salesperson_id', $lead->salesperson_id) == $salesperson->id ? 'selected' : '' }}>
                                                     {{ $salesperson->name }}
                                                 </option>
                                             @endforeach
@@ -103,15 +100,6 @@
                                             <div class="text-danger">{{ $message }}</div>
                                         @enderror
                                     @endif
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                   <input type="date" class="form-control" id="leadDate" name="date" value="{{ old('date', $lead->date->format('Y-m-d')) }}">
-                                    <label for="leadDate">Lead Date (dd/mm/yy)</label>
-                                    @error('date')
-                                        <div class="text-danger">{{ $message }}</div>
-                                    @enderror
                                 </div>
                             </div>
 
@@ -170,23 +158,6 @@
                                 <button type="button" class="btn btn-secondary"
                                         onclick="document.getElementById('attachments').click();">Choose File</button>
                             </div>
-                                @if ($lead->attachments->isNotEmpty())
-                                <div class="mt-2">
-                                    <strong>Existing Attachments:</strong>
-                                    <ul>
-                                        @foreach ($lead->attachments as $attachment)
-                                            <li>
-                                                {{ basename($attachment->file_location) }} (<a href="{{ asset('storage/' . $attachment->file_location) }}" target="_blank">View</a>)
-                                                <form action="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}" method="POST" style="display:inline;">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
-                                                </form>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                </div>
-                            @endif
                             @error('attachments')
                                 <div class="text-danger">{{ $message }}</div>
                             @endif
@@ -194,6 +165,23 @@
 
                         <button type="submit" class="btn btn-primary">Update</button>
                     </form>
+                    @if ($lead->attachments->isNotEmpty())
+                        <div class="mt-2">
+                            <strong>Existing Attachments:</strong>
+                            <ul>
+                                @foreach ($lead->attachments as $attachment)
+                                    <li>
+                                        {{ basename($attachment->file_location) }} (<a href="{{ asset('storage/' . $attachment->file_location) }}" target="_blank">View</a>)
+                                        <form action="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}" method="POST" style="display:inline;">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                                        </form>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

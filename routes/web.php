@@ -9,6 +9,7 @@ use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\ReminderController;
 
 use App\Http\Controllers\ArtistController;
 use Illuminate\Support\Facades\Route;
@@ -60,13 +61,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/sales/orders', [OrderController::class, 'index'])->name('sales.orders');
         Route::get('/sales/calendar', [CalendarController::class, 'index'])->name('sales.calendar');
         Route::get('/calendar/events', [CalendarController::class, 'events'])->name('calendar.events');
-        Route::post('/calendar/reminders', [CalendarController::class, 'storeReminder'])->name('calendar.reminders.store');
-        Route::put('/calendar/reminders/{id}', [CalendarController::class, 'updateReminder'])->name('calendar.reminders.update');
-        Route::post('/calendar/reminders/{id}/complete', [CalendarController::class, 'completeReminder'])->name('calendar.reminders.complete');
-        Route::post('/calendar/meetings', [CalendarController::class, 'storeMeeting'])->name('calendar.meetings.store');
-        Route::put('/calendar/meetings/{id}', [CalendarController::class, 'updateMeeting'])->name('calendar.meetings.update');
-        Route::post('/calendar/meetings/{id}/update-status', [CalendarController::class, 'updateMeetingStatus']);
-        Route::post('/calendar/reminders/{id}/update-status', [CalendarController::class, 'updateReminderStatus']);
+        Route::post('/calendar/reminders', [ReminderController::class, 'store'])->name('calendar.reminders.store');
+        Route::put('/calendar/reminders/{id}', [ReminderController::class, 'update'])->name('calendar.reminders.update');
+        Route::post('/calendar/reminders/{id}/complete', [ReminderController::class, 'complete'])->name('calendar.reminders.complete');
+        Route::post('/calendar/meetings', [MeetingController::class, 'storeFromCalendar'])->name('calendar.meetings.store');
+        Route::put('/calendar/meetings/{id}', [MeetingController::class, 'updateFromCalendar'])->name('calendar.meetings.update');
+        Route::post('/calendar/meetings/{id}/update-status', [MeetingController::class, 'updateCalendarStatus']);
+        Route::post('/calendar/reminders/{id}/update-status', [ReminderController::class, 'updateStatus']);
         Route::get('/leads/search', [LeadController::class, 'searchLeads'])->name('leads.search');
         Route::get('/leads/{id}', [LeadController::class, 'getLead'])->name('leads.get');
         
@@ -100,11 +101,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('/api/leads/{id}', [LeadController::class, 'destroy'])->name('leads.destroy');
         Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
         Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
-        Route::post('/leads/{lead}/meetings', [MeetingController::class, 'store'])->name('meetings.store');
+        Route::post('/leads/{lead}/meetings', [MeetingController::class, 'storeFromLead'])->name('meetings.store');
         Route::get('/meetings', [MeetingController::class, 'index'])->name('meetings.index');
-        Route::post('/meetings/{id}/update-status', [MeetingController::class, 'updateStatus'])->name('meetings.update.status');
-        Route::delete('/calendar/reminders/{id}', [CalendarController::class, 'destroyReminder']);
-        Route::delete('/calendar/meetings/{id}', [CalendarController::class, 'destroyMeeting']);
+        Route::delete('/calendar/reminders/{id}', [ReminderController::class, 'destroy']);
+        Route::delete('/calendar/meetings/{id}', [MeetingController::class, 'destroy']);
     });
 
 

@@ -20,9 +20,10 @@ class LeadController extends Controller
         if (!$user->hasRole('salesperson')) {
             abort(403, 'Unauthorized');
         }
+        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
 
         $leads = $user->leads()->with('user')->latest()->get(); // For initial load, if needed
-        return view('sales.lead-management', compact('leads'));
+        return view('sales.lead-management', compact('leads', 'salespeople'));
     }
 
     public function getLead($id)
@@ -98,6 +99,22 @@ class LeadController extends Controller
                       ->orWhere('name', 'like', "%{$search}%")
                       ->orWhere('id', 'like', "%{$search}%");
             });
+        }
+
+        if ($request->has('status') && $request->input('status')) {
+            $leads->where('status', $request->input('status'));
+        }
+
+        if ($request->has('from_date') && $request->input('from_date')) {
+            $leads->whereDate('created_at', '>=', $request->input('from_date'));
+        }
+
+        if ($request->has('to_date') && $request->input('to_date')) {
+            $leads->whereDate('created_at', '<=', $request->input('to_date'));
+        }
+
+        if ($user->hasRole('head-salesperson') && $request->has('salesperson_id') && $request->input('salesperson_id')) {
+            $leads->where('salesperson_id', $request->input('salesperson_id'));
         }
 
         
@@ -260,57 +277,55 @@ class LeadController extends Controller
         return view('sales.add-lead', compact('salespeople'));
     }
 
-    public function store(Request $request)
-    {
-        $user = Auth::user();
-        if (!$user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $validated = $request->validate([
-            'company_name' => 'required|string|max:255',
-            'company_phone' => 'nullable|string|max:20',
-            'website' => 'nullable|url|max:255',
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
-            'email' => 'required|email|max:255',
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
-            'date' => 'nullable|date',
-            'status' => 'required|in:accept,reject,followup,new',
-            'opportunity' => 'nullable|in:50/50,High Chance,Low Chance,None',
-            'remark' => 'nullable|string',
-            'attachments' => 'nullable|array|max:10|mimes:pdf,doc,jpg,png|max:10240',
-        ]);
-
-        $lead = $user->leads()->create([
-            'salesperson_id' => $validated['salesperson_id'],
-            'company_name' => $validated['company_name'],
-            'company_phone' => $validated['company_phone'],
-            'website' => $validated['website'],
-            'name' => $validated['name'],
-            'phone' => $validated['phone'],
-            'email' => $validated['email'],
-            'date' => $validated['date'],
-            'status' => $validated['status'],
-            'opportunity' => $validated['opportunity'],
-            'remark' => $validated['remark'],
-        ]);
-
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('leads/' . $lead->id, 'public');
-                LeadAttachment::create([
-                    'lead_id' => $lead->id,
-                    'user_id' => $user->id,
-                    'file_size' => $file->getSize(),
-                    'file_location' => $path,
-                    'file_extension' => $file->getClientOriginalExtension(),
-                ]);
-            }
-        }
-
-        return redirect()->route('sales.leads')->with('success', 'Lead added successfully');
+   public function store(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
     }
+
+    $validated = $request->validate([
+        'company_name' => 'required|string|max:255',
+        'company_phone' => 'nullable|string|max:20',
+        'website' => 'nullable|url|max:255',
+        'name' => 'required|string|max:255',
+        'phone' => 'required|string|max:20',
+        'email' => 'required|email|max:255',
+        'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
+        'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
+        'remark' => 'nullable|string',
+        'attachments' => 'nullable|array|max:10',
+        'attachments.*' => 'mimes:pdf,doc,jpg,png|max:10240',
+    ]);
+
+    $lead = $user->leads()->create([
+        'salesperson_id' => $validated['salesperson_id'],
+        'company_name' => $validated['company_name'],
+        'company_phone' => $validated['company_phone'],
+        'website' => $validated['website'],
+        'name' => $validated['name'],
+        'phone' => $validated['phone'],
+        'email' => $validated['email'],
+        'status' => 'new',
+        'opportunity' => $validated['opportunity'],
+        'remark' => $validated['remark'],
+    ]);
+
+    if ($request->hasFile('attachments')) {
+        foreach ($request->file('attachments') as $file) {
+            $path = $file->store('leads/' . $lead->id, 'public');
+            LeadAttachment::create([
+                'lead_id' => $lead->id,
+                'user_id' => $user->id,
+                'file_size' => $file->getSize(),
+                'file_location' => $path,
+                'file_extension' => $file->getClientOriginalExtension(),
+            ]);
+        }
+    }
+
+    return redirect()->route('sales.leads')->with('success', 'Lead added successfully');
+}
 
             public function show($id)
             {
@@ -348,7 +363,7 @@ class LeadController extends Controller
                     ]);
 
                     $validated['is_auto'] = false;
-                    $validated['end_date'] = Carbon::parse($validated['due_date'])->addDays(3);
+                    $validated['end_date' => Carbon::parse($validated['due_date'])->addDays(3);
                     $validated['last_notify_time'] = null; // Initialize as null
 
                     try {
@@ -379,32 +394,34 @@ class LeadController extends Controller
         return response()->json(['success' => true, 'note' => $note]);
     }
 
- public function getAttachments($id)
-{
-    $lead = Lead::with('attachments')->findOrFail($id);
-    if ($lead->salesperson_id !== Auth::id()) {
-        return response()->json(['error' => 'Unauthorized'], 403);
-    }
+    public function getAttachments($id)
+    {
+        $lead = Lead::with('attachments')->findOrFail($id);
+        if ($lead->salesperson_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
 
-    $html = '<table class="table table-bordered table-hover">';
-    $html .= '<thead><tr><th>Name</th><th>Uploaded By</th><th>Date</th><th>Size</th><th>Actions</th></tr></thead>';
-    $html .= '<tbody>';
-    foreach ($lead->attachments as $attachment) {
-        $html .= '<tr>';
-        $html .= '<td>' . basename($attachment->file_location) . '</td>';
-        $html .= '<td>' . ($attachment->user->name ?? 'Unknown') . '</td>';
-        $html .= '<td>' . $attachment->created_at->format('Y-m-d') . '</td>';
-        $html .= '<td>' . round($attachment->file_size / 1024) . ' KB</td>';
-        $html .= '<td>';
-        $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-primary me-2" target="_blank" title="View"><i class="bx bx-show"></i></a>';
-        $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-secondary me-2" download title="Download"><i class="bx bx-download"></i></a>';
-        $html .= '<a href="' . route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) . '" class="text-danger me-2 delete-attachment" title="Delete"><i class="bx bx-trash"></i></a>';
-        $html .= '</td>';
-        $html .= '</tr>';
-    }
-    $html .= '</tbody></table>';
+        $html = '<div class="table-responsive">';
+        $html .= '<table class="table table-bordered table-hover">';
+        $html .= '<thead><tr><th>Name</th><th>Uploaded By</th><th>Date</th><th>Size</th><th>Actions</th></tr></thead>';
+        $html .= '<tbody>';
+        foreach ($lead->attachments as $attachment) {
+            $html .= '<tr>';
+            $html .= '<td>' . basename($attachment->file_location) . '</td>';
+            $html .= '<td>' . ($attachment->user->name ?? 'Unknown') . '</td>';
+            $html .= '<td>' . $attachment->created_at->format('Y-m-d') . '</td>';
+            $html .= '<td>' . round($attachment->file_size / 1024) . ' KB</td>';
+            $html .= '<td>';
+            $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-primary me-2" target="_blank" title="View"><i class="bx bx-show"></i></a>';
+            $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-secondary me-2" download title="Download"><i class="bx bx-download"></i></a>';
+            $html .= '<a href="' . route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) . '" class="text-danger me-2 delete-attachment" title="Delete"><i class="bx bx-trash"></i></a>';
+            $html .= '</td>';
+            $html .= '</tr>';
+        }
+        $html .= '</tbody></table>';
+        $html .= '</div>';
 
-    return $html;
+        return $html;
 }
 public function addAttachment(Request $request, $id)
 {
@@ -458,10 +475,11 @@ public function addAttachment(Request $request, $id)
     public function edit($id)
     {
         $lead = Lead::with('user', 'attachments')->findOrFail($id);
-        if ($lead->salesperson_id !== Auth::id()) {
+        if ($lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
             abort(403, 'Unauthorized');
         }
-        return view('sales.lead-edit', compact('lead'));
+        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
+        return view('sales.lead-edit', compact('lead', 'salespeople'));
     }   
 
     public function updateSalesperson(Request $request, $id)
@@ -544,11 +562,11 @@ public function addAttachment(Request $request, $id)
             'phone' => 'required|string|max:20',
             'email' => 'required|email|max:255',
             'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
-            'date' => 'nullable|date',
             'status' => 'required|in:accept,reject,followup,new',
-            'opportunity' => 'nullable|in:50/50,High Chance,Low Chance,None',
+            'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
             'remark' => 'nullable|string',
-            'attachments' => 'nullable|array|max:10', // Remove mimes here, handle individually
+            'attachments' => 'nullable|array|max:10',
+            'attachments.*' => 'mimes:pdf,doc,jpg,png|max:10240',
         ]);
 
         $lead->update([
@@ -559,24 +577,13 @@ public function addAttachment(Request $request, $id)
             'name' => $validated['name'],
             'phone' => $validated['phone'],
             'email' => $validated['email'],
-            'date' => $validated['date'],
             'status' => $validated['status'],
             'opportunity' => $validated['opportunity'],
             'remark' => $validated['remark'],
         ]);
 
         if ($request->hasFile('attachments')) {
-            // Custom validation for each file
-            $validator = Validator::make($request->all(), [
-                'attachments.*' => 'required|mimes:pdf,doc,jpg,png|max:10240', // Validate each file
-            ]);
-
-            if ($validator->fails()) {
-                return back()->withErrors($validator)->withInput();
-            }
-
             foreach ($request->file('attachments') as $file) {
-                Log::info('Uploading file: ' . $file->getClientOriginalName() . ', MIME: ' . $file->getMimeType());
                 $path = $file->store('leads/' . $lead->id, 'public');
                 LeadAttachment::create([
                     'lead_id' => $lead->id,
