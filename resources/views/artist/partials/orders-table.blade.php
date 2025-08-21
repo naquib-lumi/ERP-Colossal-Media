@@ -39,37 +39,80 @@
       <td>{{ $order->companyName ?? '-' }}</td>
       <td>
         @if($isHead)
-          @php
-            $needsAssign = ($order->orderStatus === 'to_assign') && empty($order->artist_id);
-          @endphp
+        @php
+        $needsAssign = ($order->orderStatus === 'to_assign') && empty($order->artist_id);
+        @endphp
 
-          {{-- If already assigned, show name; else show dash --}}
-          <span class="me-2">
-            {{ optional($order->artist)->name ?? '—' }}
-          </span>
+        {{-- If already assigned, show name; else show dash --}}
+        <span class="me-2">
+          {{ optional($order->artist)->name ?? '—' }}
+        </span>
 
-          {{-- Assign icon (head-only, only when to_assign and no artist yet) --}}
-          @if($needsAssign)
-            <a href="{{ route('artist.orders.assign.show', $order->id) }}"
-              class="btn btn-outline-primary btn-sm align-middle"
-              title="Assign this order">
-              <i class="bx bx-user-plus"></i>
-            </a>
-          @endif
+        {{-- Assign icon (head-only, only when to_assign and no artist yet) --}}
+        @if($needsAssign)
+        <a href="{{ route('artist.orders.assign.show', $order->id) }}"
+          class="btn btn-outline-primary btn-sm align-middle"
+          title="Assign this order">
+          <i class="bx bx-user-plus"></i>
+        </a>
+        @endif
         @else
-          {{-- normal artist sees salesperson instead (your existing code) --}}
-          {{ optional($order->salesperson)->name ?? '-' }}
+        {{-- normal artist sees salesperson instead (your existing code) --}}
+        {{ optional($order->salesperson)->name ?? '-' }}
         @endif
       </td>
       <td data-status-code="{{ $isPending ? 'pending' : $rawStatus }}">
         <span class="{{ $badgeClass }}">{{ $label }}</span>
       </td>
       <td>{{ $deadline }}</td>
+      @php
+      $status = strtolower($order->orderStatus ?? '');
+      $isCompleted = $status === 'completed';
+      $reportBlocked = in_array($status, ['to_assign','assigned','pending'], true);
+      @endphp
+
       <td class="text-end">
-        <a href="{{ route('artist.orders.edit', $order->id) }}"
-          class="btn btn-outline-secondary btn-icon" title="Edit">
-          <i class="bx bx-edit-alt"></i>
-        </a>
+        <div class="d-inline-flex align-items-center gap-3">
+
+          {{-- View (always enabled) --}}
+          <a href="{{ route('artist.orders.edit', $order->id) }}"
+            class="text-secondary fw-bold" title="View">
+            <i class="bx bx-show fs-5"></i>
+          </a>
+
+          {{-- Edit --}}
+          @if(!$isCompleted)
+          <a href="{{ route('artist.orders.edit', $order->id) }}"
+            class="text-secondary fw-bold" title="Edit">
+            <i class="bx bx-edit-alt fs-5"></i>
+          </a>
+          @else
+          <span class="text-muted opacity-25"
+            data-bs-toggle="tooltip"
+            data-bs-placement="top"
+            title="Edit disabled: Order already completed"
+            style="cursor: not-allowed;">
+            <i class="bx bx-edit-alt fs-5"></i>
+          </span>
+          @endif
+
+          {{-- Report --}}
+          @if(!$reportBlocked)
+          <a href="{{ route('artist.orders.assign.show', $order->id) }}"
+            class="text-secondary fw-bold" title="Report">
+            <i class="bx bx-error-alt fs-5"></i>
+          </a>
+          @else
+          <span class="text-muted opacity-25"
+            data-bs-toggle="tooltip"
+            data-bs-placement="top"
+            title="Report not available for this status"
+            style="cursor: not-allowed;">
+            <i class="bx bx-error-alt fs-5"></i>
+          </span>
+          @endif
+
+        </div>
       </td>
     </tr>
     @empty
