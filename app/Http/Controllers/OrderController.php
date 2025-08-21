@@ -103,65 +103,65 @@ public function create($leadId = null)
     }
     return view('sales.add-order', compact('lead'));
 }
-            public function store(Request $request)
-        {
-            $user = Auth::user();
-            if (!$user->hasRole('salesperson')) {
-                return back()->with('error', 'Unauthorized');
-            }
+          public function store(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->hasRole('salesperson')) {
+        return back()->with('error', 'Unauthorized');
+    }
 
-            try {
-                $request->validate([
-                    'lead_id' => 'required|exists:leads,id',
-                    'orderTitle' => 'required|string|max:255',
-                    'deadline' => 'required|date|after_or_equal:today',
-                    'approval' => 'required|boolean',
-                    'orderDetail' => 'nullable|string',
-                    'products' => 'required|array|min:1',
-                    'products.*.product_name' => 'required|string|max:255',
-                    'products.*.quantity' => 'required|integer|min:1',
-                    'products.*.remark' => 'nullable|string',
-                    'products.*.material_info' => 'nullable|string',
-                    'products.*.location' => 'nullable|string|max:255',
-                    'products.*.date_time' => 'nullable|date',
-                ]);
+    try {
+        $request->validate([
+            'lead_id' => 'required|exists:leads,id',
+            'orderTitle' => 'required|string|max:255',
+            'deadline' => 'required|date|after_or_equal:today',
+            'approval' => 'required|boolean',
+            'orderDetail' => 'nullable|string',
+            'products' => 'required|array|min:1',
+            'products.*.product_name' => 'required|string|max:255',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.remark' => 'nullable|string',
+            'products.*.material_info' => 'nullable|string',
+            'products.*.location' => 'nullable|string|max:255',
+            'products.*.date_time' => 'nullable|date',
+        ]);
 
-                $lead = Lead::findOrFail($request->lead_id);
+        $lead = Lead::findOrFail($request->lead_id);
 
-                $order = Order::create([
-                    'lead_id' => $request->lead_id,
-                    'salesperson_id' => $user->id,
-                    'orderTitle' => $request->orderTitle,
-                    'deadline' => $request->deadline,
-                    'approval' => $request->approval,
-                    'orderDetail' => $request->orderDetail,
-                    'orderStatus' => 'pending',
-                    'leadName' => $lead->name,
-                    'leadPhone' => $lead->phone,
-                    'companyName' => $lead->company_name,
-                    'leadEmail' => $lead->email,
-                    'orderDate' => now(),
-                ]);
+        $order = Order::create([
+            'lead_id' => $request->lead_id,
+            'salesperson_id' => $user->id,
+            'orderTitle' => $request->orderTitle,
+            'deadline' => $request->deadline,
+            'approval' => $request->approval,
+            'orderDetail' => $request->orderDetail,
+            'orderStatus' => 'pending',
+            'leadName' => $lead->name,
+            'leadPhone' => $lead->phone,
+            'companyName' => $lead->company_name,
+            'leadEmail' => $lead->email,
+            'orderDate' => now(),
+        ]);
 
-                foreach ($request->products as $productData) {
-                    Product::create([
-                        'OrderID' => $order->id,
-                        'product_name' => $productData['product_name'],
-                        'quantity' => $productData['quantity'],
-                        'remark' => $productData['remark'],
-                        'material_info' => $productData['material_info'],
-                        'location' => $productData['location'],
-                        'date_time' => $productData['date_time'],
-                    ]);
-                }
-
-                return redirect()->route('sales.orders')->with('success', 'Order created successfully');
-            } catch (\Illuminate\Validation\ValidationException $e) {
-                return redirect()->back()->withErrors($e->validator)->withInput();
-            }catch (\Exception $e) {
-                dd($e->getMessage());
-            }
+        foreach ($request->products as $productData) {
+            Product::create([
+                'OrderID' => $order->id,
+                'productName' => $productData['product_name'],
+                'totalQuantity' => $productData['quantity'],
+                'productRemark' => $productData['remark'],
+                'materialRemark' => $productData['material_info'],
+                'location' => $productData['location'],
+                'date_time' => $productData['date_time'],
+            ]);
         }
+
+        return redirect()->route('sales.orders')->with('success', 'Order created successfully');
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return redirect()->back()->withErrors($e->validator)->withInput();
+    }catch (\Exception $e) {
+        dd($e->getMessage());
+    }
+}
 
     public function edit($id)
     {
