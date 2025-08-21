@@ -489,20 +489,15 @@
                           </div>
 
                           {{-- Sizes --}}
-                          <div class="col-12 col-md-4">
+                          <div class="col-12 col-md-6">
                             <label class="form-label">Size (inches) – Width</label>
                             <input name="items[{{ $i }}][sizeWidth]" type="number" step="0.01" class="form-control"
                                   value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}">
                           </div>
-                          <div class="col-12 col-md-4">
+                          <div class="col-12 col-md-6">
                             <label class="form-label">Height</label>
                             <input name="items[{{ $i }}][sizeHeight]" type="number" step="0.01" class="form-control"
                                   value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}">
-                          </div>
-                          <div class="col-12 col-md-4">
-                            <label class="form-label">Length</label>
-                            <input name="items[{{ $i }}][sizeLength]" type="number" step="0.01" class="form-control"
-                                  value="{{ old("items.$i.sizeLength", data_get($it,'sizeLength')) }}">
                           </div>
 
                           {{-- Bleed --}}
@@ -533,8 +528,15 @@
                             @php $lam = old("items.$i.lamination", data_get($it,'lamination')); @endphp
                             <select name="items[{{ $i }}][lamination]" class="form-select">
                               <option value="">-</option>
-                              <option value="Gloss" {{ $lam==='Gloss' ? 'selected' : '' }}>Gloss</option>
-                              <option value="Matte" {{ $lam==='Matte' ? 'selected' : '' }}>Matte</option>
+                              <option value="Matt UV Lamination" {{ $lam==='Matt UV Lamination' ? 'selected' : '' }}>Matt UV Lamination</option>
+                              <option value="Gloss UV Lamination" {{ $lam==='Gloss UV Lamination' ? 'selected' : '' }}>Gloss UV Lamination</option>
+                              <option value="Matt Artcard Lamination" {{ $lam==='Matt Artcard Lamination' ? 'selected' : '' }}>Matt Artcard Lamination</option>
+                              <option value="Gloss Artcard Lamination" {{ $lam==='Gloss Artcard Lamination' ? 'selected' : '' }}>Gloss Artcard Lamination</option>
+                              <option value="Matt Tempered Film Lamination" {{ $lam==='Matt Tempered Film Lamination' ? 'selected' : '' }}>Matt Tempered Film Lamination</option>
+                              <option value="Gloss Tempered Film Lamination" {{ $lam==='Gloss Tempered Film Lamination' ? 'selected' : '' }}>Gloss Tempered Film Lamination</option>
+                              <option value="Matt Pigment Crystal Lamination" {{ $lam==='Matt Pigment Crystal Lamination' ? 'selected' : '' }}>Matt Pigment Crystal Lamination</option>
+                              <option value="Gloss Pigment Crystal Lamination" {{ $lam==='Gloss Pigment Crystal Lamination' ? 'selected' : '' }}>Gloss Pigment Crystal Lamination</option>
+                              <option value="Hot Stamping Lamination" {{ $lam==='Hot Stamping Lamination' ? 'selected' : '' }}>Hot Stamping Lamination</option>
                             </select>
                           </div>
 
@@ -543,7 +545,19 @@
                             @php $prt = old("items.$i.printer", data_get($it,'printer')); @endphp
                             <select name="items[{{ $i }}][printer]" class="form-select">
                               <option value="">-</option>
-                              <option value="Printer" {{ $prt==='Printer' ? 'selected' : '' }}>Printer</option>
+                              <option value="Handtop Hybrid" {{ $prt==='Handtop Hybrid' ? 'selected' : '' }}>Handtop Hybrid</option>
+                              <option value="Handtop Roll2Roll" {{ $prt==='Handtop Roll2Roll' ? 'selected' : '' }}>Handtop Roll2Roll</option>
+                              <option value="HP Latex" {{ $prt==='HP Latex' ? 'selected' : '' }}>HP Latex</option>
+                              <option value="Solvent" {{ $prt==='Solvent' ? 'selected' : '' }}>Solvent</option>
+                              <option value="Lanqi UV Gen 6 (A)" {{ $prt==='Lanqi UV Gen 6 (A)' ? 'selected' : '' }}>Lanqi UV Gen 6 (A)</option>
+                              <option value="Lanqi UV Gen 6 (B) (Bothside Print)" {{ $prt==='Lanqi UV Gen 6 (B) (Bothside Print)' ? 'selected' : '' }}>Lanqi UV Gen 6 (B) (Bothside Print)</option>
+                              <option value="ANS UV RD500" {{ $prt==='ANS UV RD500' ? 'selected' : '' }}>ANS UV RD500</option>
+                              <option value="YF 1700 UV Epson i3600" {{ $prt==='YF 1700 UV Epson i3600' ? 'selected' : '' }}>YF 1700 UV Epson i3600</option>
+                              <option value="Pigment HDP" {{ $prt==='Pigment HDP' ? 'selected' : '' }}>Pigment HDP</option>
+                              <option value="Flora Flatbed 8x10" {{ $prt==='Flora Flatbed 8x10' ? 'selected' : '' }}>Flora Flatbed 8x10</option>
+                              <option value="Grando Crystal Label" {{ $prt==='Grando Crystal Label' ? 'selected' : '' }}>Grando Crystal Label</option>
+                              <option value="Crystal Label Flatbed" {{ $prt==='Crystal Label Flatbed' ? 'selected' : '' }}>Crystal Label Flatbed  </option>
+                              <option value="Konica Minolta" {{ $prt==='Konica Minolta' ? 'selected' : '' }}>Konica Minolta</option>
                             </select>
                           </div>
 
@@ -552,7 +566,15 @@
                             @php $cut = old("items.$i.cutter", data_get($it,'cutter')); @endphp
                             <select name="items[{{ $i }}][cutter]" class="form-select">
                               <option value="">-</option>
-                              <option value="Cutter" {{ $cut==='Cutter' ? 'selected' : '' }}>Cutter</option>
+                              <option value="AOL 1000 Flatbed Cutter (Small)" {{ $cut==='AOL 1000 Flatbed Cutter (Small)' ? 'selected' : '' }}>AOL 1000 Flatbed Cutter (Small)</option>
+                              <option value="AOL 5x10 Flatbed Cutter (big)" {{ $cut==='AOL 5x10 Flatbed Cutter (big)' ? 'selected' : '' }}>AOL 5x10 Flatbed Cutter (big)</option>
+                              <option value="Jingwei 5x10 Flatbed Cutter" {{ $cut==='Jingwei 5x10 Flatbed Cutter' ? 'selected' : '' }}>Jingwei 5x10 Flatbed Cutter</option>
+                              <option value="Ruijie Flatbed Router" {{ $cut==='Ruijie Flatbed Router' ? 'selected' : '' }}>Ruijie Flatbed Router</option>
+                              <option value="Laser Cutter 150 (A)" {{ $cut==='Laser Cutter 150 (A)' ? 'selected' : '' }}>Laser Cutter 150 (A)</option>
+                              <option value="Laser Cutter 150 (B)" {{ $cut==='Laser Cutter 150 (B)' ? 'selected' : '' }}>Laser Cutter 150 (B)</option>
+                              <option value="Laser Cutter 300" {{ $cut==='Laser Cutter 300' ? 'selected' : '' }}>Laser Cutter 300</option>
+                              <option value="Mimaki Cutting Plotte" {{ $cut==='Mimaki Cutting Plotte' ? 'selected' : '' }}>Mimaki Cutting Plotte</option>
+                              <option value="AccuCut" {{ $cut==='AccuCut' ? 'selected' : '' }}>AccuCut</option>
                             </select>
                           </div>
 
@@ -633,17 +655,13 @@
                           </div>
                         </div>
 
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-md-6">
                           <label class="form-label">Size (inches) – Width</label>
                           <input name="items[__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="">
                         </div>
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-md-6">
                           <label class="form-label">Height</label>
                           <input name="items[__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="">
-                        </div>
-                        <div class="col-12 col-md-4">
-                          <label class="form-label">Length</label>
-                          <input name="items[__INDEX__][sizeLength]" type="number" step="0.01" class="form-control" value="">
                         </div>
 
                         <div class="col-12 col-md-3">
@@ -667,22 +685,49 @@
                           <label class="form-label">Lamination</label>
                           <select name="items[__INDEX__][lamination]" class="form-select">
                             <option value="">-</option>
-                            <option>Gloss</option>
-                            <option>Matte</option>
+                            <option>Matt UV Lamination</option>
+                            <option>Gloss UV Lamination</option>
+                            <option>Matt Artcard Lamination</option>
+                            <option>Gloss Artcard Lamination</option>
+                            <option>Matt Tempered Film Lamination</option>
+                            <option>Gloss Tempered Film Lamination</option>
+                            <option>Matt Pigment Crystal Lamination</option>
+                            <option>Gloss Pigment Crystal Lamination</option>
+                            <option>Hot Stamping Lamination</option>
                           </select>
                         </div>
                         <div class="col-md-3">
                           <label class="form-label">Printer</label>
                           <select name="items[__INDEX__][printer]" class="form-select">
                             <option value="">-</option>
-                            <option>Printer</option>
+                            <option>Handtop Hybrid</option>
+                            <option>Handtop Roll2Roll</option>
+                            <option>HP Latex</option>
+                            <option>Solvent</option>
+                            <option>Lanqi UV Gen 6 (A)</option>
+                            <option>Lanqi UV Gen 6 (B) (Bothside Print)</option>
+                            <option>ANS UV RD500</option>
+                            <option>YF 1700 UV Epson i3600</option>
+                            <option>Pigment HDP</option>
+                            <option>Flora Flatbed 8x10</option>
+                            <option>Grando Crystal Label</option>
+                            <option>Crystal Label Flatbed</option>
+                            <option>Crystal Label Flatbed</option>
                           </select>
                         </div>
                         <div class="col-md-3">
                           <label class="form-label">Cutter</label>
                           <select name="items[__INDEX__][cutter]" class="form-select">
                             <option value="">-</option>
-                            <option>Cutter</option>
+                            <option>AOL 1000 Flatbed Cutter (Small)</option>
+                            <option>AOL 5x10 Flatbed Cutter (big)</option>
+                            <option>Jingwei 5x10 Flatbed Cutter</option>
+                            <option>Ruijie Flatbed Router</option>
+                            <option>Laser Cutter 150 (A)</option>
+                            <option>Laser Cutter 150 (B)</option>
+                            <option>Laser Cutter 300</option>
+                            <option>Mimaki Cutting Plotte</option>
+                            <option>AccuCut</option>
                           </select>
                         </div>
 
