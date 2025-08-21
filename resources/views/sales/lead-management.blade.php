@@ -206,7 +206,11 @@
                 type: 'POST',
                 data: { _token: $('meta[name="csrf-token"]').attr('content'), status: status },
                 success: function(response) {
-                    table.ajax.reload(null, false);
+                    if (response.redirect) {
+                        window.location.href = response.redirect;
+                    } else {
+                        table.ajax.reload(null, false);
+                    }
                 },
                 error: function(xhr) {
                     alert('Error updating status: ' + xhr.responseText);

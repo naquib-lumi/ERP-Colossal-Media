@@ -114,12 +114,17 @@
     .err {
         color: #b91c1c
     }
+
+    .read-only td:last-child {
+        display: none;
+    }
 </style>
 @endpush
 
 <form id="order-form" action="{{ route('orders.store') }}" method="POST" enctype="multipart/form-data">
     @csrf
     <input type="hidden" name="lead_id" id="lead_id" value="{{ $lead->id ?? '' }}">
+    <input type="hidden" id="from_csv" name="from_csv" value="{{ old('from_csv', 0) }}">
 
     <div class="row g-4">
         <div class="col-12">
@@ -230,16 +235,49 @@
 
                             <div class="d-flex align-items-center gap-3">
                                 <span class="text-muted small">Max 5 products</span>
-                                <button type="button"
+                                <button type="button" id="addProductBtn"
                                     class="btn btn-primary btn-sm"
                                     data-bs-toggle="modal"
-                                    data-bs-target="#addProductModal">
+                                    data-bs-target="#productModal"
+                                    data-mode="add">
                                     Add Product
                                 </button>
                             </div>
                         </div>
 
                         <div class="card-body">
+                            <div class="table-responsive mb-3">
+                                <table id="product-table" class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Product Name</th>
+                                            <th>Quantity</th>
+                                            <th>Remark</th>
+                                            <th>Material Info</th>
+                                            <th>Location</th>
+                                            <th>Date & Time</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (old('products', []) as $index => $product)
+                                            <tr data-index="{{ $index }}" {{ old('from_csv') ? 'class="read-only"' : '' }}>
+                                                <td>{!! e($product['product_name'] ?? '') !!}</td>
+                                                <td>{!! e($product['quantity'] ?? '') !!}</td>
+                                                <td>{!! e($product['remark'] ?? '') !!}</td>
+                                                <td>{!! e($product['material_info'] ?? '') !!}</td>
+                                                <td>{!! e($product['location'] ?? '') !!}</td>
+                                                <td>{!! e($product['date_time'] ?? '') !!}</td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit">Edit</button>
+                                                    <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
                             <!-- Top row: left label + right CSV template download -->
                             <div class="d-flex align-items-center justify-content-between mb-2">
                                 <span class="text-muted">Upload CSV (Optional)</span>
@@ -248,20 +286,20 @@
                                 </a>
                             </div>
 
-                            <!-- Your EXISTING drop area (untouched) -->
+                            <!-- Drop area -->
                             <div id="attach-box" class="attach-box">
                                 <div class="attach-inner">
                                     <div class="attach-icon" aria-hidden="true">
                                         <i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i>
                                     </div>
                                     <div class="attach-title">Drop CSV file here or click to upload</div>
-                                    <div class="attach-hint">(Excel or CVS)</div>
+                                    <div class="attach-hint">(CSV)</div>
                                 </div>
 
                                 <!-- This input sits on top, invisible, and owns the click -->
-                                <input id="fileInput" type="file" multiple
-                                    accept=".xlsx,.xls,.csv"
-                                    class="file-overlay" name="csv_file">
+                                <input id="fileInput" type="file"
+                                    accept=".csv"
+                                    class="file-overlay">
                             </div>
                             @error('csv_file')
                                 <span class="text-danger">{{ $message }}</span>
@@ -269,61 +307,6 @@
 
                             <div id="attach-msg" class="mt-2 text-sm"></div>
                             <ul id="preview" class="mt-3 space-y-2"></ul>
-
-                            <div id="product-list" class="mt-3">
-                                @foreach (old('products', []) as $index => $product)
-                                    <div class="border rounded p-3 mb-2 product-item" data-index="{{ $index }}">
-                                        <div class="d-flex justify-content-between">
-                                            <h6>Product {{ $index + 1 }}</h6>
-                                            <button type="button" class="btn btn-sm btn-danger remove-product">Remove</button>
-                                        </div>
-                                        <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label>Product Name</label>
-                                                <input name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}">
-                                                @error("products.$index.product_name")
-                                                    <span class="text-danger">{{ $message }}</span>
-                                                @enderror
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label>Quantity</label>
-                                                <input name="products[{{ $index }}][quantity]" type="number" class="form-control" value="{{ $product['quantity'] ?? '' }}">
-                                                @error("products.$index.quantity")
-                                                    <span class="text-danger">{{ $message }}</span>
-                                                @enderror
-                                            </div>
-                                            <div class="col-12">
-                                                <label>Remark</label>
-                                                <textarea name="products[{{ $index }}][remark]" class="form-control">{{ $product['remark'] ?? '' }}</textarea>
-                                                @error("products.$index.remark")
-                                                    <span class="text-danger">{{ $message }}</span>
-                                                @enderror
-                                            </div>
-                                            <div class="col-12">
-                                                <label>Material Info</label>
-                                                <textarea name="products[{{ $index }}][material_info]" class="form-control">{{ $product['material_info'] ?? '' }}</textarea>
-                                                @error("products.$index.material_info")
-                                                    <span class="text-danger">{{ $message }}</span>
-                                                @enderror
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label>Location</label>
-                                                <input name="products[{{ $index }}][location]" class="form-control" value="{{ $product['location'] ?? '' }}">
-                                                @error("products.$index.location")
-                                                    <span class="text-danger">{{ $message }}</span>
-                                                @enderror
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label>Date & Time</label>
-                                                <input name="products[{{ $index }}][date_time]" type="date" class="form-control" value="{{ $product['date_time'] ?? '' }}">
-                                                @error("products.$index.date_time")
-                                                    <span class="text-danger">{{ $message }}</span>
-                                                @enderror
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
 
                             <!-- Remarks -->
                             <div class="mt-3">
@@ -360,59 +343,39 @@
         <div class="col-12">
             <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
                 <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save and Submit</button>
+                <button type="submit" class="btn btn-primary">Save Order</button>
             </div>
         </div>
     </div>
+    <!-- Hidden products -->
+    
+<div id="hidden-products" style="display: none;">
+    @foreach (old('products', []) as $index => $product)
+        <div data-index="{{ $index }}">
+            <input type="hidden" name="products[{{ $index }}][product_name]" value="{{ $product['product_name'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][quantity]" value="{{ $product['quantity'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][remark]" value="{{ $product['remark'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][material_info]" value="{{ $product['material_info'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][location]" value="{{ $product['location'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][date_time]" value="{{ $product['date_time'] ?? '' }}">
+        </div>
+    @endforeach
+</div>
 </form>
 
-<template id="deliveryTemplate">
-    <div class="card border shadow-none" data-delivery>
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <strong>Delivery <span class="delivery-index">X</span></strong>
-                <button type="button" class="btn btn-sm btn-text text-danger" data-remove><i class="bx bx-trash"></i></button>
-            </div>
-            <div class="row g-3">
-                <div class="col-12 col-md-3">
-                    <label class="form-label">Delivery Method</label>
-                    <select name="deliveries[IDX][method]" class="form-select">
-                        <option value="">Method</option>
-                        <option value="courier">Courier</option>
-                        <option value="pickup">Pickup</option>
-                        <option value="install">Install</option>
-                    </select>
-                </div>
-                <div class="col-12 col-md-3">
-                    <label class="form-label">Location Address</label>
-                    <input name="deliveries[IDX][location]" type="text" class="form-control" placeholder="Location">
-                </div>
-                <div class="col-12 col-md-2">
-                    <label class="form-label">Quantity</label>
-                    <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty">
-                </div>
-                <div class="col-12 col-md-4">
-                    <label class="form-label">Date & Time</label>
-                    <input name="deliveries[IDX][datetime]" type="datetime-local" class="form-control">
-                </div>
-            </div>
-        </div>
-    </div>
-</template>
 
-<!-- pop out add product modal -->
-<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+
+<!-- Product Modal (for add/edit) -->
+<div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="bx bx-package me-2"></i> Add Product
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="productModalTitle">Add Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-
-            <div class="modal-body p-3">
-                <form id="addProductForm">
+            <div class="modal-body">
+                <form id="productForm">
+                    <input type="hidden" id="product_index">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label>Product Name</label>
@@ -439,10 +402,11 @@
                             <input id="date_time" type="date" class="form-control">
                         </div>
                     </div>
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-primary">Add</button>
-                    </div>
                 </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveProduct">Save</button>
             </div>
         </div>
     </div>
@@ -499,62 +463,135 @@
             });
         });
 
-        $('#addProductForm').on('submit', function(e) {
-            e.preventDefault();
-            if ($('.product-item').length >= 5) {
-                alert('Maximum 5 products allowed');
-                return;
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        let productIndex = $('#product-table tbody tr').length;
+        let isFromCsv = {{ old('from_csv', 0) }};
+        if (isFromCsv) {
+            $('#addProductBtn').hide();
+            $('#product-table tbody tr').addClass('read-only');
+        } else if (productIndex >= 5) {
+            $('#addProductBtn').hide();
+        }
+
+        $('#productModal').on('show.bs.modal', function(e) {
+            const button = $(e.relatedTarget);
+            const mode = button.data('mode');
+            const index = button.closest('tr').data('index');
+
+            $('#productForm')[0].reset();
+            $('#product_index').val('');
+            $('#productModalTitle').text('Add Product');
+
+            if (mode === 'edit') {
+                $('#productModalTitle').text('Edit Product');
+                $('#product_index').val(index);
+
+                const hidden = $(`#hidden-products > div[data-index="${index}"]`);
+                $('#product_name').val(hidden.find('input[name$="[product_name]"]').val());
+                $('#quantity').val(hidden.find('input[name$="[quantity]"]').val());
+                $('#remark').val(hidden.find('input[name$="[remark]"]').val());
+                $('#material_info').val(hidden.find('input[name$="[material_info]"]').val());
+                $('#location').val(hidden.find('input[name$="[location]"]').val());
+                $('#date_time').val(hidden.find('input[name$="[date_time]"]').val());
             }
-            var index = $('.product-item').length;
-            var html = `
-                <div class="border rounded p-3 mb-2 product-item" data-index="${index}">
-                    <div class="d-flex justify-content-between">
-                        <h6>Product ${index + 1}</h6>
-                        <button type="button" class="btn btn-sm btn-danger remove-product">Remove</button>
+        });
+
+        $('#saveProduct').on('click', function() {
+            const index = $('#product_index').val();
+            const data = {
+                product_name: $('#product_name').val() || '',
+                quantity: $('#quantity').val() || '',
+                remark: $('#remark').val() || '',
+                material_info: $('#material_info').val() || '',
+                location: $('#location').val() || '',
+                date_time: $('#date_time').val() || ''
+            };
+
+            if (index !== '') {
+                // Edit existing
+                const row = $(`#product-table tbody tr[data-index="${index}"]`);
+                row.find('td:eq(0)').html(escapeHtml(data.product_name));
+                row.find('td:eq(1)').html(escapeHtml(data.quantity));
+                row.find('td:eq(2)').html(escapeHtml(data.remark));
+                row.find('td:eq(3)').html(escapeHtml(data.material_info));
+                row.find('td:eq(4)').html(escapeHtml(data.location));
+                row.find('td:eq(5)').html(escapeHtml(data.date_time));
+
+                const hidden = $(`#hidden-products > div[data-index="${index}"]`);
+                hidden.find('input[name$="[product_name]"]').val(data.product_name);
+                hidden.find('input[name$="[quantity]"]').val(data.quantity);
+                hidden.find('input[name$="[remark]"]').val(data.remark);
+                hidden.find('input[name$="[material_info]"]').val(data.material_info);
+                hidden.find('input[name$="[location]"]').val(data.location);
+                hidden.find('input[name$="[date_time]"]').val(data.date_time);
+            } else {
+                // Add new
+                if (productIndex >= 5) {
+                    alert('Maximum 5 products allowed. Use CSV for more.');
+                    return;
+                }
+
+                const html = `
+                    <tr data-index="${productIndex}">
+                        <td>${escapeHtml(data.product_name)}</td>
+                        <td>${escapeHtml(data.quantity)}</td>
+                        <td>${escapeHtml(data.remark)}</td>
+                        <td>${escapeHtml(data.material_info)}</td>
+                        <td>${escapeHtml(data.location)}</td>
+                        <td>${escapeHtml(data.date_time)}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit">Edit</button>
+                            <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
+                        </td>
+                    </tr>
+                `;
+                $('#product-table tbody').append(html);
+
+                const hiddenHtml = `
+                    <div data-index="${productIndex}">
+                        <input type="hidden" name="products[${productIndex}][product_name]" value="${escapeHtml(data.product_name)}">
+                        <input type="hidden" name="products[${productIndex}][quantity]" value="${escapeHtml(data.quantity)}">
+                        <input type="hidden" name="products[${productIndex}][remark]" value="${escapeHtml(data.remark)}">
+                        <input type="hidden" name="products[${productIndex}][material_info]" value="${escapeHtml(data.material_info)}">
+                        <input type="hidden" name="products[${productIndex}][location]" value="${escapeHtml(data.location)}">
+                        <input type="hidden" name="products[${productIndex}][date_time]" value="${escapeHtml(data.date_time)}">
                     </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label>Product Name</label>
-                            <input name="products[${index}][product_name]" class="form-control" value="${$('#product_name').val()}">
-                        </div>
-                        <div class="col-md-6">
-                            <label>Quantity</label>
-                            <input name="products[${index}][quantity]" type="number" class="form-control" value="${$('#quantity').val()}">
-                        </div>
-                        <div class="col-12">
-                            <label>Remark</label>
-                            <textarea name="products[${index}][remark]" class="form-control">${$('#remark').val()}</textarea>
-                        </div>
-                        <div class="col-12">
-                            <label>Material Info</label>
-                            <textarea name="products[${index}][material_info]" class="form-control">${$('#material_info').val()}</textarea>
-                        </div>
-                        <div class="col-md-6">
-                            <label>Location</label>
-                            <input name="products[${index}][location]" class="form-control" value="${$('#location').val()}">
-                        </div>
-                        <div class="col-md-6">
-                            <label>Date & Time</label>
-                            <input name="products[${index}][date_time]" type="date" class="form-control" value="${$('#date_time').val()}">
-                        </div>
-                    </div>
-                </div>
-            `;
-            $('#product-list').append(html);
-            $('#addProductModal').modal('hide');
-            $('#addProductForm')[0].reset();
+                `;
+                $('#hidden-products').append(hiddenHtml);
+
+                productIndex++;
+                if (productIndex >= 5) {
+                    $('#addProductBtn').hide();
+                }
+            }
+
+            $('#productModal').modal('hide');
         });
 
         $(document).on('click', '.remove-product', function() {
-            $(this).closest('.product-item').remove();
-            $('.product-item').each(function(i) {
+            const row = $(this).closest('tr');
+            const index = row.data('index');
+            row.remove();
+            $(`#hidden-products > div[data-index="${index}"]`).remove();
+
+            // Reindex
+            $('#product-table tbody tr').each(function(i) {
                 $(this).attr('data-index', i);
-                $(this).find('h6').text('Product ' + (i + 1));
-                $(this).find('[name]').each(function() {
-                    let name = $(this).attr('name').replace(/\[\d+\]/, '[' + i + ']');
+            });
+            $('#hidden-products > div').each(function(i) {
+                $(this).attr('data-index', i);
+                $(this).find('input').each(function() {
+                    const name = $(this).attr('name').replace(/\[\d+\]/, `[${i}]`);
                     $(this).attr('name', name);
                 });
             });
+            productIndex = $('#product-table tbody tr').length;
+            if (productIndex < 5 && !isFromCsv) {
+                $('#addProductBtn').show();
+            }
         });
 
         // CSV upload handling
@@ -562,37 +599,38 @@
         const listEl = document.getElementById('preview');
         const msgEl = document.getElementById('attach-msg');
 
-        const ALLOWED = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+        const ALLOWED = ['csv'];
 
-        const selected = new Map();
+        let selectedFile = null;
 
-        input.addEventListener('change', () => {
+        input.addEventListener('change', handleCsvUpload);
+
+        function handleCsvUpload() {
             if (!input.files?.length) return;
-            const incoming = Array.from(input.files);
+            const f = input.files[0];
 
-            incoming.forEach(f => {
-                const ext = (f.name.split('.').pop() || '').toLowerCase();
-                const key = `${f.name}|${f.size}|${f.lastModified}`;
+            const ext = (f.name.split('.').pop() || '').toLowerCase();
 
-                const errors = [];
-                if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
-                if (selected.has(key)) errors.push('Duplicate');
+            const errors = [];
+            if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
 
-                if (errors.length) {
-                    addRow(f, { status: 'error', note: errors.join(', ') });
-                } else {
-                    selected.set(key, f);
-                    addRow(f, { key, status: 'ready' });
-                }
-            });
+            listEl.innerHTML = ''; // Clear previous
+
+            if (errors.length) {
+                addRow(f, { status: 'error', note: errors.join(', ') });
+                selectedFile = null;
+            } else {
+                selectedFile = f;
+                addRow(f, { status: 'ready' });
+                parseCsv(f);
+            }
 
             updateSummary();
             input.value = '';
-        });
+        }
 
-        function addRow(file, { key = null, status = 'ready', note = '' }) {
+        function addRow(file, { status = 'ready', note = '' }) {
             const li = document.createElement('li');
-            li.dataset.key = key || '';
             li.innerHTML = `
                 <span>${file.name}${
                     status === 'error'
@@ -603,23 +641,88 @@
             `;
 
             li.querySelector('.remove-x').addEventListener('click', () => {
-                const k = li.dataset.key;
-                if (k && selected.has(k)) selected.delete(k);
                 li.remove();
+                selectedFile = null;
                 updateSummary();
+                if (!selectedFile) {
+                    // Clear products when removing CSV
+                    $('#product-table tbody').empty();
+                    $('#hidden-products').empty();
+                    productIndex = 0;
+                    isFromCsv = 0;
+                    $('#from_csv').val(0);
+                    $('#addProductBtn').show();
+                }
             });
 
             listEl.appendChild(li);
         }
 
         function updateSummary() {
-            const count = selected.size;
+            const count = selectedFile ? 1 : 0;
             msgEl.innerHTML = count ?
-                `<span class="ok">${count} file(s) selected for upload</span>` :
+                `<span class="ok">${count} file selected for upload</span>` :
                 '';
         }
 
-        window.getSelectedFiles = () => Array.from(selected.values());
+        function parseCsv(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split(/\r?\n/);
+                const headers = lines[0].split(',').map(h => h.trim());
+
+                // Clear existing
+                $('#product-table tbody').empty();
+                $('#hidden-products').empty();
+                productIndex = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const data = lines[i].split(',').map(d => d.trim());
+                    const product = {
+                        product_name: data[0] || '',
+                        quantity: data[1] || '',
+                        remark: data[2] || '',
+                        material_info: data[3] || '',
+                        location: data[4] || '',
+                        date_time: data[5] || ''
+                    };
+
+                    const html = `
+                        <tr data-index="${productIndex}" class="read-only">
+                            <td>${escapeHtml(product.product_name)}</td>
+                            <td>${escapeHtml(product.quantity)}</td>
+                            <td>${escapeHtml(product.remark)}</td>
+                            <td>${escapeHtml(product.material_info)}</td>
+                            <td>${escapeHtml(product.location)}</td>
+                            <td>${escapeHtml(product.date_time)}</td>
+                            <td></td>
+                        </tr>
+                    `;
+                    $('#product-table tbody').append(html);
+
+                    const hiddenHtml = `
+                        <div data-index="${productIndex}">
+                            <input type="hidden" name="products[${productIndex}][product_name]" value="${escapeHtml(product.product_name)}">
+                            <input type="hidden" name="products[${productIndex}][quantity]" value="${escapeHtml(product.quantity)}">
+                            <input type="hidden" name="products[${productIndex}][remark]" value="${escapeHtml(product.remark)}">
+                            <input type="hidden" name="products[${productIndex}][material_info]" value="${escapeHtml(product.material_info)}">
+                            <input type="hidden" name="products[${productIndex}][location]" value="${escapeHtml(product.location)}">
+                            <input type="hidden" name="products[${productIndex}][date_time]" value="${escapeHtml(product.date_time)}">
+                        </div>
+                    `;
+                    $('#hidden-products').append(hiddenHtml);
+
+                    productIndex++;
+                }
+
+                isFromCsv = 1;
+                $('#from_csv').val(1);
+                $('#addProductBtn').hide();
+            };
+            reader.readAsText(file);
+        }
 
         const box = document.getElementById('attach-box');
         if (box) {
@@ -635,6 +738,10 @@
                     box.classList.remove('ring');
                 })
             );
+            box.addEventListener('drop', e => {
+                input.files = e.dataTransfer.files;
+                handleCsvUpload();
+            });
         }
 
         const tmpl = document.getElementById('csvTemplateBtn');
