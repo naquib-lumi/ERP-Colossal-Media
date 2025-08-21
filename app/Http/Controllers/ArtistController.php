@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Product;
 use App\Models\ProductItem;
+use App\Models\LeadAttachment;
 use App\Models\DeliveryBreakdown;
 use App\Models\Specification;
 use Illuminate\Support\Facades\Validator;
@@ -251,6 +252,49 @@ class ArtistController extends Controller
         return redirect()
         ->route('artist.orders.assign.show', $order)
         ->with('ok', 'Artist assigned successfully.');
+    }
+
+    public function show(Order $order)
+    {
+        // keep what you already load here (products, items, deliveryBreakdowns, etc.)
+        $order->loadMissing([
+            'salesperson:id,name',
+            'artist:id,name',
+            'products'        => fn ($q) => $q->orderBy('ProductID'),
+            'products.items'  => fn ($q) => $q->orderBy('ItemID'),
+            'products.items.spec',
+
+            'deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+        ]);
+
+        // Attachments: prefer orderAttachment CSV; otherwise fallback to lead_attachments
+        $attachments = $order->attachment_paths->isNotEmpty()
+            ? $order->attachment_paths->map(fn ($path) => $this->fileInfoFromPath($path))
+            : LeadAttachment::where('lead_id', $order->lead_id)
+                ->latest()
+                ->get()
+                ->map(fn ($a) => [
+                    'name' => basename($a->file_location),
+                    'url'  => Storage::disk('public')->url($a->file_location),
+                    'size' => (int) $a->file_size,
+                    'ext'  => $a->file_extension,
+                ]);
+
+        return view('artist.orders.show', compact('order', 'attachments'));
+    }
+
+    private function fileInfoFromPath(string $relPath): array
+    {
+        // adjust disk if needed
+        $url  = Storage::disk('public')->url($relPath);
+        $ext  = pathinfo($relPath, PATHINFO_EXTENSION);
+
+        return [
+            'name' => basename($relPath),
+            'url'  => $url,
+            'size' => null, // unknown for order CSV; can be resolved if you want
+            'ext'  => $ext,
+        ];
     }
 
     /** Optional ajax search if you want Select2 remote search */

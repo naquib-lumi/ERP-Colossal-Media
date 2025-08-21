@@ -75,7 +75,7 @@
         <div class="d-inline-flex align-items-center gap-3">
 
           {{-- View (always enabled) --}}
-          <a href="{{ route('artist.orders.edit', $order->id) }}"
+          <a href="{{ route('artist.orders.show', $order->id) }}"
             class="text-secondary fw-bold" title="View">
             <i class="bx bx-show fs-5"></i>
           </a>

@@ -111,22 +111,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/artist/orders/{order}/attachments/delete', [ArtistController::class, 'deleteAttachment'])->name('artist.orders.attachments.delete');
         Route::delete('/artist/orders/{order}/items/{item}', [ArtistController::class, 'destroyItem'])->name('artist.orders.items.destroy');
         Route::delete('/artist/orders/{order}/deliveries/{delivery}', [ArtistController::class, 'deleteDelivery'])->name('artist.orders.delivery.destroy');
-
-        Route::get('/artist/orders/{order}/assign', [ArtistController::class, 'showAssign'])
-            ->name('artist.orders.assign.show');
-
-        Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'storeAssign'])
-            ->middleware('role:head-artist')
-            ->name('artist.orders.assign.store');
+        Route::get('/artist/orders/{order}/assign', [ArtistController::class, 'showAssign'])->name('artist.orders.assign.show');
+        Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'storeAssign'])->middleware('role:head-artist')->name('artist.orders.assign.store');
+        Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])
             ->name('artists.search');
-        
-        // Actions ONLY a head-artist can do
-        // Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'assign'])
-        //     ->middleware('role:head-artist')
-        //     ->name('artist.orders.assign');
+
     });
 
     Route::middleware('role:admin')->group(function () {

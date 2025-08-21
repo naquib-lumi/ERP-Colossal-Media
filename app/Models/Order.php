@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class Order extends Model
 {
@@ -79,5 +80,12 @@ class Order extends Model
     public function getEffectiveStatusAttribute(): string
     {
         return $this->pending ? 'pending' : (string) $this->orderStatus;
+    }
+
+    public function getAttachmentPathsAttribute(): Collection
+    {
+        return collect(explode(',', (string) $this->orderAttachment))
+            ->map(fn ($p) => trim($p))
+            ->filter(); // remove empties
     }
 }
