@@ -143,164 +143,164 @@
                 <div class="card-widget-separator-wrapper">
                     <div class="card-body card-widget-separator">
                         @if(!empty($isHead) && $isHead)
-  <div class="row gy-4 gy-sm-1">
-    {{-- To assign --}}
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
-        <div>
-          <p class="mb-1">To assign</p>
-          <h4 class="mb-1">{{ $metrics['to_assign'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-share-alt icon-lg text-heading"></i>
-          </span>
-        </span>
-      </div>
-      <hr class="d-none d-sm-block d-lg-none me-6" />
-    </div>
+                            <div class="row gy-4 gy-sm-1">
+                                {{-- To assign --}}
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
+                                    <div>
+                                    <p class="mb-1">To assign</p>
+                                    <h4 class="mb-1">{{ $metrics['to_assign'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-share-alt icon-lg text-heading"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                <hr class="d-none d-sm-block d-lg-none me-6" />
+                                </div>
 
-    {{-- Assigned --}}
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
-        <div>
-          <p class="mb-1">Assigned</p>
-          <h4 class="mb-1">{{ $metrics['assigned'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-user-check icon-lg text-heading"></i>
-          </span>
-        </span>
-      </div>
-      <hr class="d-none d-sm-block d-lg-none me-6" />
-    </div>
+                                {{-- Assigned --}}
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
+                                    <div>
+                                    <p class="mb-1">Assigned</p>
+                                    <h4 class="mb-1">{{ $metrics['assigned'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-user-check icon-lg text-heading"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                <hr class="d-none d-sm-block d-lg-none me-6" />
+                                </div>
 
-    {{-- In progress --}}
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
-        <div>
-          <p class="mb-1">In Progress</p>
-          <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar p-2 me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-gift icon-lg text-heading"></i>
-          </span>
-        </span>
-      </div>
-      <hr class="d-none d-sm-block d-lg-none me-6" />
-    </div>
+                                {{-- In progress --}}
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
+                                    <div>
+                                    <p class="mb-1">In Progress</p>
+                                    <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar p-2 me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-gift icon-lg text-heading"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                <hr class="d-none d-sm-block d-lg-none me-6" />
+                                </div>
 
-    {{-- Completed --}}
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
-        <div>
-          <p class="mb-1">Completed</p>
-          <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar p-2 me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
-          </span>
-        </span>
-      </div>
-      <hr class="d-none d-sm-block d-lg-none me-6" />
-    </div>
+                                {{-- Completed --}}
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
+                                    <div>
+                                    <p class="mb-1">Completed</p>
+                                    <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar p-2 me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                <hr class="d-none d-sm-block d-lg-none me-6" />
+                                </div>
 
-    {{-- Rejected --}}
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
-        <div>
-          <p class="mb-1">Rejected</p>
-          <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar p-2 me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-x-circle icon-lg text-danger"></i>
-          </span>
-        </span>
-      </div>
-    </div>
-  </div>
-@else
-  {{-- Normal artist (your current block) --}}
-  <div class="row gy-4 gy-sm-1">
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
-        <div>
-          <p class="mb-1">Total Order</p>
-          <h4 class="mb-1">{{ $metrics['total'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-store-alt icon-lg text-heading"></i>
-          </span>
-        </span>
-      </div>
-      <hr class="d-none d-sm-block d-lg-none me-6" />
-    </div>
+                                {{-- Rejected --}}
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
+                                    <div>
+                                    <p class="mb-1">Rejected</p>
+                                    <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar p-2 me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-x-circle icon-lg text-danger"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                </div>
+                            </div>
+                        @else
+                            {{-- Normal artist (your current block) --}}
+                            <div class="row gy-4 gy-sm-1">
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
+                                    <div>
+                                    <p class="mb-1">Total Order</p>
+                                    <h4 class="mb-1">{{ $metrics['total'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-store-alt icon-lg text-heading"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                <hr class="d-none d-sm-block d-lg-none me-6" />
+                                </div>
 
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
-        <div>
-          <p class="mb-1">Pending</p>
-          <h4 class="mb-1">{{ $metrics['pending'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-laptop icon-lg text-heading"></i>
-          </span>
-        </span>
-      </div>
-      <hr class="d-none d-sm-block d-lg-none me-6" />
-    </div>
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
+                                    <div>
+                                    <p class="mb-1">Pending</p>
+                                    <h4 class="mb-1">{{ $metrics['pending'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-laptop icon-lg text-heading"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                <hr class="d-none d-sm-block d-lg-none me-6" />
+                                </div>
 
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
-        <div>
-          <p class="mb-1">In Progress</p>
-          <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar p-2 me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-gift icon-lg text-heading"></i>
-          </span>
-        </span>
-      </div>
-      <hr class="d-none d-sm-block d-lg-none me-6" />
-    </div>
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
+                                    <div>
+                                    <p class="mb-1">In Progress</p>
+                                    <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar p-2 me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-gift icon-lg text-heading"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                <hr class="d-none d-sm-block d-lg-none me-6" />
+                                </div>
 
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
-        <div>
-          <p class="mb-1">Completed</p>
-          <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar p-2 me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
-          </span>
-        </span>
-      </div>
-      <hr class="d-none d-sm-block d-lg-none me-6" />
-    </div>
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
+                                    <div>
+                                    <p class="mb-1">Completed</p>
+                                    <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar p-2 me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                <hr class="d-none d-sm-block d-lg-none me-6" />
+                                </div>
 
-    <div class="col-sm-6 col-lg">
-      <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
-        <div>
-          <p class="mb-1">Rejected</p>
-          <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
-        </div>
-        <span class="avatar p-2 me-sm-6">
-          <span class="avatar-initial rounded w-px-44 h-px-44">
-            <i class="icon-base bx bx-x-circle icon-lg text-danger"></i>
-          </span>
-        </span>
-      </div>
-    </div>
-  </div>
-@endif
+                                <div class="col-sm-6 col-lg">
+                                <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
+                                    <div>
+                                    <p class="mb-1">Rejected</p>
+                                    <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
+                                    </div>
+                                    <span class="avatar p-2 me-sm-6">
+                                    <span class="avatar-initial rounded w-px-44 h-px-44">
+                                        <i class="icon-base bx bx-x-circle icon-lg text-danger"></i>
+                                    </span>
+                                    </span>
+                                </div>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

@@ -21,25 +21,75 @@ use Illuminate\Support\Arr;
 
 class ArtistController extends Controller
 {
-    public function dashboard()
+    public function dashboard(Request $request)
     {
         $user  = Auth::user();
+        $isHead  = $this->isHeadArtist($user);
         $base  = $this->visibleOrders();
-        $isTop = $this->isHeadArtist($user);
 
-        // KPI metrics (respect visible scope)
+        $raw = strtolower(preg_replace('/[^a-z]/', '', (string) $request->query('status', '')));
+
+        $map = [
+            'toassign'   => 'to_assign',
+            'assigned'   => 'assigned',
+            'inprogress' => 'in_progress',
+            'completed'  => 'completed',
+            'rejected'   => 'rejected',
+        ];
+
+        $query = clone $base;
+
+        if ($raw !== '') {
+            if ($raw === 'pending') {
+                $query->where('orderStatus', 'assigned')
+                    ->where('pending', 1);
+
+                if ($isHead) {
+                    $query->whereRaw('1=0');
+                }
+            } else {
+                $db = $map[$raw] ?? $raw; 
+                $query->where('orderStatus', $db);
+
+                if (!$isHead && $db === 'in_progress') {
+                    $query->where('artist_id', $user->id)
+                        ->where('pending', 0);
+                }
+            }
+        }
+
+        if ($s = trim($request->query('q', ''))) {
+            $query->where(function ($q) use ($s) {
+                $q->where('orderTitle', 'like', "%{$s}%")
+                ->orWhere('companyName', 'like', "%{$s}%")
+                ->orWhere('leadName', 'like', "%{$s}%");
+            });
+        }
+
+        // 4) Metrics from the same base visibility
         $metrics = [
             'total'       => (clone $base)->count(),
-            'pending'     => (clone $base)->where('orderStatus', 'pending')->count(),
+            'pending'     => (clone $base)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
             'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
             'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
             'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
         ];
-
-        // Head-artist can also see these two buckets
-        if ($isTop) {
+        if ($isHead) {
             $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
             $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
+        }
+
+        // 5) Rows
+        $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
+                        ->latest('orderDate')
+                        ->paginate(20)
+                        ->withQueryString();
+
+        // Pass the *raw UI token* back so the dropdown can mark "selected"
+        $statusRaw = $raw;
+
+        if ($request->ajax()) {
+            return view('artist.partials.orders-table', compact('orders', 'isHead'))->render();
         }
 
         // Orders list (respect scope)
@@ -62,12 +112,16 @@ class ArtistController extends Controller
         return view('artist.dashboard', [
             'orders'        => $orders,
             'metrics'       => $metrics,
+            'isHead'        => $isHead,     
+            'statusRaw'     => $statusRaw,  
             'salespersons'  => $salespersons,
             'initialCounts' => [
                 'scheduled' => (int) ($initial->scheduled ?? 0),
                 'canceled'  => (int) ($initial->canceled  ?? 0),
             ],
         ]);
+
+        return view('artist.dashboard', compact('orders', 'metrics', 'isHead', 'statusRaw'));
     }
 
     // AJAX for the donut chart
