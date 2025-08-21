@@ -18,6 +18,7 @@ use App\Models\Specification;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\Rule;
 
 class ArtistController extends Controller
 {
@@ -216,6 +217,55 @@ class ArtistController extends Controller
         }
 
         return view('artist.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
+    }
+
+    public function showAssign(Order $order)
+    {
+
+        // Only head artists should be here (guard with middleware)
+        $order->load([
+            'salesperson:id,name',
+            'artist:id,name',
+            'products.deliveryBreakdowns',               // if you render product info
+        ]);
+
+        // Normal artists to assign to
+        $artists = User::where('role', 'artist')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('artist.orders.assign', compact('order', 'artists'));
+    }
+
+    public function storeAssign(Request $request, Order $order)
+    {
+        $data = $request->validate([
+            'artist_id' => ['required', 'exists:users,id'],
+        ]);
+
+        $order->artist_id   = $data['artist_id'];
+        $order->orderStatus = 'assigned'; // becomes “Pending” for normal artists
+        $order->pending     = 1;          // your business rule
+        $order->save();
+
+        return redirect()
+        ->route('artist.orders.assign.show', $order)
+        ->with('ok', 'Artist assigned successfully.');
+    }
+
+    /** Optional ajax search if you want Select2 remote search */
+    public function searchArtists(Request $request)
+    {
+        $q = trim($request->query('q',''));
+        $rows = User::where('role','artist')
+            ->when($q !== '', fn($w)=>$w->where('name','like',"%{$q}%"))
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id','name']);
+
+        return response()->json(
+            $rows->map(fn($u)=>['id'=>$u->id, 'text'=>$u->name])
+        );
     }
 
     public function edit(Order $order)

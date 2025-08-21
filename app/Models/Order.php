@@ -64,6 +64,18 @@ class Order extends Model
         return $this->hasMany(\App\Models\Product::class, 'OrderID', 'id');
     }
 
+    public function deliveryBreakdowns()
+    {
+        return $this->hasManyThrough(
+            DeliveryBreakdown::class, // final model
+            Product::class,           // through model
+            'OrderID',                // FK on products that points to orders.id
+            'ProductID',              // FK on delivery_breakdowns that points to products.ProductID
+            'id',                     // local key on orders
+            'ProductID'               // local key on products for the hasMany side
+        );
+    }
+
     public function getEffectiveStatusAttribute(): string
     {
         return $this->pending ? 'pending' : (string) $this->orderStatus;

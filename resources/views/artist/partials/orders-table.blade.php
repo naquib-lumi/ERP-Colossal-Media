@@ -38,10 +38,27 @@
       <td>{{ $order->orderTitle ?? '-' }}</td>
       <td>{{ $order->companyName ?? '-' }}</td>
       <td>
-        @if ($isHead)
-        {{ optional($order->artist)->name ?? '-' }}
+        @if($isHead)
+          @php
+            $needsAssign = ($order->orderStatus === 'to_assign') && empty($order->artist_id);
+          @endphp
+
+          {{-- If already assigned, show name; else show dash --}}
+          <span class="me-2">
+            {{ optional($order->artist)->name ?? '—' }}
+          </span>
+
+          {{-- Assign icon (head-only, only when to_assign and no artist yet) --}}
+          @if($needsAssign)
+            <a href="{{ route('artist.orders.assign.show', $order->id) }}"
+              class="btn btn-outline-primary btn-sm align-middle"
+              title="Assign this order">
+              <i class="bx bx-user-plus"></i>
+            </a>
+          @endif
         @else
-        {{ optional($order->salesperson)->name ?? '-' }}
+          {{-- normal artist sees salesperson instead (your existing code) --}}
+          {{ optional($order->salesperson)->name ?? '-' }}
         @endif
       </td>
       <td data-status-code="{{ $isPending ? 'pending' : $rawStatus }}">
