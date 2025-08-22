@@ -104,6 +104,18 @@
                 }
             });
         });
+
+        $(document).on('click', '.submit-order', function() {
+            let id = $(this).data('id');
+            $.ajax({
+                url: '/orders/' + id + '/submit',
+                method: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function() {
+                    table.ajax.reload();
+                }
+            });
+        });
     });
 </script>
 @endsection
