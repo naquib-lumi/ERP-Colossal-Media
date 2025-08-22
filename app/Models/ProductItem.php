@@ -29,18 +29,16 @@ class ProductItem extends Model
         return $this->belongsTo(Product::class, 'ProductID', 'ProductID');
     }
 
-    // If you use a single “primary” material on the item (via product_items.MaterialID)
     public function primaryMaterial()
     {
         return $this->belongsTo(Material::class, 'MaterialID', 'MaterialID');
     }
 
-    // If you attach many materials to an item (via materials.ItemID)
     public function materials()
     {
         return $this->belongsToMany(
             Material::class,
-            'item_material', // adjust if your pivot table is different
+            'item_material', 
             'ItemID',
             'MaterialID'
         );
