@@ -57,14 +57,26 @@
 
                 <div class="col-md-6 col-lg-6">
                     <small class="text-muted d-block mb-1">Attachment from Lead</small>
-                    @php $leadFile = data_get($order,'orderAttachment') @endphp
+
+                    @php
+                        // 1) Preferred source: lead_attachments table
+                        $leadFiles = \App\Models\LeadAttachment::where('lead_id', $order->lead_id)
+                            ->latest()->get();
+
+                    @endphp
+
                     <div class="fw-medium">
-                        @if($leadFile)
-                        <a href="{{ $leadFile }}" target="_blank" class="text-decoration-underline">
-                            {{ basename($leadFile) }}
-                        </a>
+                        @if($leadFiles->isNotEmpty())
+                            @foreach ($leadFiles as $att)
+                                <a href="{{ asset('storage/' . ltrim($att->file_location, '/')) }}"
+                                target="_blank"
+                                class="d-inline-flex align-items-center text-decoration-underline me-3 mb-1">
+                                    {{ basename($att->file_location) }}
+                                    <i class="bx bx-download ms-1"></i>
+                                </a>
+                            @endforeach
                         @else
-                        -
+                            -
                         @endif
                     </div>
                 </div>
@@ -251,17 +263,24 @@
                             <small class="text-muted d-block">Date &amp; Time</small>
                             <div class="fw-medium">
                                 @php
-                                $dateStr = trim(($d->date ?? '').' '.($d->time ?? ''));
-                                $display = '-';
-                                if ($dateStr !== '') {
-                                try {
-                                $display = \Carbon\Carbon::parse($dateStr)->format('Y-m-d g:i A');
-                                } catch (\Throwable $e) {
-                                $display = trim(($d->date ?? '').' '.($d->time ?? ''));
-                                }
-                                }
+                                    // $d is one delivery row
+                                    $dt      = null;
+                                    $dateStr = trim((string) $d->date);
+                                    $timeStr = trim((string) $d->time);
+
+                                    if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
+                                        // time field already is a full datetime
+                                        $dt = \Carbon\Carbon::parse($timeStr);
+                                    } elseif ($dateStr && $timeStr) {
+                                        // classic case: date + time
+                                        $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
+                                    } elseif ($dateStr) {
+                                        $dt = \Carbon\Carbon::parse($dateStr);
+                                    } elseif ($timeStr) {
+                                        $dt = \Carbon\Carbon::parse($timeStr);
+                                    }
                                 @endphp
-                                {{ $display }}
+                                {{ $dt ? $dt->format('M d, Y h:i A') : '-' }}
                             </div>
                         </div>
                     </div>

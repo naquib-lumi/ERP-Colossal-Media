@@ -263,7 +263,7 @@ class ArtistController extends Controller
             'products'        => fn ($q) => $q->orderBy('ProductID'),
             'products.items'  => fn ($q) => $q->orderBy('ItemID'),
             'products.items.spec',
-
+            'leadAttachments',
             'deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
         ]);
 
