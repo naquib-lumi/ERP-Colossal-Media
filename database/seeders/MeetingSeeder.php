@@ -36,7 +36,7 @@ class MeetingSeeder extends Seeder
             'Budget allocation and cost discussion',
         ];
 
-        $types = ['Zoom', 'In-person', 'Phone', 'Microsoft Teams'];
+        $types = ['online', 'offline', 'online', 'offline'];
         $locations = [
             'https://zoom.us/u/1234567890',
             '123 Main St, City, Country',

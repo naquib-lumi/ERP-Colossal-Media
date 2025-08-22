@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use Illuminate\Support\Facades\Log;
 
 use App\Models\User;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 class LeadController extends Controller
 {
@@ -20,9 +22,10 @@ class LeadController extends Controller
         if (!$user->hasRole('salesperson')) {
             abort(403, 'Unauthorized');
         }
+        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
 
         $leads = $user->leads()->with('user')->latest()->get(); // For initial load, if needed
-        return view('sales.lead-management', compact('leads'));
+        return view('sales.lead-management', compact('leads', 'salespeople'));
     }
 
     public function getLead($id)
@@ -44,6 +47,37 @@ class LeadController extends Controller
         ]);
     }
 
+    public function searchLeads(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $query = $request->input('query');
+        if (!$query || strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $leads = Lead::where('salesperson_id', $user->id)
+            ->where(function ($q) use ($query) {
+                $q->where('company_name', 'LIKE', '%' . $query . '%')
+                    ->orWhere('name', 'LIKE', '%' . $query . '%');
+            })
+            ->take(20)
+            ->get(['id', 'company_name', 'name'])
+            ->map(function ($lead) {
+                return [
+                    'id' => $lead->id,
+                    'text' => $lead->company_name . ' - ' . $lead->name
+                ];
+            });
+
+        return response()->json($leads);
+    }
+
+
+
     public function getLeads(Request $request)
     {
         \Log::info('getLeads called for user: ' . Auth::user()->email);
@@ -64,10 +98,28 @@ class LeadController extends Controller
             $search = $request->input('search')['value'];
             $leads->where(function ($query) use ($search) {
                 $query->where('company_name', 'like', "%{$search}%")
-                      ->orWhere('name', 'like', "%{$search}%")
-                      ->orWhere('id', 'like', "%{$search}%");
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('id', 'like', "%{$search}%");
             });
         }
+
+        if ($request->has('status') && $request->input('status')) {
+            $leads->where('status', $request->input('status'));
+        }
+
+        if ($request->has('from_date') && $request->input('from_date')) {
+            $leads->whereDate('created_at', '>=', $request->input('from_date'));
+        }
+
+        if ($request->has('to_date') && $request->input('to_date')) {
+            $leads->whereDate('created_at', '<=', $request->input('to_date'));
+        }
+
+        if ($user->hasRole('head-salesperson') && $request->has('salesperson_id') && $request->input('salesperson_id')) {
+            $leads->where('salesperson_id', $request->input('salesperson_id'));
+        }
+
+
 
         return DataTables::of($leads)
             ->addColumn('lead_data', function ($lead) use ($user) {
@@ -86,15 +138,15 @@ class LeadController extends Controller
                 $opportunityDropdown .= '</select>';
 
                 return '<div class="lead-data-cell">' .
-                       '<span class="lead-id">' . $lead->id . '</span><br>' .
-                       $dropdown .
-                       $opportunityDropdown .
-                       '</div>';
+                    '<span class="lead-id">' . $lead->id . '</span><br>' .
+                    $dropdown .
+                    $opportunityDropdown .
+                    '</div>';
             })
             ->addColumn('company_details', function ($lead) {
                 $attachmentButton = '';
                 if ($lead->attachments->isNotEmpty()) {
-                    $attachmentButton = 
+                    $attachmentButton =
                         '<div class="d-flex align-items-center text-secondary mb-1">
                             <i class="bx bx-paperclip me-2"></i>
                             <button class="btn btn-link p-0 m-0 view-attachments" data-id="' . $lead->id . '">View Attachments</button>
@@ -102,25 +154,25 @@ class LeadController extends Controller
                 }
 
                 return '<div class="company-details-cell text-secondary">' .
-                       '<div class="d-flex align-items-center mb-1">
+                    '<div class="d-flex align-items-center mb-1">
                            <i class="bx bxs-building me-2"></i>' . $lead->company_name . '
                        </div>' .
-                       '<div class="d-flex align-items-center mb-1">
+                    '<div class="d-flex align-items-center mb-1">
                            <i class="bx bxs-phone me-2"></i>' . ($lead->company_phone ?? 'N/A') . '
                        </div>' .
-                       '<div class="d-flex align-items-center mb-1">
+                    '<div class="d-flex align-items-center mb-1">
                            <i class="bx bx-globe me-2"></i>' . ($lead->website ?? 'N/A') . '
                        </div>' .
-                       $attachmentButton .
-                       '</div>';
+                    $attachmentButton .
+                    '</div>';
             })
             ->addColumn('lead_details', function ($lead) {
                 return '<div class="lead-details-cell">' .
-                       $lead->name . '<br>' .
-                       $lead->phone . '<br>' .
-                       $lead->email . '<br>' .
-                       ($lead->remark ?? 'No remark') .
-                       '</div>';
+                    $lead->name . '<br>' .
+                    $lead->phone . '<br>' .
+                    $lead->email . '<br>' .
+                    ($lead->remark ?? 'No remark') .
+                    '</div>';
             })
             ->addColumn('assigned_salesperson', function ($lead) use ($user, $salespeople) {
                 if ($user->hasRole('head-salesperson')) {
@@ -153,9 +205,11 @@ class LeadController extends Controller
                 foreach ($reminders as $reminder) {
                     $dueDate = $reminder->due_date;
                     $relativeTime = $dueDate->diffForHumans(); // e.g., "in 1 hour", "in 5 days", "2 days ago"
-                    
+
                     // Customize relative time for overdue
                     if ($dueDate->isPast() && $reminder->status != 'completed') {
+                        $reminder->status = 'overdue';
+                        $reminder->save();
                         $relativeTime = 'Overdue (' . $dueDate->format('Y-m-d H:i') . ')';
                     } elseif ($reminder->status == 'completed') {
                         $relativeTime = 'Completed (' . $dueDate->format('Y-m-d H:i') . ')';
@@ -185,7 +239,7 @@ class LeadController extends Controller
 
                 return $html;
             })
-          ->addColumn('actions', function ($lead) {
+            ->addColumn('actions', function ($lead) {
                 return '<div class="actions-cell d-flex gap-2">' .
                     '<a href="' . route('leads.edit', $lead->id) . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
                     '<a href="' . route('leads.show', $lead->id) . '" class="btn" title="View"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>' .
@@ -241,11 +295,10 @@ class LeadController extends Controller
             'phone' => 'required|string|max:20',
             'email' => 'required|email|max:255',
             'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
-            'date' => 'nullable|date',
-            'status' => 'required|in:accept,reject,followup,new',
-            'opportunity' => 'nullable|in:50/50,High Chance,Low Chance,None',
+            'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
             'remark' => 'nullable|string',
-            'attachments' => 'nullable|array|max:10|mimes:pdf,doc,jpg,png|max:10240',
+            'attachments' => 'nullable|array|max:10',
+            'attachments.*' => 'mimes:pdf,doc,jpg,png|max:10240',
         ]);
 
         $lead = $user->leads()->create([
@@ -256,8 +309,7 @@ class LeadController extends Controller
             'name' => $validated['name'],
             'phone' => $validated['phone'],
             'email' => $validated['email'],
-            'date' => $validated['date'],
-            'status' => $validated['status'],
+            'status' => 'new',
             'opportunity' => $validated['opportunity'],
             'remark' => $validated['remark'],
         ]);
@@ -278,55 +330,55 @@ class LeadController extends Controller
         return redirect()->route('sales.leads')->with('success', 'Lead added successfully');
     }
 
-            public function show($id)
-            {
-                $lead = Lead::with([
-                    'user', 
-                    'attachments', 
-                    'notes',
-                    'reminders' => function ($query) {
-                        $query->orderBy('due_date', 'asc') // sort earliest first
-                            ->take(10); // limit to 10
-                    }
-                ])->findOrFail($id);
+    public function show($id)
+    {
+        $lead = Lead::with([
+            'user',
+            'attachments',
+            'notes',
+            'reminders' => function ($query) {
+                $query->orderBy('due_date', 'asc') // sort earliest first
+                    ->take(10); // limit to 10
+            }
+        ])->findOrFail($id);
 
-                if ($lead->salesperson_id !== Auth::id()) {
-                    abort(403, 'Unauthorized');
-                }
+        if ($lead->salesperson_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
+        }
 
-                return view('sales.lead-view', compact('lead'));
-}
-                public function addReminder(Request $request, $id)
-                {
-                    \Log::info('addReminder called for lead ID: ' . $id, $request->all());
+        return view('sales.lead-view', compact('lead'));
+    }
+    public function addReminder(Request $request, $id)
+    {
+        \Log::info('addReminder called for lead ID: ' . $id, $request->all());
 
-                    $lead = Lead::findOrFail($id);
-                    if ($lead->salesperson_id !== Auth::id()) {
-                        return response()->json(['error' => 'Unauthorized'], 403);
-                    }
+        $lead = Lead::findOrFail($id);
+        if ($lead->salesperson_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
 
-                    $validated = $request->validate([
-                        'title' => 'required|string|max:255',
-                        'due_date' => 'required|date',
-                        'status' => 'required|in:upcoming,overdue,completed',
-                        'recurrence_type' => 'nullable|in:none,daily,weekly,monthly',
-                        'recurrence_time' => 'nullable|date_format:H:i',
-                    ]);
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'due_date' => 'required|date',
+            'status' => 'required|in:upcoming,overdue,completed',
+            'recurrence_type' => 'nullable|in:none,daily,weekly,monthly',
+            'recurrence_time' => 'nullable|date_format:H:i',
+        ]);
 
-                    $validated['is_auto'] = false;
-                    $validated['end_date'] = Carbon::parse($validated['due_date'])->addDays(3);
-                    $validated['last_notify_time'] = null; // Initialize as null
+        $validated['is_auto'] = false;
+        $validated['end_date'] = Carbon::parse($validated['due_date'])->addDays(3);
+        $validated['last_notify_time'] = null; // Initialize as null
 
-                    try {
-                        $reminder = $lead->reminders()->create($validated);
-                        $reminder->notifyUser();
-                        \Log::info("Reminder ID {$reminder->id} created for lead ID {$id}");
-                        return response()->json(['success' => true, 'reminder' => $reminder]);
-                    } catch (\Exception $e) {
-                        \Log::error("Error creating reminder for lead ID {$id}: " . $e->getMessage());
-                        return response()->json(['error' => 'Failed to create reminder: ' . $e->getMessage()], 500);
-                    }
-                }
+        try {
+            $reminder = $lead->reminders()->create($validated);
+            $reminder->notifyUser();
+            \Log::info("Reminder ID {$reminder->id} created for lead ID {$id}");
+            return response()->json(['success' => true, 'reminder' => $reminder]);
+        } catch (\Exception $e) {
+            \Log::error("Error creating reminder for lead ID {$id}: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to create reminder: ' . $e->getMessage()], 500);
+        }
+    }
 
     public function addNote(Request $request, $id)
     {
@@ -345,90 +397,93 @@ class LeadController extends Controller
         return response()->json(['success' => true, 'note' => $note]);
     }
 
- public function getAttachments($id)
-{
-    $lead = Lead::with('attachments')->findOrFail($id);
-    if ($lead->salesperson_id !== Auth::id()) {
-        return response()->json(['error' => 'Unauthorized'], 403);
-    }
-
-    $html = '<table class="table table-bordered table-hover">';
-    $html .= '<thead><tr><th>Name</th><th>Uploaded By</th><th>Date</th><th>Size</th><th>Actions</th></tr></thead>';
-    $html .= '<tbody>';
-    foreach ($lead->attachments as $attachment) {
-        $html .= '<tr>';
-        $html .= '<td>' . basename($attachment->file_location) . '</td>';
-        $html .= '<td>' . ($attachment->user->name ?? 'Unknown') . '</td>';
-        $html .= '<td>' . $attachment->created_at->format('Y-m-d') . '</td>';
-        $html .= '<td>' . round($attachment->file_size / 1024) . ' KB</td>';
-        $html .= '<td>';
-        $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-primary me-2" target="_blank" title="View"><i class="bx bx-show"></i></a>';
-        $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-secondary me-2" download title="Download"><i class="bx bx-download"></i></a>';
-        $html .= '<a href="' . route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) . '" class="text-danger me-2 delete-attachment" title="Delete"><i class="bx bx-trash"></i></a>';
-        $html .= '</td>';
-        $html .= '</tr>';
-    }
-    $html .= '</tbody></table>';
-
-    return $html;
-}
-public function addAttachment(Request $request, $id)
-{
-    $lead = Lead::findOrFail($id);
-    if ($lead->salesperson_id !== Auth::id()) {
-        abort(403, 'Unauthorized');
-    }
-
-    $validated = $request->validate([
-        'attachments' => 'required|array|max:10', // Validate array
-    ]);
-
-    if ($request->hasFile('attachments')) {
-        // Validate each file
-        $validator = Validator::make($request->all(), [
-            'attachments.*' => 'required|mimes:pdf,doc,jpg,png|max:10240',
-        ]);
-
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
-
-        foreach ($request->file('attachments') as $file) {
-            $path = $file->store('leads/' . $lead->id, 'public');
-            LeadAttachment::create([
-                'lead_id' => $lead->id,
-                'user_id' => Auth::id(),
-                'file_size' => $file->getSize(),
-                'file_location' => $path,
-                'file_extension' => $file->getClientOriginalExtension(),
-            ]);
-        }
-    }
-
-    return back()->with('success', 'Attachment added successfully');
-}
-
-    public function deleteAttachment($id, $attachmentId)
-{
-    $lead = Lead::findOrFail($id);
-    if ($lead->salesperson_id !== Auth::id()) {
-        abort(403, 'Unauthorized');
-    }
-
-    $attachment = LeadAttachment::where('lead_id', $id)->findOrFail($attachmentId);
-    \Storage::disk('public')->delete($attachment->file_location);
-    $attachment->delete();
-
-    return response()->json(['success' => true, 'message' => 'Attachment deleted successfully']);
-}
-    public function edit($id)
+    public function getAttachments($id)
     {
-        $lead = Lead::with('user', 'attachments')->findOrFail($id);
+        $lead = Lead::with('attachments')->findOrFail($id);
+        if ($lead->salesperson_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $html = '<div class="table-responsive">';
+        $html .= '<table class="table table-bordered table-hover">';
+        $html .= '<thead><tr><th>Name</th><th>Uploaded By</th><th>Date</th><th>Size</th><th>Actions</th></tr></thead>';
+        $html .= '<tbody>';
+        foreach ($lead->attachments as $attachment) {
+            $html .= '<tr>';
+            $html .= '<td>' . basename($attachment->file_location) . '</td>';
+            $html .= '<td>' . ($attachment->user->name ?? 'Unknown') . '</td>';
+            $html .= '<td>' . $attachment->created_at->format('Y-m-d') . '</td>';
+            $html .= '<td>' . round($attachment->file_size / 1024) . ' KB</td>';
+            $html .= '<td>';
+            $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-primary me-2" target="_blank" title="View"><i class="bx bx-show"></i></a>';
+            $html .= '<a href="' . asset('storage/' . $attachment->file_location) . '" class="text-secondary me-2" download title="Download"><i class="bx bx-download"></i></a>';
+            $html .= '<a href="' . route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) . '" class="text-danger me-2 delete-attachment" title="Delete"><i class="bx bx-trash"></i></a>';
+            $html .= '</td>';
+            $html .= '</tr>';
+        }
+        $html .= '</tbody></table>';
+        $html .= '</div>';
+
+        return $html;
+    }
+    public function addAttachment(Request $request, $id)
+    {
+        $lead = Lead::findOrFail($id);
         if ($lead->salesperson_id !== Auth::id()) {
             abort(403, 'Unauthorized');
         }
-        return view('sales.lead-edit', compact('lead'));
-    }   
+
+        $validated = $request->validate([
+            'attachments' => 'required|array|max:10', // Validate array
+        ]);
+
+        if ($request->hasFile('attachments')) {
+            // Validate each file
+            $validator = Validator::make($request->all(), [
+                'attachments.*' => 'required|mimes:pdf,doc,jpg,png|max:10240',
+            ]);
+
+            if ($validator->fails()) {
+                return back()->withErrors($validator)->withInput();
+            }
+
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('leads/' . $lead->id, 'public');
+                LeadAttachment::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => Auth::id(),
+                    'file_size' => $file->getSize(),
+                    'file_location' => $path,
+                    'file_extension' => $file->getClientOriginalExtension(),
+                ]);
+            }
+        }
+
+        return back()->with('success', 'Attachment added successfully');
+    }
+
+    public function deleteAttachment($id, $attachmentId)
+    {
+        $lead = Lead::findOrFail($id);
+        if ($lead->salesperson_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $attachment = LeadAttachment::where('lead_id', $id)->findOrFail($attachmentId);
+        \Storage::disk('public')->delete($attachment->file_location);
+        $attachment->delete();
+
+        return response()->json(['success' => true, 'message' => 'Attachment deleted successfully']);
+    }
+    public function edit($id)
+    {
+        $lead = Lead::with('user', 'attachments')->findOrFail($id);
+        if ($lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+            abort(403, 'Unauthorized');
+        }
+        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
+        return view('sales.lead-edit', compact('lead', 'salespeople'));
+    }
 
     public function updateSalesperson(Request $request, $id)
     {
@@ -441,7 +496,7 @@ public function addAttachment(Request $request, $id)
         }
 
         $request->validate([
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'artist', 'head-artist'])->pluck('id')->toArray()),
+            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
         ]);
 
         $lead->update(['salesperson_id' => $request->input('salesperson_id')]);
@@ -465,7 +520,7 @@ public function addAttachment(Request $request, $id)
 
         // If status is 'accept', return redirect URL
         if ($request->input('status') === 'accept') {
-            $url = route('job-orders.create', ['lead_id' => $lead->id]);
+            $url = route('orders.create', ['lead_id' => $lead->id]);
             return response()->json([
                 'success' => true,
                 'redirect' => $url
@@ -495,7 +550,7 @@ public function addAttachment(Request $request, $id)
         return response()->json(['message' => 'Lead deleted successfully']);
     }
 
-  public function update(Request $request, $id)
+    public function update(Request $request, $id)
     {
         $lead = Lead::findOrFail($id);
         if ($lead->salesperson_id !== Auth::id()) {
@@ -510,11 +565,11 @@ public function addAttachment(Request $request, $id)
             'phone' => 'required|string|max:20',
             'email' => 'required|email|max:255',
             'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
-            'date' => 'nullable|date',
             'status' => 'required|in:accept,reject,followup,new',
-            'opportunity' => 'nullable|in:50/50,High Chance,Low Chance,None',
+            'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
             'remark' => 'nullable|string',
-            'attachments' => 'nullable|array|max:10', // Remove mimes here, handle individually
+            'attachments' => 'nullable|array|max:10',
+            'attachments.*' => 'mimes:pdf,doc,jpg,png|max:10240',
         ]);
 
         $lead->update([
@@ -525,24 +580,13 @@ public function addAttachment(Request $request, $id)
             'name' => $validated['name'],
             'phone' => $validated['phone'],
             'email' => $validated['email'],
-            'date' => $validated['date'],
             'status' => $validated['status'],
             'opportunity' => $validated['opportunity'],
             'remark' => $validated['remark'],
         ]);
 
         if ($request->hasFile('attachments')) {
-            // Custom validation for each file
-            $validator = Validator::make($request->all(), [
-                'attachments.*' => 'required|mimes:pdf,doc,jpg,png|max:10240', // Validate each file
-            ]);
-
-            if ($validator->fails()) {
-                return back()->withErrors($validator)->withInput();
-            }
-
             foreach ($request->file('attachments') as $file) {
-                Log::info('Uploading file: ' . $file->getClientOriginalName() . ', MIME: ' . $file->getMimeType());
                 $path = $file->store('leads/' . $lead->id, 'public');
                 LeadAttachment::create([
                     'lead_id' => $lead->id,

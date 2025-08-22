@@ -34,11 +34,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const reminderSidebar = document.getElementById('addReminderSidebar');
     const meetingSidebar = document.getElementById('addMeetingSidebar');
 
-    const calendarColors = {
-      meeting: 'primary',
-      reminder: 'warning'
-    };
-
     const bsReminderSidebar = reminderSidebar ? new bootstrap.Offcanvas(reminderSidebar) : null;
     const bsMeetingSidebar = meetingSidebar ? new bootstrap.Offcanvas(meetingSidebar) : null;
 
@@ -60,13 +55,13 @@ document.addEventListener('DOMContentLoaded', function () {
           url: '/leads/search',
           dataType: 'json',
           delay: 250,
-          data: function(params) {
+          data: function (params) {
             return {
               query: params.term,
               _token: $('meta[name="csrf-token"]').attr('content')
             };
           },
-          processResults: function(data) {
+          processResults: function (data) {
             return {
               results: data.map(lead => ({
                 id: lead.id,
@@ -76,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function () {
           },
           cache: true
         },
-        escapeMarkup: function(markup) {
+        escapeMarkup: function (markup) {
           return markup;
         }
       });
@@ -92,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
         templateResult: renderBadges,
         templateSelection: renderBadges,
         minimumResultsForSearch: -1,
-        escapeMarkup: function(markup) {
+        escapeMarkup: function (markup) {
           return markup;
         }
       });
@@ -112,13 +107,13 @@ document.addEventListener('DOMContentLoaded', function () {
           url: '/leads/search',
           dataType: 'json',
           delay: 250,
-          data: function(params) {
+          data: function (params) {
             return {
               query: params.term,
               _token: $('meta[name="csrf-token"]').attr('content')
             };
           },
-          processResults: function(data) {
+          processResults: function (data) {
             return {
               results: data.map(lead => ({
                 id: lead.id,
@@ -128,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function () {
           },
           cache: true
         },
-        escapeMarkup: function(markup) {
+        escapeMarkup: function (markup) {
           return markup;
         }
       });
@@ -186,15 +181,14 @@ document.addEventListener('DOMContentLoaded', function () {
         headers: {
           'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         },
-        success: function(data) {
+        success: function (data) {
+          console.log('Fetched events:', data);
           let filteredEvents = data.filter(event => calendars.includes(event.extendedProps.type) || calendars.includes('all'));
           filteredEvents = filteredEvents.map(event => {
             if (event.extendedProps.type === 'reminder') {
               const startDate = new Date(event.start);
-              //  const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // +10 minutes
               return {
                 ...event,
-                //  end: endDate.toISOString(),
                 allDay: false
               };
             }
@@ -202,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function () {
           });
           successCallback(filteredEvents);
         },
-        error: function(xhr) {
+        error: function (xhr) {
           console.error('Error fetching events:', xhr.status, xhr.responseText);
           alert('Failed to load calendar events.');
         }
@@ -227,9 +221,14 @@ document.addEventListener('DOMContentLoaded', function () {
       direction: direction,
       initialDate: new Date(),
       navLinks: true,
-      eventClassNames: function ({ event: calendarEvent }) {
-        const colorName = calendarColors[calendarEvent._def.extendedProps.type];
-        return ['bg-label-' + colorName];
+      eventDidMount: function (info) {
+        info.el.style.backgroundColor = info.event.backgroundColor;
+        info.el.style.borderColor = info.event.borderColor;
+        info.el.style.color = info.event.textColor || '#fff';
+        const dotEl = info.el.querySelector('.fc-daygrid-event-dot');
+        if (dotEl) {
+          dotEl.style.borderColor = info.event.borderColor;
+        }
       },
       dateClick: function (info) {
         let date = moment(info.date).format('YYYY-MM-DDTHH:mm');
@@ -244,11 +243,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!$('#' + modalId).length) {
           const isReminder = info.event.extendedProps.type === 'reminder';
           const modalBody = `
-            <p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-            <p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-            <p><strong>Status:</strong> <span id="eventStatusDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-            ${isReminder ? '<button type="button" class="btn btn-success btn-confirm-complete mt-2" data-event-id="' + info.event.id + '">Confirm Completed</button>' : ''}
-          `;
+  <p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+  <p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+  <p><strong>Status:</strong> 
+    <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
+      <option value="scheduled" ${info.event.extendedProps.status === "scheduled" ? "selected" : ""}>Scheduled</option>
+      <option value="canceled" ${info.event.extendedProps.status === "canceled" ? "selected" : ""}>Canceled</option>
+      <option value="postponed" ${info.event.extendedProps.status === "postponed" ? "selected" : ""}>Postponed</option>
+      ${isReminder
+              ? `<option value="completed" ${info.event.extendedProps.status === "completed" ? "selected" : ""}>Completed</option>`
+              : ""
+            }
+    </select>
+  </p>
+`;
+
           $('body').append(`
             <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
               <div class="modal-dialog modal-dialog-centered">
@@ -262,6 +271,7 @@ document.addEventListener('DOMContentLoaded', function () {
                   </div>
                   <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger btn-delete-event" data-event-id="${info.event.id}" data-event-type="${info.event.extendedProps.type}">Delete</button>
                     <button type="button" class="btn btn-primary btn-edit-event" data-event-id="${info.event.id}" data-event-type="${info.event.extendedProps.type}">Edit</button>
                   </div>
                 </div>
@@ -293,10 +303,12 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#eventTypeDetail_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '')).text(info.event.extendedProps.type || 'N/A');
         $('#eventStatusDetail_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '')).text(info.event.extendedProps.status || 'N/A');
 
+
+
         const eventModal = new bootstrap.Modal(document.getElementById(modalId));
         eventModal.show();
 
-        $('.btn-edit-event').off('click').on('click', function() {
+        $('.btn-edit-event').off('click').on('click', function () {
           eventModal.hide();
           const eventId = $(this).data('event-id');
           const type = $(this).data('event-type');
@@ -328,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function () {
                   headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                   },
-                  success: function(data) {
+                  success: function (data) {
                     if (data && data.company_name && data.name) {
                       const text = `${data.company_name} - ${data.name}`;
                       $leadSelect.append(new Option(text, leadId, true, true)).trigger('change');
@@ -336,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
                       $leadSelect.append(new Option('Unknown Lead', leadId, true, true)).trigger('change');
                     }
                   },
-                  error: function(xhr) {
+                  error: function (xhr) {
                     console.error('Failed to fetch lead text:', xhr.status, xhr.responseText);
                     $leadSelect.append(new Option('Unknown Lead', leadId, true, true)).trigger('change');
                     if (xhr.status === 403) {
@@ -356,10 +368,11 @@ document.addEventListener('DOMContentLoaded', function () {
               form.querySelector('[name="start_time"]').value = moment(info.event.start).format('YYYY-MM-DDTHH:mm') || '';
               form.querySelector('[name="duration"]').value = moment(info.event.end).diff(moment(info.event.start), 'minutes') || '';
               const meetingType = info.event.extendedProps.meeting_type || 'online';
+              const radios = form.querySelectorAll('[name="type"]');
+              radios.forEach(r => r.checked = false);
               const radio = form.querySelector(`[name="type"][value="${meetingType}"]`);
               if (radio) {
                 radio.checked = true;
-                // Explicitly set visibility before dispatching change event
                 const onlineUrl = document.getElementById('onlineUrl');
                 const offlineLocation = document.getElementById('offlineLocation');
                 if (onlineUrl && offlineLocation) {
@@ -380,13 +393,39 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         });
 
-        $('.btn-confirm-complete').off('click').on('click', function() {
+
+        $('.btn-delete-event').off('click').on('click', function() {
+          if (confirm('Are you sure you want to delete this event?')) {
+            const eventId = $(this).data('event-id');
+            const type = $(this).data('event-type');
+            const id = eventId.replace(`${type}-`, '');
+            $.ajax({
+              url: `/calendar/${type}s/${id}`,
+              type: 'DELETE',
+              headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+              success: function(response) {
+                if (response.success) {
+                  calendar.refetchEvents();
+                  eventModal.hide();
+                } else {
+                  alert('Error deleting event');
+                }
+              },
+              error: function() {
+                alert('Failed to delete event');
+              }
+            });
+          }
+        });
+
+
+        $('.btn-confirm-complete').off('click').on('click', function () {
           const eventId = $(this).data('event-id');
           const confirmModalId = 'confirmCompleteModal_' + eventId.replace(/[^a-zA-Z0-9]/g, '');
           new bootstrap.Modal(document.getElementById(confirmModalId)).show();
         });
 
-        $('#confirmCompleteBtn_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '')).off('click').on('click', function() {
+        $('#confirmCompleteBtn_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '')).off('click').on('click', function () {
           const eventId = $(this).data('event-id');
           $.ajax({
             url: '/calendar/reminders/' + eventId.replace('reminder-', '') + '/complete',
@@ -395,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function () {
               _token: $('meta[name="csrf-token"]').attr('content'),
               confirm: 'yes'
             },
-            success: function(response) {
+            success: function (response) {
               if (response.success) {
                 calendar.refetchEvents();
                 $('#confirmCompleteModal_' + eventId.replace(/[^a-zA-Z0-9]/g, '')).modal('hide');
@@ -404,9 +443,34 @@ document.addEventListener('DOMContentLoaded', function () {
                 alert('Error: ' + response.error);
               }
             },
-            error: function(xhr) {
+            error: function (xhr) {
               console.error('Error confirming completion:', xhr.status, xhr.responseText);
               alert('Failed to confirm completion');
+            }
+          });
+        });
+
+        $(`#eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}`).on('change', function () {
+          const newStatus = $(this).val();
+          const type = info.event.extendedProps.type;
+          const eventId = info.event.id.replace(`${type}-`, '');
+          $.ajax({
+            url: `/calendar/${type}s/${eventId}/update-status`,
+            type: 'POST',
+            data: {
+              _token: $('meta[name="csrf-token"]').attr('content'),
+              status: newStatus
+            },
+            success: function (response) {
+              if (response.success) {
+                calendar.refetchEvents();
+                eventModal.hide();
+              } else {
+                alert('Error updating status');
+              }
+            },
+            error: function (xhr) {
+              alert('Failed to update status');
             }
           });
         });
@@ -428,14 +492,22 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
+    let reminderSubmitting = false;
     const reminderForm = document.getElementById('reminderForm');
     if (reminderForm) {
-      reminderForm.addEventListener('submit', function(e) {
+      $(reminderForm).off('submit').on('submit', function(e) {
         e.preventDefault();
+        if (reminderSubmitting) return;
+        reminderSubmitting = true;
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
         const formData = new FormData(this);
         console.log('Reminder FormData:');
         for (let [key, value] of formData.entries()) {
           console.log(key, value);
+        }
+        if (formData.get('recurrence_time') === '') {
+          formData.delete('recurrence_time');
         }
         const isUpdate = this.querySelector('button[type="submit"]').classList.contains('btn-update-event');
         const url = isUpdate ? '/calendar/reminders/' + formData.get('id') : '/calendar/reminders';
@@ -446,6 +518,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!formData.get('lead_id') || !formData.get('title') || !formData.get('due_date')) {
           alert('Please fill in all required fields: Lead, Title, and Due Date.');
+          reminderSubmitting = false;
+          submitBtn.disabled = false;
           return;
         }
 
@@ -463,7 +537,6 @@ document.addEventListener('DOMContentLoaded', function () {
               calendar.refetchEvents();
               bsReminderSidebar.hide();
               reminderForm.reset();
-              const submitBtn = reminderForm.querySelector('button[type="submit"]');
               submitBtn.classList.remove('btn-update-event');
               submitBtn.innerHTML = 'Add';
               reminderForm.querySelector('.offcanvas-title').innerHTML = 'Add Reminder';
@@ -484,15 +557,24 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
               alert('Failed to add/update reminder');
             }
+          },
+          complete: function() {
+            submitBtn.disabled = false;
+            reminderSubmitting = false;
           }
         });
       });
     }
 
+    let meetingSubmitting = false;
     const meetingForm = document.getElementById('meetingForm');
     if (meetingForm) {
-      meetingForm.addEventListener('submit', function(e) {
+      $(meetingForm).off('submit').on('submit', function(e) {
         e.preventDefault();
+        if (meetingSubmitting) return;
+        meetingSubmitting = true;
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
         const formData = new FormData(this);
         console.log('Meeting FormData:');
         for (let [key, value] of formData.entries()) {
@@ -515,14 +597,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!leadId || !title || !startTime || !duration || !type) {
           alert('Please fill in all required fields: Lead, Title, Start Time, Duration, and Type.');
+          meetingSubmitting = false;
+          submitBtn.disabled = false;
           return;
         }
         if (type === 'online' && (!urlField || urlField.trim() === '')) {
           alert('Please provide a valid URL for online meetings.');
+          meetingSubmitting = false;
+          submitBtn.disabled = false;
           return;
         }
         if (type === 'offline' && (!location || location.trim() === '')) {
           alert('Please provide a location for offline meetings.');
+          meetingSubmitting = false;
+          submitBtn.disabled = false;
           return;
         }
 
@@ -540,7 +628,6 @@ document.addEventListener('DOMContentLoaded', function () {
               calendar.refetchEvents();
               bsMeetingSidebar.hide();
               meetingForm.reset();
-              const submitBtn = meetingForm.querySelector('button[type="submit"]');
               submitBtn.classList.remove('btn-update-event');
               submitBtn.innerHTML = 'Add';
               meetingForm.querySelector('.offcanvas-title').innerHTML = 'Add Meeting';
@@ -563,13 +650,17 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
               alert('Failed to add/update meeting: ' + xhr.responseText);
             }
+          },
+          complete: function() {
+            submitBtn.disabled = false;
+            meetingSubmitting = false;
           }
         });
       });
     }
 
-    document.querySelectorAll('input[name="type"]').forEach(function(radio) {
-      radio.addEventListener('change', function() {
+    document.querySelectorAll('input[name="type"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
         const onlineUrl = document.getElementById('onlineUrl');
         const offlineLocation = document.getElementById('offlineLocation');
         if (onlineUrl && offlineLocation) {
@@ -606,7 +697,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (inlineCalInstance) {
-      inlineCalInstance.config.onChange.push(function(date) {
+      inlineCalInstance.config.onChange.push(function (date) {
         calendar.changeView(calendar.view.type, moment(date[0]).format('YYYY-MM-DD'));
         modifyToggler();
         appCalendarSidebar.classList.remove('show');

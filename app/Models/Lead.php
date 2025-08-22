@@ -14,14 +14,9 @@ class Lead extends Model
         'name',
         'phone',
         'email',
-        'date',
         'status',
         'opportunity',
         'remark',
-    ];
-
-    protected $casts = [
-        'date' => 'date',
     ];
 
     public function user()
@@ -46,6 +41,6 @@ class Lead extends Model
     }
     public function meetings()
     {
-        return $this->hasMany(Meeting::class);
+        return $this->hasMany(Meeting::class)->orderBy('start_time', 'asc');
     }
 }

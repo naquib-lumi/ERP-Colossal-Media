@@ -12,18 +12,18 @@ class Product extends Model
     protected $keyType = 'int';
     public $timestamps = true;
 
-    // allow both camelCase & snake_case columns (in case your table differs)
     protected $fillable = [
         'OrderID',
-        'productName', 'product_name',
-        'totalQuantity', 'total_quantity',
-        'materialRemark', 'material_remark',
-        'productRemark', 'product_remark',
+        'productName',
+        'totalQuantity',
+        'materialRemark',
+        'productRemark',
+        'location',
+        'date_time',
     ];
 
     // ── Relations
-    public function order()
-    {
+    public function order() { 
         return $this->belongsTo(Order::class, 'OrderID', 'id');
     }
 
