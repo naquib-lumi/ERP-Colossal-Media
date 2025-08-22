@@ -25,12 +25,14 @@ class Order extends Model
         //test
     ];
 
-    // Relations
-    // public function user() { 
-    //     return $this->belongsTo(User::class, 'user_id')->withDefault([
-    //         'name' => '—',
-    //     ]);    
-    // }
+
+    protected static function booted()
+{
+    static::created(function ($order) {
+        $order->order_number = '#ORD-' . $order->orderDate->format('Y') . '-' . str_pad($order->id, 3, '0', STR_PAD_LEFT);
+        $order->save();
+    });
+}
 
     public function artist()
     {
