@@ -21,6 +21,7 @@ class Order extends Model
         'draft'     => 'boolean',
         'pending'   => 'boolean',
         'attachments' => 'array',
+        //test
     ];
 
     // Relations
