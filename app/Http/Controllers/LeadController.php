@@ -475,6 +475,7 @@ class LeadController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Attachment deleted successfully']);
     }
+    
     public function edit($id)
     {
         $lead = Lead::with('user', 'attachments')->findOrFail($id);

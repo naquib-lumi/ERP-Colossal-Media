@@ -83,7 +83,7 @@
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
     @endif
 
-    @if (Request::is('sales/leads') || Request::is('sales/calendar'))
+    @if (Request::is('sales/leads') || Request::is('sales/calendar') || Request::is('sales/orders'))
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
         <link rel="stylesheet"
@@ -219,7 +219,7 @@
 </head>
 {{-- DataTables CSS for pages that need it --}}
 
-@if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') || Request::is('sales/leads'))
+@if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') || Request::is('sales/leads') || Request::is('sales/orders'))
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet"
         href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
@@ -304,7 +304,7 @@
     <script src="{{ asset('assets/js/main.js') }}"></script>
 
 
-    @if (Request::is('sales/leads'))
+    @if (Request::is('sales/leads') || Request::is('sales/orders'))
         <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
         <!-- <script src="{{ asset('assets/js/tables-datatables-advanced.js') }}"></script> -->
     @endif
