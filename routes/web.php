@@ -18,6 +18,10 @@ use Illuminate\Support\Facades\Auth;
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/test-notification', [NotificationController::class, 'testSelf'])->name('test-notification');
+Route::get('/test-allnotif', [NotificationController::class, 'testAll'])->name('test-allnotif');
+Route::get('/test-bulknotif', [NotificationController::class, 'testSales'])->name('test-bulknotif');
+
 
 Route::get('/dashboard', function () {
     if (Auth::check()) {
@@ -148,6 +152,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/boss/dashboard', [AdminController::class, 'dashboard'])->name('boss.dashboard');
         Route::get('/boss/reports', [AdminController::class, 'reports'])->name('boss.reports');
     });
+
+
+ 
 });
 
 require __DIR__ .'/auth.php';

@@ -13,4 +13,10 @@ class Helpers
     {
         return "body { --bs-primary: $color; }";
     }
+
+    public static function notify($receiver, $message, $url, $via = ['database'])
+    {
+        $receiver->notify(new \App\Notifications\GenericNotification($message, $url, $via));
+    }
+
 }

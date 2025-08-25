@@ -86,7 +86,7 @@ class OrderController extends Controller
             })
             ->addColumn('actions', function ($order) {
                 $editRoute = route('orders.edit', $order->id);
-                $leadViewRoute = route('leads.show', $order->lead_id);
+                $leadViewRoute = route('orders.show', $order->id);
                 $html = '<div class="actions-cell d-flex gap-2">' .
                         '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
                         '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';

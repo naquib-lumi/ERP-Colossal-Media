@@ -34,12 +34,13 @@ class SalesController extends Controller
             
 
         // Fetch upcoming meetings for the authenticated user (placeholder until Meeting model is implemented)
-        $meetings = $user->meetings()
-            ->where('start_time', '>=', Carbon::now())
-            ->orderBy('start_time')
-            ->take(3) // Limit to 3 nearest meetings
-            ->get();
+      $meetings = $user->meetings()
+        ->where('start_time', '>=', Carbon::now())
+        ->orderBy('start_time')
+        ->take(3)
+        ->get() ?? collect();
 
+        
         $orders = []; // Placeholder until Order model is implemented
 
         // Calculate monthly status counts for the current year up to the current month
