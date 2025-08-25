@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Job Order Details – #ORD-'.str_pad($order->id, 4, '0', STR_PAD_LEFT))
+@section('title', 'Job Order Details – '.str_pad($order->order_number, 4, '0', STR_PAD_LEFT))
 
 @section('content')
 <div class="container-xxl py-3">
@@ -8,7 +8,7 @@
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h4 class="mb-0">
-            Job Order Details – #ORD-{{ str_pad($order->id, 4, '0', STR_PAD_LEFT) }}
+            Job Order Details – {{ str_pad($order->order_number, 4, '0', STR_PAD_LEFT) }}
         </h4>
 
         {{-- hook up to your existing export if available --}}

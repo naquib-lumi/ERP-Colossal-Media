@@ -330,6 +330,12 @@ class ArtistController extends Controller
                 $order->artist_id = Auth::id();
             }
 
+            $order->loadMissing([
+                'products' => fn ($q) => $q->orderBy('ProductID'),
+                'products.items' => fn ($q) => $q->orderBy('ItemID'), // relation on Product model
+                'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+            ]);
+
             $order->save();
         }
 
@@ -337,30 +343,30 @@ class ArtistController extends Controller
         $today     = now()->format('M d, Y');
 
         $product = Product::with([
-            'deliveryBreakdowns' => function ($q) {
+            'items.spec','deliveryBreakdowns' => function ($q) {
                 // select only real columns – no "id" here
                 $q->select('BreakdownID', 'ProductID', 'method', 'location', 'quantity', 'date', 'time')
                 ->orderBy('BreakdownID');
             },
         ])->where('OrderID', $order->id)->first();
 
-            $deliveries = $product
-                ? DeliveryBreakdown::where('ProductID', $product->ProductID)
-                    ->orderBy('BreakdownID')
-                    ->get(['BreakdownID as id','method','location','quantity','date','time'])
-                : collect();
-
-            if ($product) {
-            $deliveries = DeliveryBreakdown::where('ProductID', $product->ProductID)
+        $deliveries = $product
+            ? DeliveryBreakdown::where('ProductID', $product->ProductID)
                 ->orderBy('BreakdownID')
-                ->get([
-                    'BreakdownID as id',
-                    'method',
-                    'location',
-                    'quantity',
-                    'date',
-                    'time',
-                ]);
+                ->get(['BreakdownID as id','method','location','quantity','date','time'])
+            : collect();
+
+        if ($product) {
+        $deliveries = DeliveryBreakdown::where('ProductID', $product->ProductID)
+            ->orderBy('BreakdownID')
+            ->get([
+                'BreakdownID as id',
+                'method',
+                'location',
+                'quantity',
+                'date',
+                'time',
+            ]);
         }
 
         $items = DB::table('product_items as pi')
