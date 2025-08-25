@@ -1325,6 +1325,10 @@
             inp.classList.toggle('is-invalid', !ok);
             inp.setAttribute('aria-invalid', String(!ok));
           });
+
+          // disable submit buttons if invalid
+          document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
+          document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
         }
 
         function validateItems() {
@@ -1440,11 +1444,13 @@
           const n = parseFloat((totalEl?.value ?? '').trim());
           return Number.isFinite(n) ? n : 0;
         }
+
         function sumDeliveryQty() {
           let sum = 0;
           delWrap.querySelectorAll('.del-qty').forEach(inp => { const v = parseFloat(inp.value || '0'); if (!Number.isNaN(v)) sum += v; });
           return sum;
         }
+
         function setQtyValidity(ok, msg = '') {
           const id = `del-qty-msg-${pIndex}`;
           let box = root.querySelector('#' + id);
@@ -1459,7 +1465,11 @@
             inp.classList.toggle('is-invalid', !ok);
             inp.setAttribute('aria-invalid', String(!ok));
           });
+
+          document.getElementById('btn-submit')?.toggleAttribute('disabled', !ok);
+          document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
         }
+
         function validateDeliveries() {
           const ok = sumDeliveryQty() <= getTotalAllowed();
           setQtyValidity(ok, ok ? '' : 'Delivery quantities exceed Product Total Quantity.');
@@ -1590,8 +1600,6 @@
         }
       }
     });
-
-
   })();
 
   // upload attachemnt -------------------------------------------------------
