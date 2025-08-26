@@ -30,7 +30,7 @@
         <div class="input-group" style="max-width:320px">
           <span class="input-group-text bg-white border-end-0"><i class="bx bx-search"></i></span>
           <input id="ff-search" type="text" class="form-control border-start-0"
-                 placeholder="Search by Product ID or Job Title">
+                 placeholder="Search by Product Name">
         </div>
 
         <select id="ff-task" class="form-select w-auto">
@@ -127,39 +127,38 @@
   status.addEventListener('change', load);
 
   // DataTables init (id inside the partial)
-function initDT(){
-  if (!window.jQuery || !$.fn.DataTable) return;
-  const $t = $('#ff-table');
+  function initDT(){
+    if (!window.jQuery || !$.fn.DataTable) return;
+    const $t = $('#ff-table');
 
-  if ($.fn.dataTable.isDataTable($t)) {
-    $t.DataTable().destroy();
+    if ($.fn.dataTable.isDataTable($t)) {
+        $t.DataTable().destroy();
+    }
+
+    $t.DataTable({
+        dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
+        paging: true,
+        pageLength: 5,
+        order: [],
+        autoWidth: false,
+        responsive: true,
+        buttons: [
+        // your buttons if any
+        ],
+        // IMPORTANT: fill missing cells automatically so one short row won't explode
+        columnDefs: [
+        { targets: '_all', defaultContent: '' },
+        { targets: -1, orderable: false, searchable: false, className: 'text-end' }
+        ],
+        language: {
+        emptyTable: 'No results',
+        zeroRecords: 'No results',
+        info: 'Showing _START_ to _END_ of _TOTAL_ results',
+        paginate: { previous: 'Previous', next: 'Next' }
+        },
+        drawCallback: function(){ this.api().columns.adjust().responsive.recalc(); }
+    });
   }
-
-  $t.DataTable({
-    dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
-    paging: true,
-    pageLength: 5,
-    order: [],
-    autoWidth: false,
-    responsive: true,
-    buttons: [
-      // your buttons if any
-    ],
-    // IMPORTANT: fill missing cells automatically so one short row won't explode
-    columnDefs: [
-      { targets: '_all', defaultContent: '' },
-      { targets: -1, orderable: false, searchable: false, className: 'text-end' }
-    ],
-    language: {
-      emptyTable: 'No results',
-      zeroRecords: 'No results',
-      info: 'Showing _START_ to _END_ of _TOTAL_ results',
-      paginate: { previous: 'Previous', next: 'Next' }
-    },
-    drawCallback: function(){ this.api().columns.adjust().responsive.recalc(); }
-  });
-}
-
   initDT();
 })();
 </script>

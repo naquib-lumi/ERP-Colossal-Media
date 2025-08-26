@@ -50,14 +50,14 @@
       </td>
 
       <td class="text-end">
-        <a href="{{ $r->show_url }}" class="btn btn-outline-secondary btn-icon" title="View">
-          <i class="bx bx-show"></i>
+        <a href="{{ $r->show_url }}" class="text-secondary" title="View">
+          <i class="bx bx-show fs-5"></i>
         </a>
-        <a href="{{ $r->edit_url }}" class="btn btn-outline-secondary btn-icon" title="Edit">
-          <i class="bx bx-edit"></i>
+        <a href="{{ $r->edit_url }}" class="text-secondary" title="Edit">
+          <i class="bx bx-edit-alt fs-5"></i>
         </a>
-        <a href="{{ $r->assign_url }}" class="btn btn-outline-secondary btn-icon" title="Assign">
-          <i class="bx bx-user-plus"></i>
+        <a href="{{ $r->assign_url }}" class="text-secondary" title="Report">
+          <i class="bx bx-error-alt fs-5"></i>
         </a>
       </td>
     </tr>
