@@ -255,7 +255,7 @@
 <form id="order-form" action="{{ route('artist.orders.update', $order) }}" method="POST" enctype="multipart/form-data">
   @csrf
   @method('PUT')
-
+<input type="hidden" id="is_draft" name="is_draft" value="0">
   <div class="row g-4">
     <div class="col-12">
       <div class="card">
@@ -351,8 +351,8 @@
           </div>
 
           <div class="accordion" id="productsAcc">
-
             @foreach($order->products as $pIndex => $product)
+            <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
             <div class="accordion-item">
               <h2 class="accordion-header" id="pHead{{ $pIndex }}">
                 <button
@@ -434,9 +434,7 @@
                       $items = $product->items ?? [];
                       @endphp
                       {{-- make the accordion id unique per product --}}
-                      <div class="accordion" id="productItems-{{ $pIndex }}"
-                        data-start-number="1"
-                        data-next-index="{{ count($items ?? []) }}">
+                      <div class="accordion" id="productItems-{{ $pIndex }}" data-start-number="1" data-next-index="{{ count($items ?? []) }}">
                         @foreach ($items as $i => $it)
                           @php
                             $materialVal = data_get($it, 'material');
@@ -449,10 +447,8 @@
                             $materialSuggestions = collect($materials ?? [])
                               ->pluck('materialName')->filter()->values();
                           @endphp
-
-                          <div class="accordion-item mb-3 border rounded"
-                                id="item{{ $pIndex }}_{{ $i }}"
-                                data-kind="item">
+                          <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
+                          <div class="accordion-item mb-3 border rounded" id="item{{ $pIndex }}_{{ $i }}" data-kind="item">
                             <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
                               <div>
                                 <span class="fw-semibold">
@@ -492,10 +488,6 @@
                                 class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}"
                                 data-bs-parent="#productItems-{{ $pIndex }}">
                               <div class="accordion-body">
-                                <input type="hidden"
-                                      name="products[{{ $pIndex }}][items][{{ $i }}][id]"
-                                      value="{{ data_get($it,'ItemID') }}">
-
                                 <div class="row g-3">
                                   <div class="col-md-6">
                                     <label class="form-label">Item Name</label>
