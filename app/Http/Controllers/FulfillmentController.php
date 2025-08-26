@@ -116,42 +116,84 @@ class FulfillmentController extends Controller
         $order = $product->order()->first();
 
         $product->load([
-            'order:id,orderTitle,order_number,companyName,leadName,leadPhone,leadEmail,deadline,created_at',
-            'items',            // or list the columns you want
-            'items.spec',       // <-- use the correct relation name
-            'deliveryBreakdowns'
+            // Order + people
+            'order:id,order_number,orderTitle,companyName,leadName,leadPhone,leadEmail,deadline,created_at,artist_id,salesperson_id,orderAttachment',
+            'order.artist:id,name',
+            'order.salesperson:id,name',
+
+            'items' => function ($q) {
+                $q->select('ItemID','ProductID','itemName','quantity',
+                        'sizeWidth','sizeHeight','sizeLength',
+                        'bleedTop','bleedBottom','bleedLeft','bleedRight',
+                        'finishing','material')
+                ->with('spec:SpecificationID,ItemID,printer,cutter,lamination'); 
+                // <-- no "id" here, use SpecID as PK
+            },
+
+            // Delivery rows (their PK is BreakdownID)
+            'deliveryBreakdowns',
         ]);
+
+        $order = $product->order;
 
         // Attachments are stored on order (you already have helpers)
         $attachments = [];
         if (method_exists($this, 'getOrderAttachments')) {
+            // returns array of storage paths (your existing helper)
             $attachments = (array) $this->getOrderAttachments($order);
-        } elseif ($order && $order->orderAttachment) {
-            $raw = $order->orderAttachment;
-            $decoded = is_array($raw) ? $raw : json_decode($raw, true);
-            $attachments = is_array($decoded) ? $decoded : [];
+        } else {
+            $raw = $order?->orderAttachment;
+            if (is_string($raw) && trim($raw) !== '') {
+                $decoded = json_decode($raw, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $attachments = $decoded;
+                } else {
+                    // if a single path/string was stored
+                    $attachments = [$raw];
+                }
+            } elseif (is_array($raw)) {
+                $attachments = $raw;
+            }
         }
-
 
         $taskTypes = ['printing','furnishing','installation','delivery'];
         $progress = collect($taskTypes)->mapWithKeys(function ($t) use ($product) {
             $isThisTask = strtolower($product->taskType ?? '') === $t;
-            $status = $isThisTask ? ($product->status ?? 'pending') : 'pending';
-            return [$t => [
-                'status' => $status,         
-                'accepted_at'  => null,     
-                'completed_at' => null,      
-                'duration'     => null,      
-            ]];
+            $status     = $isThisTask ? (strtolower($product->status ?? 'in_progress')) : 'pending';
+
+            return [
+                $t => [
+                    'status'       => $status,   // 'in_progress' | 'completed' | 'pending' | 'rejected'
+                    'accepted_at'  => null,      // fill if you later track them
+                    'completed_at' => null,
+                    'duration'     => null,
+                ],
+            ];
         });
+
+        // Deliveries for this product (sorted, nulls last)
+        $deliveries = $product->deliveryBreakdowns()
+            ->orderByRaw('CASE WHEN `date` IS NULL THEN 1 ELSE 0 END, `date` ASC, `time` ASC')
+            ->get();
+
+        $vm = [
+            'created_by' => $order?->salesperson?->name ?? '-',  // ① Created by
+            'artist'     => $order?->artist?->name ?? '-',       // ③ Artist
+            'attachments'=> $attachments,                        // ⑤ Order attachments list (array of storage paths/urls)
+            // keep the rest raw so your partials can iterate easily
+            'product'    => $product,
+            'order'      => $order,
+            'items'      => $product->items,
+            'breakdowns' => $product->deliveryBreakdowns,
+        ];
 
         return view('artist.fulfillment.product-show', [
             'product'     => $product,
-            'order'       => $product->order,
-            'items'       => $product->items,
-            'deliveries'  => $product->deliveryBreakdowns,
-            'attachments' => $attachments,
-            'progress'    => $progress,
+            'order'       => $order,
+            'items'      => $product->items,
+            'attachments' => $attachments,   // your existing attachments array
+            'progress'    => $progress,      // ← new
+            'deliveries'  => $deliveries,    // ← new
         ]);
     }
 

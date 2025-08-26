@@ -69,7 +69,7 @@
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-start">
         <h6 class="mb-3">Job Order Information</h6>
-        <span class="badge bg-light text-muted">ORD-{{ $order->order_number ?? $order->id }}</span>
+        <span class="badge bg-light text-muted">{{ $order->order_number ?? $order->id }}</span>
       </div>
       <div class="row g-3">
         <div class="col-md-6">
@@ -78,7 +78,7 @@
         </div>
         <div class="col-md-6">
           <div class="key">Created By</div>
-          <div class="fw-semibold">{{ $order->salesperson_id ? ('Salesperson ' . $order->salesperson_id) : '-' }}</div>
+          <div class="fw-semibold">{{ $order->salesperson->name ?? '-' }}</div>
         </div>
 
         <div class="col-md-6">
@@ -100,18 +100,22 @@
         </div>
 
         <div class="col-md-6">
-          <div class="key">Attachment from Lead</div>
-          <div>
-            @if(count($attachments))
-              @foreach($attachments as $a)
-                <a class="d-inline-flex align-items-center gap-1 me-3" target="_blank" href="{{ Storage::disk('public')->url($a) }}">
-                  <i class="bx bx-file"></i> <span class="text-decoration-underline">{{ basename($a) }}</span>
-                </a>
-              @endforeach
-            @else
-              -
-            @endif
-          </div>
+          @php $leadFirst = $attachments[0] ?? null; @endphp
+          @if($leadFirst)
+            <div class="mt-2">
+              <div class="text-muted small">Attachment from Lead</div>
+              <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($leadFirst) }}"
+                class="d-inline-flex align-items-center gap-2" target="_blank">
+                <i class="bx bxs-file-pdf"></i>
+                {{ basename($leadFirst) }}
+              </a>
+            </div>
+          @else
+            <div class="mt-2">
+              <div class="text-muted small">Attachment from Lead</div>
+              <span class="text-muted">-</span>
+            </div>
+          @endif
         </div>
       </div>
     </div>
@@ -122,7 +126,7 @@
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h6 class="mb-0">Product & Breakdown Details</h6>
-        <span class="badge bg-light text-muted">Artist {{ $order->artist_id ?? '—' }}</span>
+        <span class="badge bg-light text-muted">Artist {{ $order->artist->name ?? '-' }}</span>
       </div>
 
       <div class="border rounded p-3 mb-3">
@@ -135,45 +139,56 @@
       </div>
 
       {{-- Items --}}
-      @forelse($items as $i)
-        <div class="row g-3 border-bottom py-3">
-          <div class="col-md-3">
-            <div class="key">Item {{ $loop->iteration }}</div>
-            <div class="fw-semibold">{{ $i->itemName ?? '-' }}</div>
-            <div class="key">Quantity per Item</div>
-            <div class="fw-semibold">{{ $i->quantity ?? '-' }}</div>
-          </div>
-          <div class="col-md-3">
-            <div class="key">Size</div>
+      @foreach($product->items as $i => $item)
+        @php
+          $spec = $item->spec;   // <-- SPEC FOR THIS ITEM ONLY
+        @endphp
+
+        <hr class="my-4">
+
+        <div class="row">
+          <div class="col-md-6">
+            <div class="key">Item {{ $i+1 }}</div>
+            <div class="fw-semibold">{{ $item->itemName ?? '-' }}</div>
+
+            <div class="key mt-3">Quantity per Item</div>
+            <div class="fw-semibold">{{ $item->quantity ?? '-' }}</div>
+
+            <div class="key mt-3">Size</div>
             <div class="fw-semibold">
-              {{ $i->sizeWidth ?? '-' }} × {{ $i->sizeHeight ?? '-' }} @if(!empty($i->sizeLength)) × {{ $i->sizeLength }} @endif (inches)
+              {{ optional($item)->sizeWidth }} × {{ optional($item)->sizeHeight }}
+              @if(!empty($item->sizeLength)) × {{ $item->sizeLength }} @endif
             </div>
-            <div class="key">Bleed Size</div>
+
+            <div class="key mt-3">Bleed Size</div>
             <div class="fw-semibold">
-              {{ $i->bleedWidth ?? ($i->bleedLeft ?? '-') }} × {{ $i->bleedHeight ?? ($i->bleedTop ?? '-') }}
+              {{ $item->bleedTop ?? 0 }} × {{ $item->bleedLeft ?? 0 }}
             </div>
-          </div>
-          <div class="col-md-3">
-            <div class="key">Material</div>
+
+            <div class="key mt-3">Material</div>
             <div class="fw-semibold">
-              @php $m = $i->material ?? []; $m = is_array($m) ? $m : (strlen($m) ? explode(',', $m) : []); @endphp
-              {{ $m ? implode(', ', array_map('trim',$m)) : '-' }}
+              @php
+                $materials = is_array($item->material) ? $item->material : (array) $item->material;
+              @endphp
+              {{ count($materials) ? implode(', ', array_filter($materials)) : '-' }}
             </div>
-            <div class="key">Finishing</div>
-            <div class="fw-semibold">{{ $i->finishing ?? '-' }}</div>
+
+            <div class="key mt-3">Finishing</div>
+            <div class="fw-semibold">{{ $item->finishing ?: '-' }}</div>
           </div>
-          <div class="col-md-3">
+
+          <div class="col-md-6">
             <div class="key">Printer</div>
-            <div class="fw-semibold">{{ optional($i->specification)->printer ?? '-' }}</div>
-            <div class="key">Cutter</div>
-            <div class="fw-semibold">{{ optional($i->specification)->cutter ?? '-' }}</div>
-            <div class="key">Lamination</div>
-            <div class="fw-semibold">{{ optional($i->specification)->lamination ?? '-' }}</div>
+            <div class="fw-semibold">{{ $spec->printer ?? '-' }}</div>
+
+            <div class="key mt-3">Cutter</div>
+            <div class="fw-semibold">{{ $spec->cutter ?? '-' }}</div>
+
+            <div class="key mt-3">Lamination</div>
+            <div class="fw-semibold">{{ $spec->lamination ?? '-' }}</div>
           </div>
         </div>
-      @empty
-        <div class="text-muted">No product items.</div>
-      @endforelse
+      @endforeach
     </div>
   </div>
 
@@ -221,35 +236,32 @@
   </div>
 
   {{-- Attachments --}}
-  <div class="card mb-3">
+  <div class="card mt-4 mb-4">
     <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="mb-0">Attachments</h6>
-        <span class="badge bg-light text-muted">Artist {{ $order->artist_id ?? '—' }}</span>
-      </div>
+      <h6 class="mb-3">Attachments</h6>
 
-      @forelse($attachments as $a)
+      @forelse($attachments as $path)
         @php
-          $url  = Storage::disk('public')->url($a);
-          $name = basename($a);
+          $name = basename($path);
+          $url  = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
         @endphp
-        <div class="file-row d-flex align-items-center justify-content-between mb-2">
+        <div class="d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2">
           <div class="d-flex align-items-center gap-2">
-            <i class="bx bx-file"></i>
-            <span class="fw-semibold">{{ $name }}</span>
+            <i class="bx bxs-file"></i>
+            <span>{{ $name }}</span>
           </div>
-          <a class="btn btn-outline-secondary btn-sm" href="{{ $url }}" target="_blank" download>
-            <i class="bx bx-download"></i>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ $url }}" target="_blank">
+            <i class="bx bx-download me-1"></i> Download
           </a>
         </div>
       @empty
-        <div class="text-muted">No files uploaded.</div>
+        <div class="text-muted">No attachments</div>
       @endforelse
     </div>
   </div>
 
   <div class="text-end">
-    <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">Close</a>
+    <a href="{{ url()->previous() }}" class="btn btn-secondary">Close</a>
   </div>
 </div>
 @endsection
