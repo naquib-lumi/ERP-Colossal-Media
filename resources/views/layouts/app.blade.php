@@ -87,6 +87,12 @@ html.layout-menu-hover .logo-text {
                   <div data-i18n="Job Orders">Job Orders</div>
                 </a>
               </li>
+              <li class="menu-item {{ request()->routeIs('artist.fulfillment.index') ? 'active' : '' }}">
+                <a href="{{ route('artist.fulfillment.index') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-file"></i>
+                  <div data-i18n="Fulfillment">Fulfillment</div>
+                </a>
+              </li>
             @endif
             @if (auth()->user()->role === 'Admin')
               <li class="menu-item {{ request()->routeIs('admin.settings') ? 'active' : '' }}">

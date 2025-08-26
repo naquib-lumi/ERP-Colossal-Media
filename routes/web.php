@@ -10,6 +10,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\FulfillmentController;
 
 use App\Http\Controllers\ArtistController;
 use Illuminate\Support\Facades\Route;
@@ -127,6 +128,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/artist/orders/{order}/assign', [ArtistController::class, 'showAssign'])->name('artist.orders.assign.show');
         Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'storeAssign'])->middleware('role:head-artist')->name('artist.orders.assign.store');
         Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show');
+        Route::get('/artist/fulfillment', [FulfillmentController::class, 'index'])->name('artist.fulfillment.index');
+        Route::get('/artist/fulfillment/export', [FulfillmentController::class, 'export'])->name('artist.fulfillment.export');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])

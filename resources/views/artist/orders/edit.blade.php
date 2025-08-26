@@ -455,7 +455,7 @@
                                   Item <span class="item-number">{{ $i + 1 }}</span>
                                 </span>
                                 <span class="text-body-secondary ms-2 small item-summary">
-                                  {{ data_get($it, 'itemName') }}@if(data_get($it,'quantity')) • {{ data_get($it,'quantity') }}@endif
+                                  {{ data_get($it, 'itemName') }}@if(data_get($it,'itemquantity')) • {{ data_get($it,'itemquantity') }}@endif
                                 </span>
                               </div>
 
@@ -499,7 +499,7 @@
                                   <div class="col-md-3">
                                     <label class="form-label">Quantity</label>
                                     <input type="number" min="0" class="form-control"
-                                      name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
+                                      name="products[{{ $pIndex }}][items][{{ $i }}][itemquantity]"
                                       value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}">
                                   </div>
 
@@ -1267,7 +1267,7 @@
 
         function updateSummary(wrap) {
           const name = wrap.querySelector('input[name$="[itemName]"]')?.value || '';
-          const qty  = wrap.querySelector('input[name$="[quantity]"]')?.value
+          const qty  = wrap.querySelector('input[name$="[itemquantity]"]')?.value
                     || wrap.querySelector('input[name$="[qty]"]')?.value || '';
           const el = wrap.querySelector('.item-summary');
           if (el) el.textContent = name + (qty ? ` • ${qty}` : '');
@@ -1333,9 +1333,9 @@
         function validateItems() {
           const total = getTotalAllowed();
           const sum   = sumItemQty();
-          setItemQtyValidity(sum <= total,
-            sum <= total ? '' : `Item quantities (${sum}) exceed Total Quantity (${total}).`
-          );
+          // setItemQtyValidity(sum <= total,
+          //   sum <= total ? '' : `Item quantities (${sum}) exceed Total Quantity (${total}).`
+          // );
         }
 
         // wire existing & hook add
