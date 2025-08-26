@@ -52,4 +52,9 @@ class DeliveryBreakdown extends Model
 
         return $date->copy()->setTimeFromTimeString($time);
     }
+
+    public function getRouteKeyName()
+    {
+        return 'BreakdownID';
+    }
 }

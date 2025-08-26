@@ -791,14 +791,19 @@
                           @endphp
 
                           @forelse($productDeliveries as $i => $d)
-                            {{-- same card, but keep names under products[pIndex][deliveries][i][…] --}}
-                            <div class="card mb-3" data-delivery
-                                data-id="{{ $d->id }}"
-                                data-url="{{ route('artist.orders.delivery.destroy', ['order' => $order, 'delivery' => $d]) }}">
+                            <div class="card mb-3"
+                                  data-delivery
+                                  data-id="{{ $d->getKey() }}"   {{-- or $d->BreakdownID --}}
+                                  data-url="{{ route('artist.orders.delivery.destroy', ['order' => $order, 'delivery' => $d->getKey()]) }}">
                               <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                  <div class="fw-semibold">Delivery <span class="delivery-index">{{ $i + 1 }}</span></div>
-                                  <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete" data-remove>
+                                  <div class="fw-semibold">
+                                    Delivery <span class="delivery-index">{{ $i + 1 }}</span>
+                                  </div>
+                                  <button type="button"
+                                          class="btn btn-link p-0 text-danger delete-delivery"
+                                          title="Delete"
+                                          data-remove>
                                     <i class="bx bx-trash fs-5"></i>
                                   </button>
                                 </div>
@@ -812,7 +817,7 @@
                                   } catch (\Throwable $e) { $dtValue = ''; }
                                 @endphp
 
-                                <input type="hidden" name="products[{{ $pIndex }}][deliveries][{{ $i }}][id]" value="{{ $d->id }}">
+                                <input type="hidden" name="products[{{ $pIndex }}][deliveries][{{ $i }}][id]" value="{{ $d->getKey() }}">
 
                                 <div class="row g-3">
                                   <div class="col-12 col-md-3">
@@ -1245,14 +1250,16 @@
         function wireRow(wrap) {
           if (!wrap || wrap.dataset.wired === '1') return;
           wrap.dataset.wired = '1';
-          const delBtn = wrap.querySelector('.remove-item-btn, .delete-item');
-          if (delBtn) {
-            delBtn.addEventListener('click', (e) => {
+          const localRemoveBtn = wrap.querySelector('[data-remove]');
+          if (localRemoveBtn) {
+            localRemoveBtn.addEventListener('click', (e) => {
               e.preventDefault();
               wrap.remove();
               renumberOnly();
               validateItems();
-              acc.dataset.nextIndex = String(acc.querySelectorAll('.accordion-item[data-kind="item"]').length);
+              acc.dataset.nextIndex = String(
+                acc.querySelectorAll('.accordion-item[data-kind="item"]').length
+              );
             });
           }
           wrap.addEventListener('input', () => updateSummary(wrap), { passive: true });
@@ -1394,14 +1401,19 @@
           e.preventDefault();
 
           const card = btn.closest('[data-delivery]');
-          const id   = card?.dataset.id || card?.querySelector('input[name$="[id]"]')?.value || '';
-          const url  = card?.dataset.url || '';
+          if (!card || card.dataset.deleting === '1') return; // guard against double click
+
+          const id  = card?.dataset.id || card?.querySelector('input[name$="[id]"]')?.value || '';
+          const url = card?.dataset.url || '';
 
           const confirmed = await (window.Swal
             ? Swal.fire({
-                icon:'warning', title:'Delete this delivery?',
+                icon: 'warning',
+                title: 'Delete this delivery?',
                 text: id ? 'This will delete it permanently.' : 'This will remove the row.',
-                showCancelButton:true, confirmButtonText:'Delete', confirmButtonColor:'#d33'
+                showCancelButton: true,
+                confirmButtonText: 'Delete',
+                confirmButtonColor: '#d33'
               }).then(r => r.isConfirmed)
             : Promise.resolve(confirm('Delete this delivery?'))
           );
@@ -1411,23 +1423,57 @@
             card.remove();
             reindexDeliveries();
             validateDeliveries();
-            if (window.Swal) Swal.fire({ icon:'success', title:'Deleted', timer:1100, showConfirmButton:false });
-          }
-
-          if (id && url) {
-            try {
-              const res  = await fetch(url, { method:'DELETE',
-                headers:{ 'X-CSRF-TOKEN': window.CSRF_TOKEN, 'Accept':'application/json' }});
-              const data = await res.json().catch(() => ({}));
-              if (res.ok && data?.ok) return void (await removeCard());
-              const msg = data?.message || `HTTP ${res.status}`;
-              return void (window.Swal ? Swal.fire({icon:'error', title:'Delete failed', text:msg}) : alert('Delete failed: ' + msg));
-            } catch (err) {
-              return void (window.Swal ? Swal.fire({icon:'error', title:'Network error', text:String(err)}) : alert('Network error: ' + err));
+            if (window.Swal) {
+              Swal.fire({ icon: 'success', title: 'Deleted', timer: 1100, showConfirmButton: false });
             }
           }
 
-          await removeCard();
+          // If it’s an unsaved card (no ID), just remove from the DOM.
+          if (!id || !url) {
+            await removeCard();
+            return;
+          }
+
+          // Saved row → call server; only remove when it succeeds.
+          card.dataset.deleting = '1';
+          btn.disabled = true;
+
+          try {
+            const res = await fetch(url, {
+              method: 'DELETE',
+              credentials: 'same-origin',
+              headers: {
+                'X-CSRF-TOKEN': window.CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+              }
+            });
+
+            // Try to parse JSON; if not JSON, make an empty object
+            let data = {};
+            try { data = await res.json(); } catch {}
+
+            if (res.ok && data?.ok) {
+              await removeCard();
+            } else {
+              const msg = data?.message || `HTTP ${res.status}`;
+              if (window.Swal) {
+                await Swal.fire({ icon: 'error', title: 'Delete failed', text: msg });
+              } else {
+                alert('Delete failed: ' + msg);
+              }
+              // DO NOT remove the card when delete fails
+            }
+          } catch (err) {
+            if (window.Swal) {
+              await Swal.fire({ icon: 'error', title: 'Network error', text: String(err) });
+            } else {
+              alert('Network error: ' + err);
+            }
+          } finally {
+            delete card.dataset.deleting;
+            btn.disabled = false;
+          }
         });
 
         // qty guard just for this product’s deliveries
