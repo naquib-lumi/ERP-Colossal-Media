@@ -34,7 +34,7 @@
       {{-- Delivery Date (one per row) --}}
       <td>
         @if($r->deliv_date)
-          {{ $r->deliv_date }}@if($r->deliv_time) {{ ' ' . $r->deliv_time }} @endif
+          {{ $r->deliv_date }}@if($r->deliv_time) @endif
         @else
           <span></span> <i class="bx bx-error-circle text-warning" title="Missing delivery date"></i>
         @endif
@@ -50,7 +50,7 @@
       </td>
 
       <td class="text-end">
-        <a href="{{ $r->show_url }}" class="text-secondary" title="View">
+        <a href="{{ route('artist.fulfillment.product.show', $r->id) }}" class="text-secondary" title="View">
           <i class="bx bx-show fs-5"></i>
         </a>
         <a href="{{ $r->edit_url }}" class="text-secondary" title="Edit">

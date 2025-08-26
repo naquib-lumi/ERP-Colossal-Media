@@ -16,7 +16,7 @@ class FulfillmentController extends Controller
         $q      = trim($request->get('q', ''));        
         $task   = trim($request->get('task', ''));    
         $status = trim($request->get('status', '')); 
-        
+
         // --- Base query: products with their order + delivery rows
         $products = Product::with([
             'order:id,orderTitle,deadline',
@@ -108,5 +108,57 @@ class FulfillmentController extends Controller
                 'status' => $request->get('status',''),
             ],
         ]);
+    }
+
+    public function show(Request $request, Product $product)
+    {
+        $user = $request->user();
+        $order = $product->order()->first();
+
+        $product->load([
+            'order:id,orderTitle,order_number,companyName,leadName,leadPhone,leadEmail,deadline,created_at',
+            'items',            // or list the columns you want
+            'items.spec',       // <-- use the correct relation name
+            'deliveryBreakdowns'
+        ]);
+
+        // Attachments are stored on order (you already have helpers)
+        $attachments = [];
+        if (method_exists($this, 'getOrderAttachments')) {
+            $attachments = (array) $this->getOrderAttachments($order);
+        } elseif ($order && $order->orderAttachment) {
+            $raw = $order->orderAttachment;
+            $decoded = is_array($raw) ? $raw : json_decode($raw, true);
+            $attachments = is_array($decoded) ? $decoded : [];
+        }
+
+
+        $taskTypes = ['printing','furnishing','installation','delivery'];
+        $progress = collect($taskTypes)->mapWithKeys(function ($t) use ($product) {
+            $isThisTask = strtolower($product->taskType ?? '') === $t;
+            $status = $isThisTask ? ($product->status ?? 'pending') : 'pending';
+            return [$t => [
+                'status' => $status,         
+                'accepted_at'  => null,     
+                'completed_at' => null,      
+                'duration'     => null,      
+            ]];
+        });
+
+        return view('artist.fulfillment.product-show', [
+            'product'     => $product,
+            'order'       => $product->order,
+            'items'       => $product->items,
+            'deliveries'  => $product->deliveryBreakdowns,
+            'attachments' => $attachments,
+            'progress'    => $progress,
+        ]);
+    }
+
+    // Optional: hook your PDF later
+    public function export(Product $product)
+    {
+        // generate a PDF and return download/stream
+        abort(501, 'Export not implemented yet.');
     }
 }
