@@ -645,7 +645,7 @@
                               <span class="text-body-secondary ms-2 small item-summary"></span>
 
                               <div class="ms-auto d-flex align-items-center gap-2">
-                                <button type="button" class="btn btn-link p-0 text-danger delete-item" data-index="__INDEX__" title="Delete item">
+                                <button type="button" class="btn btn-link p-0 text-danger delete-item" data-index="__INDEX__" title="Delete item" data-remove>
                                   <i class="bx bx-trash fs-5"></i>
                                 </button>
 
@@ -902,11 +902,70 @@
                         {{-- Product Remarks --}}
                         <div class="mt-4">
                           <h6 class="mb-2">Product Remarks</h6>
-                          <textarea
-                            name="product[remarks]"
-                            rows="3"
-                            class="form-control"
-                            placeholder="Client requested matte finish on cover page. Ensure color matching with Pantone 286C.">{{ old('product.remarks', $product->productRemark ?? '') }}</textarea>
+
+                          @php
+                            $ops = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','delivery'=>'Delivery'];
+                            $rows = $product->remarks ?? collect();
+                          @endphp
+
+                          <div id="remarks-wrap-{{ $pIndex }}">
+                            @forelse($rows as $r)
+                              <div class="d-flex align-items-center gap-2 mb-2 remark-row"
+                                  data-remark
+                                  data-id="{{ $r->RemarkID }}">
+                                <input type="hidden"
+                                      name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]"
+                                      value="{{ $r->RemarkID }}">
+
+                                <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]"
+                                        class="form-select w-auto" style="min-width:160px;">
+                                  <option value="">— Select —</option>
+                                  @foreach($ops as $k => $label)
+                                    <option value="{{ $k }}" @selected(($r->operation ?? '') === $k)>{{ $label }}</option>
+                                  @endforeach
+                                </select>
+
+                                <input type="text"
+                                      name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][remark]"
+                                      class="form-control"
+                                      placeholder="Write a note…"
+                                      value="{{ $r->remark ?? '' }}">
+
+                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                  <i class="bx bx-trash fs-5"></i>
+                                </button>
+                              </div>
+                            @empty
+                              {{-- Start with one empty row --}}
+                              <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
+                                <select name="products[{{ $pIndex }}][remarks][0][operation]"
+                                        class="form-select w-auto" style="min-width:160px;">
+                                  <option value="">— Select —</option>
+                                  @foreach($ops as $k => $label)
+                                    <option value="{{ $k }}">{{ $label }}</option>
+                                  @endforeach
+                                </select>
+
+                                <input type="text"
+                                      name="products[{{ $pIndex }}][remarks][0][remark]"
+                                      class="form-control"
+                                      placeholder="Write a note…">
+
+                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                  <i class="bx bx-trash fs-5"></i>
+                                </button>
+                              </div>
+                            @endforelse
+                          </div>
+
+                          <button type="button"
+                                  id="add-remark-{{ $pIndex }}"
+                                  class="btn btn-sm btn-outline-secondary mt-2">
+                            <i class="bx bx-plus"></i> Add Remarks
+                          </button>
+
+                          {{-- capture IDs to delete on server (per product) --}}
+                          <div id="delete-remarks-bin-{{ $pIndex }}"></div>
                         </div>
 
                       </div>
@@ -1521,6 +1580,71 @@
         reindexDeliveries();
         validateDeliveries();
       }
+
+      const remarksWrap = root.querySelector('#remarks-wrap-' + pIndex);
+      const addRemarkBtn = root.querySelector('#add-remark-' + pIndex);
+      const deleteBin = root.querySelector('#delete-remarks-bin-' + pIndex);
+
+      function reindexRemarks() {
+        if (!remarksWrap) return;
+        remarksWrap.querySelectorAll('[data-remark]').forEach((row, i) => {
+          row.querySelectorAll('select[name], input[name]').forEach((el) => {
+            el.name = el.name
+              .replace(
+                new RegExp(`products\\[${pIndex}\\]\\[remarks\\]\\[\\d+\\]`, 'g'),
+                `products[${pIndex}][remarks][${i}]`
+              );
+          });
+        });
+      }
+
+      function addRemarkRow() {
+        if (!remarksWrap) return;
+        const i = remarksWrap.querySelectorAll('[data-remark]').length;
+        const div = document.createElement('div');
+        div.className = 'd-flex align-items-center gap-2 mb-2 remark-row';
+        div.setAttribute('data-remark', '');
+        div.innerHTML = `
+          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;">
+            <option value="">— Select —</option>
+            <option value="printing">Printing</option>
+            <option value="furnishing">Furnishing</option>
+            <option value="installation">Installation</option>
+            <option value="delivery">Delivery</option>
+          </select>
+          <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…">
+          <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+            <i class="bx bx-trash fs-5"></i>
+          </button>`;
+        remarksWrap.appendChild(div);
+      }
+
+      addRemarkBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        addRemarkRow();
+      });
+
+      remarksWrap?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.remove-remark');
+        if (!btn) return;
+        const row = btn.closest('[data-remark]');
+        const id  = row?.dataset?.id;
+
+        // Existing remark -> push to delete bin for server hard-delete
+        if (id) {
+          const hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.name = `products[${pIndex}][delete_remarks][]`;
+          hidden.value = id;
+          deleteBin?.appendChild(hidden);
+        }
+
+        row.remove();
+        reindexRemarks();
+      });
+
+      // First pass to normalize names
+      reindexRemarks();
     });
 
     async function deleteItemOnServer(url) {

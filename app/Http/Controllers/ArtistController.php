@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Meeting;
 use App\Models\Material;
+use App\Models\ProductRemark;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
@@ -348,7 +349,7 @@ class ArtistController extends Controller
                 $q->select('BreakdownID', 'ProductID', 'method', 'location', 'quantity', 'date', 'time')
                 ->orderBy('BreakdownID');
             },
-        ])->where('OrderID', $order->id)->first();
+        ])->where('OrderID', $order->id)->with(['remarks'])->first();
 
         $deliveries = $product
             ? DeliveryBreakdown::where('ProductID', $product->ProductID)
@@ -421,59 +422,65 @@ class ArtistController extends Controller
             abort(403);
         }
 
-        // ----- Validation (keys match Blade names) -----
+        // ----- Validation -----
         $rules = [
             'design_confirmed'  => ['required','boolean'],
             'is_draft'          => ['required','in:0,1'],
 
-            // header (you post product[...])
+            // header (product shown at the top)
             'product.name'      => ['nullable','string','max:255'],
             'product.qty_total' => ['nullable','integer','min:0'],
             'product.material'  => ['nullable','string','max:255'],
-            'product.remarks'   => ['nullable','string'],
 
-            // nested products[*] groups
-            'products'                               => ['array'],
-            'products.*.product_id'                  => ['nullable','integer'], // make nullable; we "continue" if absent
+            // nested products[*]
+            'products'                          => ['array'],
+            'products.*.product_id'             => ['nullable','integer'],
 
             // items
-            'products.*.items'                       => ['array'],
-            'products.*.items.*.id'                  => ['nullable','integer'],
-            'products.*.items.*.itemName'            => ['nullable','string','max:255'],
-            'products.*.items.*.quantity'            => ['nullable','integer','min:0'],
-            'products.*.items.*.sizeWidth'           => ['nullable','numeric'],
-            'products.*.items.*.sizeHeight'          => ['nullable','numeric'],
-            'products.*.items.*.sizeLength'          => ['nullable','numeric'],
-            'products.*.items.*.bleedTop'            => ['nullable','numeric'],
-            'products.*.items.*.bleedBottom'         => ['nullable','numeric'],
-            'products.*.items.*.bleedLeft'           => ['nullable','numeric'],
-            'products.*.items.*.bleedRight'          => ['nullable','numeric'],
-            'products.*.items.*.finishing'           => ['nullable','string','max:255'],
-            'products.*.items.*.renderTime'          => ['nullable','integer','min:0'],
-            'products.*.items.*.material'            => ['nullable'],
-            'products.*.items.*.material.*'          => ['nullable','string','max:255'],
-            'products.*.items.*.lamination'          => ['nullable','string','max:255'],
-            'products.*.items.*.printer'             => ['nullable','string','max:255'],
-            'products.*.items.*.cutter'              => ['nullable','string','max:255'],
+            'products.*.items'                  => ['array'],
+            'products.*.items.*.id'             => ['nullable','integer'],
+            'products.*.items.*.itemName'       => ['nullable','string','max:255'],
+            'products.*.items.*.quantity'       => ['nullable','integer','min:0'],
+            'products.*.items.*.sizeWidth'      => ['nullable','numeric'],
+            'products.*.items.*.sizeHeight'     => ['nullable','numeric'],
+            'products.*.items.*.sizeLength'     => ['nullable','numeric'],
+            'products.*.items.*.bleedTop'       => ['nullable','numeric'],
+            'products.*.items.*.bleedBottom'    => ['nullable','numeric'],
+            'products.*.items.*.bleedLeft'      => ['nullable','numeric'],
+            'products.*.items.*.bleedRight'     => ['nullable','numeric'],
+            'products.*.items.*.finishing'      => ['nullable','string','max:255'],
+            'products.*.items.*.renderTime'     => ['nullable','integer','min:0'],
+            'products.*.items.*.material'       => ['nullable'],
+            'products.*.items.*.material.*'     => ['nullable','string','max:255'],
+            'products.*.items.*.lamination'     => ['nullable','string','max:255'],
+            'products.*.items.*.printer'        => ['nullable','string','max:255'],
+            'products.*.items.*.cutter'         => ['nullable','string','max:255'],
 
             // deliveries
-            'products.*.deliveries'                  => ['array'],
-            'products.*.deliveries.*.id'             => ['nullable','integer'],
-            'products.*.deliveries.*.method'         => ['nullable','string','max:255'],
-            'products.*.deliveries.*.location'       => ['nullable','string','max:255'],
-            'products.*.deliveries.*.quantity'       => ['nullable','numeric','min:0'],
-            'products.*.deliveries.*.datetime'       => ['nullable','date'],
-            'products.*.deliveries.*.date'           => ['nullable','date'],
-            'products.*.deliveries.*.time'           => ['nullable','date_format:H:i'],
+            'products.*.deliveries'             => ['array'],
+            'products.*.deliveries.*.id'        => ['nullable','integer'],
+            'products.*.deliveries.*.method'    => ['nullable','string','max:255'],
+            'products.*.deliveries.*.location'  => ['nullable','string','max:255'],
+            'products.*.deliveries.*.quantity'  => ['nullable','numeric','min:0'],
+            'products.*.deliveries.*.datetime'  => ['nullable','date'],
+            'products.*.deliveries.*.date'      => ['nullable','date'],
+            'products.*.deliveries.*.time'      => ['nullable','date_format:H:i'],
+
+            // remarks (per product)
+            'products.*.remarks'                => ['array'],
+            'products.*.remarks.*.id'           => ['nullable','integer'],
+            'products.*.remarks.*.operation'    => ['nullable','in:printing,furnishing,installation,delivery'],
+            'products.*.remarks.*.remark'       => ['nullable','string'],
+            'products.*.delete_remarks'         => ['array'],
+            'products.*.delete_remarks.*'       => ['integer'],
 
             // attachments
-            'attachments.*'                          => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx','max:20480'],
-            'delete_attachments'                     => ['array'],
-            'delete_attachments.*'                   => ['string'],
+            'attachments.*'                     => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx','max:20480'],
+            'delete_attachments'                => ['array'],
+            'delete_attachments.*'              => ['string'],
         ];
 
         $validator = Validator::make($request->all(), $rules);
-
         if ($validator->fails()) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -485,7 +492,7 @@ class ArtistController extends Controller
         }
 
         try {
-            DB::transaction(function() use ($request, $order) {
+            DB::transaction(function () use ($request, $order) {
 
                 // ----- 1) Order core -----
                 $order->draft       = (int) $request->input('is_draft', 0);
@@ -509,27 +516,27 @@ class ArtistController extends Controller
                 }
                 $this->putOrderAttachments($order, $existing->values()->all());
 
-                // ----- 3) Update the (first) product header you show at the top -----
+                // ----- 3) “Header” product (the one shown at the top) -----
                 $hdr = (array) $request->input('product', []);
                 $productHdr = Product::where('OrderID', $order->id)->first()
                             ?: new Product(['OrderID' => $order->id]);
+
                 if (array_key_exists('name', $hdr))      $productHdr->productName    = $hdr['name'];
                 if (array_key_exists('qty_total', $hdr)) $productHdr->totalQuantity  = $hdr['qty_total'];
                 if (array_key_exists('material', $hdr))  $productHdr->materialRemark = $hdr['material'];
-                if (array_key_exists('remarks', $hdr))   $productHdr->productRemark  = $hdr['remarks'];
                 $productHdr->save();
 
-                // ----- 4) Per-product items & deliveries -----
+                // ----- 4) Per-product payload -----
                 $postedProducts = collect($request->input('products', []))->values();
 
                 foreach ($postedProducts as $group) {
                     $pid = (int) ($group['product_id'] ?? 0);
-                    if (!$pid) { continue; } // nothing to save without a product id
+                    if (!$pid) continue;
 
                     $productRow = Product::where('OrderID', $order->id)
                                     ->where('ProductID', $pid)
                                     ->first();
-                    if (!$productRow) { continue; }
+                    if (!$productRow) continue;
 
                     // -------- Items --------
                     $keepItemIds = [];
@@ -538,14 +545,10 @@ class ArtistController extends Controller
                         ->filter(fn($row) => is_array($row))
                         ->each(function ($row) use ($productRow, &$keepItemIds) {
 
-                            // skip fully empty rows (ignore id/material when checking emptiness)
-                            $isEmpty = collect($row)
-                                ->except(['id','material'])
-                                ->filter(fn($v) => $v !== '' && $v !== null)
-                                ->isEmpty();
+                            $isEmpty = collect($row)->except(['id','material'])
+                                    ->filter(fn($v) => $v !== '' && $v !== null)->isEmpty();
                             if ($isEmpty) return;
 
-                            // locate/create item
                             $item = null;
                             if (!empty($row['id'])) {
                                 $item = ProductItem::where('ItemID', (int)$row['id'])
@@ -568,14 +571,12 @@ class ArtistController extends Controller
                                 }
                             }
 
-                            // material: safe whether column is JSON (cast) or VARCHAR/TEXT
                             if (array_key_exists('material', $row)) {
                                 $vals = is_array($row['material'])
                                     ? $row['material']
                                     : array_map('trim', explode(',', (string)$row['material']));
                                 $vals = array_values(array_filter($vals, fn($v) => $v !== ''));
 
-                                // if model has array cast, assign array; otherwise JSON encode
                                 if (method_exists($item, 'hasCast') && $item->hasCast('material', 'array')) {
                                     $item->material = $vals ?: null;
                                 } else {
@@ -586,8 +587,10 @@ class ArtistController extends Controller
                             $item->save();
                             $keepItemIds[] = $item->ItemID;
 
-                            // spec (optional)
-                            if (array_key_exists('lamination',$row) || array_key_exists('printer',$row) || array_key_exists('cutter',$row)) {
+                            // ---- Spec (optional) ----
+                            if (array_key_exists('lamination',$row) ||
+                                array_key_exists('printer',$row)    ||
+                                array_key_exists('cutter',$row) ) {     // <-- fixed function name
                                 $spec = Specification::firstOrNew(['ItemID' => $item->ItemID]);
                                 $spec->lamination = $row['lamination'] ?? null;
                                 $spec->printer    = $row['printer']    ?? null;
@@ -596,10 +599,11 @@ class ArtistController extends Controller
                             }
                         });
 
-                    // delete removed items for THIS product only (only if we posted items)
-                    if (!empty($group['items']) && $keepItemIds) {
+                    // delete items not posted (including “all removed” case)
+                    if (array_key_exists('items', $group)) {                                 // <-- handle empty keep
                         ProductItem::where('ProductID', $productRow->ProductID)
-                            ->whereNotIn('ItemID', $keepItemIds)
+                            ->when(count($keepItemIds) > 0, fn($q) => $q->whereNotIn('ItemID', $keepItemIds))
+                            ->when(count($keepItemIds) === 0, fn($q) => $q) // delete all
                             ->delete();
                     }
 
@@ -623,8 +627,9 @@ class ArtistController extends Controller
                             $location = trim($row['location'] ?? '');
                             $qty      = $row['quantity'] ?? null;
 
-                            if ($method === '' && $location === '' && ($qty === null || $qty === '') && !$date && !$time) {
-                                return null; // skip empty card
+                            if ($method === '' && $location === '' &&
+                                ($qty === null || $qty === '') && !$date && !$time) {
+                                return null;
                             }
 
                             return [
@@ -661,13 +666,58 @@ class ArtistController extends Controller
                         $keepDeliveryIds[] = $bd->BreakdownID;
                     }
 
-                    if (!empty($group['deliveries']) && $keepDeliveryIds) {
+                    if (array_key_exists('deliveries', $group)) {                             // <-- handle empty keep
                         DeliveryBreakdown::where('ProductID', $productRow->ProductID)
-                            ->whereNotIn('BreakdownID', $keepDeliveryIds)
+                            ->when(count($keepDeliveryIds) > 0, fn($q) => $q->whereNotIn('BreakdownID', $keepDeliveryIds))
+                            ->when(count($keepDeliveryIds) === 0, fn($q) => $q) // delete all
                             ->delete();
                     }
-                }
 
+                    // -------- Remarks (THIS product) --------                     // <-- moved inside loop
+                    $keepRemarkIds = [];
+
+                    foreach (collect($group['remarks'] ?? [])->filter(fn($r) => is_array($r)) as $row) {
+                        $isEmpty = trim($row['operation'] ?? '') === '' &&
+                                trim($row['remark'] ?? '') === '';
+                        if ($isEmpty) continue;
+
+                        $remark = null;
+                        if (!empty($row['id'])) {
+                            $remark = ProductRemark::where('RemarkID', (int)$row['id'])
+                                ->where('ProductID', $productRow->ProductID)
+                                ->first();
+                        }
+                        if (!$remark) {
+                            $remark = new ProductRemark();
+                            $remark->ProductID = $productRow->ProductID;
+                        }
+
+                        $remark->operation = $row['operation'] ?: null;
+                        $remark->remark    = $row['remark'] ?: null;
+                        $remark->save();
+
+                        $keepRemarkIds[] = $remark->RemarkID;
+                    }
+
+                    // hard deletes requested via hidden inputs
+                    $toDeleteRemarks = collect($group['delete_remarks'] ?? [])
+                        ->filter(fn($id) => is_numeric($id))
+                        ->map(fn($id) => (int)$id);
+
+                    if ($toDeleteRemarks->isNotEmpty()) {
+                        ProductRemark::where('ProductID', $productRow->ProductID)
+                            ->whereIn('RemarkID', $toDeleteRemarks)
+                            ->delete();
+                    }
+
+                    // delete rows removed from DOM (only if remarks were posted for this product)
+                    if (array_key_exists('remarks', $group)) {
+                        ProductRemark::where('ProductID', $productRow->ProductID)
+                            ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
+                            ->when(count($keepRemarkIds) === 0, fn($q) => $q) // delete all
+                            ->delete();
+                    }
+                } // end foreach products
             });
 
             $message = $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.';
@@ -675,6 +725,7 @@ class ArtistController extends Controller
                 return response()->json(['ok' => true, 'message' => $message]);
             }
             return back()->with('success', $message);
+
         } catch (\Throwable $e) {
             Log::error('Artist update failed', [
                 'order_id' => $order->id,
