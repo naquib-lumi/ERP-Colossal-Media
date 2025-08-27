@@ -46,6 +46,11 @@ class Product extends Model
     public function remarks()
     {
         return $this->hasMany(ProductRemark::class, 'ProductID', 'ProductID')
-            ->orderBy('RemarkID');
+                ->orderBy('RemarkID');
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'ProductID';
     }
 }

@@ -10,10 +10,13 @@ class ProductRemark extends Model
     protected $primaryKey = 'RemarkID';
     public $incrementing = true;
     protected $keyType = 'int';
+    public $timestamps = true; // you have created_at/updated_at
+
     protected $fillable = ['ProductID','operation','remark'];
 
     public function product()
     {
-        return $this->belongsTo(Product::class, 'ProductID', 'ProductID');
+        // product_remarks.ProductID -> products.ProductID
+        return $this->belongsTo(\App\Models\Product::class, 'ProductID', 'ProductID');
     }
 }

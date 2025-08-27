@@ -121,22 +121,14 @@ class FulfillmentController extends Controller
         $order = $product->order()->first();
 
         $product->load([
-            // Order + people
-            'order:id,order_number,orderTitle,companyName,leadName,leadPhone,leadEmail,deadline,created_at,artist_id,salesperson_id,orderAttachment',
+            'order:id,order_number,orderTitle,companyName,leadName,leadPhone,leadEmail,lead_id,deadline,created_at,artist_id,salesperson_id,orderAttachment',
             'order.artist:id,name',
             'order.salesperson:id,name',
-
-            'items' => function ($q) {
-                $q->select('ItemID','ProductID','itemName','quantity',
-                        'sizeWidth','sizeHeight','sizeLength',
-                        'bleedTop','bleedBottom','bleedLeft','bleedRight',
-                        'finishing','material')
-                ->with('spec:SpecificationID,ItemID,printer,cutter,lamination'); 
-                // <-- no "id" here, use SpecID as PK
-            },
-
-            // Delivery rows (their PK is BreakdownID)
-            'deliveryBreakdowns',
+            'items' => fn ($q) => $q->select('ItemID','ProductID','itemName','quantity','sizeWidth','sizeHeight','sizeLength','bleedTop','bleedBottom','bleedLeft','bleedRight','finishing','material')
+                                    ->with('spec:SpecificationID,ItemID,printer,cutter,lamination'),
+            'deliveryBreakdowns:BreakdownID,ProductID,method,location,quantity,date,time',
+            // IMPORTANT: include FK + PK in the select
+            'remarks:RemarkID,ProductID,operation,remark,created_at',
         ]);
 
         $order = $product->order()->first();
@@ -154,16 +146,12 @@ class FulfillmentController extends Controller
         };
 
         // ---------- 1) Lead attachments ----------
-        // Table: lead_attachments (id, lead_id, file_location, file_extension, file_size, ...)
         $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
         ->orderBy('id')
         ->get()
         ->map(function ($row) {
-            // Normalize the path to a web URL that works with the storage symlink
-            // DB examples: "storage/leads/15/document_5.pdf" or "public/leads/15/document_5.pdf"
             $p = $row->file_location;
 
-            // Strip any leading "public/" and ensure it starts with "storage/"
             $p = ltrim($p, '/');
             $p = preg_replace('#^public/#', '', $p);
             $p = preg_replace('#^storage/#', '', $p); // now we only keep relative part
@@ -241,17 +229,6 @@ class FulfillmentController extends Controller
         $deliveries = $product->deliveryBreakdowns()
             ->orderByRaw('CASE WHEN `date` IS NULL THEN 1 ELSE 0 END, `date` ASC, `time` ASC')
             ->get();
-
-        $vm = [
-            'created_by' => $order?->salesperson?->name ?? '-',  // ① Created by
-            'artist'     => $order?->artist?->name ?? '-',       // ③ Artist
-            'attachments'=> $attachments,                        // ⑤ Order attachments list (array of storage paths/urls)
-            // keep the rest raw so your partials can iterate easily
-            'product'    => $product,
-            'order'      => $order,
-            'items'      => $product->items,
-            'breakdowns' => $product->deliveryBreakdowns,
-        ];
 
         return view('artist.fulfillment.product-show', [
             'product'     => $product,

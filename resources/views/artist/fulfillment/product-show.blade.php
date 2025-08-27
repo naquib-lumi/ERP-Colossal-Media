@@ -14,6 +14,15 @@
   .badge-rejected  { background:#fef2f2; color:#b91c1c }
   .key { color:#6b7280; font-size:.85rem }
   .file-row { border:1px solid #edf0f4; border-radius:.75rem; padding:.75rem 1rem; background:#fff }
+
+  .remark-pill{
+    border:1px solid #edf0f4;
+    border-radius:.6rem;
+    padding:.6rem .8rem;
+    background:#fff;
+  }
+  .remark-pill .op{ font-weight:600; margin-right:.25rem }
+  .remark-pill .txt{ color:#111827 }
 </style>
 @endpush
 
@@ -227,14 +236,24 @@
 
   {{-- Product Remarks --}}
   <div class="card mb-3">
-    <div class="card-body">
-      <h6 class="mb-3">Product Remarks</h6>
-      <div class="mb-2 border rounded p-2 bg-white">{{ $product->productRemark ?? '-' }}</div>
-      @if(!empty($product->remark2))
-        <div class="border rounded p-2 bg-white">{{ $product->remark2 }}</div>
-      @endif
-    </div>
+  <div class="card-body">
+    <h6 class="mb-3">Product Remarks</h6>
+
+    @php
+      $label = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','delivery'=>'Delivery'];
+    @endphp
+    @forelse($product->remarks as $r)
+      <div class="mb-2 border rounded p-2 bg-white">
+        @if(!empty($r->operation))
+          <span class="text-muted me-2">{{ $label[$r->operation] ?? ucfirst($r->operation) }}:</span>
+        @endif
+        {{ $r->remark }}
+      </div>
+    @empty
+      <div class="text-muted">No product remarks.</div>
+    @endforelse
   </div>
+</div>
 
   {{-- Attachments --}}
   <div class="card mt-4 mb-4">
