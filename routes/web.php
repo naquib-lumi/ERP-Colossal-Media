@@ -130,6 +130,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show');
         Route::get('/artist/fulfillment', [FulfillmentController::class, 'index'])->name('artist.fulfillment.index');
         Route::get('/artist/fulfillment/products/{product}', [FulfillmentController::class, 'show'])->name('artist.fulfillment.product.show');
+        Route::delete('/artist/orders/{order}/remarks/{remark}', [ArtistController::class, 'destroyRemark'])->name('artist.orders.remarks.destroy');
         // (optional) export PDF button stub
         Route::get('/artist/fulfillment/products/{product}/export', [FulfillmentController::class, 'export'])->name('artist.fulfillment.product.export');
 

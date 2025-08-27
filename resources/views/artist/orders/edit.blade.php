@@ -903,54 +903,39 @@
                         <div class="mt-4">
                           <h6 class="mb-2">Product Remarks</h6>
 
-                          @php
-                            $ops = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','delivery'=>'Delivery'];
-                            $rows = $product->remarks ?? collect();
-                          @endphp
-
                           <div id="remarks-wrap-{{ $pIndex }}">
-                            @forelse($rows as $r)
-                              <div class="d-flex align-items-center gap-2 mb-2 remark-row"
-                                  data-remark
-                                  data-id="{{ $r->RemarkID }}">
-                                <input type="hidden"
-                                      name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]"
-                                      value="{{ $r->RemarkID }}">
+                            @php
+                              $ops  = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','delivery'=>'Delivery'];
+                              $rows = $product->remarks ?? collect();
+                            @endphp
 
-                                <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]"
-                                        class="form-select w-auto" style="min-width:160px;">
+                            @forelse($rows as $r)
+                              <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
+                                <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
+                                <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;">
                                   <option value="">— Select —</option>
                                   @foreach($ops as $k => $label)
-                                    <option value="{{ $k }}" @selected(($r->operation ?? '') === $k)>{{ $label }}</option>
+                                    <option value="{{ $k }}" @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)>{{ $label }}</option>
                                   @endforeach
                                 </select>
-
                                 <input type="text"
                                       name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][remark]"
                                       class="form-control"
                                       placeholder="Write a note…"
-                                      value="{{ $r->remark ?? '' }}">
-
+                                      value="{{ old("products.$pIndex.remarks.$loop->index.remark", $r->remark) }}">
                                 <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                   <i class="bx bx-trash fs-5"></i>
                                 </button>
                               </div>
                             @empty
-                              {{-- Start with one empty row --}}
                               <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
-                                <select name="products[{{ $pIndex }}][remarks][0][operation]"
-                                        class="form-select w-auto" style="min-width:160px;">
+                                <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;">
                                   <option value="">— Select —</option>
                                   @foreach($ops as $k => $label)
                                     <option value="{{ $k }}">{{ $label }}</option>
                                   @endforeach
                                 </select>
-
-                                <input type="text"
-                                      name="products[{{ $pIndex }}][remarks][0][remark]"
-                                      class="form-control"
-                                      placeholder="Write a note…">
-
+                                <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…">
                                 <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                   <i class="bx bx-trash fs-5"></i>
                                 </button>
@@ -958,16 +943,13 @@
                             @endforelse
                           </div>
 
-                          <button type="button"
-                                  id="add-remark-{{ $pIndex }}"
-                                  class="btn btn-sm btn-outline-secondary mt-2">
+                          <button type="button" id="add-remark-{{ $pIndex }}" class="btn btn-sm btn-outline-secondary mt-2">
                             <i class="bx bx-plus"></i> Add Remarks
                           </button>
 
-                          {{-- capture IDs to delete on server (per product) --}}
+                          {{-- per-product delete bin --}}
                           <div id="delete-remarks-bin-{{ $pIndex }}"></div>
                         </div>
-
                       </div>
                     </div>
                   </div>
@@ -1624,17 +1606,70 @@
         addRemarkRow();
       });
 
-      remarksWrap?.addEventListener('click', (e) => {
+      remarksWrap?.addEventListener('click', async (e) => {
         const btn = e.target.closest('.remove-remark');
         if (!btn) return;
-        const row = btn.closest('[data-remark]');
-        const id  = row?.dataset?.id;
 
-        // Existing remark -> push to delete bin for server hard-delete
+        const row = btn.closest('[data-remark]');
+        const id  = row?.dataset?.id || '';
+        const url = row?.dataset?.url || '';
+
+        // If this is an existing remark and we have a URL, try live DELETE
+        if (id && url) {
+          try {
+            // Optional confirm
+            if (window.Swal) {
+              const c = await Swal.fire({
+                icon: 'warning',
+                title: 'Delete this remark?',
+                showCancelButton: true,
+                confirmButtonText: 'Delete',
+                confirmButtonColor: '#d33'
+              });
+              if (!c.isConfirmed) return;
+            } else if (!confirm('Delete this remark?')) {
+              return;
+            }
+
+            const res = await fetch(url, {
+              method: 'DELETE',
+              credentials: 'same-origin',
+              headers: {
+                'X-CSRF-TOKEN': window.CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+              }
+            });
+
+            let data = {};
+            try { data = await res.json(); } catch {}
+
+            if (res.ok && data?.ok) {
+              row.remove();
+              reindexRemarks();
+              if (window.Swal) {
+                Swal.fire({ icon: 'success', title: 'Remark deleted', timer: 1000, showConfirmButton: false });
+              }
+              return; // done
+            }
+
+            // If server refused, fall back to deferred delete on Save
+            const msg = data?.message || `HTTP ${res.status}`;
+            if (window.Swal) await Swal.fire({ icon: 'warning', title: 'Will delete on Save', text: msg });
+            // fall through to bin push
+
+          } catch (err) {
+            // Network error → fall back to deferred delete on Save
+            if (window.Swal) await Swal.fire({ icon: 'warning', title: 'Offline delete queued', text: String(err) });
+            // fall through to bin push
+          }
+        }
+
+        // Fallback / unsaved rows: push ID to delete bin if present, then remove from DOM
         if (id) {
           const hidden = document.createElement('input');
-          hidden.type = 'hidden';
-          hidden.name = `products[${pIndex}][delete_remarks][]`;
+          hidden.type  = 'hidden';
+          hidden.name  = `products[${pIndex}][delete_remarks][]`;
           hidden.value = id;
           deleteBin?.appendChild(hidden);
         }

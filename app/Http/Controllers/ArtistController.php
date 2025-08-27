@@ -666,19 +666,18 @@ class ArtistController extends Controller
                         $keepDeliveryIds[] = $bd->BreakdownID;
                     }
 
-                    if (array_key_exists('deliveries', $group)) {                             // <-- handle empty keep
+                    if (array_key_exists('deliveries', $group)) {                             
                         DeliveryBreakdown::where('ProductID', $productRow->ProductID)
                             ->when(count($keepDeliveryIds) > 0, fn($q) => $q->whereNotIn('BreakdownID', $keepDeliveryIds))
-                            ->when(count($keepDeliveryIds) === 0, fn($q) => $q) // delete all
+                            ->when(count($keepDeliveryIds) === 0, fn($q) => $q) 
                             ->delete();
                     }
 
-                    // -------- Remarks (THIS product) --------                     // <-- moved inside loop
+                    // -------- Remarks (THIS product) --------
                     $keepRemarkIds = [];
 
-                    foreach (collect($group['remarks'] ?? [])->filter(fn($r) => is_array($r)) as $row) {
-                        $isEmpty = trim($row['operation'] ?? '') === '' &&
-                                trim($row['remark'] ?? '') === '';
+                    foreach (collect($group['remarks'] ?? [])->filter(fn ($v) => is_array($v)) as $row) {
+                        $isEmpty = trim($row['operation'] ?? '') === '' && trim($row['remark'] ?? '') === '';
                         if ($isEmpty) continue;
 
                         $remark = null;
@@ -699,25 +698,24 @@ class ArtistController extends Controller
                         $keepRemarkIds[] = $remark->RemarkID;
                     }
 
-                    // hard deletes requested via hidden inputs
-                    $toDeleteRemarks = collect($group['delete_remarks'] ?? [])
-                        ->filter(fn($id) => is_numeric($id))
-                        ->map(fn($id) => (int)$id);
+                    $toDelete = collect($group['delete_remarks'] ?? [])
+                        ->merge($request->input('delete_remarks', []))  
+                        ->map(fn ($id) => (int)$id)
+                        ->filter();
 
-                    if ($toDeleteRemarks->isNotEmpty()) {
+                    if ($toDelete->isNotEmpty()) {
                         ProductRemark::where('ProductID', $productRow->ProductID)
-                            ->whereIn('RemarkID', $toDeleteRemarks)
+                            ->whereIn('RemarkID', $toDelete)
                             ->delete();
                     }
 
-                    // delete rows removed from DOM (only if remarks were posted for this product)
                     if (array_key_exists('remarks', $group)) {
                         ProductRemark::where('ProductID', $productRow->ProductID)
                             ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
-                            ->when(count($keepRemarkIds) === 0, fn($q) => $q) // delete all
                             ->delete();
                     }
-                } // end foreach products
+
+                } 
             });
 
             $message = $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.';
@@ -738,6 +736,32 @@ class ArtistController extends Controller
             }
             return back()->with('error', 'Failed to save. Please try again.');
         }
+    }
+
+    public function destroyRemark(Request $request, Order $order, $remark)
+    {
+        $user = Auth::user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        // Load remark and ensure it belongs to a product of THIS order
+        $row = ProductRemark::where('RemarkID', (int)$remark)->first();
+        if (!$row) {
+            return response()->json(['ok' => true]); // already gone, idempotent
+        }
+
+        // guard: remark’s product must belong to this order
+        $belongs = Product::where('ProductID', $row->ProductID)
+            ->where('OrderID', $order->id)
+            ->exists();
+
+        if (!$belongs) {
+            return response()->json(['ok' => false, 'message' => 'Remark does not belong to this order'], 422);
+        }
+
+        $row->delete();
+        return response()->json(['ok' => true]);
     }
 
     /**
