@@ -41,8 +41,8 @@
               <div class="d-flex align-items-center gap-2 mb-2">
                 @if($key==='printing')      <i class="bx bx-printer fs-4 text-muted"></i>
                 @elseif($key==='furnishing')<i class="bx bx-wrench fs-4 text-muted"></i>
-                @elseif($key==='installation')<i class="bx bx-hammer fs-4 text-muted"></i>
-                @else                       <i class="bx bx-truck fs-4 text-muted"></i>
+                @elseif($key==='installation')<i class="bx bx-box fs-4 text-muted"></i>
+                @else                       <i class="bx bx-car fs-4 text-muted"></i>
                 @endif
                 <div class="fw-semibold">{{ $pretty[$key] }}</div>
                 <span class="ms-auto badge-soft
@@ -100,22 +100,23 @@
         </div>
 
         <div class="col-md-6">
-          @php $leadFirst = $attachments[0] ?? null; @endphp
-          @if($leadFirst)
-            <div class="mt-2">
-              <div class="text-muted small">Attachment from Lead</div>
-              <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($leadFirst) }}"
-                class="d-inline-flex align-items-center gap-2" target="_blank">
-                <i class="bx bxs-file-pdf"></i>
-                {{ basename($leadFirst) }}
-              </a>
-            </div>
-          @else
-            <div class="mt-2">
-              <div class="text-muted small">Attachment from Lead</div>
-              <span class="text-muted">-</span>
-            </div>
-          @endif
+              <h6 class="mb-3">Attachment from Lead</h6>
+
+              @forelse($leadAttachments as $f)
+                <div class="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+                  <div>
+                    <i class="bx bx-file me-2"></i>
+                    <a href="{{ $f->url }}" target="_blank" download class="text-decoration-none">
+                      {{ $f->name }}
+                    </a>
+                    @if($f->size)
+                      <span class="text-muted ms-2">({{ number_format($f->size/1024, 1) }} KB)</span>
+                    @endif
+                  </div>
+                </div>
+              @empty
+                <div class="text-muted">No lead attachments.</div>
+              @endforelse
         </div>
       </div>
     </div>
@@ -240,22 +241,20 @@
     <div class="card-body">
       <h6 class="mb-3">Attachments</h6>
 
-      @forelse($attachments as $path)
-        @php
-          $name = basename($path);
-          $url  = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
-        @endphp
-        <div class="d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bx bxs-file"></i>
-            <span>{{ $name }}</span>
+      @forelse($orderFiles as $f)
+        <div class="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+          <div>
+            <i class="bx bx-file me-2"></i>
+            <span class="fw-semibold">{{ $f['name'] }}</span>
+            <small class="text-muted ms-2">.{{ $f['ext'] }}</small>
           </div>
-          <a class="btn btn-sm btn-outline-secondary" href="{{ $url }}" target="_blank">
-            <i class="bx bx-download me-1"></i> Download
-          </a>
+          <div class="d-flex gap-2">
+            <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">Open</a>
+            <a href="{{ $f['url'] }}" class="btn btn-sm btn-dark" download>Download</a>
+          </div>
         </div>
       @empty
-        <div class="text-muted">No attachments</div>
+        <div class="text-muted">No attachments uploaded for this order.</div>
       @endforelse
     </div>
   </div>

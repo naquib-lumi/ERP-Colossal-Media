@@ -4,9 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\DeliveryBreakdown;
+use App\Models\LeadAttachment;
 use App\Models\Product;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class FulfillmentController extends Controller
 {
@@ -134,7 +139,68 @@ class FulfillmentController extends Controller
             'deliveryBreakdowns',
         ]);
 
-        $order = $product->order;
+        $order = $product->order()->first();
+
+        $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
+
+            // If DB already stores '/storage/...', use it as-is.
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p); // -> https://site.test/storage/...
+            }
+
+            // Otherwise it’s a disk-relative path (e.g. 'orders/14/attachments/foo.pdf')
+            return Storage::disk('public')->url($p);
+        };
+
+        // ---------- 1) Lead attachments ----------
+        // Table: lead_attachments (id, lead_id, file_location, file_extension, file_size, ...)
+        $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
+        ->orderBy('id')
+        ->get()
+        ->map(function ($row) {
+            // Normalize the path to a web URL that works with the storage symlink
+            // DB examples: "storage/leads/15/document_5.pdf" or "public/leads/15/document_5.pdf"
+            $p = $row->file_location;
+
+            // Strip any leading "public/" and ensure it starts with "storage/"
+            $p = ltrim($p, '/');
+            $p = preg_replace('#^public/#', '', $p);
+            $p = preg_replace('#^storage/#', '', $p); // now we only keep relative part
+            $web = 'storage/'.$p;                     // final public URL
+
+            return (object)[
+                'name' => basename($p),
+                'size' => (int) $row->file_size,
+                'ext'  => $row->file_extension,
+                'url'  => asset($web),
+            ];
+        });
+
+        $raw = $order->orderAttachment; // string|array|null
+        $paths = [];
+
+        if (is_array($raw)) {
+            $paths = $raw; // JSON casted
+        } elseif (is_string($raw)) {
+            $rawTrim = trim($raw);
+            if (Str::startsWith($rawTrim, '[')) {
+                $paths = json_decode($rawTrim, true) ?: [];
+            } else {
+                // comma-separated
+                $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
+            }
+        }
+
+        $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
+            $p = ltrim($p, '/');               // normalize
+            $url = $toPublicUrl($p);
+            return [
+                'name' => basename($p),
+                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+                'url'  => $url,
+            ];
+        });
 
         // Attachments are stored on order (you already have helpers)
         $attachments = [];
@@ -194,6 +260,8 @@ class FulfillmentController extends Controller
             'attachments' => $attachments,   // your existing attachments array
             'progress'    => $progress,      // ← new
             'deliveries'  => $deliveries,    // ← new
+            'leadAttachments'  => $leadAttachments,
+            'orderFiles' => $orderFiles,
         ]);
     }
 
