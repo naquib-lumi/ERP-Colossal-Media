@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Meeting;
 use App\Models\Material;
+use App\Models\ProductRemark;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
@@ -263,7 +264,7 @@ class ArtistController extends Controller
             'products'        => fn ($q) => $q->orderBy('ProductID'),
             'products.items'  => fn ($q) => $q->orderBy('ItemID'),
             'products.items.spec',
-
+            'leadAttachments',
             'deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
         ]);
 
@@ -330,6 +331,12 @@ class ArtistController extends Controller
                 $order->artist_id = Auth::id();
             }
 
+            $order->loadMissing([
+                'products' => fn ($q) => $q->orderBy('ProductID'),
+                'products.items' => fn ($q) => $q->orderBy('ItemID'), // relation on Product model
+                'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+            ]);
+
             $order->save();
         }
 
@@ -337,30 +344,30 @@ class ArtistController extends Controller
         $today     = now()->format('M d, Y');
 
         $product = Product::with([
-            'deliveryBreakdowns' => function ($q) {
+            'items.spec','deliveryBreakdowns' => function ($q) {
                 // select only real columns – no "id" here
                 $q->select('BreakdownID', 'ProductID', 'method', 'location', 'quantity', 'date', 'time')
                 ->orderBy('BreakdownID');
             },
-        ])->where('OrderID', $order->id)->first();
+        ])->where('OrderID', $order->id)->with(['remarks'])->first();
 
-            $deliveries = $product
-                ? DeliveryBreakdown::where('ProductID', $product->ProductID)
-                    ->orderBy('BreakdownID')
-                    ->get(['BreakdownID as id','method','location','quantity','date','time'])
-                : collect();
-
-            if ($product) {
-            $deliveries = DeliveryBreakdown::where('ProductID', $product->ProductID)
+        $deliveries = $product
+            ? DeliveryBreakdown::where('ProductID', $product->ProductID)
                 ->orderBy('BreakdownID')
-                ->get([
-                    'BreakdownID as id',
-                    'method',
-                    'location',
-                    'quantity',
-                    'date',
-                    'time',
-                ]);
+                ->get(['BreakdownID as id','method','location','quantity','date','time'])
+            : collect();
+
+        if ($product) {
+        $deliveries = DeliveryBreakdown::where('ProductID', $product->ProductID)
+            ->orderBy('BreakdownID')
+            ->get([
+                'BreakdownID as id',
+                'method',
+                'location',
+                'quantity',
+                'date',
+                'time',
+            ]);
         }
 
         $items = DB::table('product_items as pi')
@@ -409,128 +416,91 @@ class ArtistController extends Controller
 
     public function update(Request $request, Order $order)
     {
-        // AuthZ
+        // ----- AuthZ -----
         $user = Auth::user();
         if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
             abort(403);
         }
 
-        // -------------------- VALIDATION --------------------
-        // NOTE: Use "breakdowns.*" everywhere (you POST/handle "breakdowns", not "deliveries")
+        // ----- Validation -----
         $rules = [
-            'design_confirmed'  => ['required', 'boolean'],
-            'is_draft'          => ['required', 'in:0,1'],
+            'design_confirmed'  => ['required','boolean'],
+            'is_draft'          => ['required','in:0,1'],
 
-            // Product (optional)
-            'product.id'        => ['nullable', 'integer'],
-            'product.name'      => ['nullable', 'string', 'max:255'],
-            'product.qty_total' => ['nullable', 'integer', 'min:0'],
-            'product.material'  => ['nullable', 'string', 'max:255'],
-            'product.remarks'   => ['nullable', 'string'],
+            // header (product shown at the top)
+            'product.name'      => ['nullable','string','max:255'],
+            'product.qty_total' => ['nullable','integer','min:0'],
+            'product.material'  => ['nullable','string','max:255'],
 
-            // Items
-            'items'                    => ['array'],
-            'items.*.id'               => ['nullable', 'integer'],
-            'items.*.itemName'         => ['nullable', 'string', 'max:255'],
-            'items.*.quantity'         => ['nullable', 'integer', 'min:0'],
+            // nested products[*]
+            'products'                          => ['array'],
+            'products.*.product_id'             => ['nullable','integer'],
 
-            'items.*.sizeWidth'        => ['nullable', 'numeric'],
-            'items.*.sizeHeight'       => ['nullable', 'numeric'],
-            'items.*.sizeLength'       => ['nullable', 'numeric'],
+            // items
+            'products.*.items'                  => ['array'],
+            'products.*.items.*.id'             => ['nullable','integer'],
+            'products.*.items.*.itemName'       => ['nullable','string','max:255'],
+            'products.*.items.*.quantity'       => ['nullable','integer','min:0'],
+            'products.*.items.*.sizeWidth'      => ['nullable','numeric'],
+            'products.*.items.*.sizeHeight'     => ['nullable','numeric'],
+            'products.*.items.*.sizeLength'     => ['nullable','numeric'],
+            'products.*.items.*.bleedTop'       => ['nullable','numeric'],
+            'products.*.items.*.bleedBottom'    => ['nullable','numeric'],
+            'products.*.items.*.bleedLeft'      => ['nullable','numeric'],
+            'products.*.items.*.bleedRight'     => ['nullable','numeric'],
+            'products.*.items.*.finishing'      => ['nullable','string','max:255'],
+            'products.*.items.*.renderTime'     => ['nullable','integer','min:0'],
+            'products.*.items.*.material'       => ['nullable'],
+            'products.*.items.*.material.*'     => ['nullable','string','max:255'],
+            'products.*.items.*.lamination'     => ['nullable','string','max:255'],
+            'products.*.items.*.printer'        => ['nullable','string','max:255'],
+            'products.*.items.*.cutter'         => ['nullable','string','max:255'],
 
-            'items.*.bleedTop'         => ['nullable','numeric'],
-            'items.*.bleedBottom'      => ['nullable','numeric'],
-            'items.*.bleedLeft'        => ['nullable','numeric'],
-            'items.*.bleedRight'       => ['nullable','numeric'],
+            // deliveries
+            'products.*.deliveries'             => ['array'],
+            'products.*.deliveries.*.id'        => ['nullable','integer'],
+            'products.*.deliveries.*.method'    => ['nullable','string','max:255'],
+            'products.*.deliveries.*.location'  => ['nullable','string','max:255'],
+            'products.*.deliveries.*.quantity'  => ['nullable','numeric','min:0'],
+            'products.*.deliveries.*.datetime'  => ['nullable','date'],
+            'products.*.deliveries.*.date'      => ['nullable','date'],
+            'products.*.deliveries.*.time'      => ['nullable','date_format:H:i'],
 
-            'items.*.finishing'        => ['nullable', 'string', 'max:255'],
-            'items.*.renderTime'       => ['nullable', 'integer', 'min:0'],
+            // remarks (per product)
+            'products.*.remarks'                => ['array'],
+            'products.*.remarks.*.id'           => ['nullable','integer'],
+            'products.*.remarks.*.operation'    => ['nullable','in:printing,furnishing,installation,delivery'],
+            'products.*.remarks.*.remark'       => ['nullable','string'],
+            'products.*.delete_remarks'         => ['array'],
+            'products.*.delete_remarks.*'       => ['integer'],
 
-            'items.*.material'         => ['nullable'],
-            'items.*.material.*'       => ['nullable', 'string', 'max:255'],
-
-            // spec (optional)
-            'items.*.lamination'       => ['nullable', 'string', 'max:255'],
-            'items.*.printer'          => ['nullable', 'string', 'max:255'],
-            'items.*.cutter'           => ['nullable', 'string', 'max:255'],
-
-            // Delivery breakdowns — use the key you actually post: "breakdowns"
-            'deliveries'                 => ['array'],
-            'deliveries.*.id'            => ['nullable','integer'],
-            'deliveries.*.method'        => ['nullable','string','max:255'],
-            'deliveries.*.location'      => ['nullable','string','max:255'],
-            'deliveries.*.quantity'      => ['nullable','numeric','min:0'],
-            'deliveries.*.datetime'      => ['nullable','date'],
-            'deliveries.*.date'          => ['nullable','date'],
-            'deliveries.*.time'          => ['nullable','date_format:H:i'],
-            'delete_deliveries'          => ['array'],
-            'delete_deliveries.*'        => ['integer'],
-
-            // Attachments
-            'attachments.*'            => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx','max:20480'],
-            'delete_attachments'       => ['array'],
-            'delete_attachments.*'     => ['string'],
+            // attachments
+            'attachments.*'                     => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx','max:20480'],
+            'delete_attachments'                => ['array'],
+            'delete_attachments.*'              => ['string'],
         ];
 
-        // We need a custom “sum ≤ total” check, so build a validator:
         $validator = Validator::make($request->all(), $rules);
-
-        $validator->after(function ($v) use ($request, $order) {
-            // Read intended total from the form (product.qty_total) with fallback
-            $formTotal = (int) data_get($request->input('product', []), 'qty_total', 0);
-
-            // If not posted (readonly), fallback to current product row:
-            $prodRow = Product::where('OrderID', $order->id)->first();
-            $productTotalQty = $formTotal > 0
-                ? $formTotal
-                : (int) ($prodRow->totalQuantity ?? 0);
-
-            // Sum item quantities (support both [quantity] and legacy [qty])
-            $sumItems = collect($request->input('items', []))
-                ->filter(fn($r) => is_array($r))
-                ->sum(function ($r) {
-                    $q = $r['quantity'] ?? $r['qty'] ?? 0;
-                    return (int) $q;
-                });
-
-            if ($sumItems > $productTotalQty) {
-                $v->errors()->add(
-                    'items',
-                    "Item quantities ($sumItems) exceed Total Quantity ($productTotalQty)."
-                );
-            }
-
-            $sumBreakdowns = collect($request->input('deliveries', []))
-                ->sum(fn($r) => (int) ($r['quantity'] ?? 0));
-
-            if ($sumBreakdowns > $productTotalQty) {
-                $v->errors()->add('deliveries', "Delivery quantities ($sumBreakdowns) exceed Total Quantity ($productTotalQty).");
-            }
-        });
-
         if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Validation error',
+                    'errors'  => $validator->errors(),
+                ], 422);
+            }
             return back()->withErrors($validator)->withInput();
         }
-
-        $validated = $validator->validated();
 
         try {
             DB::transaction(function () use ($request, $order) {
 
-                // 1) Order core
-                $order->leadName    = $request->input('leadName',    $order->leadName);
-                $order->leadPhone   = $request->input('leadPhone',   $order->leadPhone);
-                $order->companyName = $request->input('companyName', $order->companyName);
-                $order->deadline    = $request->input('deadline',    $order->deadline);
-                $order->leadEmail   = $request->input('leadEmail',   $order->leadEmail);
-                $order->orderTitle  = $request->input('orderTitle',  $order->orderTitle);
-                $order->orderDetail = $request->input('orderDetail', $order->orderDetail);
-
+                // ----- 1) Order core -----
                 $order->draft       = (int) $request->input('is_draft', 0);
-                $order->orderStatus = 'in_progress';
                 $order->approval    = $request->boolean('design_confirmed');
+                $order->orderStatus = 'in_progress';
+                $order->save();
 
-                // 2) Attachments
+                // ----- 2) Attachments -----
                 $existing = collect($this->getOrderAttachments($order));
                 $toDelete = collect($request->input('delete_attachments', []));
                 if ($toDelete->isNotEmpty()) {
@@ -545,181 +515,253 @@ class ArtistController extends Controller
                     }
                 }
                 $this->putOrderAttachments($order, $existing->values()->all());
-                $order->save();
 
-                // 3) Upsert product (reuse existing product row)
-                $product = Product::where('OrderID', $order->id)->first();
+                // ----- 3) “Header” product (the one shown at the top) -----
+                $hdr = (array) $request->input('product', []);
+                $productHdr = Product::where('OrderID', $order->id)->first()
+                            ?: new Product(['OrderID' => $order->id]);
 
-                $p = $request->input('product', []);
-                $hasProduct    = isset($p['name']) || isset($p['qty_total']) || isset($p['material']) || isset($p['remarks']);
-                $hasItems      = filled($request->input('items', []));
-                $hasBreakdowns = filled($request->input('breakdowns', []));
+                if (array_key_exists('name', $hdr))      $productHdr->productName    = $hdr['name'];
+                if (array_key_exists('qty_total', $hdr)) $productHdr->totalQuantity  = $hdr['qty_total'];
+                if (array_key_exists('material', $hdr))  $productHdr->materialRemark = $hdr['material'];
+                $productHdr->save();
 
-                if (!$product && ($hasProduct || $hasItems || $hasBreakdowns)) {
-                    $product = new Product();
-                    $product->OrderID = $order->id;
-                }
+                // ----- 4) Per-product payload -----
+                $postedProducts = collect($request->input('products', []))->values();
 
-                if ($product) {
-                    if (array_key_exists('name', $p))       $product->productName    = $p['name'];
-                    if (array_key_exists('qty_total', $p))  $product->totalQuantity  = $p['qty_total'];
-                    if (array_key_exists('material', $p))   $product->materialRemark = $p['material'];
-                    if (array_key_exists('remarks', $p))    $product->productRemark  = $p['remarks'];
-                    $product->save();
-                }
+                foreach ($postedProducts as $group) {
+                    $pid = (int) ($group['product_id'] ?? 0);
+                    if (!$pid) continue;
 
-                if (!$product) return;
+                    $productRow = Product::where('OrderID', $order->id)
+                                    ->where('ProductID', $pid)
+                                    ->first();
+                    if (!$productRow) continue;
 
-                // 4) Upsert items (+spec)
-                $postedItems = collect($request->input('items', []))
-                    ->filter(fn($row) => is_array($row));
+                    // -------- Items --------
+                    $keepItemIds = [];
 
-                $keepItemIds = [];
-                foreach ($postedItems as $row) {
-                    // ignore fully empty rows
-                    $isEmpty = collect($row)->filter(fn($v, $k) => $k !== 'id' && $v !== null && $v !== '')->isEmpty();
-                    if ($isEmpty) continue;
+                    collect($group['items'] ?? [])
+                        ->filter(fn($row) => is_array($row))
+                        ->each(function ($row) use ($productRow, &$keepItemIds) {
 
-                    // locate or create item
-                    $item = null;
-                    if (!empty($row['id'])) {
-                        $item = ProductItem::where('ItemID', (int)$row['id'])
-                            ->where('ProductID', $product->ProductID)
-                            ->first();
+                            $isEmpty = collect($row)->except(['id','material'])
+                                    ->filter(fn($v) => $v !== '' && $v !== null)->isEmpty();
+                            if ($isEmpty) return;
+
+                            $item = null;
+                            if (!empty($row['id'])) {
+                                $item = ProductItem::where('ItemID', (int)$row['id'])
+                                        ->where('ProductID', $productRow->ProductID)
+                                        ->first();
+                            }
+                            if (!$item) {
+                                $item = new ProductItem();
+                                $item->ProductID = $productRow->ProductID;
+                            }
+
+                            foreach ([
+                                'itemName','quantity',
+                                'sizeWidth','sizeHeight','sizeLength',
+                                'bleedTop','bleedBottom','bleedLeft','bleedRight',
+                                'finishing','renderTime'
+                            ] as $k) {
+                                if (array_key_exists($k, $row)) {
+                                    $item->{$k} = $row[$k] === '' ? null : $row[$k];
+                                }
+                            }
+
+                            if (array_key_exists('material', $row)) {
+                                $vals = is_array($row['material'])
+                                    ? $row['material']
+                                    : array_map('trim', explode(',', (string)$row['material']));
+                                $vals = array_values(array_filter($vals, fn($v) => $v !== ''));
+
+                                if (method_exists($item, 'hasCast') && $item->hasCast('material', 'array')) {
+                                    $item->material = $vals ?: null;
+                                } else {
+                                    $item->material = $vals ? json_encode($vals) : null;
+                                }
+                            }
+
+                            $item->save();
+                            $keepItemIds[] = $item->ItemID;
+
+                            // ---- Spec (optional) ----
+                            if (array_key_exists('lamination',$row) ||
+                                array_key_exists('printer',$row)    ||
+                                array_key_exists('cutter',$row) ) {     // <-- fixed function name
+                                $spec = Specification::firstOrNew(['ItemID' => $item->ItemID]);
+                                $spec->lamination = $row['lamination'] ?? null;
+                                $spec->printer    = $row['printer']    ?? null;
+                                $spec->cutter     = $row['cutter']     ?? null;
+                                $spec->save();
+                            }
+                        });
+
+                    // delete items not posted (including “all removed” case)
+                    if (array_key_exists('items', $group)) {                                 // <-- handle empty keep
+                        ProductItem::where('ProductID', $productRow->ProductID)
+                            ->when(count($keepItemIds) > 0, fn($q) => $q->whereNotIn('ItemID', $keepItemIds))
+                            ->when(count($keepItemIds) === 0, fn($q) => $q) // delete all
+                            ->delete();
                     }
-                    if (!$item) {
-                        $item = new ProductItem();
-                        $item->ProductID = $product->ProductID;
-                    }
 
-                    // simple columns
-                    foreach ([
-                        'itemName','quantity',
-                        'sizeWidth','sizeHeight','sizeLength',
-                        'bleedTop','bleedBottom','bleedLeft','bleedRight',
-                        'finishing','renderTime'
-                    ] as $key) {
-                        if (array_key_exists($key, $row)) {
-                            $item->{$key} = $row[$key] === '' ? null : $row[$key];
+                    // -------- Deliveries --------
+                    $deliveries = collect($group['deliveries'] ?? [])
+                        ->filter(fn($row) => is_array($row))
+                        ->map(function ($row) {
+                            $row  = array_change_key_case($row, CASE_LOWER);
+                            $date = $row['date'] ?? null;
+                            $time = $row['time'] ?? null;
+
+                            if ((!$date || !$time) && !empty($row['datetime'])) {
+                                try {
+                                    $dt   = \Carbon\Carbon::parse($row['datetime']);
+                                    $date = $date ?: $dt->toDateString();
+                                    $time = $time ?: $dt->format('H:i:s');
+                                } catch (\Throwable $e) {}
+                            }
+
+                            $method   = trim($row['method']   ?? '');
+                            $location = trim($row['location'] ?? '');
+                            $qty      = $row['quantity'] ?? null;
+
+                            if ($method === '' && $location === '' &&
+                                ($qty === null || $qty === '') && !$date && !$time) {
+                                return null;
+                            }
+
+                            return [
+                                'id'       => isset($row['id']) ? (int)$row['id'] : null,
+                                'method'   => $method ?: null,
+                                'location' => $location ?: null,
+                                'quantity' => (int)($qty ?? 0),
+                                'date'     => $date ?: null,
+                                'time'     => $time ?: null,
+                            ];
+                        })
+                        ->filter()
+                        ->values();
+
+                    $keepDeliveryIds = [];
+                    foreach ($deliveries as $d) {
+                        $bd = null;
+                        if (!empty($d['id'])) {
+                            $bd = DeliveryBreakdown::where('BreakdownID', $d['id'])
+                                ->where('ProductID', $productRow->ProductID)
+                                ->first();
                         }
-                    }
-
-                    // MATERIALS (multi-select or string)
-                    if (array_key_exists('material', $row)) {
-                        if (is_array($row['material'])) {
-                            $clean = array_values(array_filter(array_map('trim', $row['material']), fn($v) => $v !== ''));
-                            $item->material = $clean ?: null;
-                        } else {
-                            $clean = array_values(array_filter(array_map('trim', explode(',', (string) $row['material'])), fn($v) => $v !== ''));
-                            $item->material = $clean ?: null;
+                        if (!$bd) {
+                            $bd = new DeliveryBreakdown();
+                            $bd->ProductID = $productRow->ProductID;
                         }
+                        $bd->method   = $d['method'];
+                        $bd->location = $d['location'];
+                        $bd->quantity = $d['quantity'];
+                        $bd->date     = $d['date'];
+                        $bd->time     = $d['time'];
+                        $bd->save();
+
+                        $keepDeliveryIds[] = $bd->BreakdownID;
                     }
 
-                    $item->save();
-                    $keepItemIds[] = $item->ItemID;
-
-                    // One-to-one spec (optional)
-                    if (
-                        array_key_exists('lamination', $row) ||
-                        array_key_exists('printer',   $row) ||
-                        array_key_exists('cutter',    $row)
-                    ) {
-                        $spec = Specification::firstOrNew(['ItemID' => $item->ItemID]);
-                        if (array_key_exists('lamination', $row)) $spec->lamination = $row['lamination'] ?: null;
-                        if (array_key_exists('printer',   $row)) $spec->printer    = $row['printer'] ?: null;
-                        if (array_key_exists('cutter',    $row)) $spec->cutter     = $row['cutter'] ?: null;
-                        $spec->save();
+                    if (array_key_exists('deliveries', $group)) {                             
+                        DeliveryBreakdown::where('ProductID', $productRow->ProductID)
+                            ->when(count($keepDeliveryIds) > 0, fn($q) => $q->whereNotIn('BreakdownID', $keepDeliveryIds))
+                            ->when(count($keepDeliveryIds) === 0, fn($q) => $q) 
+                            ->delete();
                     }
-                }
 
-                // delete removed items (only when some were posted)
-                if (count($keepItemIds)) {
-                    ProductItem::where('ProductID', $product->ProductID)
-                        ->whereNotIn('ItemID', $keepItemIds)
-                        ->delete();
-                }
+                    // -------- Remarks (THIS product) --------
+                    $keepRemarkIds = [];
 
-                $deliveries = $this->extractDeliveries($request);
+                    foreach (collect($group['remarks'] ?? [])->filter(fn ($v) => is_array($v)) as $row) {
+                        $isEmpty = trim($row['operation'] ?? '') === '' && trim($row['remark'] ?? '') === '';
+                        if ($isEmpty) continue;
 
-                // 5.1 Normalize posted deliveries (support datetime-local, skip empty)
-                $postedDeliveries = collect($request->input('deliveries', []))
-                    ->filter(fn($row) => is_array($row));
-
-                $deliveries = [];
-                foreach ($postedDeliveries as $row) {
-                    $row = array_change_key_case($row, CASE_LOWER);
-
-                    $method   = trim($row['method']   ?? '');
-                    $location = trim($row['location'] ?? '');
-                    $qty      = $row['quantity']      ?? null;
-                    $date     = $row['date']          ?? null;
-                    $time     = $row['time']          ?? null;
-                    $id       = isset($row['id']) ? (int)$row['id'] : null;
-
-                    // If using <input type="datetime-local" name="deliveries[...][datetime]">
-                    if ((!$date || !$time) && !empty($row['datetime'])) {
-                        try {
-                            $dt   = \Carbon\Carbon::parse($row['datetime']);
-                            $date = $date ?: $dt->toDateString();     // YYYY-MM-DD
-                            $time = $time ?: $dt->format('H:i:s');    // HH:MM:SS
-                        } catch (\Throwable $e) {
-                            // leave null if parse fails
+                        $remark = null;
+                        if (!empty($row['id'])) {
+                            $remark = ProductRemark::where('RemarkID', (int)$row['id'])
+                                ->where('ProductID', $productRow->ProductID)
+                                ->first();
                         }
+                        if (!$remark) {
+                            $remark = new ProductRemark();
+                            $remark->ProductID = $productRow->ProductID;
+                        }
+
+                        $remark->operation = $row['operation'] ?: null;
+                        $remark->remark    = $row['remark'] ?: null;
+                        $remark->save();
+
+                        $keepRemarkIds[] = $remark->RemarkID;
                     }
 
-                    // Skip fully empty card
-                    $isEmpty = ($method === '' && $location === '' && ($qty === null || $qty === '') && !$date && !$time);
-                    if ($isEmpty) continue;
+                    $toDelete = collect($group['delete_remarks'] ?? [])
+                        ->merge($request->input('delete_remarks', []))  
+                        ->map(fn ($id) => (int)$id)
+                        ->filter();
 
-                    $deliveries[] = [
-                        'id'       => $id,
-                        'method'   => $method ?: null,
-                        'location' => $location ?: null,
-                        'quantity' => is_numeric($qty) ? (int)$qty : 0,
-                        'date'     => $date ?: null,
-                        'time'     => $time ?: null,
-                    ];
-                }
-
-                // Business rule: sum ≤ product total
-                $productTotal = (int)($request->input('product.qty_total') ?? $product->totalQuantity ?? 0);
-                $sumQty = array_sum(array_column($deliveries, 'quantity'));
-                if ($sumQty > $productTotal) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'deliveries' => ["Delivery quantities ($sumQty) exceed Total Quantity ($productTotal)."],
-                    ]);
-                }
-
-                // Upsert rows
-                $keepIds = [];
-                foreach ($deliveries as $d) {
-                    $bd = null;
-                    if (!empty($d['id'])) {
-                        $bd = DeliveryBreakdown::where('BreakdownID', $d['id'])
-                            ->where('ProductID', $product->ProductID)
-                            ->first();
+                    if ($toDelete->isNotEmpty()) {
+                        ProductRemark::where('ProductID', $productRow->ProductID)
+                            ->whereIn('RemarkID', $toDelete)
+                            ->delete();
                     }
-                    if (!$bd) {
-                        $bd = new DeliveryBreakdown();
-                        $bd->ProductID = $product->ProductID;
+
+                    if (array_key_exists('remarks', $group)) {
+                        ProductRemark::where('ProductID', $productRow->ProductID)
+                            ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
+                            ->delete();
                     }
-                    $bd->method   = $d['method'];
-                    $bd->location = $d['location'];
-                    $bd->quantity = $d['quantity'];
-                    $bd->date     = $d['date'];
-                    $bd->time     = $d['time'];
-                    $bd->save();
 
-                    $keepIds[] = $bd->BreakdownID;
-                }
-
+                } 
             });
 
-            return back()->with('success', $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
+            $message = $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.';
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => true, 'message' => $message]);
+            }
+            return back()->with('success', $message);
+
         } catch (\Throwable $e) {
-            Log::error('Artist update failed', ['order_id' => $order->id, 'err' => $e]);
+            Log::error('Artist update failed', [
+                'order_id' => $order->id,
+                'err'      => $e->getMessage(),
+                'trace'    => $e->getTraceAsString(),
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => 'Failed to save. Please try again.'], 500);
+            }
             return back()->with('error', 'Failed to save. Please try again.');
         }
+    }
+
+    public function destroyRemark(Request $request, Order $order, $remark)
+    {
+        $user = Auth::user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        // Load remark and ensure it belongs to a product of THIS order
+        $row = ProductRemark::where('RemarkID', (int)$remark)->first();
+        if (!$row) {
+            return response()->json(['ok' => true]); // already gone, idempotent
+        }
+
+        // guard: remark’s product must belong to this order
+        $belongs = Product::where('ProductID', $row->ProductID)
+            ->where('OrderID', $order->id)
+            ->exists();
+
+        if (!$belongs) {
+            return response()->json(['ok' => false, 'message' => 'Remark does not belong to this order'], 422);
+        }
+
+        $row->delete();
+        return response()->json(['ok' => true]);
     }
 
     /**
@@ -919,15 +961,11 @@ class ArtistController extends Controller
             return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
         }
 
-        // Find product for this order
-        $product = Product::where('OrderID', $order->id)->first();
-        if (!$product) {
-            return response()->json(['ok' => false, 'message' => 'No product for order'], 404);
-        }
+        // Get all product IDs for this order (covers multi-product orders)
+        $productIds = Product::where('OrderID', $order->id)->pluck('ProductID');
 
-        // Only delete rows that belong to this product
         $row = DeliveryBreakdown::where('BreakdownID', $delivery)
-            ->where('ProductID', $product->ProductID)
+            ->whereIn('ProductID', $productIds)
             ->first();
 
         if (!$row) {
@@ -935,6 +973,7 @@ class ArtistController extends Controller
         }
 
         $row->delete();
+
         return response()->json(['ok' => true]);
     }
 }

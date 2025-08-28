@@ -49,6 +49,11 @@ class Order extends Model
         return $this->belongsTo(Lead::class); 
     }
 
+    public function leadAttachments()
+    {
+        return $this->hasMany(\App\Models\LeadAttachment::class, 'lead_id', 'lead_id');
+    }
+
     // Accessors
     public function getStatusLabelAttribute(): string
     {

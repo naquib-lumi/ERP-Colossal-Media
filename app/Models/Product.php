@@ -42,4 +42,15 @@ class Product extends Model
     {
         return $this->hasMany(FulfillmentProgress::class, 'ProductID', 'ProductID');
     }
+
+    public function remarks()
+    {
+        return $this->hasMany(ProductRemark::class, 'ProductID', 'ProductID')
+                ->orderBy('RemarkID');
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'ProductID';
+    }
 }
