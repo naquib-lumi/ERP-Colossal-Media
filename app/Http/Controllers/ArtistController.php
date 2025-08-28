@@ -496,6 +496,17 @@ class ArtistController extends Controller
             DB::transaction(function () use ($request, $order) {
 
                 // ----- 1) Order core -----
+                $submitted = $request->boolean('submit'); // NEW
+
+                // If submitted, force draft=0; otherwise keep draft from form
+                if ($submitted) {
+                    $order->submit = 1;          // NEW
+                    $order->draft  = 0;          // NEW
+                } else {
+                    $order->submit = 0;          // NEW
+                    $order->draft  = (int) $request->input('is_draft', 0);
+                }
+
                 $order->draft       = (int) $request->input('is_draft', 0);
                 $order->approval    = $request->boolean('design_confirmed');
                 $order->orderStatus = 'in_progress';
@@ -719,7 +730,10 @@ class ArtistController extends Controller
                 } 
             });
 
-            $message = $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.';
+            $message = $request->boolean('submit')
+            ? 'Order submitted.'
+            : ($request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
+            
             if ($request->expectsJson()) {
                 return response()->json(['ok' => true, 'message' => $message]);
             }

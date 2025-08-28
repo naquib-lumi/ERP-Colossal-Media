@@ -522,7 +522,7 @@
 
                                   {{-- Sizes --}}
                                   <div class="col-12 col-md-4">
-                                    <label class="form-label">Unit</label>
+                                    <label class="form-label">Unit (Size)</label>
                                     <select name="products[{{ $pIndex }}][items][{{ $i }}][sizeUnit]" class="form-select">
                                       @foreach($units as $val => $label)
                                         <option value="{{ $val }}" @selected($unit === $val)>{{ $label }}</option>
@@ -709,7 +709,7 @@
                                   </div>
 
                                   <div class="col-12 col-md-4">
-                                    <label class="form-label">Unit</label>
+                                    <label class="form-label">Unit (Size)</label>
                                     <select name="products[__PINDEX__][items][__INDEX__][sizeUnit]" class="form-select">
                                       <option value="mm" selected>mm</option>
                                       <option value="cm">cm</option>
@@ -718,16 +718,17 @@
                                     </select>
                                   </div>
 
-                                  <div class="col-12 col-md-6">
-                                    <label class="form-label">Size (inches) - Width</label>
+                                  <div class="col-12 col-md-4">
+                                    <label class="form-label">Size - Width</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="">
                                   </div>
-                                  <div class="col-12 col-md-6">
+                                  <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="">
                                   </div>
 
                                   <div class="col-12 col-md-3">
+                                    <label class="form-label">Unit (Bleed)</label>
                                     <select name="products[__PINDEX__][items][__INDEX__][bleedUnit]" class="form-select">
                                       <option value="mm" selected>mm</option>
                                       <option value="cm">cm</option>
@@ -1037,8 +1038,9 @@
     <div class="col-12">
       <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
         <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
-        <button type="submit" name="is_draft" value="1" class="btn btn-secondary" id="btn-draft">Save Draft</button>
-        <button type="submit" name="is_draft" value="0" class="btn btn-primary" id="btn-submit">Save & Submit</button>
+        <input type="hidden" name="submit" id="submit-input" value="0">
+        <button type="submit" name="is_draft" onclick="document.getElementById('submit-input').value=0" class="btn btn-secondary" id="btn-draft">Save Draft</button>
+        <button type="submit" name="is_draft" onclick="document.getElementById('submit-input').value=1" class="btn btn-primary" id="btn-submit">Save & Submit</button>
       </div>
     </div>
   </div>
@@ -1067,7 +1069,7 @@
         </div>
 
         <div class="col-12 col-md-3">
-          <label class="form-label">Size (inches) – Width</label>
+          <label class="form-label">Size - Width</label>
           <input name="items[IDX][size][w]" type="text" class="form-control">
         </div>
         <div class="col-12 col-md-3">
