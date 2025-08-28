@@ -31,15 +31,24 @@ class OrderController extends Controller
         }
 
         $orders = Order::with('lead', 'salesperson', 'products')->orderBy('created_at', 'desc');
+
         if (!$user->hasRole('head-salesperson')) {
             $orders->where('salesperson_id', $user->id);
+        } else {
+            if ($request->has('salesperson') && $request->salesperson) {
+                $orders->where('salesperson_id', $request->salesperson);
+            }
+        }
+
+        if ($request->has('status') && $request->status) {
+            $orders->where('orderStatus', $request->status);
         }
 
         if ($request->has('search') && $request->input('search')['value']) {
             $search = $request->input('search')['value'];
             $orders->where(function ($query) use ($search) {
                 $query->where('orderTitle', 'like', "%{$search}%")
-                      ->orWhere('id', 'like', "%{$search}%")
+                      ->orWhere('order_number', 'like', "%{$search}%")
                       ->orWhereHas('lead', function ($q) use ($search) {
                           $q->where('company_name', 'like', "%{$search}%")
                             ->orWhere('name', 'like', "%{$search}%");
@@ -49,7 +58,7 @@ class OrderController extends Controller
 
         return DataTables::of($orders)
             ->addColumn('order_id', function ($order) {
-                return $order->order_number;
+                return $order->order_number ?? $order->id;
             })
             ->addColumn('order_name', function ($order) {
                 return $order->orderTitle;
@@ -63,26 +72,34 @@ class OrderController extends Controller
             })
             ->addColumn('lead_details', function ($order) {
                 $lead = $order->lead;
+                $assignedTo = $order->salesperson?->name ?? 'Unassigned';
                 return '<div class="lead-details-cell text-secondary">' .
                        '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . ($lead->name ?? 'N/A') . '</div>' .
                        '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
                        '<div class="d-flex align-items-center mb-1"><i class="bx bx-envelope me-2"></i>' . ($lead->email ?? 'N/A') . '</div>' .
-                       '</div>';
+                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-id-card me-2"></i>Assigned To: ' . $assignedTo . '</div>' .
+                   '</div>';
             })
             ->addColumn('status', function ($order) {
                 $color = match($order->orderStatus) {
-                    'to_assign' => 'danger',
-                    'assigned' => 'primary',
-                    'pending' => 'warning',
+                    'to_assign'   => 'danger',
+                    'assigned'    => 'primary',
+                    'pending'     => 'warning',
                     'in_progress' => 'info',
-                    'completed' => 'success',
-                    'rejected' => 'danger',
-                    default => 'secondary',
+                    'completed'   => 'success',
+                    'rejected'    => 'danger',
+                    default       => 'secondary',
                 };
-                return '<span class="badge bg-' . $color . '">' . ucfirst($order->orderStatus) . '</span>';
+                return '<span class="btn btn-sm btn-label-' . $color . '" 
+                         style="white-space: nowrap; min-width:120px; text-align:center;">'
+                    . ucwords(str_replace('_', ' ', $order->orderStatus)) .
+                    '</span>';
             })
             ->addColumn('products', function ($order) {
-                return '<button class="btn btn-sm btn-info view-products" data-id="' . $order->id . '">View Products</button>';
+                return '<button class="btn view-products" data-id="' . $order->id . '"  style="white-space: nowrap; min-width:120px; text-align:center;">
+                            <span class="icon-base bx bxs-show me-2"></span>
+                            View Products
+                        </button>';
             })
             ->addColumn('actions', function ($order) {
                 $editRoute = route('orders.edit', $order->id);
@@ -90,9 +107,6 @@ class OrderController extends Controller
                 $html = '<div class="actions-cell d-flex gap-2">' .
                         '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
                         '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
-                if ($order->orderStatus === 'pending') {
-                    $html .= '<button class="btn submit-order" data-id="' . $order->id . '" title="Submit"><i class="bx bxs-send me-2" style="font-size: 1.5em;"></i></button>';
-                }
                 $html .= '</div>';
                 return $html;
             })
@@ -134,111 +148,146 @@ class OrderController extends Controller
         return view('sales.add-order', compact('lead'));
     }
 
-    public function store(Request $request)
-    {
-        $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
-            return back()->with('error', 'Unauthorized');
-        }
-
-        try {
-            $request->validate([
-                'lead_id' => 'required|exists:leads,id',
-                'orderTitle' => 'required|string|max:255',
-                'deadline' => 'required|date|after_or_equal:today',
-                'approval' => 'required|boolean',
-                'orderDetail' => 'nullable|string',
-                'products' => 'required|array|min:1|max:5',
-                'products.*.product_name' => 'required|string|max:255',
-                'products.*.quantity' => 'required|integer|min:1',
-                'products.*.remark' => 'nullable|string',
-                'products.*.material_info' => 'nullable|string',
-                'products.*.location' => 'nullable|string|max:255',
-                'products.*.date_time' => 'nullable|date',
-                'csv_file' => 'nullable|file|mimes:csv,txt',
-                'attachments' => 'nullable|array',
-                'attachments.*' => 'file|mimes:pdf,jpg,png,ai|max:2048',
-            ]);
-
-            $lead = Lead::findOrFail($request->lead_id);
-
-            $attachments = [];
-            if ($request->hasFile('attachments')) {
-                foreach ($request->file('attachments') as $file) {
-                    $path = $file->store('order_attachments', 'public');
-                    $attachments[] = $path;
-                }
-            }
-            $attachmentString = implode(',', $attachments);
-
-            $order = Order::create([
-                'lead_id' => $request->lead_id,
-                'salesperson_id' => $user->id,
-                'orderTitle' => $request->orderTitle,
-                'deadline' => $request->deadline,
-                'approval' => $request->approval,
-                'orderDetail' => $request->orderDetail,
-                'orderStatus' => 'pending',
-                'leadName' => $lead->name,
-                'leadPhone' => $lead->phone,
-                'companyName' => $lead->company_name,
-                'leadEmail' => $lead->email,
-                'orderDate' => now(),
-                'orderAttachment' => $attachmentString,
-            ]);
-
-            $productsData = $request->products;
-
-            if ($request->hasFile('csv_file')) {
-                $path = $request->file('csv_file')->getPathname();
-                $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
-                $spreadsheet = $reader->load($path);
-                $sheet = $spreadsheet->getActiveSheet();
-                $rows = $sheet->toArray();
-                foreach ($rows as $key => $row) {
-                    if ($key == 0) continue; // assume header
-                    $productsData[] = [
-                        'product_name' => $row[0] ?? '',
-                        'quantity' => $row[1] ?? '',
-                        'remark' => $row[2] ?? '',
-                        'material_info' => $row[3] ?? '',
-                        'location' => $row[4] ?? '',
-                        'date_time' => $row[5] ?? '',
-                    ];
-                }
-                if (count($productsData) > 5) {
-                    throw new \Exception('Max 5 products');
-                }
-            }
-
-            foreach ($productsData as $productData) {
-                Product::create([
-                    'OrderID' => $order->id,
-                    'productName' => $productData['product_name'],
-                    'totalQuantity' => $productData['quantity'],
-                    'productRemark' => $productData['remark'],
-                    'materialRemark' => $productData['material_info'],
-                    'location' => $productData['location'],
-                    'date_time' => $productData['date_time'],
-                ]);
-            }
-
-            return redirect()->route('sales.orders')->with('success', 'Order created successfully');
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return redirect()->back()->withErrors($e->validator)->withInput();
-        }catch (\Exception $e) {
-            dd($e->getMessage());
-        }
+   public function store(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->hasRole('salesperson')) {
+        return back()->with('error', 'Unauthorized');
     }
 
-    public function csvTemplate()
-    {
-        header("Content-type: text/csv");
-        header("Content-Disposition: attachment; filename=products_template.csv");
-        $output = fopen("php://output", "w");
-        fputcsv($output, ['Product Name', 'Quantity', 'Remark', 'Material Info', 'Location', 'Date & Time']);
-        fclose($output);
+    try {
+        $request->validate([
+            'lead_id' => 'required|exists:leads,id',
+            'orderTitle' => 'required|string|max:255',
+            'deadline' => 'required|date|after_or_equal:today',
+            'approval' => 'required|boolean',
+            'orderDetail' => 'nullable|string',
+            'products' => 'required|array|min:1',
+            'products.*.product_name' => 'required|string|max:255',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.remark' => 'nullable|string',
+            'products.*.material_info' => 'nullable|string',
+            'products.*.location' => 'nullable|string|max:255',
+            'products.*.date_time' => 'nullable|date',
+            'csv_file' => 'nullable|file|mimes:csv,txt',
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'file|mimes:pdf,jpg,png,ai|max:2048',
+        ]);
+
+        $lead = Lead::findOrFail($request->lead_id);
+
+        // Save attachments if uploaded
+        $attachments = [];
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('order_attachments', 'public');
+                $attachments[] = $path;
+            }
+        }
+        $attachmentString = implode(',', $attachments);
+
+        // Create Order
+        $order = Order::create([
+            'lead_id' => $request->lead_id,
+            'salesperson_id' => $user->id,
+            'orderTitle' => $request->orderTitle,
+            'deadline' => $request->deadline,
+            'approval' => $request->approval,
+            'orderDetail' => $request->orderDetail,
+            'orderStatus' => 'pending',
+            'leadName' => $lead->name,
+            'leadPhone' => $lead->phone,
+            'companyName' => $lead->company_name,
+            'leadEmail' => $lead->email,
+            'orderDate' => now(),
+            'orderAttachment' => $attachmentString,
+        ]);
+
+        // Collect products (from form + CSV)
+        $productsData = $request->products;
+
+        // If CSV uploaded, parse and add to productsData
+        if ($request->hasFile('csv_file')) {
+            $path = $request->file('csv_file')->getPathname();
+            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
+            $spreadsheet = $reader->load($path);
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
+
+            foreach ($rows as $key => $row) {
+                if ($key == 0) continue; // skip header
+                $productsData[] = [
+                    'product_name' => $row[0] ?? '',
+                    'quantity' => $row[1] ?? '',
+                    'remark' => $row[2] ?? '',
+                    'material_info' => $row[3] ?? '',
+                    'location' => $row[4] ?? '',
+                    'date_time' => $row[5] ?? '',
+                ];
+            }
+        }
+
+        // Save products
+        foreach ($productsData as $productData) {
+            Product::create([
+                'OrderID' => $order->id,
+                'productName' => $productData['product_name'],
+                'totalQuantity' => $productData['quantity'],
+                'productRemark' => $productData['remark'] ?? null,
+                'materialRemark' => $productData['material_info'] ?? null,
+                'location' => $productData['location'] ?? null,
+                'date_time' => $productData['date_time'] ?? null,
+            ]);
+        }
+
+        return redirect()->route('sales.orders')->with('success', 'Order created successfully');
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return redirect()->back()->withErrors($e->validator)->withInput();
+    } catch (\Exception $e) {
+        dd($e->getMessage());
     }
+}
+
+
+  public function csvTemplate()
+{
+    // CSV headers
+    header("Content-type: text/csv");
+    header("Content-Disposition: attachment; filename=products_template.csv");
+
+    $output = fopen("php://output", "w");
+
+    // Add column headers
+    fputcsv($output, ['Product Name', 'Quantity', 'Remark', 'Material Info', 'Location', 'Date']);
+
+    // Generate example data
+    $data = [
+        // 3 rows → 3 days from now
+        ['Banner Print', 100, 'Urgent order', 'Vinyl 12oz', 'Kuala Lumpur', now()->addDays(3)->format('Y-m-d')],
+        ['Flyer A5', 5000, 'Double sided', 'Art Paper 128gsm', 'Penang', now()->addDays(3)->format('Y-m-d')],
+        ['T-Shirt', 50, 'Black color only', 'Cotton', 'Johor Bahru', now()->addDays(3)->format('Y-m-d')],
+
+        // 2 rows → 5 days from now
+        ['Poster A3', 200, 'Gloss finish', 'Art Card 260gsm', 'Melaka', now()->addDays(5)->format('Y-m-d')],
+        ['Sticker Roll', 1000, 'Waterproof', 'PP Synthetic', 'Ipoh', now()->addDays(5)->format('Y-m-d')],
+
+        // 5 rows → 2 days from now
+        ['Name Card', 300, 'Matte Lamination', 'Art Card 310gsm', 'Shah Alam', now()->addDays(2)->format('Y-m-d')],
+        ['Booklet A4', 100, 'Saddle stitch', '80gsm Simili', 'Kuantan', now()->addDays(2)->format('Y-m-d')],
+        ['Backdrop', 5, 'Event hall size', 'Tarpaulin', 'Kota Kinabalu', now()->addDays(2)->format('Y-m-d')],
+        ['Mug Print', 40, 'Full wrap print', 'Ceramic', 'Kuching', now()->addDays(2)->format('Y-m-d')],
+        ['Cap Embroidery', 25, 'Logo front only', 'Polyester', 'Seremban', now()->addDays(2)->format('Y-m-d')],
+    ];
+
+    // Write rows
+    foreach ($data as $row) {
+        fputcsv($output, $row);
+    }
+
+    fclose($output);
+    exit;
+}
+
 
     public function edit($id)
     {
@@ -246,7 +295,7 @@ class OrderController extends Controller
         if ($order->salesperson_id !== Auth::id()) {
             abort(403, 'Unauthorized');
         }
-        return view('sales.edit-order', compact('order'));
+        return view('sales.order-edit', compact('order'));
     }
 
     public function update(Request $request, $id)
@@ -271,17 +320,21 @@ class OrderController extends Controller
         return redirect()->route('sales.orders')->with('success', 'Order updated successfully');
     }
 
-    public function show($id)
-    {
-        $order = Order::with('lead', 'salesperson', 'products')->findOrFail($id);
-        if ($order->salesperson_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
-        }
-        $attachments = $order->getAttachmentPathsAttribute()->map(function ($path) {
-            return ['url' => Storage::url($path), 'name' => basename($path), 'size' => Storage::size($path)];
-        });
-        return view('sales.order-view', compact('order', 'attachments'));
-    }
+public function show($id)
+{
+    $order = Order::with('lead.attachments', 'salesperson', 'products', 'artist')->findOrFail($id);
+    $attachments = $order->getAttachmentPathsAttribute()->map(function ($path) {
+        return ['url' => Storage::url($path), 'name' => basename($path), 'size' => Storage::size($path)];
+    });
+    $leadAttachments = $order->lead ? $order->lead->attachments->map(function ($attachment) {
+        return [
+            'url' => asset('storage/' . $attachment->file_location),
+            'name' => basename($attachment->file_location),
+            'size' => $attachment->file_size
+        ];
+    }) : collect();
+    return view('sales.order-view', compact('order', 'attachments', 'leadAttachments'));
+}
 
     public function submit($id)
     {

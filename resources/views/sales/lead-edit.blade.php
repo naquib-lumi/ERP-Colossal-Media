@@ -158,25 +158,22 @@
                                 <button type="button" class="btn btn-secondary"
                                         onclick="document.getElementById('attachments').click();">Choose File</button>
                             </div>
+                            <div id="selected-files-list" class="mt-2"></div>
                             @error('attachments')
                                 <div class="text-danger">{{ $message }}</div>
-                            @endif
+                            @enderror
                         </div>
 
                         <button type="submit" class="btn btn-primary">Update</button>
                     </form>
                     @if ($lead->attachments->isNotEmpty())
-                        <div class="mt-2">
+                        <div class="mt-2" id="existing-attachments">
                             <strong>Existing Attachments:</strong>
                             <ul>
                                 @foreach ($lead->attachments as $attachment)
-                                    <li>
+                                    <li data-attachment-id="{{ $attachment->id }}">
                                         {{ basename($attachment->file_location) }} (<a href="{{ asset('storage/' . $attachment->file_location) }}" target="_blank">View</a>)
-                                        <form action="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}" method="POST" style="display:inline;">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-danger delete-attachment" data-url="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}" onclick="return confirm('Are you sure?')">Delete</button>
                                     </li>
                                 @endforeach
                             </ul>
@@ -187,11 +184,12 @@
         </div>
     </div>
 </div>
-
 <script>
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('attachments');
     const message = document.getElementById('dropzone-message');
+    const selectedFilesList = document.getElementById('selected-files-list');
+    let selectedFiles = [];
 
     // Prevent default behaviors for drag/drop
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -217,14 +215,89 @@
         dropzone.style.backgroundColor = '#f8f9fa';
 
         const files = e.dataTransfer.files;
-        fileInput.files = files;
-
-        message.textContent = files.length + ' file(s) selected';
+        addFiles(files);
     });
 
-    // Update message on file input change
+    // Update on file input change
     fileInput.addEventListener('change', () => {
-        message.textContent = fileInput.files.length + ' file(s) selected';
+        addFiles(fileInput.files);
+        fileInput.value = ''; // Clear input to allow re-selecting same files
+    });
+
+    function addFiles(files) {
+        Array.from(files).forEach(file => {
+            if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                selectedFiles.push(file);
+            }
+        });
+        updateFileInput();
+        updateFileList();
+    }
+
+    function updateFileInput() {
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
+        fileInput.files = dt.files;
+    }
+
+    function updateFileList() {
+        selectedFilesList.innerHTML = '';
+        if (selectedFiles.length > 0) {
+            message.textContent = `${selectedFiles.length} file(s) selected`;
+            const ul = document.createElement('ul');
+            ul.classList.add('list-group');
+            selectedFiles.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
+                li.textContent = file.name;
+                const removeBtn = document.createElement('button');
+                removeBtn.classList.add('btn', 'btn-sm', 'btn-danger');
+                removeBtn.textContent = 'Remove';
+                removeBtn.onclick = () => removeFile(index);
+                li.appendChild(removeBtn);
+                ul.appendChild(li);
+            });
+            selectedFilesList.appendChild(ul);
+        } else {
+            message.textContent = 'Drag and drop files here, or click to browse';
+        }
+    }
+
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        updateFileInput();
+        updateFileList();
+    }
+
+    document.querySelectorAll('.delete-attachment').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = this.dataset.url;
+            const li = this.closest('li');
+
+            if (!confirm('Are you sure?')) return;
+
+            fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    li.remove();
+                } else {
+                    alert('Failed to delete attachment');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting attachment');
+            });
+        });
     });
 </script>
 @endsection

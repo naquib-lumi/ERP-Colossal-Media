@@ -23,6 +23,7 @@ Route::get('/test-allnotif', [NotificationController::class, 'testAll'])->name('
 Route::get('/test-bulknotif', [NotificationController::class, 'testSales'])->name('test-bulknotif');
 
 
+
 Route::get('/dashboard', function () {
     if (Auth::check()) {
         $user = Auth::user();
@@ -73,8 +74,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/calendar/meetings/{id}/update-status', [MeetingController::class, 'updateCalendarStatus']);
         Route::post('/calendar/reminders/{id}/update-status', [ReminderController::class, 'updateStatus']);
         Route::get('/leads/search', [LeadController::class, 'searchLeads'])->name('leads.search');
-        Route::get('/leads/{id}', [LeadController::class, 'getLead'])->name('leads.get');
-        
+        Route::get('/leads/{id}', [LeadController::class, 'getLead'])->name('lead.get');
         
         // Add Order route
         Route::get('/orders/create/{lead_id?}', [OrderController::class, 'create'])->name('orders.create');
@@ -86,6 +86,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/orders/get', [OrderController::class, 'getOrders'])->name('orders.get');
         Route::get('/orders/leads/search', [OrderController::class, 'searchLeads'])->name('orders.leads.search');
         Route::get('/orders/leads/{id}', [OrderController::class, 'getLead'])->name('orders.leads.get');
+        Route::get('/csv-template', [OrderController::class, 'csvTemplate'])->name('orders.csv_template');
 
         // LEAD MANAGEMENT
         Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');

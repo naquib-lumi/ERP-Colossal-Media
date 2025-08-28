@@ -57,7 +57,7 @@ class NotificationController extends Controller
 
     public function testAll(Request $request) {
         User::all()->each(function($user) {
-            Helpers::notify($user, 'Test notification to all users', url('/'), ['database']);
+            Helpers::notify($user, 'Test notification to all users', url('/leads/37/edit'), ['database']);
         });
         return response()->json(['success' => true]);
     }

@@ -60,7 +60,7 @@
                             </div>
 
                             <div class="col-12 col-md-6">
-                                <label class="form-label">Date & Time</label>
+                                <label class="form-label">Date</label>
                                 <input name="deliveries[0][datetime]" type="datetime-local" class="form-control">
                             </div>
                         </div>
@@ -101,7 +101,7 @@
                             </div>
 
                             <div class="col-12 col-md-4">
-                                <label class="form-label">Date & Time</label>
+                                <label class="form-label">Date</label>
                                 <input name="deliveries[__INDEX__][datetime]" type="datetime-local" class="form-control">
                             </div>
                         </div>
