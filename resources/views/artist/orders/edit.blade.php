@@ -514,14 +514,28 @@
                                     </div>
                                   </div>
 
+                                  @php
+                                    $units = ['mm' => 'mm', 'cm' => 'cm', 'inch' => 'inch', 'ft' => 'ft'];
+                                    $unit  = old("items.$i.sizeUnit", data_get($it,'sizeUnit', 'mm'));
+                                    $bleedUnit = old("items.$i.bleedUnit", data_get($it,'bleedUnit', 'mm'));
+                                  @endphp
+
                                   {{-- Sizes --}}
-                                  <div class="col-12 col-md-6">
-                                    <label class="form-label">Size (inches) – Width</label>
+                                  <div class="col-12 col-md-4">
+                                    <label class="form-label">Unit</label>
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][sizeUnit]" class="form-select">
+                                      @foreach($units as $val => $label)
+                                        <option value="{{ $val }}" @selected($unit === $val)>{{ $label }}</option>
+                                      @endforeach
+                                    </select>
+                                  </div>
+                                  <div class="col-12 col-md-4">
+                                    <label class="form-label">Size - Width</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
                                       type="number" step="0.01" class="form-control"
                                       value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}">
                                   </div>
-                                  <div class="col-12 col-md-6">
+                                  <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
                                       type="number" step="0.01" class="form-control"
@@ -529,6 +543,14 @@
                                   </div>
 
                                   {{-- Bleed --}}
+                                  <div class="col-12 col-md-3">
+                                    <label class="form-label">Unit (Bleed)</label>
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][bleedUnit]" class="form-select">
+                                      @foreach($units as $v=>$lbl)
+                                        <option value="{{ $v }}" @selected($bleedUnit===$v)>{{ $lbl }}</option>
+                                      @endforeach
+                                    </select>
+                                  </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Bleed (Top)</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
@@ -616,10 +638,10 @@
                                     </select>
                                </div>
                                   <div class="col-md-12">
-                                    <label class="form-label">Finishing</label>
+                                    <label class="form-label">Assemble</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][finishing]"
                                       type="text" class="form-control"
-                                      placeholder="Coating, lamination, etc…"
+                                      placeholder="yes or no"
                                       value="{{ old("items.$i.finishing", data_get($it,'finishing')) }}">
                                   </div>
                                 </div>
@@ -686,8 +708,18 @@
                                     </div>
                                   </div>
 
+                                  <div class="col-12 col-md-4">
+                                    <label class="form-label">Unit</label>
+                                    <select name="products[__PINDEX__][items][__INDEX__][sizeUnit]" class="form-select">
+                                      <option value="mm" selected>mm</option>
+                                      <option value="cm">cm</option>
+                                      <option value="inch">inch</option>
+                                      <option value="ft">ft</option>
+                                    </select>
+                                  </div>
+
                                   <div class="col-12 col-md-6">
-                                    <label class="form-label">Size (inches) – Width</label>
+                                    <label class="form-label">Size (inches) - Width</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="">
                                   </div>
                                   <div class="col-12 col-md-6">
@@ -695,6 +727,14 @@
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="">
                                   </div>
 
+                                  <div class="col-12 col-md-3">
+                                    <select name="products[__PINDEX__][items][__INDEX__][bleedUnit]" class="form-select">
+                                      <option value="mm" selected>mm</option>
+                                      <option value="cm">cm</option>
+                                      <option value="inch">inch</option>
+                                      <option value="ft">ft</option>
+                                    </select>
+                                  </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Bleed (Top)</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="">
@@ -764,8 +804,8 @@
                                   </div>
 
                                   <div class="col-md-12">
-                                    <label class="form-label">Finishing</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][finishing]" type="text" class="form-control" placeholder="Coating, lamination, etc…">
+                                    <label class="form-label">Assemble</label>
+                                    <input name="products[__PINDEX__][items][__INDEX__][finishing]" type="text" class="form-control" placeholder="yes or no">
                                   </div>
                                 </div>
 
@@ -826,8 +866,9 @@
                                     <select class="form-select" name="products[{{ $pIndex }}][deliveries][{{ $i }}][method]">
                                       <option value="">Method</option>
                                       <option value="Courier" {{ $method==='courier' ? 'selected' : '' }}>Courier</option>
-                                      <option value="Pickup"  {{ in_array($method, ['pickup','pick up']) ? 'selected' : '' }}>Pickup</option>
-                                      <option value="Truck"   {{ $method==='truck' ? 'selected' : '' }}>Truck</option>
+                                      <option value="Delivery"  {{ $method==='Delivery' ? 'selected' : '' }}>Delivery</option>
+                                      <option value="Installation"   {{ $method==='Installation' ? 'selected' : '' }}>Installation</option>
+                                      <option value="Self Pickup"   {{ $method==='Self Pickup' ? 'selected' : '' }}>Self Pickup</option>
                                     </select>
                                   </div>
 
@@ -872,8 +913,9 @@
                                   <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select">
                                     <option value="">Method</option>
                                     <option value="Courier">Courier</option>
-                                    <option value="Pickup">Pickup</option>
-                                    <option value="Truck">Truck</option>
+                                    <option value="Delivery">Delivery</option>
+                                    <option value="Installation">Installation</option>
+                                    <option value="Self Pickup">Self Pickup</option>
                                   </select>
                                 </div>
 
@@ -905,7 +947,7 @@
 
                           <div id="remarks-wrap-{{ $pIndex }}">
                             @php
-                              $ops  = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','delivery'=>'Delivery'];
+                              $ops  = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','delivery'=>'Delivery', 'self pickup'=>'Self Pickup', 'courier'=>'Courier'];
                               $rows = $product->remarks ?? collect();
                             @endphp
 
@@ -1593,6 +1635,8 @@
             <option value="furnishing">Furnishing</option>
             <option value="installation">Installation</option>
             <option value="delivery">Delivery</option>
+            <option value="self pickup">Self Pickup</option>
+            <option value="courier">Courier</option>
           </select>
           <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…">
           <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">

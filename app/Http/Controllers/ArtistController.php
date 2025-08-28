@@ -377,9 +377,9 @@ class ArtistController extends Controller
             ->orderBy('pi.ItemID')
             ->selectRaw('
                 pi.ItemID, pi.ProductID, pi.itemName, pi.quantity,
-                pi.sizeWidth, pi.sizeHeight, pi.sizeLength,
+                pi.sizeWidth, pi.sizeHeight, pi.sizeUnit,
                 pi.bleedTop, pi.bleedBottom, pi.bleedLeft, pi.bleedRight,
-                pi.finishing, pi.renderTime, pi.material,
+                pi.finishing, pi.material,
                 s.lamination, s.printer, s.cutter
             ')
             ->get()
@@ -443,11 +443,12 @@ class ArtistController extends Controller
             'products.*.items.*.quantity'       => ['nullable','integer','min:0'],
             'products.*.items.*.sizeWidth'      => ['nullable','numeric'],
             'products.*.items.*.sizeHeight'     => ['nullable','numeric'],
-            'products.*.items.*.sizeLength'     => ['nullable','numeric'],
+            'products.*.items.*.sizeUnit'       => ['nullable','in:mm,cm,inch,ft'],
             'products.*.items.*.bleedTop'       => ['nullable','numeric'],
             'products.*.items.*.bleedBottom'    => ['nullable','numeric'],
             'products.*.items.*.bleedLeft'      => ['nullable','numeric'],
             'products.*.items.*.bleedRight'     => ['nullable','numeric'],
+            'products.*.items.*.bleedUnit'      => ['nullable','in:mm,cm,inch,ft'],
             'products.*.items.*.finishing'      => ['nullable','string','max:255'],
             'products.*.items.*.renderTime'     => ['nullable','integer','min:0'],
             'products.*.items.*.material'       => ['nullable'],
@@ -562,9 +563,9 @@ class ArtistController extends Controller
 
                             foreach ([
                                 'itemName','quantity',
-                                'sizeWidth','sizeHeight','sizeLength',
-                                'bleedTop','bleedBottom','bleedLeft','bleedRight',
-                                'finishing','renderTime'
+                                'sizeWidth','sizeHeight','sizeUnit',
+                                'bleedTop','bleedBottom','bleedLeft','bleedRight', 'bleedUnit',
+                                'finishing'
                             ] as $k) {
                                 if (array_key_exists($k, $row)) {
                                     $item->{$k} = $row[$k] === '' ? null : $row[$k];
