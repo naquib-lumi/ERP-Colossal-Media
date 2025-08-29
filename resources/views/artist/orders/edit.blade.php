@@ -522,7 +522,7 @@
                                           data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
                                           data-suggestions='@json($materialSuggestions)'
                                           data-values='@json($materialVal)'
-                                          data-allow-custom="1" {{$disabled}}>
+                                          data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
                                     </div>
                                   </div>
 
@@ -555,7 +555,7 @@
                                   </div>
 
                                   {{-- Bleed --}}
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-4">
                                     <label class="form-label">Unit (Bleed)</label>
                                     <select name="products[{{ $pIndex }}][items][{{ $i }}][bleedUnit]" class="form-select" {{ $disabled }}>
                                       @foreach($units as $v=>$lbl)
@@ -563,25 +563,25 @@
                                       @endforeach
                                     </select>
                                   </div>
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-2">
                                     <label class="form-label">Bleed (Top)</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
                                       type="number" step="0.01" class="form-control"
                                       value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
                                       type="number" step="0.01" class="form-control"
                                       value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
                                       type="number" step="0.01" class="form-control"
                                       value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
                                       type="number" step="0.01" class="form-control"
@@ -716,7 +716,7 @@
                                         data-name="products[__PINDEX__][items][__INDEX__][material][]"
                                         data-suggestions='@json($allMaterials ?? [])'
                                         data-values='[]'
-                                        data-allow-custom="1">
+                                        data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
                                     </div>
                                   </div>
 
@@ -739,7 +739,7 @@
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
 
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-4">
                                     <label class="form-label">Unit (Bleed)</label>
                                     <select name="products[__PINDEX__][items][__INDEX__][bleedUnit]" class="form-select">
                                       <option value="mm" selected>mm</option>
@@ -748,19 +748,19 @@
                                       <option value="ft">ft</option>
                                     </select>
                                   </div>
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-2">
                                     <label class="form-label">Bleed (Top)</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
-                                  <div class="col-12 col-md-3">
+                                  <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
@@ -1239,6 +1239,7 @@
       const suggestions = JSON.parse(container.dataset.suggestions || '[]');
       const initial = JSON.parse(container.dataset.values || '[]');
       const allowCustom = container.dataset.allowCustom === '1';
+      const isReadonly = container.dataset.readonly === '1';
 
       // build UI
       container.innerHTML = '';
@@ -1249,8 +1250,14 @@
       box.tabIndex = 0;
       const input = document.createElement('input');
       input.className = 'ti-input';
-      input.placeholder = 'Click to select…';
-      input.readOnly = true;
+      input.placeholder = isReadonly ? '' : 'Click to select…';
+      if (isReadonly) {
+        input.readOnly = true;
+        input.classList.add('bg-light'); 
+      } else {
+        input.readOnly = false;     
+        input.classList.remove('bg-light');
+      }
       const dd = document.createElement('div');
       dd.className = 'ti-dd';
       box.appendChild(input);
@@ -1271,25 +1278,42 @@
       function renderChips() {
         [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
         [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
+        if (selected.size === 0 && isReadonly) {
+          // no material selected, show static grey text
+          const noMat = document.createElement('span');
+          noMat.className = 'text-muted small';
+          noMat.textContent = 'No material selected';
+          box.appendChild(noMat);
+          return;
+        }
+
         selected.forEach(v => {
           const chip = document.createElement('span');
           chip.className = 'ti-chip';
           chip.textContent = v;
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.innerHTML = '&times;';
-          btn.addEventListener('click', () => {
-            selected.delete(v);
-            renderChips();
-            buildList();
-          });
-          chip.appendChild(btn);
+
+          if (!isReadonly) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.innerHTML = '&times;';
+            btn.addEventListener('click', () => {
+              selected.delete(v);
+              renderChips();
+              buildList();
+            });
+            chip.appendChild(btn);
+          }
+
           box.insertBefore(chip, input);
-          container.appendChild(hidden(name, v)); // ← hidden inputs appended to container
+          container.appendChild(hidden(name, v));
         });
       }
 
       function buildList() {
+        if (isReadonly) {
+          dd.style.display = 'none';
+          return;
+        }
         const avail = suggestions.filter(s => !selected.has(s));
         dd.innerHTML = '';
         if (!avail.length) {
@@ -1310,17 +1334,21 @@
         dd.style.display = 'block';
       }
 
-      box.addEventListener('click', () => {
-        buildList();
-        dd.style.display = 'block';
-      });
-      input.addEventListener('focus', () => {
-        buildList();
-        dd.style.display = 'block';
-      });
-      document.addEventListener('click', (e) => {
-        if (!wrap.contains(e.target)) dd.style.display = 'none';
-      });
+      if (!isReadonly) {
+        box.addEventListener('click', () => {
+          buildList();
+          dd.style.display = 'block';
+        });
+        input.addEventListener('focus', () => {
+          buildList();
+          dd.style.display = 'block';
+        });
+        document.addEventListener('click', (e) => {
+          if (!wrap.contains(e.target)) dd.style.display = 'none';
+        });
+      } else {
+        wrap.classList.add('ti-disabled');
+      }
 
       renderChips(); // ← show chips for initial values from DB
     }
