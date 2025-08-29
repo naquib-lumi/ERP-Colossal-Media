@@ -217,6 +217,12 @@
   .ti-dd-item.is-active {
     background: #f5f8ff
   }
+
+  input[readonly], select[disabled], textarea[readonly] {
+      background-color: #f1f1f1 !important;
+      pointer-events: none;
+  }
+
 </style>
 
 @endpush
@@ -255,7 +261,14 @@
 <form id="order-form" action="{{ route('artist.orders.update', $order) }}" method="POST" enctype="multipart/form-data">
   @csrf
   @method('PUT')
+
 <input type="hidden" id="is_draft" name="is_draft" value="0">
+@php
+    $isSubmitted = isset($isSubmitted) ? (bool)$isSubmitted : ((int)($order->submit ?? 0) === 1);
+
+    $readonly = $isSubmitted ? 'readonly disabled' : '';
+    $disabled = $isSubmitted ? 'disabled' : '';
+@endphp
   <div class="row g-4">
     <div class="col-12">
       <div class="card">
@@ -310,7 +323,7 @@
                 <div class="col-12 col-md-4">
                   <label class="form-label">Design Confirmation Required?</label>
                   @php $dc = old('design_confirm', $order->design_confirm ?? null); @endphp
-                  <select id="design_confirmed" name="design_confirmed" class="form-select">
+                  <select id="design_confirmed" name="design_confirmed" class="form-select" {{ $disabled }}>
                     <option value="1" {{ $order->approval ? 'selected' : '' }}>Yes</option>
                     <option value="0" {{ !$order->approval ? 'selected' : '' }}>No</option>
                   </select>
@@ -390,7 +403,7 @@
                             type="text"
                             class="form-control"
                             placeholder="e.g. Business Card"
-                            value="{{ old('product.name', $product->productName ?? '') }}">
+                            value="{{ old('product.name', $product->productName ?? '') }}" {{ $readonly }}>
                         </div>
 
                         <div class="col-12 col-md-6 col-xl-3">
@@ -401,7 +414,7 @@
                             min="0"
                             class="form-control"
                             placeholder="1000"
-                            value="{{ old('product.qty_total', $product->totalQuantity ?? '') }}">
+                            value="{{ old('product.qty_total', $product->totalQuantity ?? '') }}" {{ $readonly }}>
                         </div>
 
                         <div class="col-12 col-md-6 col-xl-6">
@@ -411,7 +424,7 @@
                             type="text"
                             class="form-control"
                             placeholder="Premium Paper, Glossy"
-                            value="{{ old('product.material', $product->materialRemark ?? '') }}">
+                            value="{{ old('product.material', $product->materialRemark ?? '') }}" {{ $readonly }}>
                         </div>
                       </div>
 
@@ -493,14 +506,14 @@
                                     <label class="form-label">Item Name</label>
                                     <input class="form-control"
                                       name="products[{{ $pIndex }}][items][{{ $i }}][itemName]"
-                                      value="{{ old("items.$i.itemName", data_get($it,'itemName')) }}">
+                                      value="{{ old("items.$i.itemName", data_get($it,'itemName')) }}" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-md-3">
                                     <label class="form-label">Quantity</label>
                                     <input type="number" min="0" class="form-control"
                                       name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
-                                      value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}">
+                                      value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}" {{ $readonly }}>
                                   </div>
 
                                   {{-- Material (chips) --}}
@@ -510,7 +523,7 @@
                                           data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
                                           data-suggestions='@json($materialSuggestions)'
                                           data-values='@json($materialVal)'
-                                          data-allow-custom="1">
+                                          data-allow-custom="1" {{$disabled}}>
                                     </div>
                                   </div>
 
@@ -523,7 +536,7 @@
                                   {{-- Sizes --}}
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Unit (Size)</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][sizeUnit]" class="form-select">
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][sizeUnit]" class="form-select" {{ $disabled }}>
                                       @foreach($units as $val => $label)
                                         <option value="{{ $val }}" @selected($unit === $val)>{{ $label }}</option>
                                       @endforeach
@@ -533,19 +546,19 @@
                                     <label class="form-label">Size - Width</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
                                       type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}">
+                                      value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
                                       type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}">
+                                      value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
                                   </div>
 
                                   {{-- Bleed --}}
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Unit (Bleed)</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][bleedUnit]" class="form-select">
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][bleedUnit]" class="form-select" {{ $disabled }}>
                                       @foreach($units as $v=>$lbl)
                                         <option value="{{ $v }}" @selected($bleedUnit===$v)>{{ $lbl }}</option>
                                       @endforeach
@@ -555,25 +568,25 @@
                                     <label class="form-label">Bleed (Top)</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
                                       type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}">
+                                      value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Bottom</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
                                       type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}">
+                                      value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Left</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
                                       type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}">
+                                      value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Right</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
                                       type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}">
+                                      value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
                                   </div>
 
                                   {{-- Spec --}}
@@ -588,7 +601,7 @@
                                   @endphp
                                   <div class="col-md-3">
                                     <label class="form-label">Lamination</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select">
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
                                       <option value="Matt UV Lamination"               {{ $lamLc==='matt uv lamination' ? 'selected' : '' }}>Matt UV Lamination</option>
                                       <option value="Gloss UV Lamination"              {{ $lamLc==='gloss uv lamination' ? 'selected' : '' }}>Gloss UV Lamination</option>
@@ -604,7 +617,7 @@
 
                                   <div class="col-md-3">
                                     <label class="form-label">Printer</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select">
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
                                       <option value="Handtop Hybrid"                      {{ $prtLc==='handtop hybrid' ? 'selected' : '' }}>Handtop Hybrid</option>
                                       <option value="Handtop Roll2Roll"                   {{ $prtLc==='handtop roll2roll' ? 'selected' : '' }}>Handtop Roll2Roll</option>
@@ -624,7 +637,7 @@
 
                                   <div class="col-md-3">
                                     <label class="form-label">Cutter</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][cutter]" class="form-select">
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][cutter]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
                                       <option value="AOL 1000 Flatbed Cutter (Small)"  {{ $cutLc==='aol 1000 flatbed cutter (small)' ? 'selected' : '' }}>AOL 1000 Flatbed Cutter (Small)</option>
                                       <option value="AOL 5x10 Flatbed Cutter (big)"    {{ $cutLc==='aol 5x10 flatbed cutter (big)' ? 'selected' : '' }}>AOL 5x10 Flatbed Cutter (big)</option>
@@ -642,7 +655,7 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][finishing]"
                                       type="text" class="form-control"
                                       placeholder="yes or no"
-                                      value="{{ old("items.$i.finishing", data_get($it,'finishing')) }}">
+                                      value="{{ old("items.$i.finishing", data_get($it,'finishing')) }}" {{ $readonly }}>
                                   </div>
                                 </div>
                               </div>
@@ -690,12 +703,12 @@
                                 <div class="row g-3">
                                   <div class="col-md-6">
                                     <label class="form-label">Item Name</label>
-                                    <input type="text" class="form-control" name="products[__PINDEX__][items][__INDEX__][itemName]" value="">
+                                    <input type="text" class="form-control" name="products[__PINDEX__][items][__INDEX__][itemName]" value="" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-md-6">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="">
+                                    <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12">
@@ -710,7 +723,7 @@
 
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Unit (Size)</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][sizeUnit]" class="form-select">
+                                    <select name="products[__PINDEX__][items][__INDEX__][sizeUnit]" class="form-select" {{ $disabled }}>
                                       <option value="mm" selected>mm</option>
                                       <option value="cm">cm</option>
                                       <option value="inch">inch</option>
@@ -720,11 +733,11 @@
 
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Size - Width</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="">
+                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="">
+                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12 col-md-3">
@@ -738,24 +751,24 @@
                                   </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Bleed (Top)</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="">
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Bottom</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="">
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Left</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="">
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Right</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="">
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-md-3">
                                     <label class="form-label">Lamination</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select">
+                                    <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
                                       <option>Matt UV Lamination</option>
                                       <option>Gloss UV Lamination</option>
@@ -771,7 +784,7 @@
 
                                   <div class="col-md-3">
                                     <label class="form-label">Printer</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][printer]" class="form-select">
+                                    <select name="products[__PINDEX__][items][__INDEX__][printer]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
                                       <option>Handtop Hybrid</option>
                                       <option>Handtop Roll2Roll</option>
@@ -790,7 +803,7 @@
 
                                   <div class="col-md-3">
                                     <label class="form-label">Cutter</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][cutter]" class="form-select">
+                                    <select name="products[__PINDEX__][items][__INDEX__][cutter]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
                                       <option>AOL 1000 Flatbed Cutter (Small)</option>
                                       <option>AOL 5x10 Flatbed Cutter (big)</option>
@@ -806,7 +819,7 @@
 
                                   <div class="col-md-12">
                                     <label class="form-label">Assemble</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][finishing]" type="text" class="form-control" placeholder="yes or no">
+                                    <input name="products[__PINDEX__][items][__INDEX__][finishing]" type="text" class="form-control" placeholder="yes or no" {{ $readonly }}>
                                   </div>
                                 </div>
 
@@ -864,7 +877,7 @@
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Delivery Method</label>
                                     @php $method = strtolower((string) $d->method); @endphp
-                                    <select class="form-select" name="products[{{ $pIndex }}][deliveries][{{ $i }}][method]">
+                                    <select class="form-select" name="products[{{ $pIndex }}][deliveries][{{ $i }}][method]" {{ $disabled }}>
                                       <option value="">Method</option>
                                       <option value="Courier" {{ $method==='courier' ? 'selected' : '' }}>Courier</option>
                                       <option value="Delivery"  {{ $method==='Delivery' ? 'selected' : '' }}>Delivery</option>
@@ -875,19 +888,19 @@
 
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Location Address</label>
-                                    <input type="text" class="form-control" name="products[{{ $pIndex }}][deliveries][{{ $i }}][location]" value="{{ $d->location }}">
+                                    <input type="text" class="form-control" name="products[{{ $pIndex }}][deliveries][{{ $i }}][location]" value="{{ $d->location }}" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" class="form-control del-qty" name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]" value="{{ $d->quantity }}">
+                                    <input type="number" class="form-control del-qty" name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]" value="{{ $d->quantity }}" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Date &amp; Time</label>
                                     <input type="datetime-local" class="form-control"
                                           name="products[{{ $pIndex }}][deliveries][{{ $i }}][datetime]"
-                                          value="{{ $dtValue }}">
+                                          value="{{ $dtValue }}" {{ $readonly }}>
                                   </div>
                                 </div>
                               </div>
@@ -911,7 +924,7 @@
                               <div class="row g-3">
                                 <div class="col-12 col-md-3">
                                   <label class="form-label">Delivery Method</label>
-                                  <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select">
+                                  <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select" {{ $disabled }}> 
                                     <option value="">Method</option>
                                     <option value="Courier">Courier</option>
                                     <option value="Delivery">Delivery</option>
@@ -922,20 +935,20 @@
 
                                 <div class="col-12 col-md-3">
                                   <label class="form-label">Location Address</label>
-                                  <input type="text" name="products[{{ $pIndex }}][deliveries][__INDEX__][location]" class="form-control" value="">
+                                  <input type="text" name="products[{{ $pIndex }}][deliveries][__INDEX__][location]" class="form-control" value="" {{ $readonly }}>
                                 </div>
 
                                 <div class="col-12 col-md-2">
                                   <label class="form-label">Quantity</label>
                                   <input type="number" step="1" min="0"
                                         name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]"
-                                        class="form-control del-qty" value="">
+                                        class="form-control del-qty" value="" {{ $readonly }}>
                                 </div>
 
                                 <div class="col-12 col-md-4">
                                   <label class="form-label">Date &amp; Time</label>
                                   <input type="datetime-local" class="form-control"
-                                        name="products[{{ $pIndex }}][deliveries][__INDEX__][datetime]" value="">
+                                        name="products[{{ $pIndex }}][deliveries][__INDEX__][datetime]" value="" {{ $readonly }}>
                                 </div>
                               </div>
                             </div>
@@ -955,7 +968,7 @@
                             @forelse($rows as $r)
                               <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
                                 <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
-                                <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;">
+                                <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
                                   <option value="">— Select —</option>
                                   @foreach($ops as $k => $label)
                                     <option value="{{ $k }}" @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)>{{ $label }}</option>
@@ -964,7 +977,7 @@
                                 <input type="text"
                                       name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][remark]"
                                       class="form-control"
-                                      placeholder="Write a note…"
+                                      placeholder="Write a note…" {{ $readonly }}
                                       value="{{ old("products.$pIndex.remarks.$loop->index.remark", $r->remark) }}">
                                 <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                   <i class="bx bx-trash fs-5"></i>
@@ -972,13 +985,13 @@
                               </div>
                             @empty
                               <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
-                                <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;">
+                                <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
                                   <option value="">— Select —</option>
                                   @foreach($ops as $k => $label)
                                     <option value="{{ $k }}">{{ $label }}</option>
                                   @endforeach
                                 </select>
-                                <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…">
+                                <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }}>
                                 <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                   <i class="bx bx-trash fs-5"></i>
                                 </button>
@@ -1019,7 +1032,7 @@
                 <!-- This input sits on top, invisible, and owns the click -->
                 <input id="fileInput" type="file" multiple
                   accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
-                  class="file-overlay">
+                  class="file-overlay" {{ $readonly }}>
               </div>
 
               <div id="attach-msg" class="mt-2 text-sm"></div>
@@ -1039,8 +1052,10 @@
       <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
         <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
         <input type="hidden" name="submit" id="submit-input" value="0">
+        @if(!$isSubmitted)
         <button type="submit" name="is_draft" onclick="document.getElementById('submit-input').value=0" class="btn btn-secondary" id="btn-draft">Save Draft</button>
-        <button type="submit" name="is_draft" onclick="document.getElementById('submit-input').value=1" class="btn btn-primary" id="btn-submit">Save & Submit</button>
+        <button type="submit" name="is_draft" onclick="document.getElementById('submit-input').value=1" class="btn btn-primary" id="btn-submit" {{ $disabled }}>Save & Submit</button>
+        @endif
       </div>
     </div>
   </div>
@@ -1631,7 +1646,7 @@
         div.className = 'd-flex align-items-center gap-2 mb-2 remark-row';
         div.setAttribute('data-remark', '');
         div.innerHTML = `
-          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;">
+          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
             <option value="">— Select —</option>
             <option value="printing">Printing</option>
             <option value="furnishing">Furnishing</option>
@@ -1640,7 +1655,7 @@
             <option value="self pickup">Self Pickup</option>
             <option value="courier">Courier</option>
           </select>
-          <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…">
+          <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…" {{$readonly}}>
           <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
             <i class="bx bx-trash fs-5"></i>
           </button>`;

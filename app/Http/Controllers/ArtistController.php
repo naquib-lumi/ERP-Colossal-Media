@@ -411,6 +411,7 @@ class ArtistController extends Controller
             'materials' => $materials,
             'product'     => $product,
             'deliveries'  => $deliveries,
+            'isSubmitted'  => (int) ($order->submit ?? 0) === 1,
         ]);
     }
 
@@ -733,7 +734,7 @@ class ArtistController extends Controller
             $message = $request->boolean('submit')
             ? 'Order submitted.'
             : ($request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
-            
+
             if ($request->expectsJson()) {
                 return response()->json(['ok' => true, 'message' => $message]);
             }
