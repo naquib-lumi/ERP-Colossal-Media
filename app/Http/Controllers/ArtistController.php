@@ -19,6 +19,7 @@ use App\Models\DeliveryBreakdown;
 use App\Models\Specification;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 
@@ -402,8 +403,51 @@ class ArtistController extends Controller
 
         $attachments = $this->getOrderAttachments($order);
 
+        $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+            return Storage::disk('public')->url($p);
+        };
+
+        // 1) Lead attachments (read-only)
+        $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($row) use ($toPublicUrl) {
+                $p = ltrim((string)$row->file_location, '/');
+                $p = preg_replace('#^public/#', '', $p);
+                $p = preg_replace('#^storage/#', '', $p);
+                $web = 'storage/'.$p;
+
+                return (object)[
+                    'name' => basename($p),
+                    'size' => (int) $row->file_size,
+                    'ext'  => $row->file_extension,
+                    'url'  => $toPublicUrl($web),
+                ];
+            });
+
+        // 2) Order attachments (the ones artist uploads)
+        // If you already have helpers getOrderAttachments/putOrderAttachments, use them:
+        $rawPaths = method_exists($this, 'getOrderAttachments')
+            ? (array) $this->getOrderAttachments($order)
+            : (array) json_decode((string) $order->orderAttachment, true);
+
+        $orderFiles = collect($rawPaths)->filter()->map(function ($p) use ($toPublicUrl) {
+            $p = ltrim((string)$p, '/');
+            return [
+                'name' => basename($p),
+                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+                'url'  => $toPublicUrl($p),
+                'path' => Str::startsWith($p, 'storage/') ? $p : 'storage/'.$p, // keep the path we delete by
+            ];
+        });
+
         return view('artist.orders.edit', compact(
-            'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries'
+            'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
+        'orderFiles',
         ));
 
         return view('artist.orders.edit', [

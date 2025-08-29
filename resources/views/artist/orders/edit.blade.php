@@ -338,26 +338,25 @@
                 <div class="col-12">
                   <label class="form-label d-flex align-items-center gap-2">
                     <span>Attachments</span>
-                    <span class="text-body-secondary small">(read-only here — upload at bottom section)</span>
+                    <span class="text-body-secondary small">(read-only — uploaded by salesperson)</span>
                   </label>
 
-                  @isset($order->attachments)
-                  @if($order->attachments->count())
-                  <div class="d-flex flex-wrap gap-2">
-                    @foreach($order->attachments as $file)
-                    <a href="{{ Storage::url($file->file_location ?? $file->path) }}" target="_blank"
-                      class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center">
-                      <i class="bx bx-file me-1"></i>
-                      <span class="text-truncate" style="max-width:220px">
-                        {{ $file->original_name ?? basename($file->file_location ?? $file->path) }}
-                      </span>
-                    </a>
-                    @endforeach
-                  </div>
+                  @if(isset($leadAttachments) && count($leadAttachments))
+                    <div class="d-flex flex-wrap gap-2">
+                      @foreach($leadAttachments as $f)
+                        <a href="{{ $f->url }}" target="_blank"
+                          class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center">
+                          <i class="bx bx-file me-1"></i>
+                          <span class="text-truncate" style="max-width:220px">{{ $f->name }}</span>
+                          @if($f->size)
+                            <small class="text-muted ms-2">({{ number_format($f->size/1024, 1) }} KB)</small>
+                          @endif
+                        </a>
+                      @endforeach
+                    </div>
                   @else
-                  <div class="text-body-secondary">No attachments</div>
+                    <div class="text-body-secondary">No attachments</div>
                   @endif
-                  @endisset
                 </div>
               </div>
             </div>
@@ -1033,6 +1032,54 @@
                 <input id="fileInput" type="file" multiple
                   accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx"
                   class="file-overlay" {{ $readonly }}>
+              </div>
+
+              {{-- Existing order files --}}
+              <div class="mt-3">
+                <label class="form-label">Existing files</label>
+
+                @if(isset($orderFiles) && count($orderFiles))
+                  <div class="d-flex flex-column gap-2">
+                    @foreach($orderFiles as $f)
+                      <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                        <div class="d-flex align-items-center gap-2">
+                          <i class="bx bx-file"></i>
+                          <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">{{ $f['name'] }}</a>
+                          <small class="text-muted">.{{ $f['ext'] }}</small>
+                        </div>
+
+                        <div>
+                          @unless($isSubmitted)
+                            {{-- remove = add to delete_attachments[] --}}
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="
+                                      (function(btn){
+                                        const wrap = btn.closest('[data-file]');
+                                        const path = wrap.getAttribute('data-path');
+                                        const bin  = document.getElementById('delete-attachments-bin') || (function(){
+                                          const d = document.createElement('div');
+                                          d.id='delete-attachments-bin'; d.style.display='none';
+                                          document.getElementById('order-form').appendChild(d);
+                                          return d;
+                                        })();
+                                        const input = document.createElement('input');
+                                        input.type='hidden'; input.name='delete_attachments[]'; input.value=path;
+                                        bin.appendChild(input);
+                                        wrap.remove();
+                                      })(this)
+                                    ">
+                              Remove
+                            </button>
+                          @endunless
+                        </div>
+                      </div>
+                      {{-- wrapper holds the storage path we’ll send for deletion --}}
+                      <template data-file data-path="{{ $f['path'] }}"></template>
+                    @endforeach
+                  </div>
+                @else
+                  <div class="text-body-secondary">No files uploaded yet.</div>
+                @endif
               </div>
 
               <div id="attach-msg" class="mt-2 text-sm"></div>
