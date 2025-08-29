@@ -1036,4 +1036,53 @@ class ArtistController extends Controller
 
         return response()->json(['ok' => true]);
     }
+
+    public function destroyAttachment(Request $request, Order $order)
+    {
+        // AuthZ as you already do elsewhere
+        $user = $request->user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            abort(403);
+        }
+
+        // Only allow delete while in draft
+        if ((int)$order->draft !== 1 || (int)$order->submit === 1) {
+            return response()->json(['ok' => false, 'message' => 'Not allowed.'], 403);
+        }
+
+        // "path" comes from the button data attribute (see Blade below)
+        $path = (string) $request->input('path', '');
+        if ($path === '') {
+            return response()->json(['ok' => false, 'message' => 'Missing file path.'], 422);
+        }
+
+        // Normalize to disk path (strip leading storage/)
+        $diskPath = ltrim($path, '/');
+        $diskPath = preg_replace('#^storage/#', '', $diskPath); // public disk path
+
+        // Read current attachments (use your helpers if present)
+        $attachments = method_exists($this, 'getOrderAttachments')
+            ? (array) $this->getOrderAttachments($order)
+            : (array) (json_decode((string) $order->orderAttachment, true) ?: []);
+
+        // Remove from array (match either raw or with "storage/" prefix)
+        $attachments = collect($attachments)->reject(function ($p) use ($diskPath) {
+            $p = ltrim((string)$p, '/');
+            $pNoStorage = preg_replace('#^storage/#', '', $p);
+            return $pNoStorage === $diskPath;
+        })->values()->all();
+
+        // Delete physical file (best-effort)
+        try { Storage::disk('public')->delete($diskPath); } catch (\Throwable $e) {}
+
+        // Persist updated attachments (use your helper if present)
+        if (method_exists($this, 'putOrderAttachments')) {
+            $this->putOrderAttachments($order, $attachments);
+        } else {
+            $order->orderAttachment = json_encode($attachments);
+            $order->save();
+        }
+
+        return response()->json(['ok' => true]);
+    }
 }

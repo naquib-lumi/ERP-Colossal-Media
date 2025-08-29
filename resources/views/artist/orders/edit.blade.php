@@ -1036,52 +1036,40 @@
 
               {{-- Existing order files --}}
               <div class="mt-3">
+                @php
+                  // show trash only when order is still a draft (not submitted)
+                  $canDeleteOrderFiles = ((int)($order->draft ?? 0) === 1) && (int)($order->submit ?? 0) === 0;
+                @endphp
+
                 <label class="form-label">Existing files</label>
 
                 @if(isset($orderFiles) && count($orderFiles))
                   <div class="d-flex flex-column gap-2">
                     @foreach($orderFiles as $f)
-                      <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                      <div class="d-flex align-items-center justify-content-between border rounded p-2"
+                          data-file-row data-path="{{ $f['path'] }}">
                         <div class="d-flex align-items-center gap-2">
                           <i class="bx bx-file"></i>
                           <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">{{ $f['name'] }}</a>
                           <small class="text-muted">.{{ $f['ext'] }}</small>
                         </div>
 
-                        <div>
-                          @unless($isSubmitted)
-                            {{-- remove = add to delete_attachments[] --}}
-                            <button type="button" class="btn btn-sm btn-outline-danger"
-                                    onclick="
-                                      (function(btn){
-                                        const wrap = btn.closest('[data-file]');
-                                        const path = wrap.getAttribute('data-path');
-                                        const bin  = document.getElementById('delete-attachments-bin') || (function(){
-                                          const d = document.createElement('div');
-                                          d.id='delete-attachments-bin'; d.style.display='none';
-                                          document.getElementById('order-form').appendChild(d);
-                                          return d;
-                                        })();
-                                        const input = document.createElement('input');
-                                        input.type='hidden'; input.name='delete_attachments[]'; input.value=path;
-                                        bin.appendChild(input);
-                                        wrap.remove();
-                                      })(this)
-                                    ">
-                              Remove
-                            </button>
-                          @endunless
-                        </div>
+                        @if($canDeleteOrderFiles)
+                          <button type="button"
+                                  class="btn btn-sm btn-outline-danger delete-order-file"
+                                  title="Delete"
+                                  data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
+                                  data-path="{{ $f['path'] }}">
+                            <i class="bx bx-trash"></i>
+                          </button>
+                        @endif
                       </div>
-                      {{-- wrapper holds the storage path we’ll send for deletion --}}
-                      <template data-file data-path="{{ $f['path'] }}"></template>
                     @endforeach
                   </div>
                 @else
                   <div class="text-body-secondary">No files uploaded yet.</div>
                 @endif
               </div>
-
               <div id="attach-msg" class="mt-2 text-sm"></div>
               <ul id="preview" class="mt-3 space-y-2"></ul>
             </div>
@@ -2077,5 +2065,61 @@
     if (submitBtn) submitBtn.addEventListener('click', () => send(false));
 
   });
+
+  document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.delete-order-file');
+  if (!btn) return;
+
+  const url  = btn.dataset.url;
+  const path = btn.dataset.path;
+  const row  = btn.closest('[data-file-row]');
+  if (!url || !path || !row) return;
+
+  // confirm
+  const ok = window.Swal
+    ? (await Swal.fire({
+        icon: 'warning',
+        title: 'Delete this file?',
+        text: 'This will remove it from the order.',
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        confirmButtonColor: '#d33'
+      })).isConfirmed
+    : confirm('Delete this file?');
+
+  if (!ok) return;
+
+  // prevent double click
+  if (btn.disabled) return;
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(url, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': window.CSRF_TOKEN || document.querySelector('meta[name=csrf-token]')?.content || ''
+      },
+      body: JSON.stringify({ path })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.ok) {
+      row.remove();
+      if (window.Swal) Swal.fire({ icon:'success', title:'Deleted', timer:1100, showConfirmButton:false });
+    } else {
+      const msg = data?.message || `HTTP ${res.status}`;
+      if (window.Swal) Swal.fire({ icon:'error', title:'Delete failed', text: msg });
+      else alert('Delete failed: ' + msg);
+      btn.disabled = false;
+    }
+  } catch (err) {
+    if (window.Swal) Swal.fire({ icon:'error', title:'Network error', text:String(err) });
+    else alert('Network error: ' + err);
+    btn.disabled = false;
+  }
+});
 </script>
 @endpush
