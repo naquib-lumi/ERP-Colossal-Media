@@ -337,7 +337,7 @@ class ArtistController extends Controller
                 'products.items' => fn ($q) => $q->orderBy('ItemID'), // relation on Product model
                 'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
             ]);
-
+            $order->load('artist:id,name');
             $order->save();
         }
 

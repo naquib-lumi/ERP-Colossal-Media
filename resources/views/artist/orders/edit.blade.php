@@ -222,7 +222,9 @@
       background-color: #f1f1f1 !important;
       pointer-events: none;
   }
-
+  
+  .del-summary-pill strong{color:#111827}
+  .del-summary-pill span{white-space:nowrap}
 </style>
 
 @endpush
@@ -277,7 +279,7 @@
             <h5 class="mb-0">Artist Job Order — <span class="text-body-secondary">#{{ $orderCode }}</span></h5>
             <small class="text-body-secondary">Last updated: {{ $today }}</small>
           </div>
-          <span class="badge bg-label-secondary">Artist</span>
+          <span class="badge bg-label-secondary">{{ $order->artist->name ?? '—' }}</span>
         </div>
 
         <div class="card-body">
@@ -828,8 +830,25 @@
                         </template>
 
                         {{-- Delivery Breakdown (repeater) --}}
+                        @php
+                          $pTotal     = (int) ($product->totalQuantity ?? 0);
+                          $pDelivered = (int) ($product->deliveryBreakdowns?->sum('quantity') ?? 0);
+                          $pRemain    = max($pTotal - $pDelivered, 0);
+                        @endphp
                         <div class="d-flex align-items-center justify-content-between mt-4 mb-2">
                           <h6 class="mb-0">Delivery Breakdown</h6>
+                          <div class="ms-auto d-flex align-items-center gap-3 small text-muted" style="margin-right: 10px;"
+                              id="del-summary-{{ $pIndex }}">
+                            <span> <strong>Total:</strong>
+                              <span id="del-sum-total-{{ $pIndex }}">{{ $pTotal }}</span>
+                            </span>
+                            <span> <strong>Delivered:</strong>
+                              <span id="del-sum-delivered-{{ $pIndex }}">{{ $pDelivered }}</span>
+                            </span>
+                            <span> <strong>Remaining:</strong>
+                              <span id="del-sum-remaining-{{ $pIndex }}">{{ $pRemain }}</span>
+                            </span>
+                          </div>
                           <button type="button"
                                   class="btn btn-sm btn-outline-primary"
                                   id="addDeliveryBtn-{{ $pIndex }}">
@@ -879,7 +898,6 @@
                                     <select class="form-select" name="products[{{ $pIndex }}][deliveries][{{ $i }}][method]" {{ $disabled }}>
                                       <option value="">Method</option>
                                       <option value="Courier" {{ $method==='courier' ? 'selected' : '' }}>Courier</option>
-                                      <option value="Delivery"  {{ $method==='Delivery' ? 'selected' : '' }}>Delivery</option>
                                       <option value="Installation"   {{ $method==='Installation' ? 'selected' : '' }}>Installation</option>
                                       <option value="Self Pickup"   {{ $method==='Self Pickup' ? 'selected' : '' }}>Self Pickup</option>
                                     </select>
@@ -926,7 +944,6 @@
                                   <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select" {{ $disabled }}> 
                                     <option value="">Method</option>
                                     <option value="Courier">Courier</option>
-                                    <option value="Delivery">Delivery</option>
                                     <option value="Installation">Installation</option>
                                     <option value="Self Pickup">Self Pickup</option>
                                   </select>
@@ -960,7 +977,7 @@
 
                           <div id="remarks-wrap-{{ $pIndex }}">
                             @php
-                              $ops  = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','delivery'=>'Delivery', 'self pickup'=>'Self Pickup', 'courier'=>'Courier'];
+                              $ops  = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','self pickup'=>'Self Pickup', 'courier'=>'Courier'];
                               $rows = $product->remarks ?? collect();
                             @endphp
 
@@ -1500,6 +1517,21 @@
           //   sum <= total ? '' : `Item quantities (${sum}) exceed Total Quantity (${total}).`
           // );
         }
+        
+        function updateDeliverySummaryBar() {
+          const totalEl = document.getElementById('del-sum-total-' + pIndex);
+          const delEl   = document.getElementById('del-sum-delivered-' + pIndex);
+          const remEl   = document.getElementById('del-sum-remaining-' + pIndex);
+          if (!totalEl || !delEl || !remEl) return;
+
+          const total = getTotalAllowed();   // already defined in your code
+          const delivered = sumDeliveryQty();// already defined in your code
+          const remaining = Math.max(total - delivered, 0);
+
+          totalEl.textContent = String(total);
+          delEl.textContent   = String(delivered);
+          remEl.textContent   = String(remaining);
+        }
 
         // wire existing & hook add
         acc.querySelectorAll('.accordion-item[data-kind="item"]').forEach((wrap) => {
@@ -1674,6 +1706,7 @@
         function validateDeliveries() {
           const ok = sumDeliveryQty() <= getTotalAllowed();
           setQtyValidity(ok, ok ? '' : 'Delivery quantities exceed Product Total Quantity.');
+          updateDeliverySummaryBar();
         }
 
         delWrap.addEventListener('input', (e) => {
