@@ -19,6 +19,8 @@ use App\Models\DeliveryBreakdown;
 use App\Models\Specification;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
@@ -1102,14 +1104,31 @@ class ArtistController extends Controller
     {
         $user = $request->user();
 
-        $data = $request->validate([
+        $validated = $request->validate([
             'name'           => ['required','string','max:255'],
             'email'          => ['required','email','max:255'],
             'contact_number' => ['nullable','string','max:30'],
+
+            // Password section (optional)
+            // If 'password' is present, 'current_password' must match the logged-in user
+            'current_password' => ['nullable','required_with:password','current_password'],
+            'password'         => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
         ]);
 
-        $user->fill($data)->save();
+        // Update profile fields
+        $user->fill([
+            'name'           => $validated['name'],
+            'email'          => $validated['email'],
+            'contact_number' => $validated['contact_number'] ?? null,
+        ]);
 
-        return redirect()->route('artist.profile.show')->with('success', 'Profile updated.');
+        // Update password if provided
+        if (!empty($validated['password'])) {
+            $user->password = Hash::make($validated['password']);
+        }
+
+        $user->save();
+
+        return back()->with('success', 'Profile updated.');
     }
 }

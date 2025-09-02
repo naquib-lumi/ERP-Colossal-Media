@@ -813,6 +813,4 @@
   })();
 </script>
 @endpush
-
-
-        @endsection
+@endsection
