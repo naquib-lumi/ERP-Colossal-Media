@@ -248,4 +248,12 @@ class FulfillmentController extends Controller
         // generate a PDF and return download/stream
         abort(501, 'Export not implemented yet.');
     }
+
+    public function fulfillmentCounts()
+    {
+        return response()->json([
+            'totals'    => Product::fulfillmentCounts(),
+            'breakdown' => Product::fulfillmentBreakdown(),
+        ]);
+    }
 }

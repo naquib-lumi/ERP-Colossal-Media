@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Product extends Model
 {
@@ -53,4 +54,41 @@ class Product extends Model
     {
         return 'ProductID';
     }
+
+    public static function fulfillmentBreakdown(): array
+    {
+        $tasks    = ['printing','furnishing','installation'];     // ignore "delivery"
+        $statuses = ['completed','in_progress','pending','rejected'];
+
+        $base = [];
+        foreach ($tasks as $t) { $base[$t] = array_fill_keys($statuses, 0); }
+
+        $rows = static::query()
+            ->whereNotNull('taskType')
+            ->whereIn(DB::raw('LOWER(taskType)'), $tasks)
+            ->selectRaw('LOWER(taskType) AS task, LOWER(status) AS stat, COUNT(*) AS c')
+            ->groupBy('task','stat')
+            ->get();
+
+        foreach ($rows as $r) {
+            if (isset($base[$r->task][$r->stat])) $base[$r->task][$r->stat] = (int)$r->c;
+        }
+        return $base;
+    }
+
+    public static function fulfillmentCounts(): array
+    {
+        $rows = static::query()
+            ->whereNotNull('taskType')
+            ->selectRaw('LOWER(taskType) AS task, COUNT(*) AS total')
+            ->whereIn(DB::raw('LOWER(taskType)'), ['printing','furnishing','installation'])
+            ->groupBy('task')
+            ->pluck('total','task');
+
+        return [
+            'printing'     => (int)($rows['printing'] ?? 0),
+            'furnishing'   => (int)($rows['furnishing'] ?? 0),
+            'installation' => (int)($rows['installation'] ?? 0),
+        ];
+}
 }
