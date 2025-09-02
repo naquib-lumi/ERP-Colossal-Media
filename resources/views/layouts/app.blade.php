@@ -93,6 +93,12 @@ html.layout-menu-hover .logo-text {
                   <div data-i18n="Fulfillment">Fulfillment</div>
                 </a>
               </li>
+              <li class="menu-item {{ request()->routeIs('artist.profile.show') ? 'active' : '' }}">
+                <a href="{{ route('artist.profile.show') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="Profile">Profile</div>
+                </a>
+              </li>
             @endif
             @if (auth()->user()->role === 'Admin')
               <li class="menu-item {{ request()->routeIs('admin.settings') ? 'active' : '' }}">

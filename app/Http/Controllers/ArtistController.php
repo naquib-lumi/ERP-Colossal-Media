@@ -1085,4 +1085,31 @@ class ArtistController extends Controller
 
         return response()->json(['ok' => true]);
     }
+
+    public function ProfileShow(Request $request)
+    {
+        $user = $request->user();
+        return view('artist.profile.show', compact('user'));
+    }
+
+    public function ProfileEdit(Request $request)
+    {
+        $user = $request->user();
+        return view('artist.profile.edit', compact('user'));
+    }
+
+    public function ProfileUpdate(Request $request)
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'name'           => ['required','string','max:255'],
+            'email'          => ['required','email','max:255'],
+            'contact_number' => ['nullable','string','max:30'],
+        ]);
+
+        $user->fill($data)->save();
+
+        return redirect()->route('artist.profile.show')->with('success', 'Profile updated.');
+    }
 }
