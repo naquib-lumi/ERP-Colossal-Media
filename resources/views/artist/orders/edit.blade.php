@@ -595,10 +595,12 @@
                                     $lamVal = old("products.$pIndex.items.$i.lamination", data_get($it, 'spec.lamination'));
                                     $prtVal = old("products.$pIndex.items.$i.printer",    data_get($it, 'spec.printer'));
                                     $cutVal = old("products.$pIndex.items.$i.cutter",     data_get($it, 'spec.cutter'));
+                                    $assVal = old("products.$pIndex.items.$i.finishing",  data_get($it,'finishing'));
 
                                     $lamLc = strtolower((string) $lamVal);
                                     $prtLc = strtolower((string) $prtVal);
                                     $cutLc = strtolower((string) $cutVal);
+                                    $assLc = strtolower((string) $assVal);
                                   @endphp
                                   <div class="col-md-3">
                                     <label class="form-label">Lamination</label>
@@ -653,10 +655,11 @@
                                </div>
                                   <div class="col-md-12">
                                     <label class="form-label">Assemble</label>
-                                    <input name="products[{{ $pIndex }}][items][{{ $i }}][finishing]"
-                                      type="text" class="form-control"
-                                      placeholder="yes or no"
-                                      value="{{ old("items.$i.finishing", data_get($it,'finishing')) }}" {{ $readonly }}>
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][finishing]" class="form-select" {{ $disabled }}>
+                                      <option value="">-</option>
+                                      <option value="yes"  {{ $assLc==='yes' ? 'selected' : '' }}>Yes</option>
+                                      <option value="no"   {{ $assLc==='no' ? 'selected' : '' }}>No</option>
+                                    </select>
                                   </div>
                                 </div>
                               </div>

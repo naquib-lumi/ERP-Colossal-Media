@@ -90,5 +90,29 @@ class Product extends Model
             'furnishing'   => (int)($rows['furnishing'] ?? 0),
             'installation' => (int)($rows['installation'] ?? 0),
         ];
-}
+    }
+
+    /**
+     * Decide taskType from request item payload (or Eloquent items).
+     * Will set to 'printing' if ANY item has a selected printer, else 'furnishing'.
+     *
+     * @param  array|\Illuminate\Support\Collection|null $itemsPayload  // e.g. $request->input('items')
+     */
+    public function updateTaskTypeFromItems($itemsPayload = null): void
+    {
+        // Accept either request payload or existing relation
+        $items = collect($itemsPayload ?? $this->items);
+
+        $hasPrinter = $items->contains(function ($i) {
+            // handle both array payload and model instance
+            $printer = is_array($i)
+                ? ($i['printer'] ?? $i['printer_id'] ?? $i['printerId'] ?? null)
+                : ($i->printer ?? $i->printer_id ?? null);
+
+            return !empty($printer); // any non-empty value counts as “selected”
+        });
+
+        $this->taskType = $hasPrinter ? 'printing' : 'furnishing';
+        $this->save();
+    }
 }
