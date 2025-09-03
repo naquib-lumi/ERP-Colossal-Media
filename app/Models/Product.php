@@ -92,27 +92,24 @@ class Product extends Model
         ];
     }
 
-    /**
-     * Decide taskType from request item payload (or Eloquent items).
-     * Will set to 'printing' if ANY item has a selected printer, else 'furnishing'.
-     *
-     * @param  array|\Illuminate\Support\Collection|null $itemsPayload  // e.g. $request->input('items')
-     */
-    public function updateTaskTypeFromItems($itemsPayload = null): void
+    public function syncTaskTypeFromSpecs(): void
     {
-        // Accept either request payload or existing relation
-        $items = collect($itemsPayload ?? $this->items);
+        $pid = $this->getAttribute('ProductID') ?? $this->getKey();
 
-        $hasPrinter = $items->contains(function ($i) {
-            // handle both array payload and model instance
-            $printer = is_array($i)
-                ? ($i['printer'] ?? $i['printer_id'] ?? $i['printerId'] ?? null)
-                : ($i->printer ?? $i->printer_id ?? null);
+        $hasPrinter = DB::table('product_items as pi')
+            ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
+            ->where('pi.ProductID', $pid)
+            ->where(function ($q) {
+                $q->whereNotNull('s.printer')
+                  ->whereRaw("TRIM(s.printer) <> ''")
+                  ->whereRaw("LOWER(TRIM(s.printer)) <> 'null'");
+            })
+            ->exists();
 
-            return !empty($printer); // any non-empty value counts as “selected”
-        });
+        $newType = $hasPrinter ? 'printing' : 'furnishing';
 
-        $this->taskType = $hasPrinter ? 'printing' : 'furnishing';
-        $this->save();
+        if ($this->taskType !== $newType) {
+            $this->forceFill(['taskType' => $newType])->save();
+        }
     }
 }

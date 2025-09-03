@@ -461,7 +461,7 @@ class ArtistController extends Controller
         ]);
     }
 
-    public function update(Request $request, Order $order)
+    public function update(Request $request, Order $order, Product $product = null)
     {
         // ----- AuthZ -----
         $user = Auth::user();
@@ -539,8 +539,10 @@ class ArtistController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        // $product = \App\Models\Product::where('ProductID', $productId)->firstOrFail();
+
         try {
-            DB::transaction(function () use ($request, $order) {
+            DB::transaction(function () use ($request, $order, $product) {
 
                 // ----- 1) Order core -----
                 $submitted = $request->boolean('submit'); // NEW
@@ -773,7 +775,7 @@ class ArtistController extends Controller
                             ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
                             ->delete();
                     }
-
+                    $productRow->syncTaskTypeFromSpecs();
                 } 
             });
 
