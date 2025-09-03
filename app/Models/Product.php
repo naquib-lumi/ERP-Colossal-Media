@@ -57,7 +57,7 @@ class Product extends Model
 
     public static function fulfillmentBreakdown(): array
     {
-        $tasks    = ['printing','furnishing','installation'];     // ignore "delivery"
+        $tasks    = ['printing','furnishing','installation'];   
         $statuses = ['completed','in_progress','pending','rejected'];
 
         $base = [];

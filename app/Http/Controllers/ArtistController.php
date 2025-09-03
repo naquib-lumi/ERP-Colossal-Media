@@ -539,20 +539,17 @@ class ArtistController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        // $product = \App\Models\Product::where('ProductID', $productId)->firstOrFail();
-
         try {
             DB::transaction(function () use ($request, $order, $product) {
 
                 // ----- 1) Order core -----
-                $submitted = $request->boolean('submit'); // NEW
+                $submitted = $request->boolean('submit'); 
 
-                // If submitted, force draft=0; otherwise keep draft from form
                 if ($submitted) {
-                    $order->submit = 1;          // NEW
-                    $order->draft  = 0;          // NEW
+                    $order->submit = 1;         
+                    $order->draft  = 0;       
                 } else {
-                    $order->submit = 0;          // NEW
+                    $order->submit = 0;        
                     $order->draft  = (int) $request->input('is_draft', 0);
                 }
 
@@ -661,7 +658,7 @@ class ArtistController extends Controller
                         });
 
                     // delete items not posted (including “all removed” case)
-                    if (array_key_exists('items', $group)) {                                 // <-- handle empty keep
+                    if (array_key_exists('items', $group)) {                               
                         ProductItem::where('ProductID', $productRow->ProductID)
                             ->when(count($keepItemIds) > 0, fn($q) => $q->whereNotIn('ItemID', $keepItemIds))
                             ->when(count($keepItemIds) === 0, fn($q) => $q) // delete all
@@ -828,11 +825,6 @@ class ArtistController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Visible orders for the current user:
-     * - head-artist: sees everything
-     * - artist: only orders assigned to them; hide "to_assign" / "assigned"
-     */
     private function visibleOrders()
     {
         $user = Auth::user();
@@ -852,7 +844,6 @@ class ArtistController extends Controller
         return $user && $user->role === 'head-artist';
     }
 
-    // Helper to read/combine either JSON or comma string
     private function getOrderAttachments(Order $order): array
     {
         $raw = $order->orderAttachment ?? '';
@@ -938,10 +929,6 @@ class ArtistController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Normalize delivery rows from the request into a clean array.
-     * Accepts either a single datetime string or separate date/time.
-     */
     private function extractDeliveries(Request $request): array
     {
         $posted = $request->input('deliveries', []);
@@ -990,10 +977,6 @@ class ArtistController extends Controller
         return $rows;
     }
 
-    /**
-     * Validate deliveries and enforce the total ≤ product quantity rule.
-     * Returns an array [deliveries, totalQty] or throws \Illuminate\Validation\ValidationException.
-     */
     private function validateDeliveries(array $deliveries, int $maxQty): array
     {
         // Per-row validation
