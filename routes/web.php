@@ -9,6 +9,8 @@ use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\PrintingController;
+use App\Http\Controllers\ProductOrderController;
 
 use App\Http\Controllers\ArtistController;
 use Illuminate\Support\Facades\Route;
@@ -30,7 +32,8 @@ Route::get('/dashboard', function () {
                 return redirect()->route('artist.dashboard');
             case 'admin':
                 return redirect()->route('admin.dashboard');
-            case 'printing':
+            case 'operations-printing':
+                return redirect()->route('printing.dashboard');
             case 'installation':
             case 'delivery':
             case 'furnishing':
@@ -114,6 +117,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'assign'])
             ->middleware('role:head-artist')
             ->name('artist.orders.assign');
+    });
+
+    // Printing
+    Route::middleware(['web','auth','role:operations-printing'])->group(function () {
+        Route::get('/printing/dashboard', [PrintingController::class, 'dashboard'])->name('printing.dashboard');
+        // Route::get('/printing/productorder', [ProductOrderController::class, 'productorder'])->name('printing.productorder');
+        Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
+Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
     });
 
     Route::middleware('role:admin')->group(function () {
