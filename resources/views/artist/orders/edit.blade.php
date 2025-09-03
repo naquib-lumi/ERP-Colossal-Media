@@ -823,7 +823,11 @@
 
                                   <div class="col-md-12">
                                     <label class="form-label">Assemble</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][finishing]" type="text" class="form-control" placeholder="yes or no" {{ $readonly }}>
+                                    <select name="products[__PINDEX__][items][__INDEX__][finishing]" class="form-select" {{ $disabled }}>
+                                      <option value="">-</option>
+                                      <option>Yes</option>
+                                      <option>No</option>
+                                    </select>
                                   </div>
                                 </div>
 
