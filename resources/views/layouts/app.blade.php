@@ -89,8 +89,14 @@ html.layout-menu-hover .logo-text {
               </li>
               <li class="menu-item {{ request()->routeIs('artist.fulfillment.index') ? 'active' : '' }}">
                 <a href="{{ route('artist.fulfillment.index') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-file"></i>
+                  <i class="menu-icon icon-base bx bx-check"></i>
                   <div data-i18n="Fulfillment">Fulfillment</div>
+                </a>
+              </li>
+              <li class="menu-item {{ request()->routeIs('artist.profile.show') ? 'active' : '' }}">
+                <a href="{{ route('artist.profile.show') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="Profile">Profile</div>
                 </a>
               </li>
             @endif

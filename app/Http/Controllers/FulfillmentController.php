@@ -124,7 +124,7 @@ class FulfillmentController extends Controller
             'order:id,order_number,orderTitle,companyName,leadName,leadPhone,leadEmail,lead_id,deadline,created_at,artist_id,salesperson_id,orderAttachment',
             'order.artist:id,name',
             'order.salesperson:id,name',
-            'items' => fn ($q) => $q->select('ItemID','ProductID','itemName','quantity','sizeWidth','sizeHeight','sizeLength','bleedTop','bleedBottom','bleedLeft','bleedRight','finishing','material')
+            'items' => fn ($q) => $q->select('ItemID','ProductID','itemName','quantity','sizeWidth', 'sizeUnit','sizeHeight', 'bleedUnit','bleedTop','bleedBottom','bleedLeft','bleedRight','finishing','material')
                                     ->with('spec:SpecificationID,ItemID,printer,cutter,lamination'),
             'deliveryBreakdowns:BreakdownID,ProductID,method,location,quantity,date,time',
             // IMPORTANT: include FK + PK in the select
@@ -247,5 +247,13 @@ class FulfillmentController extends Controller
     {
         // generate a PDF and return download/stream
         abort(501, 'Export not implemented yet.');
+    }
+
+    public function fulfillmentCounts()
+    {
+        return response()->json([
+            'totals'    => Product::fulfillmentCounts(),
+            'breakdown' => Product::fulfillmentBreakdown(),
+        ]);
     }
 }

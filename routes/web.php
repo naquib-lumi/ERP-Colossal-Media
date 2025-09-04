@@ -138,6 +138,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('/artist/orders/{order}/remarks/{remark}', [ArtistController::class, 'destroyRemark'])->name('artist.orders.remarks.destroy');
         // (optional) export PDF button stub
         Route::get('/artist/fulfillment/products/{product}/export', [FulfillmentController::class, 'export'])->name('artist.fulfillment.product.export');
+        Route::delete('/artist/orders/{order}/attachments', [ArtistController::class, 'destroyAttachment'])->name('artist.orders.attachments.destroy');
+        Route::get('/artist/fulfillment-counts', [FulfillmentController::class, 'fulfillmentCounts'])->name('artist.fulfillmentCounts');
+        Route::get('/artist/profile',       [ArtistController::class, 'ProfileShow'])->name('artist.profile.show');
+        Route::patch('/artist/profile',     [ArtistController::class, 'ProfileUpdate'])->name('artist.profile.update');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])

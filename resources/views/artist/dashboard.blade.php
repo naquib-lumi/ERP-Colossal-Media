@@ -128,6 +128,11 @@
     .card-datatable .dataTables_wrapper .row {
         margin: 0
     }
+
+    #fulfillmentChart .chartjs {
+        max-height: none !important;
+        min-height: 0 !important;
+    }
 </style>
 @endpush
 
@@ -185,7 +190,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-gift icon-lg text-heading"></i>
+                                        <!-- <i class="icon-base bx bx-gift icon-lg text-heading"></i> -->
                                     </span>
                                     </span>
                                 </div>
@@ -217,7 +222,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-x-circle icon-lg text-danger"></i>
+                                        <i class="icon-base bx bx-x-circle icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -294,7 +299,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-x-circle icon-lg text-danger"></i>
+                                        <i class="icon-base bx bx-x-circle icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -565,8 +570,98 @@
             load();
         }, 300));
 
-    // Bail if jQuery is missing
-    if (!window.jQuery) { console.error('jQuery not loaded → DataTables will not init'); return; }
+    // Fulfillment bar chart 
+    if (!window.Chart) return;
+
+    const wrapFulfillment = document.getElementById('fulfillmentChart');
+    if (!wrapFulfillment) return;
+
+    // fixed-height wrapper (align with donut)
+    wrapFulfillment.innerHTML = `
+        <div id="fulfillmentChartWrap" class="position-relative" style="height:280px;">
+        <canvas id="fulfillmentBar" class="chartjs" style="width:100%;height:100%;"></canvas>
+        </div>
+    `;
+
+    // status colors (match theme look)
+    const STATUS = {
+        completed:   { label: 'Completed',   color: '#28c76f' },
+        in_progress: { label: 'In Progress', color: '#00cfe8' },
+        pending:     { label: 'Pending',     color: '#ff9f43' },
+        rejected:    { label: 'Rejected',    color: '#ea5455' }
+    };
+
+    fetch(@json(route('artist.fulfillmentCounts')))
+        .then(r => r.json())
+        .then(res => {
+        // allow backward compat if API still returns plain totals
+        const totals    = res.totals    ?? res;
+        const breakdown = res.breakdown ?? { printing:{}, furnishing:{}, installation:{} };
+
+        const labels = ['Printing','Furnishing','Installation'];
+        const keys   = ['printing','furnishing','installation'];
+        const counts = [totals.printing||0, totals.furnishing||0, totals.installation||0];
+
+        const border = ['#27AE60','#2D9CDB','#F2C94C'];
+        const bg     = ['rgba(39,174,96,0.65)','rgba(45,156,219,0.65)','rgba(242,201,76,0.65)'];
+
+        const max = Math.max(...counts);
+        const suggestedMax = Math.ceil((max || 5)/5)*5;
+
+        new Chart(document.getElementById('fulfillmentBar').getContext('2d'), {
+            type: 'bar',
+            data: { labels, datasets: [{
+            label: 'Orders',
+            data: counts,
+            backgroundColor: bg,
+            borderColor: border,
+            borderWidth: 1,
+            borderRadius: 8,
+            barPercentage: 0.55,
+            categoryPercentage: 0.5
+            }]},
+            options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => `${c.parsed.y} orders` } }
+            },
+            scales: {
+                x: { grid: { display:false }, ticks: { font:{ weight:600 } } },
+                y: { beginAtZero:true, suggestedMax, ticks:{ stepSize:1 } }
+            }
+            }
+        });
+
+        // ------- captions with status-color indicators -------
+        const cap = document.createElement('div');
+        cap.className = 'd-flex justify-content-around pt-3';
+        cap.innerHTML = keys.map((k, idx) => {
+            const b = breakdown[k] || {};
+            // build little colored-dot chips for non-zero statuses
+            const chips = Object.entries(STATUS)
+            .filter(([s]) => (b[s] ?? 0) > 0)
+            .map(([s, meta]) => `
+                <span class="d-inline-flex align-items-center me-3 mb-1">
+                <span style="width:10px;height:10px;background:${meta.color};border-radius:50%;display:inline-block;margin-right:6px;"></span>
+                <span class="text-muted">${meta.label} ${b[s]}</span>
+                </span>
+            `).join('');
+
+            return `
+            <div class="text-center" style="min-width:160px;">
+                <span class="badge rounded-pill" style="background:${border[idx]};width:16px;height:16px;"></span>
+                <div class="fw-semibold mt-1">${labels[idx]}</div>
+                <div class="text-muted">${counts[idx]} orders</div>
+                <div class="d-flex justify-content-center flex-wrap mt-1">${chips || '<span class="text-muted">No status</span>'}</div>
+            </div>
+            `;
+        }).join('');
+        wrapFulfillment.appendChild(cap);
+    });
+
+    // -----------------------------------------------
 
     $(function () {
       // ===== Helpers for status pill =====
@@ -718,6 +813,4 @@
   })();
 </script>
 @endpush
-
-
-        @endsection
+@endsection

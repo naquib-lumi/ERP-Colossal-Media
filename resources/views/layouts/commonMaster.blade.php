@@ -272,7 +272,7 @@
     @if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') )
         <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
-
+        <script src="{{ asset('assets/vendor/libs/chartjs/chartjs.js') }}"></script>
     @endif
 
     <!-- endbuild -->

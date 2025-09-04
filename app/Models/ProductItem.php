@@ -18,8 +18,8 @@ class ProductItem extends Model
 
     protected $fillable = [
         'ProductID','itemName','quantity',
-        'sizeWidth','sizeHeight','sizeLength',
-        'bleedTop','bleedBottom','bleedLeft','bleedRight',
+        'sizeWidth','sizeHeight', 'sizeUnit',
+        'bleedTop','bleedBottom','bleedLeft','bleedRight', 'bleedUnit',
         'finishing','renderTime','material',
     ];
 

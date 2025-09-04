@@ -10,7 +10,7 @@ class User extends Authenticatable
 {
     use HasApiTokens, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'role'];
+    protected $fillable = ['name', 'email', 'password', 'role', 'contact_number'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -33,4 +33,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(Meeting::class, 'user_id');
     }
+
+    public function getDisplayRoleAttribute(): string
+    {
+        return str_replace('-', ' ', ucwords((string) $this->role, " -_"));
+    }
+
+    // Default avatar url (use your theme’s default)
+    public function getAvatarUrlAttribute(): string
+    {
+        // change to your actual default image if different
+        return asset('assets/img/avatars/1.png');
+    }
+
+    // Simple status; adjust if you later add a real status column
+    public function getStatusLabelAttribute(): string { return 'Active'; }
+    public function getStatusBadgeClassAttribute(): string { return 'bg-success'; }
 }

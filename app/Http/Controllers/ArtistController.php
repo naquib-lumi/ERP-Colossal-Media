@@ -19,6 +19,9 @@ use App\Models\DeliveryBreakdown;
 use App\Models\Specification;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 
@@ -336,7 +339,7 @@ class ArtistController extends Controller
                 'products.items' => fn ($q) => $q->orderBy('ItemID'), // relation on Product model
                 'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
             ]);
-
+            $order->load('artist:id,name');
             $order->save();
         }
 
@@ -377,9 +380,9 @@ class ArtistController extends Controller
             ->orderBy('pi.ItemID')
             ->selectRaw('
                 pi.ItemID, pi.ProductID, pi.itemName, pi.quantity,
-                pi.sizeWidth, pi.sizeHeight, pi.sizeLength,
+                pi.sizeWidth, pi.sizeHeight, pi.sizeUnit,
                 pi.bleedTop, pi.bleedBottom, pi.bleedLeft, pi.bleedRight,
-                pi.finishing, pi.renderTime, pi.material,
+                pi.finishing, pi.material,
                 s.lamination, s.printer, s.cutter
             ')
             ->get()
@@ -402,8 +405,51 @@ class ArtistController extends Controller
 
         $attachments = $this->getOrderAttachments($order);
 
+        $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+            return Storage::disk('public')->url($p);
+        };
+
+        // 1) Lead attachments (read-only)
+        $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($row) use ($toPublicUrl) {
+                $p = ltrim((string)$row->file_location, '/');
+                $p = preg_replace('#^public/#', '', $p);
+                $p = preg_replace('#^storage/#', '', $p);
+                $web = 'storage/'.$p;
+
+                return (object)[
+                    'name' => basename($p),
+                    'size' => (int) $row->file_size,
+                    'ext'  => $row->file_extension,
+                    'url'  => $toPublicUrl($web),
+                ];
+            });
+
+        // 2) Order attachments (the ones artist uploads)
+        // If you already have helpers getOrderAttachments/putOrderAttachments, use them:
+        $rawPaths = method_exists($this, 'getOrderAttachments')
+            ? (array) $this->getOrderAttachments($order)
+            : (array) json_decode((string) $order->orderAttachment, true);
+
+        $orderFiles = collect($rawPaths)->filter()->map(function ($p) use ($toPublicUrl) {
+            $p = ltrim((string)$p, '/');
+            return [
+                'name' => basename($p),
+                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+                'url'  => $toPublicUrl($p),
+                'path' => Str::startsWith($p, 'storage/') ? $p : 'storage/'.$p, // keep the path we delete by
+            ];
+        });
+
         return view('artist.orders.edit', compact(
-            'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries'
+            'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
+        'orderFiles',
         ));
 
         return view('artist.orders.edit', [
@@ -411,10 +457,11 @@ class ArtistController extends Controller
             'materials' => $materials,
             'product'     => $product,
             'deliveries'  => $deliveries,
+            'isSubmitted'  => (int) ($order->submit ?? 0) === 1,
         ]);
     }
 
-    public function update(Request $request, Order $order)
+    public function update(Request $request, Order $order, Product $product = null)
     {
         // ----- AuthZ -----
         $user = Auth::user();
@@ -443,11 +490,12 @@ class ArtistController extends Controller
             'products.*.items.*.quantity'       => ['nullable','integer','min:0'],
             'products.*.items.*.sizeWidth'      => ['nullable','numeric'],
             'products.*.items.*.sizeHeight'     => ['nullable','numeric'],
-            'products.*.items.*.sizeLength'     => ['nullable','numeric'],
+            'products.*.items.*.sizeUnit'       => ['nullable','in:mm,cm,inch,ft'],
             'products.*.items.*.bleedTop'       => ['nullable','numeric'],
             'products.*.items.*.bleedBottom'    => ['nullable','numeric'],
             'products.*.items.*.bleedLeft'      => ['nullable','numeric'],
             'products.*.items.*.bleedRight'     => ['nullable','numeric'],
+            'products.*.items.*.bleedUnit'      => ['nullable','in:mm,cm,inch,ft'],
             'products.*.items.*.finishing'      => ['nullable','string','max:255'],
             'products.*.items.*.renderTime'     => ['nullable','integer','min:0'],
             'products.*.items.*.material'       => ['nullable'],
@@ -492,9 +540,19 @@ class ArtistController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $order) {
+            DB::transaction(function () use ($request, $order, $product) {
 
                 // ----- 1) Order core -----
+                $submitted = $request->boolean('submit'); 
+
+                if ($submitted) {
+                    $order->submit = 1;         
+                    $order->draft  = 0;       
+                } else {
+                    $order->submit = 0;        
+                    $order->draft  = (int) $request->input('is_draft', 0);
+                }
+
                 $order->draft       = (int) $request->input('is_draft', 0);
                 $order->approval    = $request->boolean('design_confirmed');
                 $order->orderStatus = 'in_progress';
@@ -562,9 +620,9 @@ class ArtistController extends Controller
 
                             foreach ([
                                 'itemName','quantity',
-                                'sizeWidth','sizeHeight','sizeLength',
-                                'bleedTop','bleedBottom','bleedLeft','bleedRight',
-                                'finishing','renderTime'
+                                'sizeWidth','sizeHeight','sizeUnit',
+                                'bleedTop','bleedBottom','bleedLeft','bleedRight', 'bleedUnit',
+                                'finishing'
                             ] as $k) {
                                 if (array_key_exists($k, $row)) {
                                     $item->{$k} = $row[$k] === '' ? null : $row[$k];
@@ -600,7 +658,7 @@ class ArtistController extends Controller
                         });
 
                     // delete items not posted (including “all removed” case)
-                    if (array_key_exists('items', $group)) {                                 // <-- handle empty keep
+                    if (array_key_exists('items', $group)) {                               
                         ProductItem::where('ProductID', $productRow->ProductID)
                             ->when(count($keepItemIds) > 0, fn($q) => $q->whereNotIn('ItemID', $keepItemIds))
                             ->when(count($keepItemIds) === 0, fn($q) => $q) // delete all
@@ -714,11 +772,14 @@ class ArtistController extends Controller
                             ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
                             ->delete();
                     }
-
+                    $productRow->syncTaskTypeFromSpecs();
                 } 
             });
 
-            $message = $request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.';
+            $message = $request->boolean('submit')
+            ? 'Order submitted.'
+            : ($request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
+
             if ($request->expectsJson()) {
                 return response()->json(['ok' => true, 'message' => $message]);
             }
@@ -764,11 +825,6 @@ class ArtistController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Visible orders for the current user:
-     * - head-artist: sees everything
-     * - artist: only orders assigned to them; hide "to_assign" / "assigned"
-     */
     private function visibleOrders()
     {
         $user = Auth::user();
@@ -788,7 +844,6 @@ class ArtistController extends Controller
         return $user && $user->role === 'head-artist';
     }
 
-    // Helper to read/combine either JSON or comma string
     private function getOrderAttachments(Order $order): array
     {
         $raw = $order->orderAttachment ?? '';
@@ -874,10 +929,6 @@ class ArtistController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Normalize delivery rows from the request into a clean array.
-     * Accepts either a single datetime string or separate date/time.
-     */
     private function extractDeliveries(Request $request): array
     {
         $posted = $request->input('deliveries', []);
@@ -926,10 +977,6 @@ class ArtistController extends Controller
         return $rows;
     }
 
-    /**
-     * Validate deliveries and enforce the total ≤ product quantity rule.
-     * Returns an array [deliveries, totalQty] or throws \Illuminate\Validation\ValidationException.
-     */
     private function validateDeliveries(array $deliveries, int $maxQty): array
     {
         // Per-row validation
@@ -975,5 +1022,98 @@ class ArtistController extends Controller
         $row->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    public function destroyAttachment(Request $request, Order $order)
+    {
+        // AuthZ as you already do elsewhere
+        $user = $request->user();
+        if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) {
+            abort(403);
+        }
+
+        // Only allow delete while in draft
+        if ((int)$order->draft !== 1 || (int)$order->submit === 1) {
+            return response()->json(['ok' => false, 'message' => 'Not allowed.'], 403);
+        }
+
+        // "path" comes from the button data attribute (see Blade below)
+        $path = (string) $request->input('path', '');
+        if ($path === '') {
+            return response()->json(['ok' => false, 'message' => 'Missing file path.'], 422);
+        }
+
+        // Normalize to disk path (strip leading storage/)
+        $diskPath = ltrim($path, '/');
+        $diskPath = preg_replace('#^storage/#', '', $diskPath); // public disk path
+
+        // Read current attachments (use your helpers if present)
+        $attachments = method_exists($this, 'getOrderAttachments')
+            ? (array) $this->getOrderAttachments($order)
+            : (array) (json_decode((string) $order->orderAttachment, true) ?: []);
+
+        // Remove from array (match either raw or with "storage/" prefix)
+        $attachments = collect($attachments)->reject(function ($p) use ($diskPath) {
+            $p = ltrim((string)$p, '/');
+            $pNoStorage = preg_replace('#^storage/#', '', $p);
+            return $pNoStorage === $diskPath;
+        })->values()->all();
+
+        // Delete physical file (best-effort)
+        try { Storage::disk('public')->delete($diskPath); } catch (\Throwable $e) {}
+
+        // Persist updated attachments (use your helper if present)
+        if (method_exists($this, 'putOrderAttachments')) {
+            $this->putOrderAttachments($order, $attachments);
+        } else {
+            $order->orderAttachment = json_encode($attachments);
+            $order->save();
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function ProfileShow(Request $request)
+    {
+        $user = $request->user();
+        return view('artist.profile.show', compact('user'));
+    }
+
+    public function ProfileEdit(Request $request)
+    {
+        $user = $request->user();
+        return view('artist.profile.edit', compact('user'));
+    }
+
+    public function ProfileUpdate(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name'           => ['required','string','max:255'],
+            'email'          => ['required','email','max:255'],
+            'contact_number' => ['nullable','string','max:30'],
+
+            // Password section (optional)
+            // If 'password' is present, 'current_password' must match the logged-in user
+            'current_password' => ['nullable','required_with:password','current_password'],
+            'password'         => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
+        ]);
+
+        // Update profile fields
+        $user->fill([
+            'name'           => $validated['name'],
+            'email'          => $validated['email'],
+            'contact_number' => $validated['contact_number'] ?? null,
+        ]);
+
+        // Update password if provided
+        if (!empty($validated['password'])) {
+            $user->password = Hash::make($validated['password']);
+        }
+
+        $user->save();
+
+        return back()->with('success', 'Profile updated.');
     }
 }
