@@ -96,4 +96,14 @@ class Order extends Model
             ->map(fn ($p) => trim($p))
             ->filter(); // remove empties
     }
+
+    public function redoReports()
+    {
+        return $this->hasMany(\App\Models\ReportRedo::class, 'OrderID', 'id');
+    }
+
+    public function originalOrder()
+    {
+        return $this->belongsTo(self::class, 'redo', 'id');
+    }
 }

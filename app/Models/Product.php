@@ -12,6 +12,9 @@ class Product extends Model
     public $incrementing = true;
     protected $keyType = 'int';
     public $timestamps = true;
+    protected $casts = [
+        'editable' => 'boolean',
+    ];
 
     protected $fillable = [
         'OrderID',

@@ -11,6 +11,7 @@ use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\FulfillmentController;
+use App\Http\Controllers\RedoOrderController;
 use App\Http\Controllers\PrintingController;
 use App\Http\Controllers\ProductOrderController;
 
@@ -145,6 +146,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/artist/fulfillment-counts', [FulfillmentController::class, 'fulfillmentCounts'])->name('artist.fulfillmentCounts');
         Route::get('/artist/profile',       [ArtistController::class, 'ProfileShow'])->name('artist.profile.show');
         Route::patch('/artist/profile',     [ArtistController::class, 'ProfileUpdate'])->name('artist.profile.update');
+        Route::get('/artist/orders/{order}/redo',  [RedoOrderController::class, 'create'])->name('artist.orders.redo.create');
+        Route::post('/artist/orders/{order}/redo', [RedoOrderController::class, 'store'])->name('artist.orders.redo.store');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])

@@ -270,13 +270,23 @@
 
     $readonly = $isSubmitted ? 'readonly disabled' : '';
     $disabled = $isSubmitted ? 'disabled' : '';
+
+    $submitted = ((int)($order->draft ?? 0) === 1 || (int)($order->draft ?? 0) === 0) && (int)($order->submit ?? 0) === 0;
 @endphp
   <div class="row g-4">
     <div class="col-12">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
+          @php
+            $displayOrderNo = $order->order_number;
+
+            if (!is_null($order->redo) && optional($order->originalOrder)->order_number) {
+                $orig = $order->originalOrder->order_number;
+                $displayOrderNo = preg_match('/R\d*$/', $orig) ? $orig : ($orig . 'R');
+            }
+          @endphp
           <div>
-            <h5 class="mb-0">Artist Job Order — <span class="text-body-secondary">#{{ $orderCode }}</span></h5>
+            <h5 class="mb-0">Artist Job Order — <span class="text-body-secondary">{{ $displayOrderNo }}</span></h5>
             <small class="text-body-secondary">Last updated: {{ $today }}</small>
           </div>
           <span class="badge bg-label-secondary">{{ $order->artist->name ?? '—' }}</span>
@@ -366,8 +376,13 @@
 
           <div class="accordion" id="productsAcc">
             @foreach($order->products as $pIndex => $product)
+            @php
+              $isRedo            = (bool) $order->redo;                             
+              $selectedForRedo   = $isRedo && (int) ($product->editable ?? 0) === 1; 
+              $locked            = $isRedo && !$selectedForRedo;                
+            @endphp
             <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
-            <div class="accordion-item">
+            <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}">
               <h2 class="accordion-header" id="pHead{{ $pIndex }}">
                 <button
                   class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
@@ -378,6 +393,9 @@
                   aria-controls="pCollapse{{ $pIndex }}">
                   Product #{{ $product->ProductID ?? $loop->iteration }}
                   — {{ $product->productName ?? 'Product' }}
+                  @if ($selectedForRedo)
+                    <span class="badge bg-primary ms-2">REDO</span>
+                  @endif
                 </button>
               </h2>
 
@@ -388,650 +406,683 @@
                 data-bs-parent="#productsAcc">
                 <div class="accordion-body">
                   {{-- Product block --}}
-                  <div class="card mb-6">
-                    <div class="card-header">
-                      <h5 class="mb-0">
-                        <i class="bx bx-package me-2"></i>Product
-                      </h5>
-                    </div>
-
-                    <div class="card-body p-4">
-                      <div class="row g-3 mb-4">
-                        <div class="col-12 col-md-6 col-xl-3">
-                          <label class="form-label">Product Name</label>
-                          <input
-                            name="product[name]"
-                            type="text"
-                            class="form-control"
-                            placeholder="e.g. Business Card"
-                            value="{{ old('product.name', $product->productName ?? '') }}" {{ $readonly }}>
-                        </div>
-
-                        <div class="col-12 col-md-6 col-xl-3">
-                          <label class="form-label">Total Quantity</label>
-                          <input id="totalQty"
-                            name="product[qty_total]"
-                            type="number"
-                            min="0"
-                            class="form-control"
-                            placeholder="1000"
-                            value="{{ old('product.qty_total', $product->totalQuantity ?? '') }}" {{ $readonly }}>
-                        </div>
-
-                        <div class="col-12 col-md-6 col-xl-6">
-                          <label class="form-label">Material / Remark</label>
-                          <input
-                            name="product[material]"
-                            type="text"
-                            class="form-control"
-                            placeholder="Premium Paper, Glossy"
-                            value="{{ old('product.material', $product->materialRemark ?? '') }}" {{ $readonly }}>
-                        </div>
+                  <fieldset {{ $locked ? 'disabled' : '' }}>
+                    <div class="card mb-6">
+                      <div class="card-header">
+                        <h5 class="mb-0">
+                          <i class="bx bx-package me-2"></i>Product
+                        </h5>
                       </div>
 
-                      {{-- Items repeater --}}
-                      @php
-                        $itemsData = old('items', $items);
-                      @endphp
+                      <div class="card-body p-4">
+                        <div class="row g-3 mb-4">
+                          <div class="col-12 col-md-6 col-xl-3">
+                            <label class="form-label">Product Name</label>
+                            <input
+                              name="product[name]"
+                              type="text"
+                              class="form-control"
+                              placeholder="e.g. Business Card"
+                              value="{{ old('product.name', $product->productName ?? '') }}" {{ $readonly }}>
+                          </div>
 
-                      <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Items</h6>
-                        <button
-                          type="button"
-                          data-add-item
-                          data-product-index="{{ $pIndex }}"
-                          class="btn btn-sm btn-outline-primary">
-                          Add Item
-                        </button>
-                      </div>
-                      @php
-                      $items = $product->items ?? [];
-                      @endphp
-                      {{-- make the accordion id unique per product --}}
-                      <div class="accordion" id="productItems-{{ $pIndex }}" data-start-number="1" data-next-index="{{ count($items ?? []) }}">
-                        @foreach ($items as $i => $it)
-                          @php
-                            $materialVal = data_get($it, 'material');
-                            if (is_string($materialVal)) {
-                              $decoded = json_decode($materialVal, true);
-                              if (json_last_error() === JSON_ERROR_NONE) $materialVal = $decoded;
-                            }
-                            $materialVal = collect($materialVal ?? [])->filter()->values();
+                          <div class="col-12 col-md-6 col-xl-3">
+                            <label class="form-label">Total Quantity</label>
+                            <input id="totalQty"
+                              name="product[qty_total]"
+                              type="number"
+                              min="0"
+                              class="form-control"
+                              placeholder="1000"
+                              value="{{ old('product.qty_total', $product->totalQuantity ?? '') }}" {{ $readonly }}>
+                          </div>
 
-                            $materialSuggestions = collect($materials ?? [])
-                              ->pluck('materialName')->filter()->values();
-                          @endphp
-                          <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
-                          <div class="accordion-item mb-3 border rounded" id="item{{ $pIndex }}_{{ $i }}" data-kind="item">
-                            <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
-                              <div>
-                                <span class="fw-semibold">
-                                  Item <span class="item-number">{{ $i + 1 }}</span>
-                                </span>
-                                <span class="text-body-secondary ms-2 small item-summary">
-                                  {{ data_get($it, 'itemName') }}@if(data_get($it,'quantity')) • {{ data_get($it,'quantity') }}@endif
-                                </span>
+                          <div class="col-12 col-md-6 col-xl-6">
+                            <label class="form-label">Material / Remark</label>
+                            <input
+                              name="product[material]"
+                              type="text"
+                              class="form-control"
+                              placeholder="Premium Paper, Glossy"
+                              value="{{ old('product.material', $product->materialRemark ?? '') }}" {{ $readonly }}>
+                          </div>
+                        </div>
+
+                        {{-- Items repeater --}}
+                        @php
+                          $itemsData = old('items', $items);
+                        @endphp
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <h6 class="mb-0">Items</h6>
+                          @if ($submitted)
+                          <button
+                            type="button"
+                            data-add-item
+                            data-product-index="{{ $pIndex }}"
+                            class="btn btn-sm btn-outline-primary">
+                            Add Item
+                          </button>
+                          @endif
+                        </div>
+                        @php
+                        $items = $product->items ?? [];
+                        @endphp
+                        {{-- make the accordion id unique per product --}}
+                        <div class="accordion" id="productItems-{{ $pIndex }}" data-start-number="1" data-next-index="{{ count($items ?? []) }}">
+                          @foreach ($items as $i => $it)
+                            @php
+                              $materialVal = data_get($it, 'material');
+                              if (is_string($materialVal)) {
+                                $decoded = json_decode($materialVal, true);
+                                if (json_last_error() === JSON_ERROR_NONE) $materialVal = $decoded;
+                              }
+                              $materialVal = collect($materialVal ?? [])->filter()->values();
+
+                              $materialSuggestions = collect($materials ?? [])
+                                ->pluck('materialName')->filter()->values();
+                            @endphp
+                            <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
+                            <div class="accordion-item mb-3 border rounded" id="item{{ $pIndex }}_{{ $i }}" data-kind="item">
+                              <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
+                                <div>
+                                  <span class="fw-semibold">
+                                    Item <span class="item-number">{{ $i + 1 }}</span>
+                                  </span>
+                                  <span class="text-body-secondary ms-2 small item-summary">
+                                    {{ data_get($it, 'itemName') }}@if(data_get($it,'quantity')) • {{ data_get($it,'quantity') }}@endif
+                                  </span>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2">
+                                  {{-- Server delete (AJAX) --}}
+                                  @if ($submitted)
+                                    @if (data_get($it,'ItemID'))
+                                      <button type="button"
+                                              class="btn btn-link text-danger p-0 delete-item"
+                                              title="Delete this item from DB"
+                                              data-action="delete-item"
+                                              data-item-id="{{ data_get($it,'ItemID') }}"
+                                              data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID')]) }}">
+                                        <i class="bx bx-trash fs-5"></i>
+                                      </button>
+                                    @endif
+                                  @endif
+
+                                  {{-- Collapse toggle --}}
+                                  <button class="btn btn-link p-0"
+                                          type="button"
+                                          data-bs-toggle="collapse"
+                                          data-bs-target="#itemPane{{ $pIndex }}_{{ $i }}"
+                                          aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
+                                          aria-controls="itemPane{{ $pIndex }}_{{ $i }}">
+                                    <i class="bx bx-chevron-down fs-4"></i>
+                                  </button>
+                                </div>
                               </div>
 
-                              <div class="d-flex align-items-center gap-2">
-                                {{-- Server delete (AJAX) --}}
-                                @if (data_get($it,'ItemID'))
-                                  <button type="button"
-                                          class="btn btn-link text-danger p-0 delete-item"
-                                          title="Delete this item from DB"
-                                          data-action="delete-item"
-                                          data-item-id="{{ data_get($it,'ItemID') }}"
-                                          data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID')]) }}">
+                              <div id="itemPane{{ $pIndex }}_{{ $i }}"
+                                  class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}"
+                                  data-bs-parent="#productItems-{{ $pIndex }}">
+                                <div class="accordion-body">
+                                  <div class="row g-3">
+                                    <div class="col-md-6">
+                                      <label class="form-label">Item Name</label>
+                                      <input class="form-control"
+                                        name="products[{{ $pIndex }}][items][{{ $i }}][itemName]"
+                                        value="{{ old("items.$i.itemName", data_get($it,'itemName')) }}" {{ $readonly }}>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                      <label class="form-label">Quantity</label>
+                                      <input type="number" min="0" class="form-control"
+                                        name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
+                                        value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}" {{ $readonly }}>
+                                    </div>
+
+                                    {{-- Material (chips) --}}
+                                    <div class="col-12">
+                                      <label class="form-label">Material</label>
+                                      <div class="tags-input"
+                                            data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
+                                            data-suggestions='@json($materialSuggestions)'
+                                            data-values='@json($materialVal)'
+                                            data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
+                                      </div>
+                                    </div>
+
+                                    @php
+                                      $units = ['mm' => 'mm', 'cm' => 'cm', 'inch' => 'inch', 'ft' => 'ft'];
+                                      $unit  = old("items.$i.sizeUnit", data_get($it,'sizeUnit', 'mm'));
+                                      $bleedUnit = old("items.$i.bleedUnit", data_get($it,'bleedUnit', 'mm'));
+                                    @endphp
+
+                                    {{-- Sizes --}}
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Unit (Size)</label>
+                                      <select name="products[{{ $pIndex }}][items][{{ $i }}][sizeUnit]" class="form-select" {{ $disabled }}>
+                                        @foreach($units as $val => $label)
+                                          <option value="{{ $val }}" @selected($unit === $val)>{{ $label }}</option>
+                                        @endforeach
+                                      </select>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Size - Width</label>
+                                      <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
+                                        type="number" step="0.01" class="form-control"
+                                        value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Height</label>
+                                      <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
+                                        type="number" step="0.01" class="form-control"
+                                        value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
+                                    </div>
+
+                                    {{-- Bleed --}}
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Unit (Bleed)</label>
+                                      <select name="products[{{ $pIndex }}][items][{{ $i }}][bleedUnit]" class="form-select" {{ $disabled }}>
+                                        @foreach($units as $v=>$lbl)
+                                          <option value="{{ $v }}" @selected($bleedUnit===$v)>{{ $lbl }}</option>
+                                        @endforeach
+                                      </select>
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Bleed (Top)</label>
+                                      <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
+                                        type="number" step="0.01" class="form-control"
+                                        value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Bottom</label>
+                                      <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
+                                        type="number" step="0.01" class="form-control"
+                                        value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Left</label>
+                                      <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
+                                        type="number" step="0.01" class="form-control"
+                                        value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Right</label>
+                                      <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
+                                        type="number" step="0.01" class="form-control"
+                                        value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
+                                    </div>
+
+                                    {{-- Spec --}}
+                                    @php
+                                      $lamVal = old("products.$pIndex.items.$i.lamination", data_get($it, 'spec.lamination'));
+                                      $prtVal = old("products.$pIndex.items.$i.printer",    data_get($it, 'spec.printer'));
+                                      $cutVal = old("products.$pIndex.items.$i.cutter",     data_get($it, 'spec.cutter'));
+                                      $assVal = old("products.$pIndex.items.$i.finishing",  data_get($it,'finishing'));
+
+                                      $lamLc = strtolower((string) $lamVal);
+                                      $prtLc = strtolower((string) $prtVal);
+                                      $cutLc = strtolower((string) $cutVal);
+                                      $assLc = strtolower((string) $assVal);
+                                    @endphp
+                                    <div class="col-md-3">
+                                      <label class="form-label">Lamination</label>
+                                      <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
+                                        <option value="Matt UV Lamination"               {{ $lamLc==='matt uv lamination' ? 'selected' : '' }}>Matt UV Lamination</option>
+                                        <option value="Gloss UV Lamination"              {{ $lamLc==='gloss uv lamination' ? 'selected' : '' }}>Gloss UV Lamination</option>
+                                        <option value="Matt Artcard Lamination"          {{ $lamLc==='matt artcard lamination' ? 'selected' : '' }}>Matt Artcard Lamination</option>
+                                        <option value="Gloss Artcard Lamination"         {{ $lamLc==='gloss artcard lamination' ? 'selected' : '' }}>Gloss Artcard Lamination</option>
+                                        <option value="Matt Tempered Film Lamination"    {{ $lamLc==='matt tempered film lamination' ? 'selected' : '' }}>Matt Tempered Film Lamination</option>
+                                        <option value="Gloss Tempered Film Lamination"   {{ $lamLc==='gloss tempered film lamination' ? 'selected' : '' }}>Gloss Tempered Film Lamination</option>
+                                        <option value="Matt Pigment Crystal Lamination"  {{ $lamLc==='matt pigment crystal lamination' ? 'selected' : '' }}>Matt Pigment Crystal Lamination</option>
+                                        <option value="Gloss Pigment Crystal Lamination" {{ $lamLc==='gloss pigment crystal lamination' ? 'selected' : '' }}>Gloss Pigment Crystal Lamination</option>
+                                        <option value="Hot Stamping Lamination"          {{ $lamLc==='hot stamping lamination' ? 'selected' : '' }}>Hot Stamping Lamination</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                      <label class="form-label">Printer</label>
+                                      <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
+                                        <option value="Handtop Hybrid"                      {{ $prtLc==='handtop hybrid' ? 'selected' : '' }}>Handtop Hybrid</option>
+                                        <option value="Handtop Roll2Roll"                   {{ $prtLc==='handtop roll2roll' ? 'selected' : '' }}>Handtop Roll2Roll</option>
+                                        <option value="HP Latex"                            {{ $prtLc==='hp latex' ? 'selected' : '' }}>HP Latex</option>
+                                        <option value="Solvent"                             {{ $prtLc==='solvent' ? 'selected' : '' }}>Solvent</option>
+                                        <option value="Lanqi UV Gen 6 (A)"                  {{ $prtLc==='lanqi uv gen 6 (a)' ? 'selected' : '' }}>Lanqi UV Gen 6 (A)</option>
+                                        <option value="Lanqi UV Gen 6 (B) (Bothside Print)" {{ $prtLc==='lanqi uv gen 6 (b) (bothside print)' ? 'selected' : '' }}>Lanqi UV Gen 6 (B) (Bothside Print)</option>
+                                        <option value="ANS UV RD500"                        {{ $prtLc==='ans uv rd500' ? 'selected' : '' }}>ANS UV RD500</option>
+                                        <option value="YF 1700 UV Epson i3600"              {{ $prtLc==='yf 1700 uv epson i3600' ? 'selected' : '' }}>YF 1700 UV Epson i3600</option>
+                                        <option value="Pigment HDP"                         {{ $prtLc==='pigment hdp' ? 'selected' : '' }}>Pigment HDP</option>
+                                        <option value="Flora Flatbed 8x10"                  {{ $prtLc==='flora flatbed 8x10' ? 'selected' : '' }}>Flora Flatbed 8x10</option>
+                                        <option value="Grando Crystal Label"                {{ $prtLc==='grando crystal label' ? 'selected' : '' }}>Grando Crystal Label</option>
+                                        <option value="Crystal Label Flatbed"               {{ $prtLc==='crystal label flatbed' ? 'selected' : '' }}>Crystal Label Flatbed</option>
+                                        <option value="Konica Minolta"                      {{ $prtLc==='konica minolta' ? 'selected' : '' }}>Konica Minolta</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                      <label class="form-label">Cutter</label>
+                                      <select name="products[{{ $pIndex }}][items][{{ $i }}][cutter]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
+                                        <option value="AOL 1000 Flatbed Cutter (Small)"  {{ $cutLc==='aol 1000 flatbed cutter (small)' ? 'selected' : '' }}>AOL 1000 Flatbed Cutter (Small)</option>
+                                        <option value="AOL 5x10 Flatbed Cutter (big)"    {{ $cutLc==='aol 5x10 flatbed cutter (big)' ? 'selected' : '' }}>AOL 5x10 Flatbed Cutter (big)</option>
+                                        <option value="Jingwei 5x10 Flatbed Cutter"      {{ $cutLc==='jingwei 5x10 flatbed cutter' ? 'selected' : '' }}>Jingwei 5x10 Flatbed Cutter</option>
+                                        <option value="Ruijie Flatbed Router"            {{ $cutLc==='ruijie flatbed router' ? 'selected' : '' }}>Ruijie Flatbed Router</option>
+                                        <option value="Laser Cutter 150 (A)"             {{ $cutLc==='laser cutter 150 (a)' ? 'selected' : '' }}>Laser Cutter 150 (A)</option>
+                                        <option value="Laser Cutter 150 (B)"             {{ $cutLc==='laser cutter 150 (b)' ? 'selected' : '' }}>Laser Cutter 150 (B)</option>
+                                        <option value="Laser Cutter 300"                 {{ $cutLc==='laser cutter 300' ? 'selected' : '' }}>Laser Cutter 300</option>
+                                        <option value="Mimaki Cutting Plotte"            {{ $cutLc==='mimaki cutting plotte' ? 'selected' : '' }}>Mimaki Cutting Plotte</option>
+                                        <option value="AccuCut"                          {{ $cutLc==='accucut' ? 'selected' : '' }}>AccuCut</option>
+                                      </select>
+                                </div>
+                                    <div class="col-md-12">
+                                      <label class="form-label">Assemble</label>
+                                      <select name="products[{{ $pIndex }}][items][{{ $i }}][finishing]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
+                                        <option value="yes"  {{ $assLc==='yes' ? 'selected' : '' }}>Yes</option>
+                                        <option value="no"   {{ $assLc==='no' ? 'selected' : '' }}>No</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            @endforeach
+                          </div>
+
+                          {{-- Template used for a new item (placeholders __i__ and __n__) --}}
+                          <div
+                            id="itemsContainer-{{ $pIndex }}"
+                            class="items-container"
+                            data-product-index="{{ $pIndex }}"
+                            data-product-id="{{ $product->ProductID }}"
+                            data-items='@json($product->items ?? [])'></div>
+                          <template id="itemTemplate-{{ $pIndex }}" name="products[__PINDEX__][items][__INDEX__][field]">
+                            <div class="accordion-item mb-3 border rounded" data-kind="item" id="item__PINDEX__-__INDEX__">
+                              <div class="accordion-header d-flex align-items-center px-3 py-2" id="itemHdr__PINDEX__-__INDEX__">
+                                <span class="fw-semibold">
+                                  Item <span class="item-number">__INDEX_HUMAN__</span>
+                                </span>
+                                <span class="text-body-secondary ms-2 small item-summary"></span>
+
+                                <div class="ms-auto d-flex align-items-center gap-2">
+                                  @if ($submitted)
+                                  <button type="button" class="btn btn-link p-0 text-danger delete-item" data-index="__INDEX__" title="Delete item" data-remove>
                                     <i class="bx bx-trash fs-5"></i>
                                   </button>
-                                @endif
-
-                                {{-- Collapse toggle --}}
-                                <button class="btn btn-link p-0"
-                                        type="button"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#itemPane{{ $pIndex }}_{{ $i }}"
-                                        aria-expanded="{{ $i === 0 ? 'true' : 'false' }}"
-                                        aria-controls="itemPane{{ $pIndex }}_{{ $i }}">
-                                  <i class="bx bx-chevron-down fs-4"></i>
-                                </button>
+                                  @endif
+                                  <button type="button" class="btn btn-link p-0 chevron"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#itemPane__PINDEX__-__INDEX__"
+                                    aria-controls="itemPane__PINDEX__-__INDEX__"
+                                    aria-expanded="false"
+                                    title="Expand/Collapse">
+                                    <i class="bx bx-chevron-down fs-4"></i>
+                                  </button>
+                                </div>
                               </div>
-                            </div>
 
-                            <div id="itemPane{{ $pIndex }}_{{ $i }}"
-                                class="accordion-collapse collapse {{ $i === 0 ? 'show' : '' }}"
-                                data-bs-parent="#productItems-{{ $pIndex }}">
-                              <div class="accordion-body">
-                                <div class="row g-3">
-                                  <div class="col-md-6">
-                                    <label class="form-label">Item Name</label>
-                                    <input class="form-control"
-                                      name="products[{{ $pIndex }}][items][{{ $i }}][itemName]"
-                                      value="{{ old("items.$i.itemName", data_get($it,'itemName')) }}" {{ $readonly }}>
-                                  </div>
+                              <div id="itemPane__PINDEX__-__INDEX__" class="accordion-collapse collapse show" data-bs-parent="#productItems-__PINDEX__">
+                                <div class="accordion-body">
 
-                                  <div class="col-md-3">
-                                    <label class="form-label">Quantity</label>
-                                    <input type="number" min="0" class="form-control"
-                                      name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
-                                      value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}" {{ $readonly }}>
-                                  </div>
+                                  <input type="hidden" name="products[__PINDEX__][items][__INDEX__][id]" value="">
 
-                                  {{-- Material (chips) --}}
-                                  <div class="col-12">
-                                    <label class="form-label">Material</label>
-                                    <div class="tags-input"
-                                          data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
-                                          data-suggestions='@json($materialSuggestions)'
-                                          data-values='@json($materialVal)'
+                                  <div class="row g-3">
+                                    <div class="col-md-6">
+                                      <label class="form-label">Item Name</label>
+                                      <input type="text" class="form-control" name="products[__PINDEX__][items][__INDEX__][itemName]" value="" {{ $readonly }}>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                      <label class="form-label">Quantity</label>
+                                      <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" {{ $readonly }}>
+                                    </div>
+
+                                    <div class="col-12">
+                                      <label class="form-label">Material</label>
+                                      <div class="tags-input"
+                                          data-name="products[__PINDEX__][items][__INDEX__][material][]"
+                                          data-suggestions='@json($allMaterials ?? [])'
+                                          data-values='[]'
                                           data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
+                                      </div>
+                                    </div>
+
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Unit (Size)</label>
+                                      <select name="products[__PINDEX__][items][__INDEX__][sizeUnit]" class="form-select" {{ $disabled }}>
+                                        <option value="mm" selected>mm</option>
+                                        <option value="cm">cm</option>
+                                        <option value="inch">inch</option>
+                                        <option value="ft">ft</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Size - Width</label>
+                                      <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Height</label>
+                                      <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    </div>
+
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Unit (Bleed)</label>
+                                      <select name="products[__PINDEX__][items][__INDEX__][bleedUnit]" class="form-select">
+                                        <option value="mm" selected>mm</option>
+                                        <option value="cm">cm</option>
+                                        <option value="inch">inch</option>
+                                        <option value="ft">ft</option>
+                                      </select>
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Bleed (Top)</label>
+                                      <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Bottom</label>
+                                      <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Left</label>
+                                      <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Right</label>
+                                      <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                      <label class="form-label">Lamination</label>
+                                      <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
+                                        <option>Matt UV Lamination</option>
+                                        <option>Gloss UV Lamination</option>
+                                        <option>Matt Artcard Lamination</option>
+                                        <option>Gloss Artcard Lamination</option>
+                                        <option>Matt Tempered Film Lamination</option>
+                                        <option>Gloss Tempered Film Lamination</option>
+                                        <option>Matt Pigment Crystal Lamination</option>
+                                        <option>Gloss Pigment Crystal Lamination</option>
+                                        <option>Hot Stamping Lamination</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                      <label class="form-label">Printer</label>
+                                      <select name="products[__PINDEX__][items][__INDEX__][printer]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
+                                        <option>Handtop Hybrid</option>
+                                        <option>Handtop Roll2Roll</option>
+                                        <option>HP Latex</option>
+                                        <option>Solvent</option>
+                                        <option>Lanqi UV Gen 6 (A)</option>
+                                        <option>Lanqi UV Gen 6 (B) (Bothside Print)</option>
+                                        <option>ANS UV RD500</option>
+                                        <option>YF 1700 UV Epson i3600</option>
+                                        <option>Pigment HDP</option>
+                                        <option>Flora Flatbed 8x10</option>
+                                        <option>Grando Crystal Label</option>
+                                        <option>Crystal Label Flatbed</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                      <label class="form-label">Cutter</label>
+                                      <select name="products[__PINDEX__][items][__INDEX__][cutter]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
+                                        <option>AOL 1000 Flatbed Cutter (Small)</option>
+                                        <option>AOL 5x10 Flatbed Cutter (big)</option>
+                                        <option>Jingwei 5x10 Flatbed Cutter</option>
+                                        <option>Ruijie Flatbed Router</option>
+                                        <option>Laser Cutter 150 (A)</option>
+                                        <option>Laser Cutter 150 (B)</option>
+                                        <option>Laser Cutter 300</option>
+                                        <option>Mimaki Cutting Plotte</option>
+                                        <option>AccuCut</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-md-12">
+                                      <label class="form-label">Assemble</label>
+                                      <select name="products[__PINDEX__][items][__INDEX__][finishing]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
+                                        <option>Yes</option>
+                                        <option>No</option>
+                                      </select>
                                     </div>
                                   </div>
 
-                                  @php
-                                    $units = ['mm' => 'mm', 'cm' => 'cm', 'inch' => 'inch', 'ft' => 'ft'];
-                                    $unit  = old("items.$i.sizeUnit", data_get($it,'sizeUnit', 'mm'));
-                                    $bleedUnit = old("items.$i.bleedUnit", data_get($it,'bleedUnit', 'mm'));
-                                  @endphp
-
-                                  {{-- Sizes --}}
-                                  <div class="col-12 col-md-4">
-                                    <label class="form-label">Unit (Size)</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][sizeUnit]" class="form-select" {{ $disabled }}>
-                                      @foreach($units as $val => $label)
-                                        <option value="{{ $val }}" @selected($unit === $val)>{{ $label }}</option>
-                                      @endforeach
-                                    </select>
-                                  </div>
-                                  <div class="col-12 col-md-4">
-                                    <label class="form-label">Size - Width</label>
-                                    <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
-                                      type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
-                                  </div>
-                                  <div class="col-12 col-md-4">
-                                    <label class="form-label">Height</label>
-                                    <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
-                                      type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
-                                  </div>
-
-                                  {{-- Bleed --}}
-                                  <div class="col-12 col-md-4">
-                                    <label class="form-label">Unit (Bleed)</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][bleedUnit]" class="form-select" {{ $disabled }}>
-                                      @foreach($units as $v=>$lbl)
-                                        <option value="{{ $v }}" @selected($bleedUnit===$v)>{{ $lbl }}</option>
-                                      @endforeach
-                                    </select>
-                                  </div>
-                                  <div class="col-12 col-md-2">
-                                    <label class="form-label">Bleed (Top)</label>
-                                    <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
-                                      type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
-                                  </div>
-                                  <div class="col-12 col-md-2">
-                                    <label class="form-label">Bottom</label>
-                                    <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
-                                      type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
-                                  </div>
-                                  <div class="col-12 col-md-2">
-                                    <label class="form-label">Left</label>
-                                    <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
-                                      type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
-                                  </div>
-                                  <div class="col-12 col-md-2">
-                                    <label class="form-label">Right</label>
-                                    <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
-                                      type="number" step="0.01" class="form-control"
-                                      value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
-                                  </div>
-
-                                  {{-- Spec --}}
-                                  @php
-                                    $lamVal = old("products.$pIndex.items.$i.lamination", data_get($it, 'spec.lamination'));
-                                    $prtVal = old("products.$pIndex.items.$i.printer",    data_get($it, 'spec.printer'));
-                                    $cutVal = old("products.$pIndex.items.$i.cutter",     data_get($it, 'spec.cutter'));
-                                    $assVal = old("products.$pIndex.items.$i.finishing",  data_get($it,'finishing'));
-
-                                    $lamLc = strtolower((string) $lamVal);
-                                    $prtLc = strtolower((string) $prtVal);
-                                    $cutLc = strtolower((string) $cutVal);
-                                    $assLc = strtolower((string) $assVal);
-                                  @endphp
-                                  <div class="col-md-3">
-                                    <label class="form-label">Lamination</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }}>
-                                      <option value="">-</option>
-                                      <option value="Matt UV Lamination"               {{ $lamLc==='matt uv lamination' ? 'selected' : '' }}>Matt UV Lamination</option>
-                                      <option value="Gloss UV Lamination"              {{ $lamLc==='gloss uv lamination' ? 'selected' : '' }}>Gloss UV Lamination</option>
-                                      <option value="Matt Artcard Lamination"          {{ $lamLc==='matt artcard lamination' ? 'selected' : '' }}>Matt Artcard Lamination</option>
-                                      <option value="Gloss Artcard Lamination"         {{ $lamLc==='gloss artcard lamination' ? 'selected' : '' }}>Gloss Artcard Lamination</option>
-                                      <option value="Matt Tempered Film Lamination"    {{ $lamLc==='matt tempered film lamination' ? 'selected' : '' }}>Matt Tempered Film Lamination</option>
-                                      <option value="Gloss Tempered Film Lamination"   {{ $lamLc==='gloss tempered film lamination' ? 'selected' : '' }}>Gloss Tempered Film Lamination</option>
-                                      <option value="Matt Pigment Crystal Lamination"  {{ $lamLc==='matt pigment crystal lamination' ? 'selected' : '' }}>Matt Pigment Crystal Lamination</option>
-                                      <option value="Gloss Pigment Crystal Lamination" {{ $lamLc==='gloss pigment crystal lamination' ? 'selected' : '' }}>Gloss Pigment Crystal Lamination</option>
-                                      <option value="Hot Stamping Lamination"          {{ $lamLc==='hot stamping lamination' ? 'selected' : '' }}>Hot Stamping Lamination</option>
-                                    </select>
-                                  </div>
-
-                                  <div class="col-md-3">
-                                    <label class="form-label">Printer</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select" {{ $disabled }}>
-                                      <option value="">-</option>
-                                      <option value="Handtop Hybrid"                      {{ $prtLc==='handtop hybrid' ? 'selected' : '' }}>Handtop Hybrid</option>
-                                      <option value="Handtop Roll2Roll"                   {{ $prtLc==='handtop roll2roll' ? 'selected' : '' }}>Handtop Roll2Roll</option>
-                                      <option value="HP Latex"                            {{ $prtLc==='hp latex' ? 'selected' : '' }}>HP Latex</option>
-                                      <option value="Solvent"                             {{ $prtLc==='solvent' ? 'selected' : '' }}>Solvent</option>
-                                      <option value="Lanqi UV Gen 6 (A)"                  {{ $prtLc==='lanqi uv gen 6 (a)' ? 'selected' : '' }}>Lanqi UV Gen 6 (A)</option>
-                                      <option value="Lanqi UV Gen 6 (B) (Bothside Print)" {{ $prtLc==='lanqi uv gen 6 (b) (bothside print)' ? 'selected' : '' }}>Lanqi UV Gen 6 (B) (Bothside Print)</option>
-                                      <option value="ANS UV RD500"                        {{ $prtLc==='ans uv rd500' ? 'selected' : '' }}>ANS UV RD500</option>
-                                      <option value="YF 1700 UV Epson i3600"              {{ $prtLc==='yf 1700 uv epson i3600' ? 'selected' : '' }}>YF 1700 UV Epson i3600</option>
-                                      <option value="Pigment HDP"                         {{ $prtLc==='pigment hdp' ? 'selected' : '' }}>Pigment HDP</option>
-                                      <option value="Flora Flatbed 8x10"                  {{ $prtLc==='flora flatbed 8x10' ? 'selected' : '' }}>Flora Flatbed 8x10</option>
-                                      <option value="Grando Crystal Label"                {{ $prtLc==='grando crystal label' ? 'selected' : '' }}>Grando Crystal Label</option>
-                                      <option value="Crystal Label Flatbed"               {{ $prtLc==='crystal label flatbed' ? 'selected' : '' }}>Crystal Label Flatbed</option>
-                                      <option value="Konica Minolta"                      {{ $prtLc==='konica minolta' ? 'selected' : '' }}>Konica Minolta</option>
-                                    </select>
-                                  </div>
-
-                                  <div class="col-md-3">
-                                    <label class="form-label">Cutter</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][cutter]" class="form-select" {{ $disabled }}>
-                                      <option value="">-</option>
-                                      <option value="AOL 1000 Flatbed Cutter (Small)"  {{ $cutLc==='aol 1000 flatbed cutter (small)' ? 'selected' : '' }}>AOL 1000 Flatbed Cutter (Small)</option>
-                                      <option value="AOL 5x10 Flatbed Cutter (big)"    {{ $cutLc==='aol 5x10 flatbed cutter (big)' ? 'selected' : '' }}>AOL 5x10 Flatbed Cutter (big)</option>
-                                      <option value="Jingwei 5x10 Flatbed Cutter"      {{ $cutLc==='jingwei 5x10 flatbed cutter' ? 'selected' : '' }}>Jingwei 5x10 Flatbed Cutter</option>
-                                      <option value="Ruijie Flatbed Router"            {{ $cutLc==='ruijie flatbed router' ? 'selected' : '' }}>Ruijie Flatbed Router</option>
-                                      <option value="Laser Cutter 150 (A)"             {{ $cutLc==='laser cutter 150 (a)' ? 'selected' : '' }}>Laser Cutter 150 (A)</option>
-                                      <option value="Laser Cutter 150 (B)"             {{ $cutLc==='laser cutter 150 (b)' ? 'selected' : '' }}>Laser Cutter 150 (B)</option>
-                                      <option value="Laser Cutter 300"                 {{ $cutLc==='laser cutter 300' ? 'selected' : '' }}>Laser Cutter 300</option>
-                                      <option value="Mimaki Cutting Plotte"            {{ $cutLc==='mimaki cutting plotte' ? 'selected' : '' }}>Mimaki Cutting Plotte</option>
-                                      <option value="AccuCut"                          {{ $cutLc==='accucut' ? 'selected' : '' }}>AccuCut</option>
-                                    </select>
-                               </div>
-                                  <div class="col-md-12">
-                                    <label class="form-label">Assemble</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][finishing]" class="form-select" {{ $disabled }}>
-                                      <option value="">-</option>
-                                      <option value="yes"  {{ $assLc==='yes' ? 'selected' : '' }}>Yes</option>
-                                      <option value="no"   {{ $assLc==='no' ? 'selected' : '' }}>No</option>
-                                    </select>
-                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                          @endforeach
-                        </div>
+                          </template>
 
-                        {{-- Template used for a new item (placeholders __i__ and __n__) --}}
-                        <div
-                          id="itemsContainer-{{ $pIndex }}"
-                          class="items-container"
-                          data-product-index="{{ $pIndex }}"
-                          data-product-id="{{ $product->ProductID }}"
-                          data-items='@json($product->items ?? [])'></div>
-                        <template id="itemTemplate-{{ $pIndex }}" name="products[__PINDEX__][items][__INDEX__][field]">
-                          <div class="accordion-item mb-3 border rounded" data-kind="item" id="item__PINDEX__-__INDEX__">
-                            <div class="accordion-header d-flex align-items-center px-3 py-2" id="itemHdr__PINDEX__-__INDEX__">
-                              <span class="fw-semibold">
-                                Item <span class="item-number">__INDEX_HUMAN__</span>
-                              </span>
-                              <span class="text-body-secondary ms-2 small item-summary"></span>
-
-                              <div class="ms-auto d-flex align-items-center gap-2">
-                                <button type="button" class="btn btn-link p-0 text-danger delete-item" data-index="__INDEX__" title="Delete item" data-remove>
-                                  <i class="bx bx-trash fs-5"></i>
-                                </button>
-
-                                <button type="button" class="btn btn-link p-0 chevron"
-                                  data-bs-toggle="collapse"
-                                  data-bs-target="#itemPane__PINDEX__-__INDEX__"
-                                  aria-controls="itemPane__PINDEX__-__INDEX__"
-                                  aria-expanded="false"
-                                  title="Expand/Collapse">
-                                  <i class="bx bx-chevron-down fs-4"></i>
-                                </button>
-                              </div>
-                            </div>
-
-                            <div id="itemPane__PINDEX__-__INDEX__" class="accordion-collapse collapse show" data-bs-parent="#productItems-__PINDEX__">
-                              <div class="accordion-body">
-
-                                <input type="hidden" name="products[__PINDEX__][items][__INDEX__][id]" value="">
-
-                                <div class="row g-3">
-                                  <div class="col-md-6">
-                                    <label class="form-label">Item Name</label>
-                                    <input type="text" class="form-control" name="products[__PINDEX__][items][__INDEX__][itemName]" value="" {{ $readonly }}>
-                                  </div>
-
-                                  <div class="col-md-6">
-                                    <label class="form-label">Quantity</label>
-                                    <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" {{ $readonly }}>
-                                  </div>
-
-                                  <div class="col-12">
-                                    <label class="form-label">Material</label>
-                                    <div class="tags-input"
-                                        data-name="products[__PINDEX__][items][__INDEX__][material][]"
-                                        data-suggestions='@json($allMaterials ?? [])'
-                                        data-values='[]'
-                                        data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
-                                    </div>
-                                  </div>
-
-                                  <div class="col-12 col-md-4">
-                                    <label class="form-label">Unit (Size)</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][sizeUnit]" class="form-select" {{ $disabled }}>
-                                      <option value="mm" selected>mm</option>
-                                      <option value="cm">cm</option>
-                                      <option value="inch">inch</option>
-                                      <option value="ft">ft</option>
-                                    </select>
-                                  </div>
-
-                                  <div class="col-12 col-md-4">
-                                    <label class="form-label">Size - Width</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
-                                  </div>
-                                  <div class="col-12 col-md-4">
-                                    <label class="form-label">Height</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
-                                  </div>
-
-                                  <div class="col-12 col-md-4">
-                                    <label class="form-label">Unit (Bleed)</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][bleedUnit]" class="form-select">
-                                      <option value="mm" selected>mm</option>
-                                      <option value="cm">cm</option>
-                                      <option value="inch">inch</option>
-                                      <option value="ft">ft</option>
-                                    </select>
-                                  </div>
-                                  <div class="col-12 col-md-2">
-                                    <label class="form-label">Bleed (Top)</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
-                                  </div>
-                                  <div class="col-12 col-md-2">
-                                    <label class="form-label">Bottom</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
-                                  </div>
-                                  <div class="col-12 col-md-2">
-                                    <label class="form-label">Left</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
-                                  </div>
-                                  <div class="col-12 col-md-2">
-                                    <label class="form-label">Right</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
-                                  </div>
-
-                                  <div class="col-md-3">
-                                    <label class="form-label">Lamination</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }}>
-                                      <option value="">-</option>
-                                      <option>Matt UV Lamination</option>
-                                      <option>Gloss UV Lamination</option>
-                                      <option>Matt Artcard Lamination</option>
-                                      <option>Gloss Artcard Lamination</option>
-                                      <option>Matt Tempered Film Lamination</option>
-                                      <option>Gloss Tempered Film Lamination</option>
-                                      <option>Matt Pigment Crystal Lamination</option>
-                                      <option>Gloss Pigment Crystal Lamination</option>
-                                      <option>Hot Stamping Lamination</option>
-                                    </select>
-                                  </div>
-
-                                  <div class="col-md-3">
-                                    <label class="form-label">Printer</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][printer]" class="form-select" {{ $disabled }}>
-                                      <option value="">-</option>
-                                      <option>Handtop Hybrid</option>
-                                      <option>Handtop Roll2Roll</option>
-                                      <option>HP Latex</option>
-                                      <option>Solvent</option>
-                                      <option>Lanqi UV Gen 6 (A)</option>
-                                      <option>Lanqi UV Gen 6 (B) (Bothside Print)</option>
-                                      <option>ANS UV RD500</option>
-                                      <option>YF 1700 UV Epson i3600</option>
-                                      <option>Pigment HDP</option>
-                                      <option>Flora Flatbed 8x10</option>
-                                      <option>Grando Crystal Label</option>
-                                      <option>Crystal Label Flatbed</option>
-                                    </select>
-                                  </div>
-
-                                  <div class="col-md-3">
-                                    <label class="form-label">Cutter</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][cutter]" class="form-select" {{ $disabled }}>
-                                      <option value="">-</option>
-                                      <option>AOL 1000 Flatbed Cutter (Small)</option>
-                                      <option>AOL 5x10 Flatbed Cutter (big)</option>
-                                      <option>Jingwei 5x10 Flatbed Cutter</option>
-                                      <option>Ruijie Flatbed Router</option>
-                                      <option>Laser Cutter 150 (A)</option>
-                                      <option>Laser Cutter 150 (B)</option>
-                                      <option>Laser Cutter 300</option>
-                                      <option>Mimaki Cutting Plotte</option>
-                                      <option>AccuCut</option>
-                                    </select>
-                                  </div>
-
-                                  <div class="col-md-12">
-                                    <label class="form-label">Assemble</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][finishing]" class="form-select" {{ $disabled }}>
-                                      <option value="">-</option>
-                                      <option>Yes</option>
-                                      <option>No</option>
-                                    </select>
-                                  </div>
-                                </div>
-
-                              </div>
-                            </div>
-                          </div>
-                        </template>
-
-                        {{-- Delivery Breakdown (repeater) --}}
-                        @php
-                          $pTotal     = (int) ($product->totalQuantity ?? 0);
-                          $pDelivered = (int) ($product->deliveryBreakdowns?->sum('quantity') ?? 0);
-                          $pRemain    = max($pTotal - $pDelivered, 0);
-                        @endphp
-                        <div class="d-flex align-items-center justify-content-between mt-4 mb-2">
-                          <h6 class="mb-0">Delivery Breakdown</h6>
-                          <div class="ms-auto d-flex align-items-center gap-3 small text-muted" style="margin-right: 10px;"
-                              id="del-summary-{{ $pIndex }}">
-                            <span> <strong>Total:</strong>
-                              <span id="del-sum-total-{{ $pIndex }}">{{ $pTotal }}</span>
-                            </span>
-                            <span> <strong>Delivered:</strong>
-                              <span id="del-sum-delivered-{{ $pIndex }}">{{ $pDelivered }}</span>
-                            </span>
-                            <span> <strong>Remaining:</strong>
-                              <span id="del-sum-remaining-{{ $pIndex }}">{{ $pRemain }}</span>
-                            </span>
-                          </div>
-                          <button type="button"
-                                  class="btn btn-sm btn-outline-primary"
-                                  id="addDeliveryBtn-{{ $pIndex }}">
-                            <i class="bx bx-plus me-1"></i> Add Delivery Breakdown
-                          </button>
-                        </div>
-
-                        <div id="deliveriesWrap-{{ $pIndex }}" class="vstack gap-3">
+                          {{-- Delivery Breakdown (repeater) --}}
                           @php
-                            // Only the deliveries for this product:
-                            $productDeliveries = $product->deliveryBreakdowns ?? collect();
+                            $pTotal     = (int) ($product->totalQuantity ?? 0);
+                            $pDelivered = (int) ($product->deliveryBreakdowns?->sum('quantity') ?? 0);
+                            $pRemain    = max($pTotal - $pDelivered, 0);
                           @endphp
+                          <div class="d-flex align-items-center justify-content-between mt-4 mb-2">
+                            <h6 class="mb-0">Delivery Breakdown</h6>
+                            <div class="ms-auto d-flex align-items-center gap-3 small text-muted" style="margin-right: 10px;"
+                                id="del-summary-{{ $pIndex }}">
+                              <span> <strong>Total:</strong>
+                                <span id="del-sum-total-{{ $pIndex }}">{{ $pTotal }}</span>
+                              </span>
+                              <span> <strong>Delivered:</strong>
+                                <span id="del-sum-delivered-{{ $pIndex }}">{{ $pDelivered }}</span>
+                              </span>
+                              <span> <strong>Remaining:</strong>
+                                <span id="del-sum-remaining-{{ $pIndex }}">{{ $pRemain }}</span>
+                              </span>
+                            </div>
+                            @if ($submitted)
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    id="addDeliveryBtn-{{ $pIndex }}">
+                              <i class="bx bx-plus me-1"></i> Add Delivery Breakdown
+                            </button>
+                            @endif
+                          </div>
+                            
+                          <div id="deliveriesWrap-{{ $pIndex }}" class="vstack gap-3">
+                            @php
+                              // Only the deliveries for this product:
+                              $productDeliveries = $product->deliveryBreakdowns ?? collect();
+                            @endphp
 
-                          @forelse($productDeliveries as $i => $d)
-                            <div class="card mb-3"
+                            @forelse ($productDeliveries as $i => $d)
+                              <div class="card mb-3"
                                   data-delivery
-                                  data-id="{{ $d->getKey() }}"   {{-- or $d->BreakdownID --}}
+                                  data-id="{{ $d->getKey() }}"
                                   data-url="{{ route('artist.orders.delivery.destroy', ['order' => $order, 'delivery' => $d->getKey()]) }}">
+                                <div class="card-body">
+                                  <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="fw-semibold">Delivery <span class="delivery-index">{{ $i + 1 }}</span></div>
+                                    @if ($submitted)
+                                      <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete" data-remove>
+                                        <i class="bx bx-trash fs-5"></i>
+                                      </button>
+                                    @endif
+                                  </div>
+
+                                  @php
+                                    $dtValue = '';
+                                    try {
+                                      $dateOnly = !empty($d->date) ? \Illuminate\Support\Carbon::parse($d->date)->toDateString() : null;
+                                      $timeOnly = !empty($d->time) ? \Illuminate\Support\Carbon::parse($d->time)->format('H:i') : null;
+                                      $dtValue  = $dateOnly && $timeOnly ? ($dateOnly.'T'.$timeOnly) : ($dateOnly ? $dateOnly.'T00:00' : '');
+                                    } catch (\Throwable $e) { $dtValue = ''; }
+
+                                    $methodVal = strtolower((string)
+                                        old("products.$pIndex.deliveries.$i.method", data_get($d,'method'))
+                                    );
+
+                                    $methodOptions = [
+                                      'courier'      => 'Courier',
+                                      'self_pickup'  => 'Self Pickup',
+                                      'installation' => 'Installation',
+                                    ];
+                                  @endphp
+
+                                  <input type="hidden"
+                                        name="products[{{ $pIndex }}][deliveries][{{ $i }}][id]"
+                                        value="{{ $d->getKey() }}">
+
+                                  <div class="row g-3">
+                                    <div class="col-12 col-md-3">
+                                      <label class="form-label">Delivery Method</label>
+                                      <select name="products[{{ $pIndex }}][deliveries][{{ $i }}][method]" class="form-select" {{ $disabled }}>
+                                        <option value="">Method</option>
+                                        @foreach ($methodOptions as $k => $label)
+                                          <option value="{{ $k }}" {{ $methodVal === $k ? 'selected' : '' }}>{{ $label }}</option>
+                                        @endforeach
+                                      </select>
+                                    </div>
+
+                                    <div class="col-12 col-md-3">
+                                      <label class="form-label">Location Address</label>
+                                      <input type="text" class="form-control"
+                                            name="products[{{ $pIndex }}][deliveries][{{ $i }}][location]"
+                                            value="{{ $d->location }}" {{ $readonly }}>
+                                    </div>
+
+                                    <div class="col-12 col-md-2">
+                                      <label class="form-label">Quantity</label>
+                                      <input type="number" class="form-control del-qty"
+                                            name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]"
+                                            value="{{ $d->quantity }}" {{ $readonly }}>
+                                    </div>
+
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Date &amp; Time</label>
+                                      <input type="datetime-local" class="form-control"
+                                            name="products[{{ $pIndex }}][deliveries][{{ $i }}][datetime]"
+                                            value="{{ $dtValue }}" {{ $readonly }}>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            @empty
+                            @endforelse
+                          </div>
+
+                          <template id="deliveryTemplate-{{ $pIndex }}">
+                            <div class="card border shadow-none" data-delivery>
                               <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                  <div class="fw-semibold">
-                                    Delivery <span class="delivery-index">{{ $i + 1 }}</span>
-                                  </div>
-                                  <button type="button"
-                                          class="btn btn-link p-0 text-danger delete-delivery"
-                                          title="Delete"
-                                          data-remove>
+                                  <strong>Delivery <span class="delivery-index">__INDEX_HUMAN__</span></strong>
+                                  @if ($submitted)
+                                  <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete" data-remove>
                                     <i class="bx bx-trash fs-5"></i>
                                   </button>
+                                  @endif
                                 </div>
 
-                                @php
-                                  $dtValue = '';
-                                  try {
-                                    $dateOnly = !empty($d->date) ? \Illuminate\Support\Carbon::parse($d->date)->toDateString() : null;
-                                    $timeOnly = !empty($d->time) ? \Illuminate\Support\Carbon::parse($d->time)->format('H:i') : null;
-                                    $dtValue  = $dateOnly && $timeOnly ? ($dateOnly.'T'.$timeOnly) : ($dateOnly ? $dateOnly.'T00:00' : '');
-                                  } catch (\Throwable $e) { $dtValue = ''; }
-                                @endphp
-
-                                <input type="hidden" name="products[{{ $pIndex }}][deliveries][{{ $i }}][id]" value="{{ $d->getKey() }}">
+                                <input type="hidden" name="products[{{ $pIndex }}][deliveries][__INDEX__][id]" value="">
 
                                 <div class="row g-3">
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Delivery Method</label>
-                                    @php $method = strtolower((string) $d->method); @endphp
-                                    <select class="form-select" name="products[{{ $pIndex }}][deliveries][{{ $i }}][method]" {{ $disabled }}>
+                                    <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select" {{ $disabled }}> 
                                       <option value="">Method</option>
-                                      <option value="Courier" {{ $method==='courier' ? 'selected' : '' }}>Courier</option>
-                                      <option value="Installation"   {{ $method==='Installation' ? 'selected' : '' }}>Installation</option>
-                                      <option value="Self Pickup"   {{ $method==='Self Pickup' ? 'selected' : '' }}>Self Pickup</option>
+                                      <option value="Courier">Courier</option>
+                                      <option value="Installation">Installation</option>
+                                      <option value="Self Pickup">Self Pickup</option>
                                     </select>
                                   </div>
 
                                   <div class="col-12 col-md-3">
                                     <label class="form-label">Location Address</label>
-                                    <input type="text" class="form-control" name="products[{{ $pIndex }}][deliveries][{{ $i }}][location]" value="{{ $d->location }}" {{ $readonly }}>
+                                    <input type="text" name="products[{{ $pIndex }}][deliveries][__INDEX__][location]" class="form-control" value="" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" class="form-control del-qty" name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]" value="{{ $d->quantity }}" {{ $readonly }}>
+                                    <input type="number" step="1" min="0"
+                                          name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]"
+                                          class="form-control del-qty" value="" {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Date &amp; Time</label>
                                     <input type="datetime-local" class="form-control"
-                                          name="products[{{ $pIndex }}][deliveries][{{ $i }}][datetime]"
-                                          value="{{ $dtValue }}" {{ $readonly }}>
+                                          name="products[{{ $pIndex }}][deliveries][__INDEX__][datetime]" value="" {{ $readonly }}>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          @empty
-                          @endforelse
-                        </div>
+                          </template>
 
-                        <template id="deliveryTemplate-{{ $pIndex }}">
-                          <div class="card border shadow-none" data-delivery>
-                            <div class="card-body">
-                              <div class="d-flex justify-content-between align-items-center mb-2">
-                                <strong>Delivery <span class="delivery-index">__INDEX_HUMAN__</span></strong>
-                                <button type="button" class="btn btn-link p-0 text-danger delete-delivery" title="Delete" data-remove>
-                                  <i class="bx bx-trash fs-5"></i>
-                                </button>
-                              </div>
+                          {{-- Product Remarks --}}
+                          <div class="mt-4">
+                            <h6 class="mb-2">Product Remarks</h6>
 
-                              <input type="hidden" name="products[{{ $pIndex }}][deliveries][__INDEX__][id]" value="">
+                            <div id="remarks-wrap-{{ $pIndex }}">
+                              @php
+                                $ops  = [
+                                  'printing'     => 'Printing',
+                                  'furnishing'   => 'Furnishing',
+                                  'installation' => 'Installation',
+                                  'courier'      => 'Courier',
+                                  'self_pickup'  => 'Self Pickup',
+                                ];
+                                $rows = $product->remarks ?? collect();
+                              @endphp
 
-                              <div class="row g-3">
-                                <div class="col-12 col-md-3">
-                                  <label class="form-label">Delivery Method</label>
-                                  <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select" {{ $disabled }}> 
-                                    <option value="">Method</option>
-                                    <option value="Courier">Courier</option>
-                                    <option value="Installation">Installation</option>
-                                    <option value="Self Pickup">Self Pickup</option>
+                              @forelse($rows as $r)
+                                <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
+                                  <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
+                                  <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
+                                    <option value="">— Select —</option>
+                                    @foreach($ops as $k => $label)
+                                      <option value="{{ $k }}" @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)>{{ $label }}</option>
+                                    @endforeach
                                   </select>
+                                  <input type="text"
+                                        name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][remark]"
+                                        class="form-control"
+                                        placeholder="Write a note…" {{ $readonly }}
+                                        value="{{ old("products.$pIndex.remarks.$loop->index.remark", $r->remark) }}">
+                                  @if ($submitted)
+                                  <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                    <i class="bx bx-trash fs-5"></i>
+                                  </button>
+                                  @endif
                                 </div>
-
-                                <div class="col-12 col-md-3">
-                                  <label class="form-label">Location Address</label>
-                                  <input type="text" name="products[{{ $pIndex }}][deliveries][__INDEX__][location]" class="form-control" value="" {{ $readonly }}>
+                              @empty
+                                <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
+                                  <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
+                                    <option value="">— Select —</option>
+                                    @foreach($ops as $k => $label)
+                                      <option value="{{ $k }}">{{ $label }}</option>
+                                    @endforeach
+                                  </select>
+                                  <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }}>
+                                  @if ($submitted)
+                                  <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                    <i class="bx bx-trash fs-5"></i>
+                                  </button>
+                                  @endif
                                 </div>
-
-                                <div class="col-12 col-md-2">
-                                  <label class="form-label">Quantity</label>
-                                  <input type="number" step="1" min="0"
-                                        name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]"
-                                        class="form-control del-qty" value="" {{ $readonly }}>
-                                </div>
-
-                                <div class="col-12 col-md-4">
-                                  <label class="form-label">Date &amp; Time</label>
-                                  <input type="datetime-local" class="form-control"
-                                        name="products[{{ $pIndex }}][deliveries][__INDEX__][datetime]" value="" {{ $readonly }}>
-                                </div>
-                              </div>
+                              @endforelse
                             </div>
+                            @if ($submitted)
+                            <button type="button" id="add-remark-{{ $pIndex }}" class="btn btn-sm btn-outline-secondary mt-2">
+                              <i class="bx bx-plus"></i> Add Remarks
+                            </button>
+                            @endif
+                            {{-- per-product delete bin --}}
+                            <div id="delete-remarks-bin-{{ $pIndex }}"></div>
                           </div>
-                        </template>
-
-                        {{-- Product Remarks --}}
-                        <div class="mt-4">
-                          <h6 class="mb-2">Product Remarks</h6>
-
-                          <div id="remarks-wrap-{{ $pIndex }}">
-                            @php
-                              $ops  = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','self pickup'=>'Self Pickup', 'courier'=>'Courier'];
-                              $rows = $product->remarks ?? collect();
-                            @endphp
-
-                            @forelse($rows as $r)
-                              <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
-                                <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
-                                <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
-                                  <option value="">— Select —</option>
-                                  @foreach($ops as $k => $label)
-                                    <option value="{{ $k }}" @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)>{{ $label }}</option>
-                                  @endforeach
-                                </select>
-                                <input type="text"
-                                      name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][remark]"
-                                      class="form-control"
-                                      placeholder="Write a note…" {{ $readonly }}
-                                      value="{{ old("products.$pIndex.remarks.$loop->index.remark", $r->remark) }}">
-                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                  <i class="bx bx-trash fs-5"></i>
-                                </button>
-                              </div>
-                            @empty
-                              <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
-                                <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
-                                  <option value="">— Select —</option>
-                                  @foreach($ops as $k => $label)
-                                    <option value="{{ $k }}">{{ $label }}</option>
-                                  @endforeach
-                                </select>
-                                <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }}>
-                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                  <i class="bx bx-trash fs-5"></i>
-                                </button>
-                              </div>
-                            @endforelse
-                          </div>
-
-                          <button type="button" id="add-remark-{{ $pIndex }}" class="btn btn-sm btn-outline-secondary mt-2">
-                            <i class="bx bx-plus"></i> Add Remarks
-                          </button>
-
-                          {{-- per-product delete bin --}}
-                          <div id="delete-remarks-bin-{{ $pIndex }}"></div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </fieldset>
                 </div>
               </div>
             @endforeach
@@ -1126,7 +1177,9 @@
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <strong>Item <span class="item-index">X</span></strong>
+        @if ($submitted)
         <button type="button" class="btn btn-sm btn-text text-danger" data-remove><i class="bx bx-trash"></i></button>
+        @endif
       </div>
       <div class="row g-3">
         <div class="col-md-4">
@@ -1206,7 +1259,9 @@
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <strong>Delivery <span class="delivery-index">X</span></strong>
+        @if ($submitted)
         <button type="button" class="btn btn-sm btn-text text-danger" data-remove><i class="bx bx-trash"></i></button>
+        @endif
       </div>
       <div class="row g-3">
         <div class="col-12 col-md-3">
@@ -1754,7 +1809,6 @@
             <option value="printing">Printing</option>
             <option value="furnishing">Furnishing</option>
             <option value="installation">Installation</option>
-            <option value="delivery">Delivery</option>
             <option value="self pickup">Self Pickup</option>
             <option value="courier">Courier</option>
           </select>
