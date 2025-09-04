@@ -86,9 +86,9 @@ class ArtistController extends Controller
         }
 
         // 5) Rows
-        $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
+        $orders = $query->with(['artist:id,name', 'salesperson:id,name','originalOrder:id,order_number',])
                         ->latest('orderDate')
-                        ->paginate(20)
+                        ->paginate(1000)
                         ->withQueryString();
 
         // Pass the *raw UI token* back so the dropdown can mark "selected"
@@ -149,80 +149,102 @@ class ArtistController extends Controller
         ]);
     }
 
-    public function orders(Request $request)
-    {
-        $user    = Auth::user();
-        $isHead  = $this->isHeadArtist($user);
+public function orders(Request $request)
+{
+    $user   = Auth::user();
+    $isHead = $this->isHeadArtist($user);
 
-        $base = $this->visibleOrders(); 
+    // --------- Base visibility (active records) ----------
+    // Active = status is NULL or 0
+    $active = function ($q) {
+        $q->whereNull('status')->orWhere('status', 0);
+    };
 
-        $raw = strtolower(preg_replace('/[^a-z]/', '', (string) $request->query('status', '')));
+    // 1) Start from your current visibility (this likely includes submit=1 etc)
+    $normal = $this->visibleOrders()->where($active);
 
-        $map = [
-            'toassign'   => 'to_assign',
-            'assigned'   => 'assigned',
-            'inprogress' => 'in_progress',
-            'completed'  => 'completed',
-            'rejected'   => 'rejected',
-        ];
+    // 2) Build a *permission-aware* subquery of redo copies to include as well
+    //    (same user visibility as your table: head sees all; others see their own)
+    $permBase = \App\Models\Order::query()->where($active);
+    if (!$isHead) {
+        $permBase->where(function ($p) use ($user) {
+            $p->where('artist_id', $user->id)
+              ->orWhere('salesperson_id', $user->id);
+        });
+    }
+    $redoIdsSub = (clone $permBase)->whereNotNull('redo')->select('id');
 
-        $query = clone $base;
+    // 3) Final base = normal visibility OR redo copies
+    $base = $normal->orWhereIn('id', $redoIdsSub);
 
-        if ($raw !== '') {
-            if ($raw === 'pending') {
-                $query->where('orderStatus', 'assigned')
-                    ->where('pending', 1);
+    // ------------------ existing filters ------------------
+    $raw = strtolower(preg_replace('/[^a-z]/', '', (string) $request->query('status', '')));
 
-                if ($isHead) {
-                    $query->whereRaw('1=0');
-                }
-            } else {
-                $db = $map[$raw] ?? $raw; 
-                $query->where('orderStatus', $db);
+    $map = [
+        'toassign'   => 'to_assign',
+        'assigned'   => 'assigned',
+        'inprogress' => 'in_progress',
+        'completed'  => 'completed',
+        'rejected'   => 'rejected',
+    ];
 
-                if (!$isHead && $db === 'in_progress') {
-                    $query->where('artist_id', $user->id)
-                        ->where('pending', 0);
-                }
+    $query = clone $base;
+
+    if ($raw !== '') {
+        if ($raw === 'pending') {
+            $query->where('orderStatus', 'assigned')
+                  ->where('pending', 1);
+
+            if ($isHead) {
+                $query->whereRaw('1=0');
+            }
+        } else {
+            $db = $map[$raw] ?? $raw;
+            $query->where('orderStatus', $db);
+
+            if (!$isHead && $db === 'in_progress') {
+                $query->where('artist_id', $user->id)
+                      ->where('pending', 0);
             }
         }
-
-        if ($s = trim($request->query('q', ''))) {
-            $query->where(function ($q) use ($s) {
-                $q->where('orderTitle', 'like', "%{$s}%")
-                ->orWhere('companyName', 'like', "%{$s}%")
-                ->orWhere('leadName', 'like', "%{$s}%");
-            });
-        }
-
-        // 4) Metrics from the same base visibility
-        $metrics = [
-            'total'       => (clone $base)->count(),
-            'pending'     => (clone $base)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
-            'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
-            'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
-            'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
-        ];
-        if ($isHead) {
-            $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
-            $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
-        }
-
-        // 5) Rows
-        $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
-                        ->latest('orderDate')
-                        ->paginate(20)
-                        ->withQueryString();
-
-        // Pass the *raw UI token* back so the dropdown can mark "selected"
-        $statusRaw = $raw;
-
-        if ($request->ajax()) {
-            return view('artist.partials.orders-table', compact('orders'))->render();
-        }
-
-        return view('artist.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
     }
+
+    if ($s = trim($request->query('q', ''))) {
+        $query->where(function ($q) use ($s) {
+            $q->where('orderTitle',  'like', "%{$s}%")
+              ->orWhere('companyName','like', "%{$s}%")
+              ->orWhere('leadName',   'like', "%{$s}%");
+        });
+    }
+
+    // ------------------ metrics from same base -----------
+    $metrics = [
+        'total'       => (clone $base)->count(),
+        'pending'     => (clone $base)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
+        'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
+        'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
+        'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
+    ];
+    if ($isHead) {
+        $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
+        $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
+    }
+
+    // ------------------ rows ------------------------------
+    $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
+                    ->latest('orderDate')
+                    ->paginate(1000)
+                    ->withQueryString();
+
+    $statusRaw = $raw;
+
+    if ($request->ajax()) {
+        return view('artist.partials.orders-table', compact('orders'))->render();
+    }
+
+    return view('artist.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
+}
+
 
     public function showAssign(Order $order)
     {
@@ -517,7 +539,10 @@ class ArtistController extends Controller
             // remarks (per product)
             'products.*.remarks'                => ['array'],
             'products.*.remarks.*.id'           => ['nullable','integer'],
-            'products.*.remarks.*.operation'    => ['nullable','in:printing,furnishing,installation,delivery'],
+            'products.*.remarks.*.operation'    => [
+                'nullable',
+                Rule::in(['printing','furnishing','installation','courier','self_pickup']),
+            ],            
             'products.*.remarks.*.remark'       => ['nullable','string'],
             'products.*.delete_remarks'         => ['array'],
             'products.*.delete_remarks.*'       => ['integer'],
@@ -527,6 +552,33 @@ class ArtistController extends Controller
             'delete_attachments'                => ['array'],
             'delete_attachments.*'              => ['string'],
         ];
+
+        $payload = $request->all();
+
+        if (!empty($payload['products']) && is_array($payload['products'])) {
+            foreach ($payload['products'] as &$pg) {
+                if (!empty($pg['remarks']) && is_array($pg['remarks'])) {
+                    foreach ($pg['remarks'] as &$rk) {
+                        if (array_key_exists('operation', $rk)) {
+                            $op = strtolower(trim((string) $rk['operation']));
+                            if ($op === '' || $op === '-' || $op === '—') {
+                                $rk['operation'] = null;
+                            } elseif ($op === 'self pickup') {
+                                $rk['operation'] = 'self_pickup';
+                            } elseif ($op === 'delivery') {
+                                $rk['operation'] = 'courier'; // migrate legacy "delivery" to "courier"
+                            } else {
+                                $rk['operation'] = $op;
+                            }
+                        }
+                    }
+                    unset($rk);
+                }
+            }
+            unset($pg);
+        }
+
+        $request->merge($payload);
 
         $validator = Validator::make($request->all(), $rules);
         if ($validator->fails()) {

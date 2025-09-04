@@ -13,28 +13,36 @@
   </thead>
   <tbody>
     @forelse ($orders as $order)
+    @continue( (int) ($order->status ?? 0) === 1 )
     @php
-    $rawStatus = $order->orderStatus; // e.g. 'in_progress'
-    $isPending = (!$isHead) && $rawStatus === 'assigned' && (int) $order->pending === 1;
+      $rawStatus = $order->orderStatus; // e.g. 'in_progress'
+      $isPending = (!$isHead) && $rawStatus === 'assigned' && (int) $order->pending === 1;
 
-    $label = $isPending
-    ? 'Pending'
-    : \Illuminate\Support\Str::of($rawStatus)->replace('_', ' ')->title();
+      $label = $isPending
+      ? 'Pending'
+      : \Illuminate\Support\Str::of($rawStatus)->replace('_', ' ')->title();
 
-    $badgeClass = match (true) {
-    $isPending => 'badge bg-warning text-dark fw-bold',
-    $rawStatus === 'to_assign' => 'badge bg-secondary',
-    $rawStatus === 'assigned' => 'badge bg-warning text-dark', // head-only
-    $rawStatus === 'in_progress'=> 'badge bg-info',
-    $rawStatus === 'completed' => 'badge bg-success',
-    $rawStatus === 'rejected' => 'badge bg-danger',
-    default => 'badge bg-light text-dark',
-    };
+      $badgeClass = match (true) {
+      $isPending => 'badge bg-warning text-dark fw-bold',
+      $rawStatus === 'to_assign' => 'badge bg-secondary',
+      $rawStatus === 'assigned' => 'badge bg-warning text-dark', // head-only
+      $rawStatus === 'in_progress'=> 'badge bg-info',
+      $rawStatus === 'completed' => 'badge bg-success',
+      $rawStatus === 'rejected' => 'badge bg-danger',
+      default => 'badge bg-light text-dark',
+      };
 
-    $deadline = $order->deadline ? \Carbon\Carbon::parse($order->deadline)->format('M d, Y') : '-';
+      $deadline = $order->deadline ? \Carbon\Carbon::parse($order->deadline)->format('M d, Y') : '-';
+
+      $displayOrderNo = $order->order_number;
+
+      if (!is_null($order->redo) && optional($order->originalOrder)->order_number) {
+          $orig = $order->originalOrder->order_number;
+          $displayOrderNo = preg_match('/R\d*$/', $orig) ? $orig : ($orig . 'R');
+      }
     @endphp
     <tr>
-      <td>#ORD-{{ str_pad($order->id, 4, '0', STR_PAD_LEFT) }}</td>
+      <td>{{ $displayOrderNo }}</td>
       <td>{{ $order->orderTitle ?? '-' }}</td>
       <td>{{ $order->companyName ?? '-' }}</td>
       <td>
@@ -98,7 +106,7 @@
 
           {{-- Report --}}
           @if(!$reportBlocked)
-          <a href="{{ route('artist.orders.assign.show', $order->id) }}"
+          <a href="{{ route('artist.orders.redo.create', $order->id) }}"
             class="text-secondary fw-bold" title="Report">
             <i class="bx bx-error-alt fs-5"></i>
           </a>
@@ -116,9 +124,9 @@
       </td>
     </tr>
     @empty
-    <tr>
+    <!-- <tr>
       <td colspan="7" class="text-center text-muted py-4">No matching orders.</td>
-    </tr>
+    </tr> -->
     @endforelse
   </tbody>
 </table>
