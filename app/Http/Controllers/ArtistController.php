@@ -370,7 +370,7 @@ class ArtistController extends Controller
         $product = Product::with([
             'items.spec','deliveryBreakdowns' => function ($q) {
                 // select only real columns – no "id" here
-                $q->select('BreakdownID', 'ProductID', 'method', 'location', 'quantity', 'date', 'time')
+                $q->select('BreakdownID', 'ProductID', 'method', 'deliver_install_type', 'outsource_cost', 'location', 'quantity', 'date', 'time')
                 ->orderBy('BreakdownID');
             },
         ])->where('OrderID', $order->id)->with(['remarks'])->first();
@@ -719,7 +719,8 @@ class ArtistController extends Controller
 
                             // prime_centre (boolean yes/no)
                             if (array_key_exists('prime_centre', $row)) {
-                                $item->prime_centre = in_array((string)$row['prime_centre'], ['1', 1, true, 'true', 'on'], true) ? 1 : 0;
+                                $v = strtolower((string)$row['prime_centre']);
+                                $item->prime_centre = in_array($v, ['1','true','on','yes'], true) ? 1 : 0;
                             }
 
                             $item->save();
@@ -747,41 +748,54 @@ class ArtistController extends Controller
                     }
 
                     // -------- Deliveries --------
-                    $deliveries = collect($group['deliveries'] ?? [])
-                        ->filter(fn($row) => is_array($row))
-                        ->map(function ($row) {
-                            $row  = array_change_key_case($row, CASE_LOWER);
-                            $date = $row['date'] ?? null;
-                            $time = $row['time'] ?? null;
+                $deliveries = collect($group['deliveries'] ?? [])
+                    ->filter(fn($row) => is_array($row))
+                    ->map(function ($row) {
+                        $row  = array_change_key_case($row, CASE_LOWER);
 
-                            if ((!$date || !$time) && !empty($row['datetime'])) {
-                                try {
-                                    $dt   = \Carbon\Carbon::parse($row['datetime']);
-                                    $date = $date ?: $dt->toDateString();
-                                    $time = $time ?: $dt->format('H:i:s');
-                                } catch (\Throwable $e) {}
-                            }
+                        // split/normalize datetime
+                        $date = $row['date'] ?? null;
+                        $time = $row['time'] ?? null;
+                        if ((!$date || !$time) && !empty($row['datetime'])) {
+                            try {
+                                $dt   = \Carbon\Carbon::parse($row['datetime']);
+                                $date = $date ?: $dt->toDateString();
+                                $time = $time ?: $dt->format('H:i:s');
+                            } catch (\Throwable $e) {}
+                        }
 
-                            $method   = trim($row['method']   ?? '');
-                            $location = trim($row['location'] ?? '');
-                            $qty      = $row['quantity'] ?? null;
+                        // normalize fields
+                        $method      = trim((string)($row['method'] ?? ''));
+                        $location    = trim((string)($row['location'] ?? ''));
+                        $qty         = $row['quantity'] ?? null;
 
-                            if ($method === '' && $location === '' &&
-                                ($qty === null || $qty === '') && !$date && !$time) {
-                                return null;
-                            }
+                        // NEW: installation type & cost (normalized)
+                        $installType = strtolower(trim((string)($row['deliver_install_type'] ?? '')));
+                        $installType = $installType !== '' ? $installType : null;
 
-                            return [
-                                'id'       => isset($row['id']) ? (int)$row['id'] : null,
-                                'method'   => $method ?: null,
-                                'location' => $location ?: null,
-                                'quantity' => (int)($qty ?? 0),
-                                'date'     => $date ?: null,
-                                'time'     => $time ?: null,
-                            ];
-                        })
-                        ->filter()
-                        ->values();
+                        $costRaw = $row['outsource_cost'] ?? null;
+                        $cost    = ($costRaw === '' || $costRaw === null) ? null : (float)$costRaw;
+
+                        // empty row guard
+                        if ($method === '' && $location === '' &&
+                            ($qty === null || $qty === '') && !$date && !$time) {
+                            return null;
+                        }
+
+                        return [
+                            'id'                   => isset($row['id']) ? (int)$row['id'] : null,
+                            'method'               => $method !== '' ? $method : null,
+                            'location'             => $location !== '' ? $location : null,
+                            'quantity'             => (int)($qty ?? 0),
+                            'date'                 => $date ?: null,
+                            'time'                 => $time ?: null,
+                            // NEW keys that will actually be saved below
+                            'deliver_install_type' => $installType,
+                            'outsource_cost'       => $cost,
+                        ];
+                    })
+                    ->filter()
+                    ->values();
 
                     $keepDeliveryIds = [];
                     foreach ($deliveries as $d) {

@@ -683,6 +683,7 @@
                                         $pc = ($pcRaw === '' || $pcRaw === null) ? '' : (string) ((int) $pcRaw);
                                       @endphp
                                       <select name="products[{{ $pIndex }}][items][{{ $i }}][prime_centre]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
                                         <option value="1" {{ $pc === '1' ? 'selected' : '' }}>Yes</option>
                                         <option value="0" {{ $pc === '0' ? 'selected' : '' }}>No</option>
                                       </select>
@@ -859,6 +860,7 @@
                                     <div class="col-md-3">
                                       <label class="form-label">Prime Centre</label>
                                       <select name="products[__PINDEX__][items][__INDEX__][prime_centre]" class="form-select" {{ $disabled }}>
+                                        <option value="">-</option>
                                         <option>Yes</option>
                                         <option>No</option>
                                       </select>
@@ -942,20 +944,43 @@
                                     );
 
                                     $methodOptions = [
-                                      'courier'      => 'Courier',
-                                      'self_pickup'  => 'Self Pickup',
-                                      'installation' => 'Installation',
+                                      'courier'               => 'Courier',
+                                      'self_pickup'           => 'Self Pickup',
+                                      'delivery_installation' => 'Delivery & Installation',
                                     ];
+
+                                    // installation type + outsource cost
+                                    $insTypeVal = strtolower((string)
+                                        old("products.$pIndex.deliveries.$i.deliver_install_type", data_get($d,'deliver_install_type'))
+                                    );
+                                    $insTypeOptions = [
+                                      'in_house'  => 'In-house',
+                                      'outsource' => 'Outsource',
+                                      'both'      => 'Both',
+                                    ];
+
+                                    $costVal = old("products.$pIndex.deliveries.$i.outsource_cost", data_get($d,'outsource_cost'));
+
+                                    // initial enable/disable state (server-side)
+                                    $isDI        = ($methodVal === 'delivery_installation');
+                                    $costEnabled = $isDI && in_array($insTypeVal, ['outsource','both'], true);
+
+                                    $insDisabledAttr  = trim($disabled.' '.($isDI ? '' : 'disabled'));
+                                    $costDisabledAttr = trim($readonly.' '.($costEnabled ? '' : 'disabled'));
                                   @endphp
 
                                   <input type="hidden"
                                         name="products[{{ $pIndex }}][deliveries][{{ $i }}][id]"
                                         value="{{ $d->getKey() }}">
 
-                                  <div class="row g-3">
-                                    <div class="col-12 col-md-3">
+                                  <div class="row g-3 align-items-end" data-delivery-row>
+                                    {{-- Method --}}
+                                    <div class="col-12 col-md-4">
                                       <label class="form-label">Delivery Method</label>
-                                      <select name="products[{{ $pIndex }}][deliveries][{{ $i }}][method]" class="form-select" {{ $disabled }}>
+                                      <select name="products[{{ $pIndex }}][deliveries][{{ $i }}][method]"
+                                              class="form-select"
+                                              data-method-select
+                                              {{ $disabled }}>
                                         <option value="">Method</option>
                                         @foreach ($methodOptions as $k => $label)
                                           <option value="{{ $k }}" {{ $methodVal === $k ? 'selected' : '' }}>{{ $label }}</option>
@@ -963,20 +988,48 @@
                                       </select>
                                     </div>
 
-                                    <div class="col-12 col-md-3">
+                                    {{-- Installation Type --}}
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Installation Type</label>
+                                      <select name="products[{{ $pIndex }}][deliveries][{{ $i }}][deliver_install_type]"
+                                              class="form-select"
+                                              data-install-type
+                                              {{ $insDisabledAttr }}>
+                                        <option value="">Select…</option>
+                                        @foreach ($insTypeOptions as $k => $label)
+                                          <option value="{{ $k }}" {{ $insTypeVal === $k ? 'selected' : '' }}>{{ $label }}</option>
+                                        @endforeach
+                                      </select>
+                                    </div>
+
+                                    {{-- Outsource Cost --}}
+                                    <div class="col-12 col-md-4">
+                                      <label class="form-label">Costing (RM)</label>
+                                      <input type="number" step="0.01" min="0"
+                                            class="form-control"
+                                            name="products[{{ $pIndex }}][deliveries][{{ $i }}][outsource_cost]"
+                                            value="{{ $costVal }}"
+                                            data-outsource-cost
+                                            {{ $costDisabledAttr }}>
+                                    </div>
+
+                                    {{-- Location --}}
+                                    <div class="col-12 col-md-4">
                                       <label class="form-label">Location Address</label>
                                       <input type="text" class="form-control"
                                             name="products[{{ $pIndex }}][deliveries][{{ $i }}][location]"
                                             value="{{ $d->location }}" {{ $readonly }}>
                                     </div>
 
-                                    <div class="col-12 col-md-2">
+                                    {{-- Quantity --}}
+                                    <div class="col-12 col-md-4">
                                       <label class="form-label">Quantity</label>
                                       <input type="number" class="form-control del-qty"
                                             name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]"
                                             value="{{ $d->quantity }}" {{ $readonly }}>
                                     </div>
 
+                                    {{-- Date & Time --}}
                                     <div class="col-12 col-md-4">
                                       <label class="form-label">Date &amp; Time</label>
                                       <input type="datetime-local" class="form-control"
@@ -1004,33 +1057,49 @@
 
                                 <input type="hidden" name="products[{{ $pIndex }}][deliveries][__INDEX__][id]" value="">
 
-                                <div class="row g-3">
-                                  <div class="col-12 col-md-3">
+                                <div class="row g-3 align-items-end" data-delivery-row>
+                                  <div class="col-12 col-md-4">
                                     <label class="form-label">Delivery Method</label>
-                                    <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select" {{ $disabled }}> 
+                                    <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select" data-method-select>
                                       <option value="">Method</option>
-                                      <option value="Courier">Courier</option>
-                                      <option value="Installation">Installation</option>
-                                      <option value="Self Pickup">Self Pickup</option>
+                                      <option value="courier">Courier</option>
+                                      <option value="delivery_installation">Delivery & Installation</option>
+                                      <option value="self_pickup">Self Pickup</option>
                                     </select>
                                   </div>
 
-                                  <div class="col-12 col-md-3">
-                                    <label class="form-label">Location Address</label>
-                                    <input type="text" name="products[{{ $pIndex }}][deliveries][__INDEX__][location]" class="form-control" value="" {{ $readonly }}>
+                                  <div class="col-12 col-md-4">
+                                    <label class="form-label">Installation Type</label>
+                                    <select name="products[{{ $pIndex }}][deliveries][__INDEX__][deliver_install_type]" class="form-select" data-install-type disabled>
+                                      <option value="">Select…</option>
+                                      <option value="in_house">In-house</option>
+                                      <option value="outsource">Outsource</option>
+                                      <option value="both">Both</option>
+                                    </select>
                                   </div>
 
-                                  <div class="col-12 col-md-2">
+                                  <div class="col-12 col-md-4">
+                                    <label class="form-label">Costing (RM)</label>
+                                    <input type="number" step="0.01" min="0"
+                                          name="products[{{ $pIndex }}][deliveries][__INDEX__][outsource_cost]"
+                                          class="form-control"
+                                          data-outsource-cost
+                                          disabled>
+                                  </div>
+
+                                  <div class="col-12 col-md-4">
+                                    <label class="form-label">Location Address</label>
+                                    <input type="text" name="products[{{ $pIndex }}][deliveries][__INDEX__][location]" class="form-control">
+                                  </div>
+
+                                  <div class="col-12 col-md-4">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" step="1" min="0"
-                                          name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]"
-                                          class="form-control del-qty" value="" {{ $readonly }}>
+                                    <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty">
                                   </div>
 
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Date &amp; Time</label>
-                                    <input type="datetime-local" class="form-control"
-                                          name="products[{{ $pIndex }}][deliveries][__INDEX__][datetime]" value="" {{ $readonly }}>
+                                    <input type="datetime-local" name="products[{{ $pIndex }}][deliveries][__INDEX__][datetime]" class="form-control">
                                   </div>
                                 </div>
                               </div>
@@ -2262,5 +2331,34 @@
     btn.disabled = false;
   }
 });
+function setDeliveryRowState(row){
+    const methodSel = row.querySelector('[data-method-select]');
+    const typeSel   = row.querySelector('[data-install-type]');
+    const costInp   = row.querySelector('[data-outsource-cost]');
+    if (!methodSel || !typeSel || !costInp) return;
+
+    const method = (methodSel.value || '').toLowerCase();
+    const isDI   = (method === 'delivery_installation');
+
+    // Rule 1: only enabled when "Delivery & Installation"
+    typeSel.disabled = !isDI;
+    costInp.disabled = !isDI;
+
+    // Rule 2: cost only enabled when type is outsource/both
+    if (isDI){
+      const t = (typeSel.value || '').toLowerCase();
+      costInp.disabled = !(t === 'outsource' || t === 'both');
+    }
+  }
+
+  document.addEventListener('change', function(e){
+    if (e.target.matches('[data-method-select], [data-install-type]')) {
+      const row = e.target.closest('[data-delivery-row]');
+      if (row) setDeliveryRowState(row);
+    }
+  });
+
+  // initialize on load
+  document.querySelectorAll('[data-delivery-row]').forEach(setDeliveryRowState);
 </script>
 @endpush
