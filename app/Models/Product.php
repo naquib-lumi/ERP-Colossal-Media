@@ -115,4 +115,21 @@ class Product extends Model
             $this->forceFill(['taskType' => $newType])->save();
         }
     }
+
+    public function getDisplayCodeAttribute(): string
+    {
+        $base = $this->redoOf ?: $this->ProductID;
+
+        $suffix = '';
+        if ((int)($this->editable ?? 0) === 1 && optional($this->order)->redo) {
+            $orderNo = (string) optional($this->order)->order_number;
+            if (preg_match('/R\d*$/', $orderNo, $m)) {
+                $suffix = $m[0];          
+            } else {
+                $suffix = 'R';      
+            }
+        }
+
+        return sprintf('%04d%s', (int)$base, $suffix);
+    }
 }

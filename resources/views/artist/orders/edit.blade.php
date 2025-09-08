@@ -391,7 +391,7 @@
                   data-bs-target="#pCollapse{{ $pIndex }}"
                   aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
                   aria-controls="pCollapse{{ $pIndex }}">
-                  Product #{{ $product->ProductID ?? $loop->iteration }}
+                  Product #{{ $product->display_code  ?? $loop->iteration }}
                   — {{ $product->productName ?? 'Product' }}
                   @if ($selectedForRedo)
                     <span class="badge bg-primary ms-2">REDO</span>
