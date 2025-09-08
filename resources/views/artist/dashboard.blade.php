@@ -654,7 +654,6 @@
                 <span class="badge rounded-pill" style="background:${border[idx]};width:16px;height:16px;"></span>
                 <div class="fw-semibold mt-1">${labels[idx]}</div>
                 <div class="text-muted">${counts[idx]} orders</div>
-                <div class="d-flex justify-content-center flex-wrap mt-1">${chips || '<span class="text-muted">No status</span>'}</div>
             </div>
             `;
         }).join('');

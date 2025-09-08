@@ -252,8 +252,8 @@ class FulfillmentController extends Controller
     public function fulfillmentCounts()
     {
         return response()->json([
-            'totals'    => Product::fulfillmentCounts(),
-            'breakdown' => Product::fulfillmentBreakdown(),
+            'totals'    => Product::fulfillmentCounts(),    
+            'breakdown' => Product::fulfillmentBreakdown(),  
         ]);
     }
 }

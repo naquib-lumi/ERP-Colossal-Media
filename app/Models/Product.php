@@ -82,16 +82,22 @@ class Product extends Model
     public static function fulfillmentCounts(): array
     {
         $rows = static::query()
+            // join to orders so we can filter by its status
+            ->join('orders as o', 'o.id', '=', 'products.OrderID')
+            // keep only active orders (status NULL or 0); exclude status = 1
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', 0);
+            })
             ->whereNotNull('taskType')
             ->selectRaw('LOWER(taskType) AS task, COUNT(*) AS total')
             ->whereIn(DB::raw('LOWER(taskType)'), ['printing','furnishing','installation'])
             ->groupBy('task')
-            ->pluck('total','task');
+            ->pluck('total', 'task');
 
         return [
-            'printing'     => (int)($rows['printing'] ?? 0),
-            'furnishing'   => (int)($rows['furnishing'] ?? 0),
-            'installation' => (int)($rows['installation'] ?? 0),
+            'printing'     => (int) ($rows['printing'] ?? 0),
+            'furnishing'   => (int) ($rows['furnishing'] ?? 0),
+            'installation' => (int) ($rows['installation'] ?? 0),
         ];
     }
 
