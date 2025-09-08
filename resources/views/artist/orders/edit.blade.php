@@ -675,7 +675,18 @@
                                         <option value="Mimaki Cutting Plotte"            {{ $cutLc==='mimaki cutting plotte' ? 'selected' : '' }}>Mimaki Cutting Plotte</option>
                                         <option value="AccuCut"                          {{ $cutLc==='accucut' ? 'selected' : '' }}>AccuCut</option>
                                       </select>
-                                </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                      <label class="form-label">Prime Centre</label>
+                                      @php
+                                        $pcRaw = old("products.$pIndex.items.$i.prime_centre", data_get($it, 'prime_centre'));
+                                        $pc = ($pcRaw === '' || $pcRaw === null) ? '' : (string) ((int) $pcRaw);
+                                      @endphp
+                                      <select name="products[{{ $pIndex }}][items][{{ $i }}][prime_centre]" class="form-select" {{ $disabled }}>
+                                        <option value="1" {{ $pc === '1' ? 'selected' : '' }}>Yes</option>
+                                        <option value="0" {{ $pc === '0' ? 'selected' : '' }}>No</option>
+                                      </select>
+                                    </div>
                                     <div class="col-md-12">
                                       <label class="form-label">Assemble</label>
                                       <select name="products[{{ $pIndex }}][items][{{ $i }}][finishing]" class="form-select" {{ $disabled }}>
@@ -842,6 +853,14 @@
                                         <option>Laser Cutter 300</option>
                                         <option>Mimaki Cutting Plotte</option>
                                         <option>AccuCut</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                      <label class="form-label">Prime Centre</label>
+                                      <select name="products[__PINDEX__][items][__INDEX__][prime_centre]" class="form-select" {{ $disabled }}>
+                                        <option>Yes</option>
+                                        <option>No</option>
                                       </select>
                                     </div>
 

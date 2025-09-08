@@ -18,12 +18,13 @@ class DeliveryBreakdown extends Model
     protected $guarded = [];  
 
     protected $fillable = [
-        'ProductID', 'method', 'quantity', 'date', 'time', 'location',
+        'ProductID', 'method', 'quantity', 'date', 'time', 'location', 'deliver_install_type', 'outsource_cost',
     ];
 
     protected $casts = [
         'date' => 'date',
-        'time' => 'datetime:H:i:s', // or 'string' if you prefer
+        'time' => 'datetime:H:i:s', 
+        'outsource_cost' => 'decimal:2',
     ];
 
     public function product()

@@ -149,102 +149,101 @@ class ArtistController extends Controller
         ]);
     }
 
-public function orders(Request $request)
-{
-    $user   = Auth::user();
-    $isHead = $this->isHeadArtist($user);
+    public function orders(Request $request)
+    {
+        $user   = Auth::user();
+        $isHead = $this->isHeadArtist($user);
 
-    // --------- Base visibility (active records) ----------
-    // Active = status is NULL or 0
-    $active = function ($q) {
-        $q->whereNull('status')->orWhere('status', 0);
-    };
+        // --------- Base visibility (active records) ----------
+        // Active = status is NULL or 0
+        $active = function ($q) {
+            $q->whereNull('status')->orWhere('status', 0);
+        };
 
-    // 1) Start from your current visibility (this likely includes submit=1 etc)
-    $normal = $this->visibleOrders()->where($active);
+        // 1) Start from your current visibility (this likely includes submit=1 etc)
+        $normal = $this->visibleOrders()->where($active);
 
-    // 2) Build a *permission-aware* subquery of redo copies to include as well
-    //    (same user visibility as your table: head sees all; others see their own)
-    $permBase = \App\Models\Order::query()->where($active);
-    if (!$isHead) {
-        $permBase->where(function ($p) use ($user) {
-            $p->where('artist_id', $user->id)
-              ->orWhere('salesperson_id', $user->id);
-        });
-    }
-    $redoIdsSub = (clone $permBase)->whereNotNull('redo')->select('id');
+        // 2) Build a *permission-aware* subquery of redo copies to include as well
+        //    (same user visibility as your table: head sees all; others see their own)
+        $permBase = \App\Models\Order::query()->where($active);
+        if (!$isHead) {
+            $permBase->where(function ($p) use ($user) {
+                $p->where('artist_id', $user->id)
+                ->orWhere('salesperson_id', $user->id);
+            });
+        }
+        $redoIdsSub = (clone $permBase)->whereNotNull('redo')->select('id');
 
-    // 3) Final base = normal visibility OR redo copies
-    $base = $normal->orWhereIn('id', $redoIdsSub);
+        // 3) Final base = normal visibility OR redo copies
+        $base = $normal->orWhereIn('id', $redoIdsSub);
 
-    // ------------------ existing filters ------------------
-    $raw = strtolower(preg_replace('/[^a-z]/', '', (string) $request->query('status', '')));
+        // ------------------ existing filters ------------------
+        $raw = strtolower(preg_replace('/[^a-z]/', '', (string) $request->query('status', '')));
 
-    $map = [
-        'toassign'   => 'to_assign',
-        'assigned'   => 'assigned',
-        'inprogress' => 'in_progress',
-        'completed'  => 'completed',
-        'rejected'   => 'rejected',
-    ];
+        $map = [
+            'toassign'   => 'to_assign',
+            'assigned'   => 'assigned',
+            'inprogress' => 'in_progress',
+            'completed'  => 'completed',
+            'rejected'   => 'rejected',
+        ];
 
-    $query = clone $base;
+        $query = clone $base;
 
-    if ($raw !== '') {
-        if ($raw === 'pending') {
-            $query->where('orderStatus', 'assigned')
-                  ->where('pending', 1);
+        if ($raw !== '') {
+            if ($raw === 'pending') {
+                $query->where('orderStatus', 'assigned')
+                    ->where('pending', 1);
 
-            if ($isHead) {
-                $query->whereRaw('1=0');
-            }
-        } else {
-            $db = $map[$raw] ?? $raw;
-            $query->where('orderStatus', $db);
+                if ($isHead) {
+                    $query->whereRaw('1=0');
+                }
+            } else {
+                $db = $map[$raw] ?? $raw;
+                $query->where('orderStatus', $db);
 
-            if (!$isHead && $db === 'in_progress') {
-                $query->where('artist_id', $user->id)
-                      ->where('pending', 0);
+                if (!$isHead && $db === 'in_progress') {
+                    $query->where('artist_id', $user->id)
+                        ->where('pending', 0);
+                }
             }
         }
+
+        if ($s = trim($request->query('q', ''))) {
+            $query->where(function ($q) use ($s) {
+                $q->where('orderTitle',  'like', "%{$s}%")
+                ->orWhere('companyName','like', "%{$s}%")
+                ->orWhere('leadName',   'like', "%{$s}%");
+            });
+        }
+
+        // ------------------ metrics from same base -----------
+        $metrics = [
+            'total'       => (clone $base)->count(),
+            'pending'     => (clone $base)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
+            'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
+            'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
+            'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
+        ];
+        if ($isHead) {
+            $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
+            $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
+        }
+
+        // ------------------ rows ------------------------------
+        $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
+                        ->latest('orderDate')
+                        ->paginate(1000)
+                        ->withQueryString();
+
+        $statusRaw = $raw;
+
+        if ($request->ajax()) {
+            return view('artist.partials.orders-table', compact('orders'))->render();
+        }
+
+        return view('artist.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
     }
-
-    if ($s = trim($request->query('q', ''))) {
-        $query->where(function ($q) use ($s) {
-            $q->where('orderTitle',  'like', "%{$s}%")
-              ->orWhere('companyName','like', "%{$s}%")
-              ->orWhere('leadName',   'like', "%{$s}%");
-        });
-    }
-
-    // ------------------ metrics from same base -----------
-    $metrics = [
-        'total'       => (clone $base)->count(),
-        'pending'     => (clone $base)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
-        'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
-        'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
-        'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
-    ];
-    if ($isHead) {
-        $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
-        $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
-    }
-
-    // ------------------ rows ------------------------------
-    $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
-                    ->latest('orderDate')
-                    ->paginate(1000)
-                    ->withQueryString();
-
-    $statusRaw = $raw;
-
-    if ($request->ajax()) {
-        return view('artist.partials.orders-table', compact('orders'))->render();
-    }
-
-    return view('artist.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
-}
-
 
     public function showAssign(Order $order)
     {
@@ -404,7 +403,7 @@ public function orders(Request $request)
                 pi.ItemID, pi.ProductID, pi.itemName, pi.quantity,
                 pi.sizeWidth, pi.sizeHeight, pi.sizeUnit,
                 pi.bleedTop, pi.bleedBottom, pi.bleedLeft, pi.bleedRight,
-                pi.finishing, pi.material,
+                pi.finishing, pi.material, pi.prime_centre,
                 s.lamination, s.printer, s.cutter
             ')
             ->get()
@@ -525,6 +524,7 @@ public function orders(Request $request)
             'products.*.items.*.lamination'     => ['nullable','string','max:255'],
             'products.*.items.*.printer'        => ['nullable','string','max:255'],
             'products.*.items.*.cutter'         => ['nullable','string','max:255'],
+            'products.*.items.*.prime_centre'   => ['nullable', 'in:0,1'],
 
             // deliveries
             'products.*.deliveries'             => ['array'],
@@ -535,6 +535,8 @@ public function orders(Request $request)
             'products.*.deliveries.*.datetime'  => ['nullable','date'],
             'products.*.deliveries.*.date'      => ['nullable','date'],
             'products.*.deliveries.*.time'      => ['nullable','date_format:H:i'],
+            'products.*.deliveries.*.deliver_install_type' => ['nullable','string','max:255'],
+            'products.*.deliveries.*.outsource_cost'       => ['nullable','numeric','min:0'],
 
             // remarks (per product)
             'products.*.remarks'                => ['array'],
@@ -557,6 +559,27 @@ public function orders(Request $request)
 
         if (!empty($payload['products']) && is_array($payload['products'])) {
             foreach ($payload['products'] as &$pg) {
+
+                // 1) NORMALIZE PRIME_CENTRE on items to '0'/'1' (or null)
+                if (!empty($pg['items']) && is_array($pg['items'])) {
+                    foreach ($pg['items'] as &$it) {
+                        if (array_key_exists('prime_centre', $it)) {
+                            $raw = $it['prime_centre'];
+
+                            // allow the dash/blank option to stay null
+                            if ($raw === '' || $raw === null || $raw === '-') {
+                                $it['prime_centre'] = null;
+                            } else {
+                                $v = strtolower((string)$raw);
+                                // treat truthy words as 1, everything else as 0
+                                $it['prime_centre'] = in_array($v, ['1','true','on','yes'], true) ? '1' : '0';
+                            }
+                        }
+                    }
+                    unset($it);
+                }
+
+                // 2) Your existing remarks normalization
                 if (!empty($pg['remarks']) && is_array($pg['remarks'])) {
                     foreach ($pg['remarks'] as &$rk) {
                         if (array_key_exists('operation', $rk)) {
@@ -566,7 +589,7 @@ public function orders(Request $request)
                             } elseif ($op === 'self pickup') {
                                 $rk['operation'] = 'self_pickup';
                             } elseif ($op === 'delivery') {
-                                $rk['operation'] = 'courier'; // migrate legacy "delivery" to "courier"
+                                $rk['operation'] = 'courier';
                             } else {
                                 $rk['operation'] = $op;
                             }
@@ -694,6 +717,11 @@ public function orders(Request $request)
                                 }
                             }
 
+                            // prime_centre (boolean yes/no)
+                            if (array_key_exists('prime_centre', $row)) {
+                                $item->prime_centre = in_array((string)$row['prime_centre'], ['1', 1, true, 'true', 'on'], true) ? 1 : 0;
+                            }
+
                             $item->save();
                             $keepItemIds[] = $item->ItemID;
 
@@ -707,6 +735,7 @@ public function orders(Request $request)
                                 $spec->cutter     = $row['cutter']     ?? null;
                                 $spec->save();
                             }
+
                         });
 
                     // delete items not posted (including “all removed” case)
@@ -771,6 +800,10 @@ public function orders(Request $request)
                         $bd->quantity = $d['quantity'];
                         $bd->date     = $d['date'];
                         $bd->time     = $d['time'];
+                        $bd->deliver_install_type = $d['deliver_install_type'] ?? null;
+                        $bd->outsource_cost       = array_key_exists('outsource_cost', $d) && $d['outsource_cost'] !== ''
+                                                    ? (float) $d['outsource_cost']
+                                                    : null;
                         $bd->save();
 
                         $keepDeliveryIds[] = $bd->BreakdownID;

@@ -14,13 +14,16 @@ class ProductItem extends Model
     public $incrementing = true;
     protected $keyType = 'int';
     public $timestamps = true;
-    protected $casts = ['material' => 'array'];
+    protected $casts = [
+        'material' => 'array',
+        'prime_centre'  => 'boolean',
+    ];
 
     protected $fillable = [
         'ProductID','itemName','quantity',
         'sizeWidth','sizeHeight', 'sizeUnit',
         'bleedTop','bleedBottom','bleedLeft','bleedRight', 'bleedUnit',
-        'finishing','renderTime','material',
+        'finishing','renderTime','material', 'prime_centre',
     ];
 
     // ── Relations
