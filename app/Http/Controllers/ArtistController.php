@@ -72,17 +72,22 @@ class ArtistController extends Controller
             });
         }
 
+        $statsBase = (clone $base)->where(function ($q) {
+            $q->whereNull('status')->orWhere('status', 0);
+        });
+
         // 4) Metrics from the same base visibility
         $metrics = [
-            'total'       => (clone $base)->count(),
-            'pending'     => (clone $base)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
-            'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
-            'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
-            'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
+            'total'       => (clone $statsBase)->count(),
+            'pending'     => (clone $statsBase)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
+            'in_progress' => (clone $statsBase)->where('orderStatus', 'in_progress')->count(),
+            'completed'   => (clone $statsBase)->where('orderStatus', 'completed')->count(),
+            'rejected'    => (clone $statsBase)->where('orderStatus', 'rejected')->count(),
         ];
+
         if ($isHead) {
-            $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
-            $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
+            $metrics['to_assign'] = (clone $statsBase)->where('orderStatus', 'to_assign')->count();
+            $metrics['assigned']  = (clone $statsBase)->where('orderStatus', 'assigned')->count();
         }
 
         // 5) Rows
@@ -154,17 +159,15 @@ class ArtistController extends Controller
         $user   = Auth::user();
         $isHead = $this->isHeadArtist($user);
 
-        // --------- Base visibility (active records) ----------
-        // Active = status is NULL or 0
+        // ---- Active flag (status is NULL or 0) ----
         $active = function ($q) {
             $q->whereNull('status')->orWhere('status', 0);
         };
 
-        // 1) Start from your current visibility (this likely includes submit=1 etc)
+        // 1) Your normal visibility (already permission-aware) + active
         $normal = $this->visibleOrders()->where($active);
 
-        // 2) Build a *permission-aware* subquery of redo copies to include as well
-        //    (same user visibility as your table: head sees all; others see their own)
+        // 2) Permission-aware base for redo copies + active
         $permBase = \App\Models\Order::query()->where($active);
         if (!$isHead) {
             $permBase->where(function ($p) use ($user) {
@@ -172,12 +175,18 @@ class ArtistController extends Controller
                 ->orWhere('salesperson_id', $user->id);
             });
         }
-        $redoIdsSub = (clone $permBase)->whereNotNull('redo')->select('id');
+        $redoIdsSub = (clone $permBase)
+            ->whereNotNull('redo')
+            ->select('id');
 
-        // 3) Final base = normal visibility OR redo copies
-        $base = $normal->orWhereIn('id', $redoIdsSub);
+        // 3) Final base = (normal) OR (redo copies) *grouped properly*
+        $base = \App\Models\Order::query()
+            ->where(function ($q) use ($normal, $redoIdsSub) {
+                $q->whereIn('id', (clone $normal)->select('id'))
+                ->orWhereIn('id', $redoIdsSub);
+            });
 
-        // ------------------ existing filters ------------------
+        // ------------------ filters ------------------
         $raw = strtolower(preg_replace('/[^a-z]/', '', (string) $request->query('status', '')));
 
         $map = [
@@ -217,20 +226,24 @@ class ArtistController extends Controller
             });
         }
 
-        // ------------------ metrics from same base -----------
+        // Metrics from the same base, excluding archived/redone (status=1)
+        $statsBase = (clone $base)->where(function ($q) {
+            $q->whereNull('status')->orWhere('status', 0);
+        });
+
         $metrics = [
-            'total'       => (clone $base)->count(),
-            'pending'     => (clone $base)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
-            'in_progress' => (clone $base)->where('orderStatus', 'in_progress')->count(),
-            'completed'   => (clone $base)->where('orderStatus', 'completed')->count(),
-            'rejected'    => (clone $base)->where('orderStatus', 'rejected')->count(),
+            'total'       => (clone $statsBase)->count(),
+            'pending'     => (clone $statsBase)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
+            'in_progress' => (clone $statsBase)->where('orderStatus', 'in_progress')->count(),
+            'completed'   => (clone $statsBase)->where('orderStatus', 'completed')->count(),
+            'rejected'    => (clone $statsBase)->where('orderStatus', 'rejected')->count(),
         ];
         if ($isHead) {
-            $metrics['to_assign'] = (clone $base)->where('orderStatus', 'to_assign')->count();
-            $metrics['assigned']  = (clone $base)->where('orderStatus', 'assigned')->count();
+            $metrics['to_assign'] = (clone $statsBase)->where('orderStatus', 'to_assign')->count();
+            $metrics['assigned']  = (clone $statsBase)->where('orderStatus', 'assigned')->count();
         }
 
-        // ------------------ rows ------------------------------
+        // Rows
         $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
                         ->latest('orderDate')
                         ->paginate(1000)
@@ -239,7 +252,8 @@ class ArtistController extends Controller
         $statusRaw = $raw;
 
         if ($request->ajax()) {
-            return view('artist.partials.orders-table', compact('orders'))->render();
+            // pass isHead in case your row buttons differ for heads
+            return view('artist.partials.orders-table', compact('orders', 'isHead'))->render();
         }
 
         return view('artist.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
