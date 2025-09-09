@@ -255,7 +255,7 @@
                                             <th>Remark</th>
                                             <th>Material Info</th>
                                             <th>Location</th>
-                                            <th>Date & Time</th>
+                                            <th>Date</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -281,7 +281,7 @@
                             <!-- Top row: left label + right CSV template download -->
                             <div class="d-flex align-items-center justify-content-between mb-2">
                                 <span class="text-muted">Upload CSV (Optional)</span>
-                                <a id="csvTemplateBtn" href="#" class="btn btn-link p-0 text-decoration-none">
+                                <a id="csvTemplateBtn" href="{{ route('orders.csv_template') }}" class="btn btn-link p-0 text-decoration-none">
                                     <i class="bx bx-download me-1"></i> CSV Template Download
                                 </a>
                             </div>
@@ -398,7 +398,7 @@
                             <input id="location" class="form-control">
                         </div>
                         <div class="col-md-6">
-                            <label>Date & Time</label>
+                            <label>Date</label>
                             <input id="date_time" type="date" class="form-control">
                         </div>
                     </div>
@@ -744,14 +744,7 @@
             });
         }
 
-        const tmpl = document.getElementById('csvTemplateBtn');
-        if (tmpl && !tmpl.dataset.wired) {
-            tmpl.dataset.wired = '1';
-            tmpl.addEventListener('click', (e) => {
-                e.preventDefault();
-                alert('CSV template download coming soon.');
-            });
-        }
+
     });
 </script>
 @endpush

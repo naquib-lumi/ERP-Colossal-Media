@@ -187,8 +187,7 @@
                 <!-- Quick links -->
 
                 <!-- Notification -->
-                
-                     <li class="nav-item dropdown-notifications navbar-dropdown dropdown me-3 me-xl-2">
+<li class="nav-item dropdown-notifications navbar-dropdown dropdown me-3 me-xl-2">
     <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
         <span class="position-relative">
             <i class="icon-base bx bx-bell icon-md"></i>
@@ -211,97 +210,118 @@
                 </div>
             </div>
         </li>
-            <li class="dropdown-notifications-list scrollable-container">
-    <ul class="list-group list-group-flush">
-        @forelse (auth()->user()->notifications()->take(10)->get() as $notification)
-            <li class="list-group-item list-group-item-action dropdown-notifications-item {{ $notification->unread() ? '' : 'marked-as-read' }}" data-id="{{ $notification->id }}">
-                <a href="javascript:void(0)" class="d-flex w-100 text-decoration-none text-body" onclick="markAsRead('{{ $notification->id }}', '{{ url('/leads/' . $notification->data['lead_id']) }}')">
-                    <div class="d-flex w-100">
-                        <div class="flex-shrink-0 me-3">
-                            <div class="avatar">
-                                <span class="avatar-initial rounded-circle bg-label-{{ $notification->data['status'] == 'overdue' ? 'danger' : ($notification->data['status'] == 'upcoming' ? 'warning' : 'success') }}">
-                                    <i class="icon-base bx bx-bell"></i>
-                                </span>
+        <li class="dropdown-notifications-list scrollable-container">
+            <ul class="list-group list-group-flush">
+                @forelse (auth()->user()->notifications()->take(10)->get() as $notification)
+                    <li class="list-group-item list-group-item-action dropdown-notifications-item {{ $notification->unread() ? '' : 'marked-as-read' }}" data-id="{{ $notification->id }}">
+                        <a href="javascript:void(0)" class="d-flex w-100 text-decoration-none text-body" onclick="markAsRead('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')">
+                            <div class="d-flex w-100">
+                                <div class="flex-shrink-0 me-3">
+                                    <div class="avatar">
+                                        <span class="avatar-initial rounded-circle bg-label-info">
+                                            <i class="icon-base bx bx-bell"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="small mb-0">{{ $notification->data['message'] ?? 'No Message' }}</h6>
+                                    <small class="text-body-secondary">{{ $notification->created_at->format('Y-m-d H:i') }}</small>
+                                </div>
+                                <div class="flex-shrink-0 dropdown-notifications-actions">
+                                    <a href="javascript:void(0)" class="dropdown-notifications-read" onclick="markAsRead('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')">
+                                        <span class="badge badge-dot bg-success"></span>
+                                    </a>
+                                    <a href="javascript:void(0)" class="dropdown-notifications-archive" data-id="{{ $notification->id }}">
+                                        <span class="icon-base bx bx-x"></span>
+                                    </a>
+                                </div>
+                            </div>
+                        </a>
+                    </li>
+                @empty
+                    <li class="list-group-item list-group-item-action dropdown-notifications-item">
+                        <div class="d-flex">
+                            <div class="flex-grow-1">
+                                <small class="text-body-secondary">No notifications</small>
                             </div>
                         </div>
-                        <div class="flex-grow-1">
-                            <h6 class="small mb-0">{{ $notification->data['title'] }}</h6>
-                            <small class="mb-1 d-block text-body">Due: {{ $notification->data['due_date'] }}</small>
-                            <small class="text-body-secondary">Lead: {{ $notification->data['lead_id'] }}</small>
-                        </div>
-                        <div class="flex-shrink-0 dropdown-notifications-actions">
-                            <a href="javascript:void(0)" class="dropdown-notifications-read" onclick="markAsRead('{{ $notification->id }}', '{{ url('/leads/' . $notification->data['lead_id']) }}')">
-                                <span class="badge badge-dot bg-success"></span>
-                            </a>
-                            <a href="javascript:void(0)" class="dropdown-notifications-archive" data-id="{{ $notification->id }}">
-                                <span class="icon-base bx bx-x"></span>
-                            </a>
-                        </div>
-                    </div>
+                    </li>
+                @endforelse
+            </ul>
+        </li>
+        <li class="border-top">
+            <div class="d-grid p-4">
+                <a class="btn btn-primary btn-sm d-flex" href="{{ route('notifications.index') }}">
+                    <small class="align-middle">View all notifications</small>
                 </a>
-            </li>
-        @empty
-            <li class="list-group-item list-group-item-action dropdown-notifications-item">
-                <div class="d-flex">
-                    <div class="flex-grow-1">
-                        <small class="text-body-secondary">No notifications</small>
-                    </div>
-                </div>
-            </li>
-        @endforelse
+            </div>
+        </li>
     </ul>
-</li>
-<li class="border-top">
-    <div class="d-grid p-4">
-        <a class="btn btn-primary btn-sm d-flex" href="{{ route('notifications.index') }}">
-            <small class="align-middle">View all notifications</small>
-        </a>
-    </div>
-</li>
-</ul>
 </li>
 
 <script>
-function markAsRead(notificationId, redirectUrl) {
-    fetch(`/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'Content-Type': 'application/json',
-            // 'Accept': 'application/json'
-        },
-        body: JSON.stringify({ _method: 'PATCH' })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = redirectUrl;
-        }
-    })
-    .catch(error => console.error('Error:', error));
-}
+    function markAsRead(notificationId, redirectUrl) {
+        fetch(`/notifications/${notificationId}/read`, {
+            method: 'PATCH',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ _method: 'PATCH' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = redirectUrl;
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
 
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.dropdown-notifications-archive').forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const id = this.getAttribute('data-id');
-            fetch(`/notifications/${id}`, {
-                method: 'DELETE',
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.dropdown-notifications-archive').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const id = this.getAttribute('data-id');
+                fetch(`/notifications/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json'
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        this.closest('li').remove();
+                        let count = parseInt(document.querySelector('.badge-notifications')?.textContent || 0);
+                        if (count > 0) {
+                            document.querySelector('.badge-notifications').textContent = count - 1;
+                            if (count - 1 === 0) document.querySelector('.badge-notifications').remove();
+                        }
+                    }
+                });
+            });
+        });
+
+        document.querySelector('.dropdown-notifications-all')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            fetch('{{ route('notifications.markAllAsRead') }}', {
+                method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'Content-Type': 'application/json'
                 }
             }).then(response => {
                 if (response.ok) {
-                    this.closest('li').remove();
+                    document.querySelectorAll('.dropdown-notifications-item:not(.marked-as-read)').forEach(item => item.classList.add('marked-as-read'));
+                    document.querySelector('.badge-notifications')?.remove();
+                    document.querySelector('.badge.bg-label-primary')?.remove();
                 }
             });
         });
     });
-});
 </script>
-                <!--/ Notification -->
+<!--/ Notification -->
+
                 <!-- User -->
                 <li class="nav-item navbar-dropdown dropdown-user dropdown">
                   <a

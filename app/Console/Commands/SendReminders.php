@@ -8,6 +8,8 @@ use App\Notifications\ReminderNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
+use App\Helpers\Helpers;
+
 class SendReminders extends Command
 {
     protected $signature = 'reminders:send';
@@ -82,7 +84,7 @@ class SendReminders extends Command
                 if ($shouldNotify) {
                     $this->info("Sending notification for Reminder ID {$reminder->id}");
                     try {
-                        $reminder->lead->user->notify(new ReminderNotification($reminder, $reminder->lead->user));
+                        Helpers::notify($reminder->lead->user, "Reminder: {$reminder->title}", url('/leads/' . $reminder->lead_id), ['database', 'mail']);
                         $this->info("Notification sent successfully for Reminder ID {$reminder->id}");
                     } catch (\Exception $e) {
                         $this->error("Failed to send notification for Reminder ID {$reminder->id}: " . $e->getMessage());

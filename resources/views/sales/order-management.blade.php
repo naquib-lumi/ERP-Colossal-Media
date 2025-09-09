@@ -11,10 +11,31 @@
         <div class="card-datatable table-responsive p-3">
             <div class="row mb-3 mx-0">
                 <div class="col-md-4">
-                    <input type="text" class="form-control" id="globalSearch" placeholder="Search orders...">
+                    <input type="text" class="form-control" id="globalSearch" placeholder="Search by company, lead, or order ID...">
                 </div>
+                <div class="col-md-4">
+                    <select class="form-control" id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="to_assign">To Assign</option>
+                        <option value="assigned">Assigned</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                @if (Auth::user()->hasRole('head-salesperson'))
+                <div class="col-md-4">
+                    <select class="form-control" id="salespersonFilter">
+                        <option value="">All Salespersons</option>
+                        @foreach (App\Models\User::role('salesperson')->get() as $sp)
+                            <option value="{{ $sp->id }}">{{ $sp->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
             </div>
-            <table class="datatables-ajax table table-striped table-hover" id="orderTable" style="width: 100%;">
+            <table class="datatables-ajax table table table-hover" id="orderTable" style="width: 100%;">
                 <thead class="table-light sticky-top">
                     <tr>
                         <th>Order ID</th>
@@ -62,6 +83,8 @@
                 data: function(d) {
                     d._token = '{{ csrf_token() }}';
                     d.search = { value: $('#globalSearch').val() };
+                    d.status = $('#statusFilter').val();
+                    d.salesperson = $('#salespersonFilter').val();
                     return d;
                 }
             },
@@ -77,7 +100,10 @@
             order: [[0, 'desc']],
             initComplete: function() {
                 $('#globalSearch').on('keyup', function() {
-                    table.search(this.value).draw();
+                    table.draw();
+                });
+                $('#statusFilter, #salespersonFilter').on('change', function() {
+                    table.draw();
                 });
             }
         });
@@ -101,6 +127,18 @@
                         </tr>`);
                     });
                     $('#productsModal').modal('show');
+                }
+            });
+        });
+
+        $(document).on('click', '.submit-order', function() {
+            let id = $(this).data('id');
+            $.ajax({
+                url: '/orders/' + id + '/submit',
+                method: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function() {
+                    table.ajax.reload();
                 }
             });
         });

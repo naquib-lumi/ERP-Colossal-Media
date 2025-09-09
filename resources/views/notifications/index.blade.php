@@ -7,19 +7,21 @@
     <div class="card shadow-sm border-0">
         <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center p-3">
             <h5 class="mb-0">All Notifications</h5>
-            <a href="{{ route('sales.leads') }}" class="btn btn-outline-light btn-sm">Back to Leads</a>
+            <div>
+                <button id="mark-all-read" class="btn btn-outline-light btn-sm me-2">Mark All as Read</button>
+                <a href="{{ route('sales.leads') }}" class="btn btn-outline-light btn-sm">Back to Leads</a>
+            </div>
         </div>
         <div class="card-body p-4">
             <ul class="list-group list-group-flush notifications-list">
                 @forelse ($notifications as $notification)
                     <li class="list-group-item d-flex justify-content-between align-items-center {{ $notification->unread() ? '' : 'bg-light' }}" data-id="{{ $notification->id }}">
                         <div>
-                            <strong>{{ $notification->data['title'] ?? 'No Title' }}</strong><br>
-                            <small class="text-muted">Due: {{ $notification->data['due_date'] ?? 'N/A' }}</small><br>
-                            <small class="text-muted">Lead ID: {{ $notification->data['lead_id'] ?? 'N/A' }}</small>
+                            <strong>{{ $notification->data['message'] ?? 'No Message' }}</strong><br>
+                            <small class="text-muted">{{ $notification->created_at->format('Y-m-d H:i') }}</small>
                         </div>
                         <div>
-                            <a href="{{ url('/leads/' . ($notification->data['lead_id'] ?? '#')) }}" class="btn btn-sm btn-primary dropdown-notifications-read">View Lead</a>
+                            <a href="{{ $notification->data['url'] ?? '#' }}" class="btn btn-sm btn-primary dropdown-notifications-read">View</a>
                             <a href="javascript:void(0)" class="btn btn-sm btn-danger dropdown-notifications-archive">Archive</a>
                         </div>
                     </li>
@@ -38,6 +40,21 @@
     $(document).ready(function() {
         console.log('Notifications JS loaded');
 
+        $('#mark-all-read').on('click', function() {
+            $.ajax({
+                url: '{{ route('notifications.markAllAsRead') }}',
+                type: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function() {
+                    $('.notifications-list li:not(.bg-light)').addClass('bg-light');
+                    $('.badge-notifications').remove();
+                },
+                error: function(xhr) {
+                    console.error('Error marking all as read:', xhr.responseText);
+                }
+            });
+        });
+
         // Event delegation for main page notifications
         $('.notifications-list').on('click', '.dropdown-notifications-read', function(e) {
             e.preventDefault();
@@ -55,30 +72,19 @@
             let notificationItem = $element.closest(parentClass);
             let notificationId = notificationItem ? notificationItem.data('id') : null;
 
-            console.log('Clicked Element:', $element);
-            console.log('Notification Item:', notificationItem);
-            console.log('Data-id:', notificationId);
-            console.log('Parent HTML:', notificationItem ? notificationItem.html() : 'Not found');
-
             if (!notificationId) {
-                console.error('Notification ID is undefined', { item: notificationItem, context: $element.parent().html() });
-                alert('Error: Notification ID is missing. Check console for details.');
+                console.error('Notification ID is undefined');
                 return;
             }
 
             let markAsReadUrl = '{{ route('notifications.markAsRead', ['id' => 'PLACEHOLDER']) }}'.replace('PLACEHOLDER', notificationId);
 
-            console.log('Mark as read URL:', markAsReadUrl);
-
             $.ajax({
                 url: markAsReadUrl,
                 type: 'POST',
-                data: {
-                    _token: '{{ csrf_token() }}'
-                },
+                data: { _token: '{{ csrf_token() }}' },
                 success: function() {
-                    console.log('Notification marked as read:', notificationId);
-                    if (notificationItem) notificationItem.addClass('marked-as-read');
+                    if (notificationItem) notificationItem.addClass('bg-light');
                     let count = parseInt($('.badge-notifications').text() || 0);
                     if (count > 0) {
                         $('.badge-notifications').text(count - 1);
@@ -87,8 +93,7 @@
                     window.location.href = url;
                 },
                 error: function(xhr) {
-                    console.error('Error marking notification as read:', xhr.status, xhr.responseText);
-                    alert('Error marking notification as read: ' + xhr.responseText);
+                    console.error('Error marking as read:', xhr.responseText);
                 }
             });
         }
@@ -99,28 +104,18 @@
             let notificationItem = $(this).closest('.dropdown-notifications-item, .list-group-item');
             let notificationId = notificationItem ? notificationItem.data('id') : null;
 
-            console.log('Clicked Element:', $(this));
-            console.log('Notification Item:', notificationItem);
-            console.log('Data-id:', notificationId);
-
             if (!notificationId) {
-                console.error('Notification ID is undefined', { item: notificationItem, context: $(this).parent().html() });
-                alert('Error: Notification ID is missing. Check console for details.');
+                console.error('Notification ID is undefined');
                 return;
             }
 
             let archiveUrl = '{{ route('notifications.archive', ['id' => 'PLACEHOLDER']) }}'.replace('PLACEHOLDER', notificationId);
 
-            console.log('Archive URL:', archiveUrl);
-
             $.ajax({
                 url: archiveUrl,
                 type: 'POST',
-                data: {
-                    _token: '{{ csrf_token() }}'
-                },
+                data: { _token: '{{ csrf_token() }}' },
                 success: function() {
-                    console.log('Notification archived:', notificationId);
                     if (notificationItem) notificationItem.remove();
                     let count = parseInt($('.badge-notifications').text() || 0);
                     if (count > 0) {
@@ -129,18 +124,15 @@
                     }
                 },
                 error: function(xhr) {
-                    console.error('Error archiving notification:', xhr.status, xhr.responseText);
-                    alert('Error archiving notification: ' + xhr.responseText);
+                    console.error('Error archiving:', xhr.responseText);
                 }
             });
         });
 
         setInterval(function() {
-            console.log('Checking notification count');
             $.ajax({
                 url: '{{ route('notifications.count') }}',
                 success: function(count) {
-                    console.log('Notification count:', count);
                     if (count > 0) {
                         $('.badge-notifications').text(count).show();
                         $('.bx-bell').addClass('animate__animated animate__tada');
@@ -150,7 +142,7 @@
                     }
                 },
                 error: function(xhr) {
-                    console.error('Error fetching notification count:', xhr.status, xhr.responseText);
+                    console.error('Error fetching count:', xhr.responseText);
                 }
             });
         }, 60000);

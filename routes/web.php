@@ -12,6 +12,8 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\FulfillmentController;
 use App\Http\Controllers\RedoOrderController;
+use App\Http\Controllers\PrintingController;
+use App\Http\Controllers\ProductOrderController;
 
 use App\Http\Controllers\ArtistController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +22,11 @@ use Illuminate\Support\Facades\Auth;
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/test-notification', [NotificationController::class, 'testSelf'])->name('test-notification');
+Route::get('/test-allnotif', [NotificationController::class, 'testAll'])->name('test-allnotif');
+Route::get('/test-bulknotif', [NotificationController::class, 'testSales'])->name('test-bulknotif');
+
+
 
 Route::get('/dashboard', function () {
     if (Auth::check()) {
@@ -33,7 +40,8 @@ Route::get('/dashboard', function () {
                 return redirect()->route('artist.dashboard');
             case 'admin':
                 return redirect()->route('admin.dashboard');
-            case 'printing':
+            case 'operations-printing':
+                return redirect()->route('printing.dashboard');
             case 'installation':
             case 'delivery':
             case 'furnishing':
@@ -71,8 +79,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/calendar/meetings/{id}/update-status', [MeetingController::class, 'updateCalendarStatus']);
         Route::post('/calendar/reminders/{id}/update-status', [ReminderController::class, 'updateStatus']);
         Route::get('/leads/search', [LeadController::class, 'searchLeads'])->name('leads.search');
-        Route::get('/leads/{id}', [LeadController::class, 'getLead'])->name('leads.get');
-        
+        Route::get('/leads/{id}', [LeadController::class, 'getLead'])->name('lead.get');
         
         // Add Order route
         Route::get('/orders/create/{lead_id?}', [OrderController::class, 'create'])->name('orders.create');
@@ -84,6 +91,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/orders/get', [OrderController::class, 'getOrders'])->name('orders.get');
         Route::get('/orders/leads/search', [OrderController::class, 'searchLeads'])->name('orders.leads.search');
         Route::get('/orders/leads/{id}', [OrderController::class, 'getLead'])->name('orders.leads.get');
+        Route::get('/csv-template', [OrderController::class, 'csvTemplate'])->name('orders.csv_template');
 
         // LEAD MANAGEMENT
         Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
@@ -147,6 +155,14 @@ Route::middleware('auth')->group(function () {
 
     });
 
+    // Printing
+    Route::middleware(['web','auth','role:operations-printing'])->group(function () {
+        Route::get('/printing/dashboard', [PrintingController::class, 'dashboard'])->name('printing.dashboard');
+        // Route::get('/printing/productorder', [ProductOrderController::class, 'productorder'])->name('printing.productorder');
+        Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
+Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
+    });
+
     Route::middleware('role:admin')->group(function () {
         Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
         Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
@@ -161,6 +177,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/boss/dashboard', [AdminController::class, 'dashboard'])->name('boss.dashboard');
         Route::get('/boss/reports', [AdminController::class, 'reports'])->name('boss.reports');
     });
+
+
+ 
 });
 
 require __DIR__ .'/auth.php';

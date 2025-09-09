@@ -398,69 +398,66 @@
 
             });
         </script>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                function fetchMeetings() {
-                    fetch('/meetings')
-                        .then(response => response.json())
-                        .then(data => {
-                            let html = '<ul class="list-group">';
-                            const currentDate = new Date('2025-08-20');
-                            data.forEach(meeting => {
-                                const startDate = new Date(meeting.start_time);
-                                const overdue = (startDate < currentDate && meeting.status ===
-                                    'scheduled') ? ' (Overdue)' : '';
-                                html += `<li class="list-group-item d-flex justify-content-between align-items-center">
-                                            <div>
-                                            <h6>${meeting.title}</h6>
-                                           <small>{{ $meeting->start_time->format('M d, Y H:i') }} - {{ $meeting->end_time->format('H:i') }}</small><br>
-                                            <small>Status: <span class="status-${meeting.id}">${meeting.status}${overdue}</span></small><br>
-                                            ${meeting.lead ? `<small>Lead: ${meeting.lead.name}</small><br>` : ''}
-                                            ${meeting.user ? `<small>Responsible: ${meeting.user.name}</small>` : ''}
-                                            </div>
-                                            <select class="form-select status-select" data-id="${meeting.id}">
-                                            <option value="scheduled" ${meeting.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
-                                            <option value="completed" ${meeting.status === 'completed' ? 'selected' : ''}>Completed</option>
-                                            <option value="cancelled" ${meeting.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                                            <option value="missed" ${meeting.status === 'missed' ? 'selected' : ''}>Missed</option>
-                                            </select>
-                                        </li>`;
-                            });
-                            html += '</ul>';
-                            document.getElementById('meetingsList').innerHTML = html;
+       <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        function fetchMeetings() {
+            fetch('/meetings')
+                .then(response => response.json())
+                .then(data => {
+                    let html = '<ul class="list-group">';
+                    const currentDate = new Date();
+                    data.forEach(meeting => {
+                        const startDate = new Date(meeting.start_time);
+                        const overdue = (startDate < currentDate && meeting.status === 'scheduled') ? ' (Overdue)' : '';
+                        html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6>${meeting.title}</h6>
+                                        <small>${startDate.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })} - ${new Date(meeting.end_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</small><br>
+                                        <small>Status: <span class="status-${meeting.id}">${meeting.status}${overdue}</span></small><br>
+                                        ${meeting.lead ? `<small>Lead: ${meeting.lead.name}</small><br>` : ''}
+                                        ${meeting.user ? `<small>Responsible: ${meeting.user.name}</small>` : ''}
+                                    </div>
+                                    <select class="form-select status-select" data-id="${meeting.id}">
+                                        <option value="scheduled" ${meeting.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                                        <option value="completed" ${meeting.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                        <option value="cancelled" ${meeting.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                                        <option value="missed" ${meeting.status === 'missed' ? 'selected' : ''}>Missed</option>
+                                    </select>
+                                </li>`;
+                    });
+                    html += '</ul>';
+                    document.getElementById('meetingsList').innerHTML = html;
 
-                            document.querySelectorAll('.status-select').forEach(select => {
-                                select.addEventListener('change', function() {
-                                    updateStatus(this.dataset.id, this.value);
-                                });
-                            });
+                    document.querySelectorAll('.status-select').forEach(select => {
+                        select.addEventListener('change', function() {
+                            updateStatus(this.dataset.id, this.value);
                         });
-                }
+                    });
+                });
+        }
 
-                function updateStatus(id, status) {
-                    fetch(`/meetings/${id}/update-status`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                            },
-                            body: JSON.stringify({
-                                status: status
-                            })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                document.querySelector(`.status-${id}`).innerText = status;
-                            }
-                        });
-                }
-
-                const meetingsModal = document.getElementById('meetingsModal');
-                if (meetingsModal) {
-                    meetingsModal.addEventListener('show.bs.modal', fetchMeetings);
+        function updateStatus(id, status) {
+            fetch(`/calendar/meetings/${id}/update-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({ status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.querySelector(`.status-${id}`).innerText = status;
                 }
             });
-        </script>
+        }
+
+        const meetingsModal = document.getElementById('meetingsModal');
+        if (meetingsModal) {
+            meetingsModal.addEventListener('show.bs.modal', fetchMeetings);
+        }
+    });
+</script>
     @endif
 @endsection

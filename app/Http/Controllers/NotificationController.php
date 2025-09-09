@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+
+use App\Helpers\Helpers;
 
 class NotificationController extends Controller
 {
@@ -43,4 +46,27 @@ class NotificationController extends Controller
     {
         return Auth::user()->unreadNotifications->count();
     }
+
+
+
+
+    public function testSelf(Request $request) {
+    Helpers::notify(auth()->user(), 'Test notification to self', url('/'), ['database','mail']);
+    return response()->json(['success' => true]);
+}
+
+    public function testAll(Request $request) {
+        User::all()->each(function($user) {
+            Helpers::notify($user, 'Test notification to all users', url('/leads/37/edit'), ['database']);
+        });
+        return response()->json(['success' => true]);
+    }
+
+    public function testSales(Request $request) {
+        User::where('role', 'salesperson')->each(function($user) {
+            Helpers::notify($user, 'Test notification to all salespeople', url('/'), ['database']);
+        });
+        return response()->json(['success' => true]);
+    }
+
 }
