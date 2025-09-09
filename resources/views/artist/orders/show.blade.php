@@ -3,12 +3,43 @@
 @section('title', 'Job Order Details – '.str_pad($order->order_number, 4, '0', STR_PAD_LEFT))
 
 @section('content')
+@php
+    // Map method code -> label
+    function dd_method_label($v) {
+        $v = strtolower((string) $v);
+        return [
+            'courier'               => 'Courier',
+            'self_pickup'           => 'Self Pickup',
+            'pickup'                => 'Pickup',
+            'installation'          => 'Installation',
+            'delivery_installation' => 'Delivery & Installation',
+        ][$v] ?? ucfirst($v ?: '-');
+    }
+
+    // Nice date time from separate date+time columns
+    function dd_datetime(?string $d, ?string $t) {
+        if (!$d && !$t) return '—';
+        try {
+            if ($d && $t)   return \Carbon\Carbon::parse("$d $t")->format('M d, Y · h:i A');
+            if ($d)         return \Carbon\Carbon::parse($d)->format('M d, Y');
+            return \Carbon\Carbon::parse($t)->format('h:i A');
+        } catch (\Throwable $e) { return trim(($d ?: '').' '.$t) ?: '—'; }
+    }
+
+    // Yes/No from tinyint/nullable
+    function yn($v) { return ((int)$v) === 1 ? 'Yes' : 'No'; }
+@endphp
 <div class="container-xxl py-3">
 
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h4 class="mb-0">
-            Job Order Details – {{ str_pad($order->order_number, 4, '0', STR_PAD_LEFT) }}
+            @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
+                @php
+                $order->loadMissing('originalOrder:id,order_number');
+                @endphp
+                Job Order Details – {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
+            @endif
         </h4>
 
         {{-- hook up to your existing export if available --}}
@@ -59,7 +90,6 @@
                     <small class="text-muted d-block mb-1">Attachment from Lead</small>
 
                     @php
-                        // 1) Preferred source: lead_attachments table
                         $leadFiles = \App\Models\LeadAttachment::where('lead_id', $order->lead_id)
                             ->latest()->get();
 
@@ -107,6 +137,11 @@
                 $pId = 'product_'.$pi;
                 $pOpen = $pi === 0 ? 'show' : '';
                 $items = data_get($product, 'items', collect());
+                
+                $isRedoSelected = !empty($product->editable);
+                $origPid   = (int) ($product->redoOf ?: $product->ProductID);
+                $pidPadded = sprintf('%04d', $origPid);
+                $pidLabel  = '#'.$pidPadded . (($product->redoOf && (int)$product->editable === 1) ? 'R' : '');
                 @endphp
 
                 <div class="accordion-item mb-2">
@@ -117,8 +152,7 @@
                             <div class="w-100 d-flex flex-wrap gap-3">
                                 <div class="me-auto">
                                     <strong>Product</strong>
-                                    <span class="text-muted">#{{ data_get($product,'ProductID') }}</span>
-                                    — {{ data_get($product,'productName','-') }}
+                                    <span class="fw-semibold">{{ $pidLabel }}</span>
                                 </div>
                                 <div>
                                     <small class="text-muted">Qty:</small>
@@ -140,9 +174,33 @@
                             <div class="accordion" id="itemsAcc_{{ $pId }}">
                                 @foreach($items as $ii => $item)
                                 @php
-                                $iId = $pId.'_item_'.$ii;
-                                $iOpen = $ii === 0 ? 'show' : '';
-                                $materials = collect(data_get($item,'material',[]))->filter()->join(', ');
+                                    $iId = $pId.'_item_'.$ii;
+                                    $iOpen = $ii === 0 ? 'show' : '';
+                                    $materialsCol = collect(data_get($item, 'material', []));
+                                    if (is_string($materialsCol)) {
+                                        $decoded = json_decode($materialsCol, true);
+                                        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                            $materialsCol = collect($decoded);
+                                        } else {
+                                            $materialsCol = collect(array_map('trim', explode(',', $materialsCol)));
+                                        }
+                                    }
+                                    $materials = $materialsCol->filter()->join(', ');
+
+                                    $szUnit = $item->sizeUnit ?: 'mm';
+                                    $blUnit = $item->bleedUnit ?: ($item->sizeUnit ?: 'mm');
+
+                                    // Size numbers (strip trailing zeros)
+                                    $w = $item->sizeWidth  !== null ? rtrim(rtrim((string)$item->sizeWidth , '0'), '.') : '–';
+                                    $h = $item->sizeHeight !== null ? rtrim(rtrim((string)$item->sizeHeight, '0'), '.') : '–';
+
+                                    // Bleed numbers (T,R,B,L)
+                                    $bt = $item->bleedTop    !== null ? rtrim(rtrim((string)$item->bleedTop   , '0'), '.') : '0';
+                                    $br = $item->bleedRight  !== null ? rtrim(rtrim((string)$item->bleedRight , '0'), '.') : '0';
+                                    $bb = $item->bleedBottom !== null ? rtrim(rtrim((string)$item->bleedBottom, '0'), '.') : '0';
+                                    $bl = $item->bleedLeft   !== null ? rtrim(rtrim((string)$item->bleedLeft  , '0'), '.') : '0';
+
+                                    $primeCentre = ((int) data_get($item, 'prime_centre')) === 1 ? 'Yes' : 'No';
                                 @endphp
 
                                 <div class="accordion-item mb-2">
@@ -170,52 +228,43 @@
                                     <div id="c_{{ $iId }}" class="accordion-collapse collapse {{ $iOpen }}" aria-labelledby="h_{{ $iId }}" data-bs-parent="#itemsAcc_{{ $pId }}">
                                         <div class="accordion-body">
 
-                                            <div class="row gy-2">
-                                                <div class="col-md-6">
-                                                    <small class="text-muted d-block">Size (inches) – Width</small>
-                                                    <div class="fw-medium">{{ data_get($item,'sizeWidth','-') }}</div>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <small class="text-muted d-block">Height</small>
-                                                    <div class="fw-medium">{{ data_get($item,'sizeHeight','-') }}</div>
+                                            <div class="row gy-2 mt-2">
+                                                <div class="text-muted col-md-4">
+                                                    <small class="text-muted d-block">Size</small>
+                                                    <span class="text-body fw-semibold">{{ $w }} × {{ $h }} {{ $szUnit }}</span>
                                                 </div>
 
-                                                <div class="col-md-3">
-                                                    <small class="text-muted d-block">Bleed (Top)</small>
-                                                    <div class="fw-medium">{{ data_get($item,'bleedTop','-') }}</div>
+                                                <div class="text-muted col-md-4">
+                                                    <small class="text-muted d-block">Bleed (T • R • B • L)</small>
+                                                    <span class="text-body fw-semibold">
+                                                        {{ $bt }} {{ $blUnit }} • {{ $br }} {{ $blUnit }} • {{ $bb }} {{ $blUnit }} • {{ $bl }} {{ $blUnit }}
+                                                    </span>
                                                 </div>
-                                                <div class="col-md-3">
-                                                    <small class="text-muted d-block">Bottom</small>
-                                                    <div class="fw-medium">{{ data_get($item,'bleedBottom','-') }}</div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <small class="text-muted d-block">Left</small>
-                                                    <div class="fw-medium">{{ data_get($item,'bleedLeft','-') }}</div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <small class="text-muted d-block">Right</small>
-                                                    <div class="fw-medium">{{ data_get($item,'bleedRight','-') }}</div>
+
+                                                <div class="text-muted col-md-4 mb-2">
+                                                    <small class="text-muted d-block">Prime Centre</small>
+                                                    <span class="text-body fw-semibold">{{ $primeCentre }}</span>
                                                 </div>
 
                                                 @php
                                                     $specification = $item->spec;
                                                 @endphp
 
-                                                <div class="col-md-3">
+                                                <div class="col-md-4">
                                                     <small class="text-muted d-block">Lamination</small>
-                                                    <div>{{ $specification->lamination ?? '-' }}</div>
+                                                    <span class="text-body fw-semibold">{{ $specification->lamination ?? '-' }}</span>
                                                 </div>
-                                                <div class="col-md-3">
+                                                <div class="col-md-4">
                                                     <small class="text-muted d-block">Printer</small>
-                                                    <div>{{ $specification->printer ?? '-' }}</div>
+                                                    <span class="text-body fw-semibold">{{ $specification->printer ?? '-' }}</span>
                                                 </div>
-                                                <div class="col-md-3">
+                                                <div class="col-md-4 mb-2">
                                                     <small class="text-muted d-block">Cutter</small>
-                                                    <div>{{ $specification->cutter ?? '-' }}</div>
+                                                    <span class="text-body fw-semibold">{{ $specification->cutter ?? '-' }}</span>
                                                 </div>
                                                 <div class="col-12">
-                                                    <small class="text-muted d-block">Finishing</small>
-                                                    <div class="fw-medium">{{ data_get($item,'finishing','-') }}</div>
+                                                    <small class="text-muted d-block">Assemble</small>
+                                                    <span class="text-body fw-semibold">{{ data_get($item,'finishing','-') }}</span>
                                                 </div>
                                             </div>
 
@@ -237,59 +286,108 @@
         </div>
     </div>
 
-    {{-- Delivery Method Summary --}}
-    <div class="card mb-4">
-        <div class="card-header">Delivery Method Summary</div>
-        <div class="card-body">
-            @php $deliveries = $order->deliveryBreakdowns ?? collect(); @endphp
+    {{-- Delivery Breakdown (grouped by product) --}}
+<div class="card mb-4">
+  <div class="card-header">Delivery Method Summary</div>
+  <div class="card-body">
+    @php
+      $products = $order->relationLoaded('products')
+        ? $order->products
+        : \App\Models\Product::with('deliveryBreakdowns')->where('OrderID', $order->id)->get();
+    @endphp
 
-            @if($deliveries->isEmpty())
-            <div class="text-muted">No delivery breakdowns.</div>
-            @else
-            <div class="vstack gap-3">
-                @foreach($deliveries as $d)
-                <div class="border rounded p-3">
-                    <div class="fw-semibold mb-2">Delivery Method: {{ $d->method ?? '-' }}</div>
-                    <div class="row g-3">
-                        <div class="col-sm-6 col-lg-3">
-                            <small class="text-muted d-block">Quantity</small>
-                            <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
-                        </div>
-                        <div class="col-sm-6 col-lg-4">
-                            <small class="text-muted d-block">Location</small>
-                            <div class="fw-medium">{{ $d->location ?? '-' }}</div>
-                        </div>
-                        <div class="col-sm-6 col-lg-5">
-                            <small class="text-muted d-block">Date &amp; Time</small>
-                            <div class="fw-medium">
-                                @php
-                                    // $d is one delivery row
-                                    $dt      = null;
-                                    $dateStr = trim((string) $d->date);
-                                    $timeStr = trim((string) $d->time);
+    @forelse($products as $pIndex => $p)
+      @php
+        $isRedoOrder = !empty($order->redo);
 
-                                    if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
-                                        // time field already is a full datetime
-                                        $dt = \Carbon\Carbon::parse($timeStr);
-                                    } elseif ($dateStr && $timeStr) {
-                                        // classic case: date + time
-                                        $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
-                                    } elseif ($dateStr) {
-                                        $dt = \Carbon\Carbon::parse($dateStr);
-                                    } elseif ($timeStr) {
-                                        $dt = \Carbon\Carbon::parse($timeStr);
-                                    }
-                                @endphp
-                                {{ $dt ? $dt->format('M d, Y h:i A') : '-' }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                @endforeach
+        $origPid = $isRedoOrder && !empty($p->redoOf)
+            ? (int) $p->redoOf
+            : (int) $p->ProductID;
+
+        $pidLabel = '#'.str_pad((string)$origPid, 4, '0', STR_PAD_LEFT);
+        if ($isRedoOrder && (int)($p->editable ?? 0) === 1) {
+            $pidLabel .= 'R';
+        }
+      @endphp
+      <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
+        Product {{ $pidLabel }}
+      </div>
+
+      @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
+
+      @forelse($deliveries as $d)
+        @php
+          $methodRaw = strtolower((string) $d->method);
+          $methodLabel = match ($methodRaw) {
+            'courier'               => 'Courier',
+            'self_pickup', 'pickup' => 'Self Pickup',
+            'installation'          => 'Installation',
+            'delivery_installation' => 'Delivery & Installation',
+            default                 => ucfirst((string) $d->method),
+          };
+
+          // Build a readable datetime from separate date/time columns
+          $dt = null;
+          $dateStr = trim((string) $d->date);
+          $timeStr = trim((string) $d->time);
+          try {
+            if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
+              // time field already contains a full datetime
+              $dt = \Carbon\Carbon::parse($timeStr);
+            } elseif ($dateStr && $timeStr) {
+              $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
+            } elseif ($dateStr) {
+              $dt = \Carbon\Carbon::parse($dateStr);
+            } elseif ($timeStr) {
+              $dt = \Carbon\Carbon::parse($timeStr);
+            }
+          } catch (\Throwable $e) {}
+        @endphp
+
+        <div class="border rounded p-3 mb-3">
+          <div class="text-muted small">
+            Delivery Method:
+            <span class="text-body fw-semibold">{{ $methodLabel }}</span>
+          </div>
+
+          <div class="row g-3 mt-1">
+            <div class="col-sm-6 col-lg-3">
+              <small class="text-muted d-block">Installation Type</small>
+              <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
             </div>
-            @endif
+
+            <div class="col-sm-6 col-lg-3">
+              <small class="text-muted d-block">Outsource Cost (RM)</small>
+              <div class="fw-medium">
+                {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
+              </div>
+            </div>
+
+            <div class="col-sm-6 col-lg-2">
+              <small class="text-muted d-block">Quantity</small>
+              <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
+            </div>
+
+            <div class="col-sm-6 col-lg-4">
+              <small class="text-muted d-block">Location</small>
+              <div class="fw-medium">{{ $d->location ?? '-' }}</div>
+            </div>
+
+            <div class="col-sm-6 col-lg-4">
+              <small class="text-muted d-block">Date &amp; Time</small>
+              <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
+            </div>
+          </div>
         </div>
-    </div>
+      @empty
+        <div class="text-muted border rounded p-3 mb-4">No delivery breakdowns.</div>
+      @endforelse
+    @empty
+      <div class="text-muted border rounded p-3 mb-3">No products.</div>
+    @endforelse
+  </div>
+</div>
+
 
     {{-- Product Remarks --}}
     @php
