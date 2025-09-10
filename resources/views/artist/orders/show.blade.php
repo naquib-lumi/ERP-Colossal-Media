@@ -287,127 +287,164 @@
     </div>
 
     {{-- Delivery Breakdown (grouped by product) --}}
-<div class="card mb-4">
-  <div class="card-header">Delivery Method Summary</div>
-  <div class="card-body">
-    @php
-      $products = $order->relationLoaded('products')
-        ? $order->products
-        : \App\Models\Product::with('deliveryBreakdowns')->where('OrderID', $order->id)->get();
-    @endphp
-
-    @forelse($products as $pIndex => $p)
-      @php
-        $isRedoOrder = !empty($order->redo);
-
-        $origPid = $isRedoOrder && !empty($p->redoOf)
-            ? (int) $p->redoOf
-            : (int) $p->ProductID;
-
-        $pidLabel = '#'.str_pad((string)$origPid, 4, '0', STR_PAD_LEFT);
-        if ($isRedoOrder && (int)($p->editable ?? 0) === 1) {
-            $pidLabel .= 'R';
-        }
-      @endphp
-      <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
-        Product {{ $pidLabel }}
-      </div>
-
-      @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
-
-      @forelse($deliveries as $d)
+    <div class="card mb-4">
+    <div class="card-header">Delivery Method Summary</div>
+    <div class="card-body">
         @php
-          $methodRaw = strtolower((string) $d->method);
-          $methodLabel = match ($methodRaw) {
-            'courier'               => 'Courier',
-            'self_pickup', 'pickup' => 'Self Pickup',
-            'installation'          => 'Installation',
-            'delivery_installation' => 'Delivery & Installation',
-            default                 => ucfirst((string) $d->method),
-          };
-
-          // Build a readable datetime from separate date/time columns
-          $dt = null;
-          $dateStr = trim((string) $d->date);
-          $timeStr = trim((string) $d->time);
-          try {
-            if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
-              // time field already contains a full datetime
-              $dt = \Carbon\Carbon::parse($timeStr);
-            } elseif ($dateStr && $timeStr) {
-              $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
-            } elseif ($dateStr) {
-              $dt = \Carbon\Carbon::parse($dateStr);
-            } elseif ($timeStr) {
-              $dt = \Carbon\Carbon::parse($timeStr);
-            }
-          } catch (\Throwable $e) {}
+        $products = $order->relationLoaded('products')
+            ? $order->products
+            : \App\Models\Product::with('deliveryBreakdowns')->where('OrderID', $order->id)->get();
         @endphp
 
-        <div class="border rounded p-3 mb-3">
-          <div class="text-muted small">
-            Delivery Method:
-            <span class="text-body fw-semibold">{{ $methodLabel }}</span>
-          </div>
+        @forelse($products as $pIndex => $p)
+        @php
+            $isRedoOrder = !empty($order->redo);
 
-          <div class="row g-3 mt-1">
-            <div class="col-sm-6 col-lg-3">
-              <small class="text-muted d-block">Installation Type</small>
-              <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
-            </div>
+            $origPid = $isRedoOrder && !empty($p->redoOf)
+                ? (int) $p->redoOf
+                : (int) $p->ProductID;
 
-            <div class="col-sm-6 col-lg-3">
-              <small class="text-muted d-block">Outsource Cost (RM)</small>
-              <div class="fw-medium">
-                {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
-              </div>
-            </div>
-
-            <div class="col-sm-6 col-lg-2">
-              <small class="text-muted d-block">Quantity</small>
-              <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
-            </div>
-
-            <div class="col-sm-6 col-lg-4">
-              <small class="text-muted d-block">Location</small>
-              <div class="fw-medium">{{ $d->location ?? '-' }}</div>
-            </div>
-
-            <div class="col-sm-6 col-lg-4">
-              <small class="text-muted d-block">Date &amp; Time</small>
-              <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
-            </div>
-          </div>
+            $pidLabel = '#'.str_pad((string)$origPid, 4, '0', STR_PAD_LEFT);
+            if ($isRedoOrder && (int)($p->editable ?? 0) === 1) {
+                $pidLabel .= 'R';
+            }
+        @endphp
+        <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
+            Product {{ $pidLabel }}
         </div>
-      @empty
-        <div class="text-muted border rounded p-3 mb-4">No delivery breakdowns.</div>
-      @endforelse
-    @empty
-      <div class="text-muted border rounded p-3 mb-3">No products.</div>
-    @endforelse
-  </div>
-</div>
 
+        @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
+
+        @forelse($deliveries as $d)
+            @php
+            $methodRaw = strtolower((string) $d->method);
+            $methodLabel = match ($methodRaw) {
+                'courier'               => 'Courier',
+                'self_pickup', 'pickup' => 'Self Pickup',
+                'installation'          => 'Installation',
+                'delivery_installation' => 'Delivery & Installation',
+                default                 => ucfirst((string) $d->method),
+            };
+
+            // Build a readable datetime from separate date/time columns
+            $dt = null;
+            $dateStr = trim((string) $d->date);
+            $timeStr = trim((string) $d->time);
+            try {
+                if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
+                // time field already contains a full datetime
+                $dt = \Carbon\Carbon::parse($timeStr);
+                } elseif ($dateStr && $timeStr) {
+                $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
+                } elseif ($dateStr) {
+                $dt = \Carbon\Carbon::parse($dateStr);
+                } elseif ($timeStr) {
+                $dt = \Carbon\Carbon::parse($timeStr);
+                }
+            } catch (\Throwable $e) {}
+            @endphp
+
+            <div class="border rounded p-3 mb-3">
+            <div class="text-muted small">
+                Delivery Method:
+                <span class="text-body fw-semibold">{{ $methodLabel }}</span>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-sm-6 col-lg-3">
+                <small class="text-muted d-block">Installation Type</small>
+                <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                <small class="text-muted d-block">Outsource Cost (RM)</small>
+                <div class="fw-medium">
+                    {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
+                </div>
+                </div>
+
+                <div class="col-sm-6 col-lg-2">
+                <small class="text-muted d-block">Quantity</small>
+                <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
+                </div>
+
+                <div class="col-sm-6 col-lg-4">
+                <small class="text-muted d-block">Location</small>
+                <div class="fw-medium">{{ $d->location ?? '-' }}</div>
+                </div>
+
+                <div class="col-sm-6 col-lg-4">
+                <small class="text-muted d-block">Date &amp; Time</small>
+                <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
+                </div>
+            </div>
+            </div>
+        @empty
+            <div class="text-muted border rounded p-3 mb-4">No delivery breakdowns.</div>
+        @endforelse
+        @empty
+        <div class="text-muted border rounded p-3 mb-3">No products.</div>
+        @endforelse
+    </div>
+    </div>
 
     {{-- Product Remarks --}}
     @php
-    // Adjust keys to your schema; these are examples if you store remarks per product or globally
-    $remarks = collect([
-    data_get($order,'productRemark'),
-    data_get($order,'furnishingRemark'),
-    ])->filter();
+        // Get products with their remarks (works even if controller didn't eager load)
+        $remarkProducts = method_exists($order, 'products')
+            ? $order->products()->with(['remarks' => function ($q) { $q->orderBy('RemarkID'); }])
+                    ->orderBy('ProductID')->get()
+            : collect();
+
+        // helper: display code for the product id with the "R" rule
+        $productCode = function ($p) {
+            $baseId = $p->redoOf ?: $p->ProductID;                   // show original id if redo
+            $suffix = ($p->redoOf && (int)($p->editable ?? 0) === 1) // only selected redo gets R
+                    ? 'R' : '';
+            return 'Product #'.str_pad($baseId, 4, '0', STR_PAD_LEFT).$suffix;
+        };
+
+        // helper: human operation label
+        $opLabel = function ($op) {
+            $op = strtolower((string)$op);
+            return match ($op) {
+                'printing'               => 'Printing',
+                'furnishing'             => 'Furnishing',
+                'installation'           => 'Installation',
+                'courier'                => 'Delivery',
+                'self_pickup', 'pickup'  => 'Self Pickup',
+                default                  => ($op !== '' ? ucfirst($op) : 'General'),
+            };
+        };
     @endphp
 
-    @if($remarks->isNotEmpty())
     <div class="card mb-4">
-        <div class="card-header">Product Remarks</div>
-        <div class="card-body vstack gap-2">
-            @foreach($remarks as $r)
-            <div class="border rounded p-2">{{ $r }}</div>
-            @endforeach
+    <div class="card-header">Product Remarks</div>
+    <div class="card-body">
+        @forelse($remarkProducts as $p)
+        <div class="mb-3">
+            <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
+            {{ $productCode($p) }}
+            </div>
+
+            @if(($p->remarks ?? collect())->isEmpty())
+            <div class="text-muted small ms-1">No remarks for this product.</div>
+            @else
+            <div class="vstack gap-2">
+                @foreach($p->remarks as $rm)
+                <div class="d-flex align-items-start gap-2 p-2 border rounded">
+                    <span class="badge bg-secondary me-2">{{ $opLabel($rm->operation) }}</span>
+                    <div class="flex-grow-1">{{ $rm->remark ?? '—' }}</div>
+                </div>
+                @endforeach
+            </div>
+            @endif
         </div>
+        @empty
+        <div class="text-muted">No product remarks.</div>
+        @endforelse
     </div>
-    @endif
+    </div>
 
     {{-- Attachments --}}
     <div class="card mt-4">
