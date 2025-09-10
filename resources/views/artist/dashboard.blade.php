@@ -190,7 +190,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <!-- <i class="icon-base bx bx-gift icon-lg text-heading"></i> -->
+                                        <i class="icon-base bx bx-pencil icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -206,7 +206,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
+                                        <i class="icon-base bx bx-check icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -269,7 +269,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-gift icon-lg text-heading"></i>
+                                        <i class="icon-base bx bx-pencil icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -284,7 +284,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
+                                        <i class="icon-base bx bx-check icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>

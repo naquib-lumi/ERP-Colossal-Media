@@ -155,4 +155,11 @@ class Product extends Model
 
         return sprintf('%04d%s', (int)$base, $suffix);
     }
+
+    public function original()
+    {
+        return $this->belongsTo(self::class, 'redoOf', 'ProductID')
+            ->select(['ProductID','OrderID']);
+    }
+
 }

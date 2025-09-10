@@ -115,132 +115,163 @@ class FulfillmentController extends Controller
         ]);
     }
 
-    public function show(Request $request, Product $product)
-    {
-        $user = $request->user();
-        $order = $product->order()->first();
+public function show(Request $request, Product $product)
+{
+    $user  = $request->user();
+    $order = $product->order()->first();
 
-        $product->load([
-            'order:id,order_number,orderTitle,companyName,leadName,leadPhone,leadEmail,lead_id,deadline,created_at,artist_id,salesperson_id,orderAttachment',
-            'order.artist:id,name',
-            'order.salesperson:id,name',
-            'items' => fn($q) => $q->select('ItemID', 'ProductID', 'itemName', 'quantity', 'sizeWidth', 'sizeUnit', 'sizeHeight', 'bleedUnit', 'bleedTop', 'bleedBottom', 'bleedLeft', 'bleedRight', 'finishing', 'material')
-                ->with('spec:SpecificationID,ItemID,printer,cutter,lamination'),
-            'deliveryBreakdowns:BreakdownID,ProductID,method,location,quantity,date,time',
-            // IMPORTANT: include FK + PK in the select
-            'remarks:RemarkID,ProductID,operation,remark,created_at',
-        ]);
+    // Eager load with extra fields needed on the page
+    $product->load([
+        'order:id,order_number,orderTitle,companyName,leadName,leadPhone,leadEmail,lead_id,deadline,created_at,artist_id,salesperson_id,orderAttachment',
+        'order.artist:id,name',
+        'order.salesperson:id,name',
 
-        $order = $product->order()->first();
+        // add prime_centre; keep your existing columns
+        'items' => fn($q) => $q->select(
+            'ItemID','ProductID','itemName','quantity',
+            'sizeWidth','sizeUnit','sizeHeight',
+            'bleedUnit','bleedTop','bleedBottom','bleedLeft','bleedRight',
+            'finishing','material',
+            'prime_centre'                 // <-- NEW
+        )->with('spec:SpecificationID,ItemID,printer,cutter,lamination'),
 
-        $toPublicUrl = function (string $p): string {
-            $p = ltrim($p, '/');
+        // include the two new delivery fields
+        'deliveryBreakdowns:BreakdownID,ProductID,method,location,quantity,date,time,deliver_install_type,outsource_cost',
 
-            // If DB already stores '/storage/...', use it as-is.
-            if (Str::startsWith($p, 'storage/')) {
-                return url($p); // -> https://site.test/storage/...
-            }
+        // remarks unchanged
+        'remarks:RemarkID,ProductID,operation,remark,created_at',
+    ]);
 
-            // Otherwise it’s a disk-relative path (e.g. 'orders/14/attachments/foo.pdf')
-            return Storage::disk('public')->url($p);
-        };
+    $order = $product->order()->first();
 
-        // ---------- 1) Lead attachments ----------
-        $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
-            ->orderBy('id')
-            ->get()
-            ->map(function ($row) {
-                $p = $row->file_location;
+    // ---------- Product/Order display code (handles redo R & original ids) ----------
+    $isRedo     = !is_null($product->redoOf);
+    $isEditable = (int)($product->editable ?? 0) === 1; // only selected redo shows "R"
+    $showR      = $isRedo && $isEditable;
 
-                $p = ltrim($p, '/');
-                $p = preg_replace('#^public/#', '', $p);
-                $p = preg_replace('#^storage/#', '', $p); // now we only keep relative part
-                $web = 'storage/' . $p;                     // final public URL
+    // the product id to show (original for redo rows)
+    $pidForDisplay = $isRedo ? (int)$product->redoOf : (int)$product->ProductID;
 
-                return (object)[
-                    'name' => basename($p),
-                    'size' => (int) $row->file_size,
-                    'ext'  => $row->file_extension,
-                    'url'  => asset($web),
-                ];
-            });
-
-        $raw = $order->orderAttachment; // string|array|null
-        $paths = [];
-
-        if (is_array($raw)) {
-            $paths = $raw; // JSON casted
-        } elseif (is_string($raw)) {
-            $rawTrim = trim($raw);
-            if (Str::startsWith($rawTrim, '[')) {
-                $paths = json_decode($rawTrim, true) ?: [];
-            } else {
-                // comma-separated
-                $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
-            }
+    // the order id to show (original order for redo rows, else current)
+    $displayOrderId = (int)$product->OrderID;
+    if ($isRedo) {
+        $origOrderId = \App\Models\Product::where('ProductID', $product->redoOf)->value('OrderID');
+        if ($origOrderId) {
+            $displayOrderId = (int)$origOrderId;
         }
-
-        $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
-            $p = ltrim($p, '/');               // normalize
-            $url = $toPublicUrl($p);
-            return [
-                'name' => basename($p),
-                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
-                'url'  => $url,
-            ];
-        });
-
-        // Attachments are stored on order (you already have helpers)
-        $attachments = [];
-        if (method_exists($this, 'getOrderAttachments')) {
-            // returns array of storage paths (your existing helper)
-            $attachments = (array) $this->getOrderAttachments($order);
-        } else {
-            $raw = $order?->orderAttachment;
-            if (is_string($raw) && trim($raw) !== '') {
-                $decoded = json_decode($raw, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $attachments = $decoded;
-                } else {
-                    // if a single path/string was stored
-                    $attachments = [$raw];
-                }
-            } elseif (is_array($raw)) {
-                $attachments = $raw;
-            }
-        }
-
-        $taskTypes = ['printing', 'furnishing', 'installation', 'delivery'];
-        $progress = collect($taskTypes)->mapWithKeys(function ($t) use ($product) {
-            $isThisTask = strtolower($product->taskType ?? '') === $t;
-            $status     = $isThisTask ? (strtolower($product->status ?? 'in_progress')) : 'pending';
-
-            return [
-                $t => [
-                    'status'       => $status,   // 'in_progress' | 'completed' | 'pending' | 'rejected'
-                    'accepted_at'  => null,      // fill if you later track them
-                    'completed_at' => null,
-                    'duration'     => null,
-                ],
-            ];
-        });
-
-        // Deliveries for this product (sorted, nulls last)
-        $deliveries = $product->deliveryBreakdowns()
-            ->orderByRaw('CASE WHEN `date` IS NULL THEN 1 ELSE 0 END, `date` ASC, `time` ASC')
-            ->get();
-
-        return view('artist.fulfillment.product-show', [
-            'product'     => $product,
-            'order'       => $order,
-            'items'      => $product->items,
-            'attachments' => $attachments,   // your existing attachments array
-            'progress'    => $progress,      // ← new
-            'deliveries'  => $deliveries,    // ← new
-            'leadAttachments'  => $leadAttachments,
-            'orderFiles' => $orderFiles,
-        ]);
     }
+
+    $productCode = sprintf('#ORD-%s-P%04d%s', $displayOrderId, $pidForDisplay, $showR ? 'R' : '');
+
+    // ---------- Lead attachments ----------
+    $toPublicUrl = function (string $p): string {
+        $p = ltrim($p, '/');
+        if (Str::startsWith($p, 'storage/')) {
+            return url($p);
+        }
+        return Storage::disk('public')->url($p);
+    };
+
+    $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
+        ->orderBy('id')
+        ->get()
+        ->map(function ($row) {
+            $p = $row->file_location;
+            $p = ltrim($p, '/');
+            $p = preg_replace('#^public/#', '', $p);
+            $p = preg_replace('#^storage/#', '', $p);
+            $web = 'storage/' . $p;
+
+            return (object)[
+                'name' => basename($p),
+                'size' => (int) $row->file_size,
+                'ext'  => $row->file_extension,
+                'url'  => asset($web),
+            ];
+        });
+
+    $raw   = $order->orderAttachment; // string|array|null
+    $paths = [];
+    if (is_array($raw)) {
+        $paths = $raw;
+    } elseif (is_string($raw)) {
+        $rawTrim = trim($raw);
+        if (Str::startsWith($rawTrim, '[')) {
+            $paths = json_decode($rawTrim, true) ?: [];
+        } else {
+            $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
+        }
+    }
+
+    $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
+        $p   = ltrim($p, '/');
+        $url = $toPublicUrl($p);
+        return [
+            'name' => basename($p),
+            'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+            'url'  => $url,
+        ];
+    });
+
+    // Attachments stored on order (keeps your helper if present)
+    $attachments = [];
+    if (method_exists($this, 'getOrderAttachments')) {
+        $attachments = (array) $this->getOrderAttachments($order);
+    } else {
+        $raw = $order?->orderAttachment;
+        if (is_string($raw) && trim($raw) !== '') {
+            $decoded = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $attachments = $decoded;
+            } else {
+                $attachments = [$raw];
+            }
+        } elseif (is_array($raw)) {
+            $attachments = $raw;
+        }
+    }
+
+    // ---------- Progress: mark previous steps as 'completed', current as 'in_progress' ----------
+    $steps = ['printing','furnishing','installation']; // delivery can be treated outside the 3-step flow
+    $current = strtolower((string) $product->taskType);
+    $currentIdx = array_search($current, $steps, true);
+
+    $progress = collect($steps)->mapWithKeys(function ($t, $idx) use ($currentIdx) {
+        $state = 'pending';
+        if ($currentIdx !== false) {
+            if ($idx < $currentIdx)       $state = 'completed';
+            elseif ($idx === $currentIdx) $state = 'in_progress';
+        }
+        return [$t => [
+            'status'       => $state,
+            'accepted_at'  => null,
+            'completed_at' => null,
+            'duration'     => null,
+        ]];
+    });
+
+    // ---------- Deliveries for this product (sorted, nulls last) ----------
+    $deliveries = $product->deliveryBreakdowns()
+        ->orderByRaw('CASE WHEN `date` IS NULL THEN 1 ELSE 0 END, `date` ASC, `time` ASC')
+        ->get();
+
+    return view('artist.fulfillment.product-show', [
+        // keep everything you already return
+        'product'         => $product,
+        'order'           => $order,
+        'items'           => $product->items,
+        'attachments'     => $attachments,
+        'progress'        => $progress,
+        'deliveries'      => $deliveries,
+        'leadAttachments' => $leadAttachments,
+        'orderFiles'      => $orderFiles,
+
+        // NEW (for header / code):
+        'productCode'     => $productCode,
+        'displayOrderId'  => $displayOrderId,
+    ]);
+}
+
 
     // Optional: hook your PDF later
     public function export(Product $product)
