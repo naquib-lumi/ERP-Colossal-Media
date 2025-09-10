@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use App\Models\User;
 
 class Product extends Model
 {
@@ -58,45 +60,60 @@ class Product extends Model
         return 'ProductID';
     }
 
-    public static function fulfillmentBreakdown(): array
+    protected static function baseForFulfillment(?User $user): Builder
     {
-        $tasks    = ['printing','furnishing','installation'];   
-        $statuses = ['completed','in_progress','pending','rejected'];
+        $q = static::query()                         // Eloquent builder
+            ->from('products as p')                 // give table alias
+            ->join('orders as o', 'o.id', '=', 'p.OrderID')
+            ->where(function ($w) {
+                $w->whereNull('o.status')->orWhere('o.status', 0);
+            });
 
-        $base = [];
-        foreach ($tasks as $t) { $base[$t] = array_fill_keys($statuses, 0); }
-
-        $rows = static::query()
-            ->whereNotNull('taskType')
-            ->whereIn(DB::raw('LOWER(taskType)'), $tasks)
-            ->selectRaw('LOWER(taskType) AS task, LOWER(status) AS stat, COUNT(*) AS c')
-            ->groupBy('task','stat')
-            ->get();
-
-        foreach ($rows as $r) {
-            if (isset($base[$r->task][$r->stat])) $base[$r->task][$r->stat] = (int)$r->c;
+        if ($user && ($user->role ?? null) !== 'head-artist') {
+            $uid = (int) $user->id;
+            $q->where(function ($w) use ($uid) {
+                $w->where('o.artist_id', $uid)
+                ->orWhere('o.salesperson_id', $uid);
+            });
         }
-        return $base;
+
+        return $q->whereIn(DB::raw('LOWER(p.taskType)'), ['printing','furnishing','installation']);
     }
 
-    public static function fulfillmentCounts(): array
+    public static function fulfillmentBreakdown(?User $user = null): array
     {
-        $rows = static::query()
-            // join to orders so we can filter by its status
-            ->join('orders as o', 'o.id', '=', 'products.OrderID')
-            // keep only active orders (status NULL or 0); exclude status = 1
-            ->where(function ($q) {
-                $q->whereNull('o.status')->orWhere('o.status', 0);
-            })
-            ->whereNotNull('taskType')
-            ->selectRaw('LOWER(taskType) AS task, COUNT(*) AS total')
-            ->whereIn(DB::raw('LOWER(taskType)'), ['printing','furnishing','installation'])
+        $rows = static::baseForFulfillment($user)
+            ->selectRaw("
+                LOWER(p.taskType) AS task,
+                SUM(CASE WHEN o.orderStatus = 'completed'   THEN 1 ELSE 0 END) AS completed,
+                SUM(CASE WHEN o.orderStatus = 'in_progress' THEN 1 ELSE 0 END) AS in_progress
+            ")
+            ->groupBy('task')
+            ->get()
+            ->keyBy('task');
+
+        $fmt = fn ($t) => [
+            'completed'   => (int) ($rows[$t]->completed   ?? 0),
+            'in_progress' => (int) ($rows[$t]->in_progress ?? 0),
+        ];
+
+        return [
+            'printing'     => $fmt('printing'),
+            'furnishing'   => $fmt('furnishing'),
+            'installation' => $fmt('installation'),
+        ];
+    }
+
+    public static function fulfillmentCounts(?User $user = null): array
+    {
+        $rows = static::baseForFulfillment($user)
+            ->selectRaw('LOWER(p.taskType) AS task, COUNT(*) AS total')
             ->groupBy('task')
             ->pluck('total', 'task');
 
         return [
-            'printing'     => (int) ($rows['printing'] ?? 0),
-            'furnishing'   => (int) ($rows['furnishing'] ?? 0),
+            'printing'     => (int) ($rows['printing']     ?? 0),
+            'furnishing'   => (int) ($rows['furnishing']   ?? 0),
             'installation' => (int) ($rows['installation'] ?? 0),
         ];
     }

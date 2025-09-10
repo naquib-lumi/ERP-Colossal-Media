@@ -251,9 +251,11 @@ class FulfillmentController extends Controller
 
     public function fulfillmentCounts()
     {
+        $user = Auth::user(); // head-artist => all, artist => own
+
         return response()->json([
-            'totals'    => Product::fulfillmentCounts(),
-            'breakdown' => Product::fulfillmentBreakdown(),
+            'totals'    => Product::fulfillmentCounts($user),
+            'breakdown' => Product::fulfillmentBreakdown($user),
         ]);
     }
 }
