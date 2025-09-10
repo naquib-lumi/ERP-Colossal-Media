@@ -33,23 +33,26 @@
                  placeholder="Search by Product Name">
         </div>
 
+        {{-- Task type filter --}}
         <select id="ff-task" class="form-select w-auto">
-            <option value="">All Task Types</option>
-            @foreach($taskTypes as $t)
-                <option value="{{ $t }}" {{ ($filters['task'] ?? '') === $t ? 'selected' : '' }}>
-                {{ $t }}
-                </option>
-            @endforeach
+          <option value="">All Task Types</option>
+          @foreach(($taskTypes ?? []) as $t)
+            <option value="{{ $t }}" {{ (($filters['task'] ?? '') === $t) ? 'selected' : '' }}>
+              {{ ucfirst($t) }}
+            </option>
+          @endforeach
         </select>
 
+        {{-- Status filter --}}
         <select id="ff-status" class="form-select w-auto">
-            <option value="">All Statuses</option>
-            @foreach($statuses as $s)
-                <option value="{{ $s }}" {{ ($filters['status'] ?? '') === $s ? 'selected' : '' }}>
-                {{ $s }}
-                </option>
-            @endforeach
+          <option value="">All Statuses</option>
+          @foreach(($statuses ?? []) as $s)
+            <option value="{{ $s }}" {{ (($filters['status'] ?? '') === $s) ? 'selected' : '' }}>
+              {{ $s }}
+            </option>
+          @endforeach
         </select>
+
       </div>
     </div>
   </div>
