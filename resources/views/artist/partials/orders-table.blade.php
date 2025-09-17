@@ -7,27 +7,26 @@
   $isPaginator = $orders instanceof \Illuminate\Pagination\AbstractPaginator;
   $col         = $isPaginator ? $orders->getCollection() : collect($orders);
 
-  $deadlineKey = fn($o) => $o->deadline ? Carbon::parse($o->deadline)
-                                        : Carbon::parse('2100-01-01');
+  $deadlineKey = fn($o) => $o->deadline
+      ? Carbon::parse($o->deadline)
+      : Carbon::parse('2100-01-01');
 
   if ($isDashboard) {
-      // exclude completed, sort DESC, take 5
       $col = $col
-          ->reject(fn($o) => strtolower((string)$o->orderStatus) === 'completed')
-          ->sortByDesc($deadlineKey)
-          ->take(5)
-          ->values();
+        ->reject(fn($o) => strtolower((string)$o->orderStatus) === 'completed')
+        ->sortByDesc($deadlineKey)  // DESC
+        ->take(5)
+        ->values();
   } else {
-      // orders page: sort by deadline DESC
-      $col = $col->sortByDesc($deadlineKey)->values();
+      $col = $col->sortByDesc($deadlineKey)->values(); // Orders page DESC
   }
 
   $orders = $isPaginator ? $orders->setCollection($col) : $col;
+
   $isHead = auth()->user()->role === 'head-artist';
 @endphp
 
-<table id="{{ $tableId }}" class="table table-modern table-hover w-100" @if($isDashboard) data-no-dt="1" @endif>
-
+<table id="{{ $tableId }}" class="table table-modern table-hover w-100">
   <thead>
     <tr>
       <th>Order ID</th>
@@ -100,7 +99,9 @@
       <td data-status-code="{{ $isPending ? 'pending' : $rawStatus }}">
         <span class="{{ $badgeClass }}">{{ $label }}</span>
       </td>
-      <td>{{ $deadline }}</td>
+      <td data-deadline="{{ $order->deadline ? \Carbon\Carbon::parse($order->deadline)->toDateString() : '' }}">
+        {{ $deadline }}
+      </td> 
       @php
       $status = strtolower($order->orderStatus ?? '');
       $isCompleted = $status === 'completed';

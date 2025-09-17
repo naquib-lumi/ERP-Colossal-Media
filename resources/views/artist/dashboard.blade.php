@@ -133,17 +133,43 @@
         max-height: none !important;
         min-height: 0 !important;
     }
+
+    .filters-hz{
+        display:flex; align-items:center; gap:.5rem;
+        white-space:nowrap; overflow-x:auto; overscroll-behavior-x:contain;
+        padding:.5rem .75rem; background:#fff;
+        border:1px solid rgba(0,0,0,.08); border-radius:12px;
+        box-shadow:0 1px 3px rgba(16,24,40,.04);
+    }
+    .filters-hz::-webkit-scrollbar{ height:8px; }
+    .filters-hz::-webkit-scrollbar-thumb{ background:#e6e9ed; border-radius:8px; }
+
+    .hz-field{
+        display:flex; align-items:center; gap:.4rem;
+        padding:.35rem .6rem; background:#fff;
+        border:1px solid rgba(0,0,0,.08); border-radius:5px;
+    }
+    .hz-field:focus-within{ border-color:#b6d4fe; box-shadow:0 0 0 2px rgba(13,110,253,.15); }
+
+    .hz-input{ border:0; outline:0; background:transparent; min-width:11rem; font-size:.875rem; }
+    .hz-input[type="date"]{ min-width:9.25rem; }
+    .hz-select{ border:0; outline:0; background:transparent; font-size:.875rem; padding-right:1rem; }
+    .hz-btn{ border-radius:5px; padding:.35rem .8rem; }
+
+    .hz-sep{ color:#98a2b3; user-select:none; }
+
+    .hz-grow{ min-width:16rem; }
+    @media (max-width: 992px){
+        .hz-grow{ min-width:12rem; }
+    }
 </style>
 @endpush
 
 <div class="container py-4">
     <h3 class="mb-4">Dashboard Overview</h3>
 
-    <!-- Content wrapper -->
     <div class="content-wrapper">
-        <!-- Content -->
         <div class="container-p-y">
-            <!-- Product List Widget -->
             <div class="card mb-6">
                 <div class="card-widget-separator-wrapper">
                     <div class="card-body card-widget-separator">
@@ -316,31 +342,50 @@
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <h5 class="mb-0">Job Orders</h5>
 
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <div class="input-group" style="width:260px;">
-                                <span class="input-group-text bg-white border-end-0"><i class="bx bx-search"></i></span>
-                                <input id="jobSearch" type="text" class="form-control border-start-0" placeholder="Search orders…">
+                        {{-- HORIZONTAL FILTER STRIP --}}
+                        <div class="filters-hz mb-3">
+                        @if(auth()->user()->role === 'head-artist')
+                            {{-- Artist --}}
+                            <div class="hz-field">
+                            <i class="bx bx-user"></i>
+                            <input id="artistFilter" type="text" class="hz-input" placeholder="Search artist name…">
                             </div>
 
-                            <select id="statusFilter" class="form-select w-auto">
-                                <option value="">All statuses</option>
-                                @if(!$isHead ?? false)
-                                <option value="pending">Pending</option>
-                                @endif
-                                <option value="in_progress">In progress</option>
-                                <option value="completed">Completed</option>
-                                <option value="rejected">Rejected</option>
+                            {{-- Date range --}}
+                            <div class="hz-field">
+                            <i class="bx bx-calendar"></i>
+                            <input id="dateFrom" type="date" class="hz-input">
+                            </div>
+                            <span class="hz-sep">–</span>
+                            <div class="hz-field">
+                            <i class="bx bx-calendar"></i>
+                            <input id="dateTo" type="date" class="hz-input">
+                            </div>
+                        @endif
 
-                                {{-- head artist only --}}
-                                @if($isHead ?? false)
-                                <option value="to_assign">To assign</option>
-                                <option value="assigned">Assigned</option>
-                                @endif
+                        {{-- Search orders --}}
+                        <div class="hz-field hz-grow">
+                            <i class="bx bx-search"></i>
+                            <input id="jobSearch" type="text" class="hz-input" placeholder="Search orders…">
+                        </div>
+
+                        {{-- Status --}}
+                        <div class="hz-field">
+                            <select id="statusFilter" class="hz-select">
+                            <option value="">All statuses</option>
+                            <option value="to_assign">To Assign</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="rejected">Rejected</option>
                             </select>
+                        </div>
 
-                            <button id="exportExcel" class="btn btn-dark">
-                                <i class="bx bx-export me-1"></i> Export
-                            </button>
+                        {{-- Export --}}
+                        <button id="exportExcel" type="button" class="btn btn-sm btn-dark hz-btn">
+                            <i class="bx bx-export me-1"></i> Export
+                        </button>
                         </div>
                     </div>
 
@@ -688,7 +733,7 @@
 
       // ===== DataTables init (guarded) =====
       let dt;
-        try {
+      try {
         if (!$.fn.DataTable) throw new Error('DataTables plugin not loaded');
         const $table = $('#jobOrdersTable');
 
@@ -734,6 +779,99 @@
         }
         } catch (e) {
         console.error('Failed to initialize DataTables:', e);
+        }
+
+        // === Dashboard top-5 DataTable (local-only) ===
+        const $dashTable = window.jQuery ? jQuery('#jobOrdersTop5') : null;
+        if ($dashTable && $dashTable.length) {
+        try {
+            if (!jQuery.fn.DataTable) throw new Error('DataTables plugin not loaded');
+
+            // clear old filters for this table
+            jQuery.fn.dataTable.ext.search = jQuery.fn.dataTable.ext.search
+            .filter(fn => !fn._dashDateFilter && !fn._dashStatusFilter);
+
+            const dt = $dashTable.DataTable({
+            dom: 'rt<"d-flex justify-content-between align-items-center mt-2"ip>',
+            paging: true,
+            pageLength: 5,
+            lengthChange: false,
+            searching: true,
+            autoWidth: false,
+            responsive: true,
+            order: [], // keep the server/pre-sorted (top-5) order
+            columnDefs: [
+                { targets: -1, orderable: false, searchable: false, className: 'text-end' },
+                { targets: '_all', defaultContent: '' }
+            ]
+            });
+
+            // ---- HEAD-ARTIST: Artist search (col 3) ----
+            const artistInput = document.getElementById('artistFilter');
+            if (artistInput) {
+            artistInput.addEventListener('input', function () {
+                dt.column(3).search(this.value).draw();
+            });
+            }
+
+            // ---- HEAD-ARTIST: Date range filter (using data-deadline) ----
+            const fromEl = document.getElementById('dateFrom');
+            const toEl   = document.getElementById('dateTo');
+            if (fromEl || toEl) {
+            const dateFilter = function (settings, data, dataIndex) {
+                if (settings.nTable !== $dashTable.get(0)) return true;
+
+                const row = dt.row(dataIndex).node();
+                const td  = row ? row.querySelector('td:nth-child(6)') : null; // 6th col = Deadline
+                const iso = td ? td.getAttribute('data-deadline') : '';
+                if (!iso) return true;
+
+                const d = new Date(iso);
+                if (isNaN(d)) return true;
+
+                const from = fromEl && fromEl.value ? new Date(fromEl.value) : null;
+                const to   = toEl   && toEl.value   ? new Date(toEl.value)   : null;
+
+                if (from && d < from) return false;
+                if (to   && d > to)   return false;
+                return true;
+            };
+            dateFilter._dashDateFilter = true;
+            jQuery.fn.dataTable.ext.search.push(dateFilter);
+
+            const redraw = () => dt.draw();
+            fromEl && fromEl.addEventListener('change', redraw);
+            toEl   && toEl.addEventListener('change', redraw);
+            }
+
+            // ---- ORIGINAL dashboard controls on the right ----
+            const jobSearch = document.getElementById('jobSearch');
+            if (jobSearch) {
+            jobSearch.addEventListener('input', function () {
+                dt.search(this.value).draw();
+            });
+            }
+
+            const statusSel = document.getElementById('statusFilter');
+            if (statusSel) {
+            const statusFilter = function (settings, data, dataIndex) {
+                if (settings.nTable !== $dashTable.get(0)) return true;
+                const want = (statusSel.value || '').toLowerCase();
+                if (!want) return true;
+                const rowNode = dt.row(dataIndex).node();
+                const code = (rowNode?.querySelector('td[data-status-code]')?.dataset.statusCode || '').toLowerCase();
+                return code === want;
+            };
+            statusFilter._dashStatusFilter = true;
+            jQuery.fn.dataTable.ext.search.push(statusFilter);
+            statusSel.addEventListener('change', () => dt.draw());
+            }
+
+            // keep layout tidy
+            window.addEventListener('resize', () => setTimeout(() => dt.columns.adjust().responsive.recalc(), 80));
+        } catch (e) {
+            console.warn('Dashboard top-5 DataTables init failed:', e);
+        }
         }
 
       // ===== Apex donut: Scheduled vs Canceled (meetings) =====
