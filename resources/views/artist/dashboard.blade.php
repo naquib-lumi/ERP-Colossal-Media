@@ -344,8 +344,12 @@
                         </div>
                     </div>
 
-                    <div class="table-responsive" id="orders-table-wrapper">
-                        @include('artist.partials.orders-table', ['orders' => $orders])
+                    <div class="table-responsive" id="orders-table-wrapper-top5" data-dashboard>
+                        @include('artist.partials.orders-table', [
+                        'orders'        => $orders,        
+                        'tableContext'  => 'dashboard',   
+                        'tableId'       => 'jobOrdersTop5' 
+                        ])               
                     </div>
                 </div>
             </div>
@@ -383,7 +387,7 @@
             </div>
         </div>
 
-        @push('scripts')
+@push('scripts')
 <script>
   (function() {
         let dt = null;
@@ -398,178 +402,182 @@
         const status = document.getElementById('statusFilter');
         const search = document.getElementById('jobSearch');
 
-        // --- state kept in URL (no 'page' anymore: DataTables paginates client-side)
-        const qs = new URLSearchParams(location.search);
-        const params = {
-            status: qs.get('status') || (status?.value ?? ''),
-            q: qs.get('q') || (search?.value ?? '')
-        };
-        if (status) status.value = params.status;
-        if (search) search.value = params.q;
-
-        let inflight; // AbortController for fetch cancellation
-        const cache = new Map(); // tiny cache for HTML snippets
-
-        function setUrl() {
-            const url = new URL(location.href);
-            url.searchParams.delete('status');
-            url.searchParams.delete('q');
-            if (params.status) url.searchParams.set('status', params.status);
-            if (params.q) url.searchParams.set('q', params.q);
-            history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
-        }
-
-        function keyFor(p) {
-            const k = new URLSearchParams();
-            if (p.status) k.set('status', p.status);
-            if (p.q) k.set('q', p.q);
-            return k.toString();
-        }
-
-        function buildUrl(p) {
-            const base = @json(route('artist.orders'));
-            const url = new URL(base, location.origin);
-            if (p.status) url.searchParams.set('status', p.status);
-            if (p.q) url.searchParams.set('q', p.q);
-            return url.toString();
-        }
-
-        function debounce(fn, ms = 300) {
-            let t;
-            return (...a) => {
-                clearTimeout(t);
-                t = setTimeout(() => fn(...a), ms);
+        if (wrap) {
+            // --- state kept in URL (no 'page' anymore: DataTables paginates client-side)
+            const qs = new URLSearchParams(location.search);
+            const params = {
+                status: qs.get('status') || (status?.value ?? ''),
+                q: qs.get('q') || (search?.value ?? '')
             };
-        }
+            if (status) status.value = params.status;
+            if (search) search.value = params.q;
 
-        // ---- DataTables (re)initialization
-        function initDataTable() {
-            if (!window.jQuery || !$.fn.DataTable) return;
+            let inflight; // AbortController for fetch cancellation
+            const cache = new Map(); // tiny cache for HTML snippets
 
-            // Destroy previous instance safely
-            if (dt) {
-                dt.destroy();
-                dt = null;
+            function setUrl() {
+                const url = new URL(location.href);
+                url.searchParams.delete('status');
+                url.searchParams.delete('q');
+                if (params.status) url.searchParams.set('status', params.status);
+                if (params.q) url.searchParams.set('q', params.q);
+                history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
             }
-            clearDtFilters();
 
-            // IMPORTANT: assign to outer 'dt', don't redeclare with 'const' or 'let' here
-            dt = $('#jobOrdersTable').DataTable({
-                dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
-                paging: true,
-                pageLength: 5,
-                lengthMenu: [
-                    [5, 10, 20, 30],
-                    [5, 10, 20, 30]
-                ],
-                autoWidth: false,
-                responsive: true,
-                order: [],
-                buttons: [{
-                    extend: 'excel',
-                    title: 'Job Orders',
-                    className: 'd-none',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5]
-                    }
-                }],
-                columnDefs: [
-                    { targets: -1, orderable: false, searchable: false, className: 'text-end' },
-                    // (optional) safety: fill blanks instead of warning if a cell is missing
-                    { targets: '_all', defaultContent: '' }
-                ],
-                language: {
-                    lengthMenu: 'Show _MENU_',
-                    emptyTable: 'No matching records found',
-                    zeroRecords: 'No matching records found',
-                    info: 'Showing _START_ to _END_ of _TOTAL_ results',
-                    infoEmpty: 'Showing 0 to 0 of 0 results',
-                    paginate: { previous: 'Previous', next: 'Next' }
-                },
-                drawCallback: function() {
-                    this.api().columns.adjust().responsive.recalc();
+            function keyFor(p) {
+                const k = new URLSearchParams();
+                if (p.status) k.set('status', p.status);
+                if (p.q) k.set('q', p.q);
+                return k.toString();
+            }
+
+            function buildUrl(p) {
+                const base = @json(route('artist.orders'));
+                const url = new URL(base, location.origin);
+                if (p.status) url.searchParams.set('status', p.status);
+                if (p.q) url.searchParams.set('q', p.q);
+                return url.toString();
+            }
+
+            function debounce(fn, ms = 300) {
+                let t;
+                return (...a) => {
+                    clearTimeout(t);
+                    t = setTimeout(() => fn(...a), ms);
+                };
+            }
+
+            // ---- DataTables (re)initialization
+            function initDataTable() {
+                if (!window.jQuery || !$.fn.DataTable) return;
+
+                // Destroy previous instance safely
+                if (dt) {
+                    dt.destroy();
+                    dt = null;
                 }
-            });
+                clearDtFilters();
 
-            // --- custom filter by data-status-code
-            const filterFn = function(settings, data, dataIndex) {
-                const desired = (document.getElementById('statusFilter')?.value || '').toLowerCase();
-                if (!desired) return true; // no filter
-                const node = dt.row(dataIndex).node();
-                const code = (node.querySelector('td[data-status-code]')?.dataset.statusCode || '').toLowerCase();
-                return code === desired;
-            };
-            filterFn._ordersStatusFilter = true; // tag so we can remove it cleanly
-            $.fn.dataTable.ext.search.push(filterFn);
+                const $t = $('#jobOrdersTable');
+                if (!$t.length || $t.is('[data-no-dt="1"]')) return;
 
-            // external controls
-            $('#jobSearch').off('keyup.dt').on('keyup.dt', function() {
-                dt.search(this.value).draw();
-            });
-
-            $('#statusFilter').off('change.dt').on('change.dt', function() {
-                dt.draw(); // just redraw; the custom filter uses the dropdown’s value
-            });
-
-            $('#exportExcel').off('click.dt').on('click.dt', function() {
-                dt.button(0).trigger();
-            });
-
-            // apply current external values
-            const s = document.getElementById('jobSearch');
-            if (s && s.value) dt.search(s.value).draw();
-            const f = document.getElementById('statusFilter');
-            if (f && f.value) dt.draw();
-        }
-
-        async function load(force = false) {
-            const k = keyFor(params);
-            setUrl();
-
-            if (cache.has(k) && !force) {
-                wrap.innerHTML = cache.get(k);
-                initDataTable();
-                return;
-            }
-
-            // cancel previous request
-            inflight?.abort?.();
-            inflight = new AbortController();
-
-            wrap.style.opacity = 0.6;
-            try {
-                const res = await fetch(buildUrl(params), {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+                // IMPORTANT: assign to outer 'dt', don't redeclare with 'const' or 'let' here
+                dt = $t.DataTable({
+                    dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
+                    paging: true,
+                    pageLength: 5,
+                    lengthMenu: [
+                        [5, 10, 20, 30],
+                        [5, 10, 20, 30]
+                    ],
+                    autoWidth: false,
+                    responsive: true,
+                    order: [],
+                    buttons: [{
+                        extend: 'excel',
+                        title: 'Job Orders',
+                        className: 'd-none',
+                        exportOptions: {
+                            columns: [0, 1, 2, 3, 4, 5]
+                        }
+                    }],
+                    columnDefs: [
+                        { targets: -1, orderable: false, searchable: false, className: 'text-end' },
+                        // (optional) safety: fill blanks instead of warning if a cell is missing
+                        { targets: '_all', defaultContent: '' }
+                    ],
+                    language: {
+                        lengthMenu: 'Show _MENU_',
+                        emptyTable: 'No matching records found',
+                        zeroRecords: 'No matching records found',
+                        info: 'Showing _START_ to _END_ of _TOTAL_ results',
+                        infoEmpty: 'Showing 0 to 0 of 0 results',
+                        paginate: { previous: 'Previous', next: 'Next' }
                     },
-                    signal: inflight.signal
+                    drawCallback: function() {
+                        this.api().columns.adjust().responsive.recalc();
+                    }
                 });
-                const html = await res.text();
-                cache.set(k, html);
-                wrap.innerHTML = html;
-                initDataTable(); // ← re-init after content swap
-            } catch (e) {
-                if (e.name !== 'AbortError') console.error(e);
-            } finally {
-                wrap.style.opacity = 1;
+
+                // --- custom filter by data-status-code
+                const filterFn = function(settings, data, dataIndex) {
+                    const desired = (document.getElementById('statusFilter')?.value || '').toLowerCase();
+                    if (!desired) return true; // no filter
+                    const node = dt.row(dataIndex).node();
+                    const code = (node.querySelector('td[data-status-code]')?.dataset.statusCode || '').toLowerCase();
+                    return code === desired;
+                };
+                filterFn._ordersStatusFilter = true; // tag so we can remove it cleanly
+                $.fn.dataTable.ext.search.push(filterFn);
+
+                // external controls
+                $('#jobSearch').off('keyup.dt').on('keyup.dt', function() {
+                    dt.search(this.value).draw();
+                });
+
+                $('#statusFilter').off('change.dt').on('change.dt', function() {
+                    dt.draw(); // just redraw; the custom filter uses the dropdown’s value
+                });
+
+                $('#exportExcel').off('click.dt').on('click.dt', function() {
+                    dt.button(0).trigger();
+                });
+
+                // apply current external values
+                const s = document.getElementById('jobSearch');
+                if (s && s.value) dt.search(s.value).draw();
+                const f = document.getElementById('statusFilter');
+                if (f && f.value) dt.draw();
             }
+
+            async function load(force = false) {
+                const k = keyFor(params);
+                setUrl();
+
+                if (cache.has(k) && !force) {
+                    wrap.innerHTML = cache.get(k);
+                    initDataTable();
+                    return;
+                }
+
+                // cancel previous request
+                inflight?.abort?.();
+                inflight = new AbortController();
+
+                wrap.style.opacity = 0.6;
+                try {
+                    const res = await fetch(buildUrl(params), {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        signal: inflight.signal
+                    });
+                    const html = await res.text();
+                    cache.set(k, html);
+                    wrap.innerHTML = html;
+                    initDataTable(); // ← re-init after content swap
+                } catch (e) {
+                    if (e.name !== 'AbortError') console.error(e);
+                } finally {
+                    wrap.style.opacity = 1;
+                }
+            }
+
+            // initial render
+            load(true);
+
+            // status -> change (fetch new HTML, then DT paginates client-side)
+            status?.addEventListener('change', () => {
+                params.status = status.value || '';
+                load();
+            });
+
+            // search -> input (server fetch; DT still paginates the new set)
+            search?.addEventListener('input', debounce(() => {
+                params.q = search.value.trim();
+                load();
+            }, 300));
         }
-
-        // initial render
-        load(true);
-
-        // status -> change (fetch new HTML, then DT paginates client-side)
-        status?.addEventListener('change', () => {
-            params.status = status.value || '';
-            load();
-        });
-
-        // search -> input (server fetch; DT still paginates the new set)
-        search?.addEventListener('input', debounce(() => {
-            params.q = search.value.trim();
-            load();
-        }, 300));
-
     // Fulfillment bar chart 
     if (!window.Chart) return;
 
@@ -680,54 +688,53 @@
 
       // ===== DataTables init (guarded) =====
       let dt;
-      try {
+        try {
         if (!$.fn.DataTable) throw new Error('DataTables plugin not loaded');
+        const $table = $('#jobOrdersTable');
 
-        dt = $('#jobOrdersTable').DataTable({
-          dom: 'Brt<"d-flex justify-content-between align-items-center mt-3"ip>',
-          paging: true,
-          pageLength: 5,
-          autoWidth: false,
-          responsive: true,
-          order: [],
-          buttons: [{
-            extend: 'excel',
-            title: 'Job Orders',
-            className: 'd-none',
-            exportOptions: { columns: [0,1,2,3,4,5] }
-          }],
-          columnDefs: [
-            { // status pill
-              targets: 4,
-              createdCell: function (td, cellData) {
-                $(td).html(pill(cellData));
-              }
+        // If dashboard table (has data-no-dt) OR already initialized, skip.
+        if (!$table.length || $table.is('[data-no-dt="1"]') || $.fn.dataTable.isDataTable('#jobOrdersTable')) {
+            // skip
+        } else {
+            $table.DataTable({
+            dom: 'Brt<"d-flex justify-content-between align-items-center mt-3"ip>',
+            paging: true,
+            pageLength: 5,
+            autoWidth: false,
+            responsive: true,
+            order: [], // (use [[5,'asc']] if you want deadline asc here)
+            buttons: [{
+                extend: 'excel',
+                title: 'Job Orders',
+                className: 'd-none',
+                exportOptions: { columns: [0,1,2,3,4,5] }
+            }],
+            columnDefs: [
+                { targets: -1, orderable: false, searchable: false, className: 'text-end' }
+            ],
+            language: {
+                info: 'Showing _START_ to _END_ of _TOTAL_ results',
+                paginate: { previous: 'Previous', next: 'Next' }
             },
-            { // actions
-              targets: -1,
-              orderable: false,
-              searchable: false,
-              className: 'text-end'
+            drawCallback: function() {
+                this.api().columns.adjust().responsive.recalc();
             }
-          ],
-          language: {
-            info: 'Showing _START_ to _END_ of _TOTAL_ results',
-            paginate: { previous: 'Previous', next: 'Next' }
-          },
-          drawCallback: function() {
-            this.api().columns.adjust().responsive.recalc();
-          }
-        });
+            });
 
-        // External controls
-        $('#jobSearch').on('keyup', function () { dt.search(this.value).draw(); });
-        $('#statusFilter').on('change', function () { dt.column(4).search(this.value).draw(); });
-        $('#exportExcel').on('click', function () { dt.button(0).trigger(); });
-        window.addEventListener('resize', () => setTimeout(() => dt.columns.adjust().responsive.recalc(), 100));
-
-      } catch (e) {
+            // external controls (only if we actually initialized)
+            $('#jobSearch').off('keyup.dt').on('keyup.dt', function () {
+            $table.DataTable().search(this.value).draw();
+            });
+            $('#statusFilter').off('change.dt').on('change.dt', function () {
+            $table.DataTable().column(4).search(this.value).draw();
+            });
+            $('#exportExcel').off('click.dt').on('click.dt', function () {
+            $table.DataTable().button(0).trigger();
+            });
+        }
+        } catch (e) {
         console.error('Failed to initialize DataTables:', e);
-      }
+        }
 
       // ===== Apex donut: Scheduled vs Canceled (meetings) =====
       try {

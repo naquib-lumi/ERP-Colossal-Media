@@ -1,5 +1,33 @@
-<table id="jobOrdersTable" class="table table-modern table-hover w-100">
-  @php $isHead = auth()->user()->role === 'head-artist'; @endphp
+@php
+  use Carbon\Carbon;
+
+  $isDashboard = ($tableContext ?? null) === 'dashboard';
+  $tableId     = $tableId ?? ($isDashboard ? 'jobOrdersTop5' : 'jobOrdersTable');
+
+  $isPaginator = $orders instanceof \Illuminate\Pagination\AbstractPaginator;
+  $col         = $isPaginator ? $orders->getCollection() : collect($orders);
+
+  $deadlineKey = fn($o) => $o->deadline ? Carbon::parse($o->deadline)
+                                        : Carbon::parse('2100-01-01');
+
+  if ($isDashboard) {
+      // exclude completed, sort DESC, take 5
+      $col = $col
+          ->reject(fn($o) => strtolower((string)$o->orderStatus) === 'completed')
+          ->sortByDesc($deadlineKey)
+          ->take(5)
+          ->values();
+  } else {
+      // orders page: sort by deadline DESC
+      $col = $col->sortByDesc($deadlineKey)->values();
+  }
+
+  $orders = $isPaginator ? $orders->setCollection($col) : $col;
+  $isHead = auth()->user()->role === 'head-artist';
+@endphp
+
+<table id="{{ $tableId }}" class="table table-modern table-hover w-100" @if($isDashboard) data-no-dt="1" @endif>
+
   <thead>
     <tr>
       <th>Order ID</th>
@@ -15,7 +43,7 @@
     @forelse ($orders as $order)
     @continue( (int) ($order->status ?? 0) === 1 )
     @php
-      $rawStatus = $order->orderStatus; // e.g. 'in_progress'
+      $rawStatus = $order->orderStatus;
       $isPending = (!$isHead) && $rawStatus === 'assigned' && (int) $order->pending === 1;
 
       $label = $isPending

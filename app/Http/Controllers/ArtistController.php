@@ -91,10 +91,14 @@ class ArtistController extends Controller
         }
 
         // 5) Rows
-        $orders = $query->with(['artist:id,name', 'salesperson:id,name','originalOrder:id,order_number',])
-                        ->latest('orderDate')
-                        ->paginate(1000)
-                        ->withQueryString();
+        $ordersForTop5 = $this->visibleOrders()
+            ->where(function ($q) {  
+                $q->whereNull('status')->orWhere('status', 0);
+            })
+            ->with(['artist:id,name', 'salesperson:id,name', 'originalOrder:id,order_number'])
+            ->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END, deadline DESC')
+            ->take(50)
+            ->get();
 
         // Pass the *raw UI token* back so the dropdown can mark "selected"
         $statusRaw = $raw;
@@ -121,7 +125,7 @@ class ArtistController extends Controller
         ")->first();
 
         return view('artist.dashboard', [
-            'orders'        => $orders,
+            'orders'        => $ordersForTop5,
             'metrics'       => $metrics,
             'isHead'        => $isHead,     
             'statusRaw'     => $statusRaw,  
