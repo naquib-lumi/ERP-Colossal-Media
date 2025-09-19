@@ -500,6 +500,46 @@ class ArtistController extends Controller
         ]);
     }
 
+    public function dataEntryUsers(\Illuminate\Http\Request $request)
+    {
+        try {
+            // Adjust role values to match your DB
+            $roles = ['data-entry','data_entry','data entry','dataentry'];
+            $users = \App\Models\User::query()
+                ->whereIn('role', $roles)
+                ->orderBy('name')
+                ->get(['id','name'])
+                ->map(fn($u) => ['id' => $u->id, 'name' => $u->name])
+                ->values();
+
+            return response()->json(['ok' => true, 'users' => $users]);
+        } catch (\Throwable $e) {
+            Log::error('dataEntryUsers failed: '.$e->getMessage());
+            return response()->json(['ok' => false, 'message' => 'Unable to fetch users'], 500);
+        }
+    }
+
+    public function passToDataEntry(\Illuminate\Http\Request $request, \App\Models\Order $order)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$this->isHeadArtist($user) && (int)$order->artist_id !== (int)$user->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'user_id' => ['required','integer','exists:users,id'],
+        ]);
+
+        $order->data_entry_id = (int)$validated['user_id'];
+        $order->orderStatus   = 'in_progress'; // matches your enum
+        $order->draft         = 0;
+        $order->submit        = 1;
+        $order->pending       = 1;
+        $order->save();
+
+        return response()->json(['ok' => true]);
+    }
+
     public function update(Request $request, Order $order, Product $product = null)
     {
         // ----- AuthZ -----
@@ -648,7 +688,7 @@ class ArtistController extends Controller
 
                 $order->draft       = (int) $request->input('is_draft', 0);
                 $order->approval    = $request->boolean('design_confirmed');
-                $order->orderStatus = 'in_progress';
+                $order->orderStatus = 'completed';
                 $order->save();
 
                 // ----- 2) Attachments -----
