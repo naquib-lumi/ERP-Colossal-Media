@@ -627,6 +627,8 @@
                                   $cutVal = old("products.$pIndex.items.$i.cutter", data_get($it, 'spec.cutter'));
                                   $assVal = old("products.$pIndex.items.$i.finishing", data_get($it,'finishing'));
 
+                                  $sel = fn($cur, $val) => (strcasecmp((string)$cur, (string)$val) === 0) ? 'selected' : '';
+
                                   $lamLc = strtolower((string) $lamVal);
                                   $prtLc = strtolower((string) $prtVal);
                                   $cutLc = strtolower((string) $cutVal);
@@ -636,11 +638,11 @@
                                     <label class="form-label">Lamination</label>
                                     <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }} data-optional="true">
                                       <option value="">-</option>
-                                      <option value="Tempered film laminator" {{ $lamLc==='Tempered film laminator' ? 'selected' : '' }}>Tempered film laminator</option>
-                                      <option value="Hot stamping laminator" {{ $lamLc==='Hot stamping laminator' ? 'selected' : '' }}>Hot stamping laminator</option>
-                                      <option value="Ultra thin pigment lam" {{ $lamLc==='Ultra thin pigment lam' ? 'selected' : '' }}>Ultra thin pigment lam</option>
-                                      <option value="UV laminator" {{ $lamLc==='UV laminator' ? 'selected' : '' }}>UV laminator</option>
-                                      <option value="Digital print laminator" {{ $lamLc==='Digital print laminator' ? 'selected' : '' }}>Digital print laminator</option>
+                                      <option value="Tempered film laminator" {{ $sel($lamLc, 'Tempered film laminator') }}>Tempered film laminator</option>
+                                      <option value="Hot stamping laminator" {{ $sel($lamLc, 'Hot stamping laminator') }}>Hot stamping laminator</option>
+                                      <option value="Ultra thin pigment lam" {{ $sel($lamLc, 'Ultra thin pigment lam') }}>Ultra thin pigment lam</option>
+                                      <option value="UV laminator" {{ $sel($lamLc, 'UV laminator') }}>UV laminator</option>
+                                      <option value="Digital print laminator" {{ $sel($lamLc, 'Digital print laminator') }}>Digital print laminator</option>
                                     </select>
                                   </div>
 
@@ -648,19 +650,19 @@
                                     <label class="form-label">Printer</label>
                                     <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select" {{ $disabled }} data-optional="true">
                                       <option value="">-</option>
-                                      <option value="HT 1 RTR 3.2" {{ $prtLc==='HT 1 RTR 3.2' ? 'selected' : '' }}>HT 1 RTR 3.2</option>
-                                      <option value="HT 2 HYB 3.2" {{ $prtLc==='HT 2 HYB 3.2' ? 'selected' : '' }}>HT 2 HYB 3.2</option>
-                                      <option value="Latex 3.2" {{ $prtLc==='Latex 3.2' ? 'selected' : '' }}>Latex 3.2</option>
-                                      <option value="Solvent 3.2" {{ $prtLc==='Solvent 3.2' ? 'selected' : '' }}>Solvent 3.2</option>
-                                      <option value="L1 UV6C 1.8" {{ $prtLc==='L1 UV6C 1.8' ? 'selected' : '' }}>L1 UV6C 1.8</option>
-                                      <option value="L2 UV6C 1.8 B" {{ $prtLc==='L2 UV6C 1.8 B' ? 'selected' : '' }}>L2 UV6C 1.8 B</option>
-                                      <option value="A1 UV4C 1.8" {{ $prtLc==='A1 UV4C 1.8' ? 'selected' : '' }}>A1 UV4C 1.8</option>
-                                      <option value="YF4C 5ft" {{ $prtLc==='YF4C 5ft' ? 'selected' : '' }}>YF4C 5ft</option>
-                                      <option value="HTP8C 5ft" {{ $prtLc==='HTP8C 5ft' ? 'selected' : '' }}>HTP8C 5ft</option>
-                                      <option value="flatbed 3.2" {{ $prtLc==='flatbed 3.2' ? 'selected' : '' }}>flatbed 3.2</option>
-                                      <option value="Flatbed A2 DTF" {{ $prtLc==='Flatbed A2 DTF' ? 'selected' : '' }}>Flatbed A2 DTF</option>
-                                      <option value="Minolta DGFP" {{ $prtLc==='Minolta DGFP' ? 'selected' : '' }}>Minolta DGFP</option>
-                                      <option value="Crystal label printer" {{ $prtLc==='Crystal label printer' ? 'selected' : '' }}>Crystal label printer</option>
+                                      <option value="HT 1 RTR 3.2" {{ $sel($prtLc, 'HT 1 RTR 3.2') }}>HT 1 RTR 3.2</option>
+                                      <option value="HT 2 HYB 3.2" {{ $sel($prtLc, 'HT 2 HYB 3.2') }}>HT 2 HYB 3.2</option>
+                                      <option value="Latex 3.2" {{ $sel($prtLc, 'Latex 3.2') }}>Latex 3.2</option>
+                                      <option value="Solvent 3.2" {{ $sel($prtLc, 'Solvent 3.2') }}>Solvent 3.2</option>
+                                      <option value="L1 UV6C 1.8" {{ $sel($prtLc, 'L1 UV6C 1.8') }}>L1 UV6C 1.8</option>
+                                      <option value="L2 UV6C 1.8 B" {{ $sel($prtLc, 'L2 UV6C 1.8 B') }}>L2 UV6C 1.8 B</option>
+                                      <option value="A1 UV4C 1.8" {{ $sel($prtLc, 'A1 UV4C 1.8') }}>A1 UV4C 1.8</option>
+                                      <option value="YF4C 5ft" {{ $sel($prtLc, 'YF4C 5ft') }}>YF4C 5ft</option>
+                                      <option value="HTP8C 5ft" {{ $sel($prtLc, 'HTP8C 5ft') }}>HTP8C 5ft</option>
+                                      <option value="flatbed 3.2" {{ $sel($prtLc, 'flatbed 3.2') }}>flatbed 3.2</option>
+                                      <option value="Flatbed A2 DTF" {{ $sel($prtLc, 'Flatbed A2 DTF') }}>Flatbed A2 DTF</option>
+                                      <option value="Minolta DGFP" {{ $sel($prtLc, 'Minolta DGFP') }}>Minolta DGFP</option>
+                                      <option value="Crystal label printer" {{ $sel($prtLc, 'Crystal label printer') }}>Crystal label printer</option>
                                     </select>
                                   </div>
 
@@ -668,14 +670,14 @@
                                     <label class="form-label">Cutter</label>
                                     <select name="products[{{ $pIndex }}][items][{{ $i }}][cutter]" class="form-select" {{ $disabled }} data-optional="true">
                                       <option value="">-</option>
-                                      <option value="Jinwei 1 6x10" {{ $cutLc==='Jinwei 1 6x10' ? 'selected' : '' }}>Jinwei 1 6x10</option>
-                                      <option value="AOL1 6x10" {{ $cutLc==='AOL1 6x10' ? 'selected' : '' }}>AOL1 6x10</option>
-                                      <option value="AOL2 1000x700" {{ $cutLc==='AOL2 1000x700' ? 'selected' : '' }}>AOL2 1000x700</option>
-                                      <option value="Router 1" {{ $cutLc==='Router 1' ? 'selected' : '' }}>Router 1</option>
-                                      <option value="Laser 1 300W" {{ $cutLc==='Laser 1 300W' ? 'selected' : '' }}>Laser 1 300W</option>
-                                      <option value="Laser 2 150W" {{ $cutLc==='Laser 2 150W' ? 'selected' : '' }}>Laser 2 150W</option>
-                                      <option value="Laser 3 150W" {{ $cutLc==='Laser 3 150W' ? 'selected' : '' }}>Laser 3 150W</option>
-                                      <option value="Paper cutter" {{ $cutLc==='Paper cutter' ? 'selected' : '' }}>Paper cutter</option>
+                                      <option value="Jinwei 1 6x10" {{ $sel($cutLc, 'Jinwei 1 6x10') }}>Jinwei 1 6x10</option>
+                                      <option value="AOL1 6x10" {{ $sel($cutLc, 'AOL1 6x10') }}>AOL1 6x10</option>
+                                      <option value="AOL2 1000x700" {{ $sel($cutLc, 'AOL2 1000x700') }}>AOL2 1000x700</option>
+                                      <option value="Router 1" {{ $sel($cutLc, 'Router 1') }}>Router 1</option>
+                                      <option value="Laser 1 300W" {{ $sel($cutLc, 'Laser 1 300W') }}>Laser 1 300W</option>
+                                      <option value="Laser 2 150W" {{ $sel($cutLc, 'Laser 2 150W') }}>Laser 2 150W</option>
+                                      <option value="Laser 3 150W" {{ $sel($cutLc, 'Laser 3 150W') }}>Laser 3 150W</option>
+                                      <option value="Paper cutter" {{ $sel($cutLc, 'Paper cutter') }}>Paper cutter</option>
                                     </select>
                                   </div>
                                   <div class="col-md-3">
