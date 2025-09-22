@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class ArtistOrderController extends Controller
 {
@@ -159,13 +160,13 @@ class ArtistOrderController extends Controller
                 'approval'                 => 'required|boolean',
                 'orderDetail'              => 'nullable|string',
 
-                'products'                 => 'required|array|min:1',
-                'products.*.product_name'  => 'required|string|max:255',
-                'products.*.quantity'      => 'required|integer|min:1',
-                'products.*.remark'        => 'nullable|string',
-                'products.*.material_info' => 'nullable|string',
-                'products.*.location'      => 'nullable|string|max:255',
-                'products.*.date_time'     => 'nullable|date',
+                'products'                         => ['required','array','min:1'],
+                'products.*.product_name'          => ['required','string','max:255'],
+                'products.*.quantity'              => ['required','integer','min:1'],
+                'products.*.material_info'         => ['nullable','string'],
+                'products.*.remarks'               => ['nullable','array'],
+                'products.*.remarks.*.operation'   => ['required_with:products.*.remarks.*.remark','in:printing,furnishing,installation,courier,self_pickup'],
+                'products.*.remarks.*.remark'      => ['required_with:products.*.remarks.*.operation','string'],
 
                 'csv_file'                 => 'nullable|file|mimes:csv,txt',
                 'attachments'              => 'nullable|array',
@@ -204,9 +205,9 @@ class ArtistOrderController extends Controller
 
             // Default statuses for a new artist order
             $order->orderStatus = 'in_progress';
-            $order->draft       = 0;
-            $order->submit      = 1;
-            $order->pending     = 1;
+            $order->draft       = 1;
+            $order->submit      = 0;
+            $order->pending     = 0;
             $order->status      = 0;
 
             $order->save();
@@ -235,18 +236,38 @@ class ArtistOrderController extends Controller
             }
 
             // Persist products
-            foreach ($productsData as $p) {
-                if (!($p['product_name'] ?? null) || !($p['quantity'] ?? null)) continue;
+            foreach ($request->input('products', []) as $p) {
+                if (empty($p['product_name']) || empty($p['quantity'])) {
+                    continue;
+                }
 
-                Product::create([
-                    'OrderID'        => $order->id,
-                    'productName'    => $p['product_name'],
-                    'totalQuantity'  => (int) $p['quantity'],
-                    'productRemark'  => $p['remark'] ?? null,
-                    'materialRemark' => $p['material_info'] ?? null,
-                    'location'       => $p['location'] ?? null,
-                    'date_time'      => $p['date_time'] ?? null,
+                // Save into products table (columns based on your screenshot)
+                $product = \App\Models\Product::create([
+                    'OrderID'       => $order->id,
+                    'productName'   => $p['product_name'],
+                    'totalQuantity' => (int) $p['quantity'],
+                    'materialRemark'=> $p['material_info'] ?? null,
+                    // let defaults handle: taskType, status ('in_progress'), editable (1)
                 ]);
+
+                // Save remarks into product_remarks (use model if you have one; else DB::table)
+                if (!empty($p['remarks']) && is_array($p['remarks'])) {
+                    $rows = [];
+                    $now  = now();
+                    foreach ($p['remarks'] as $r) {
+                        if (empty($r['operation']) || empty($r['remark'])) continue;
+                        $rows[] = [
+                            'ProductID'   => $product->getKey(), // primary key (ProductID)
+                            'operation'   => $r['operation'],    // enum: printing/furnishing/installation/delivery
+                            'remark'      => $r['remark'],
+                            'created_at'  => $now,
+                            'updated_at'  => $now,
+                        ];
+                    }
+                    if ($rows) {
+                        DB::table('product_remarks')->insert($rows);
+                    }
+                }
             }
 
             return redirect()->route('artist.orders.show', $order->id)

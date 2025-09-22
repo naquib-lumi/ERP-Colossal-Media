@@ -177,7 +177,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/artist/orders', [ArtistOrderController::class, 'store'])->name('artist.orders.store');        
         Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');;
         Route::put('/artist/orders/{id}', [ArtistOrderController::class, 'update'])->name('artist.orders.update');
-        Route::get('/artist/orders/{id}', [ArtistOrderController::class, 'show'])->name('artist.orders.show')->whereNumber('order');;
+        Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'show'])->name('artist.orders.show')->whereNumber('order');;
         Route::delete('/artist/orders/{id}', [ArtistOrderController::class, 'destroy'])->name('artist.orders.destroy');
         Route::post('/artist/orders/get', [ArtistOrderController::class, 'getOrders'])->name('artist.orders.get');
         
