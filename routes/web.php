@@ -13,8 +13,18 @@ use App\Http\Controllers\PrintingController;
 use App\Http\Controllers\ProductOrderController;
 
 use App\Http\Controllers\ArtistController;
+use App\Http\Controllers\LogisticOrderHistoryController;
+use App\Http\Controllers\PrintingHistoryController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+
+
+
+// Route::prefix('logistic')->name('logistic.')->group(function () {
+//     // Order History (frontend only)
+//     Route::get('/order-history', [LogisticOrderHistoryController::class, 'index'])
+//         ->name('orderHistory');
+// });
 
 Route::get('/', function () {
     return view('welcome');
@@ -124,7 +134,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/printing/dashboard', [PrintingController::class, 'dashboard'])->name('printing.dashboard');
         // Route::get('/printing/productorder', [ProductOrderController::class, 'productorder'])->name('printing.productorder');
         Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
-Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
+        Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
+        Route::get('/printing/history', [PrintingHistoryController::class, 'index'])
+    ->name('printing.history');
     });
 
     Route::middleware('role:admin')->group(function () {
