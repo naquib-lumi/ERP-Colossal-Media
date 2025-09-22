@@ -339,7 +339,8 @@ class LeadController extends Controller
             'reminders' => function ($query) {
                 $query->orderBy('due_date', 'asc') // sort earliest first
                     ->take(10); // limit to 10
-            }
+            },
+            'orders'
         ])->findOrFail($id);
 
         if ($lead->salesperson_id !== Auth::id()) {
@@ -392,7 +393,7 @@ class LeadController extends Controller
             'date' => 'nullable|date',
             'tags' => 'nullable|array',
         ]);
-
+        $validated['user_id'] = Auth::id();
         $note = $lead->notes()->create($validated);
         return response()->json(['success' => true, 'note' => $note]);
     }

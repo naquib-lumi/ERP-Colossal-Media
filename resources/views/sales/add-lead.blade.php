@@ -197,9 +197,9 @@
     // Update on file input change
     fileInput.addEventListener('change', () => {
         addFiles(fileInput.files);
-        fileInput.value = ''; // Clear input to allow re-selecting same files
+        //fileInput.value = ''; // Clear input to allow re-selecting same files
     });
-
+s
     function addFiles(files) {
         Array.from(files).forEach(file => {
             if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {

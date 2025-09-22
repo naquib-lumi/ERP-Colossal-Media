@@ -35,6 +35,11 @@ class Lead extends Model
         return $this->hasMany(Reminder::class);
     }
 
+    public function orders()
+{
+    return $this->hasMany(Order::class);
+}
+
     public function notes()
     {
         return $this->hasMany(Note::class);

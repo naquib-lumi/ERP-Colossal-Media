@@ -155,13 +155,21 @@
                                     </div>
                                     <div class="chat-container" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
                                         @forelse ($lead->notes as $note)
-                                        <div class="chat-message mb-2 p-2 bg-light rounded" style="max-width: 70%;">
+                                     <div class="chat-message mb-2 p-2 bg-light rounded" style="max-width: 70%;">
                                             <p class="mb-1">{{ $note->content }}</p>
-                                            <small class="text-muted">{{ $note->date instanceof \Carbon\Carbon ? $note->date->format('Y-m-d H:i') : $note->date }}</small>
+                                          <small class="text-muted">
+    {{ $note->user->name ?? 'Unknown' }} · 
+    @if($note->date->diffInDays() == 0) Today 
+    @elseif($note->date->diffInDays() == 1) Yesterday 
+    @elseif($note->date->diffInDays() == 2) Two days ago 
+    @else {{ $note->date->format('Y-m-d H:i') }}
+    @endif
+    {{ $note->date->diffInHours() >= 24 ? '' : 'at ' . $note->date->format('H:i') }}
+</small>
                                             @if ($note->tags)
                                             <div class="mt-1">
-                                                @foreach (json_decode($note->tags) as $tag)
-                                                <span class="badge bg-secondary me-1">{{ $tag }}</span>
+                                                @foreach ($note->tags ?? [] as $tag)
+                                                    <span class="badge bg-secondary me-1">{{ $tag }}</span>
                                                 @endforeach
                                             </div>
                                             @endif
@@ -298,9 +306,36 @@
                 });
             });
         </script>
-                <div class="tab-pane fade" id="order-history" role="tabpanel" aria-labelledby="order-history-tab">
-                    <p class="text-muted">Order history will be added here.</p>
-                </div>
+            <div class="tab-pane fade" id="order-history" role="tabpanel" aria-labelledby="order-history-tab">
+    @if($lead->orders->isEmpty())
+        <p class="text-muted">No orders yet.</p>
+    @else
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Job Title</th>
+                        <th>Created Date</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($lead->orders as $order)
+                        <tr>
+                            <td>{{ $order->order_number }}</td>
+                            <td>{{ $order->orderTitle }}</td>
+                            <td>{{ $order->created_at->format('Y-m-d') }}</td>
+                            <td><span class="badge bg-{{ $order->orderStatus == 'To_assign' ? 'warning' : ($order->orderStatus == 'completed' ? 'success' : 'secondary') }}">{{ ucfirst($order->orderStatus) }}</span></td>
+                            <td><a href="{{ route('orders.show', $order->id) }}" class="btn btn-sm btn-primary">View</a></td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</div>
             </div>
         </div>
     </div>
