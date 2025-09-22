@@ -9,6 +9,8 @@ use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\ArtistOrderController;
+use App\Http\Controllers\ArtistCalendarController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\FulfillmentController;
 use App\Http\Controllers\RedoOrderController;
@@ -154,6 +156,24 @@ Route::middleware('auth')->group(function () {
         Route::patch('/artist/profile',     [ArtistController::class, 'ProfileUpdate'])->name('artist.profile.update');
         Route::get('/artist/orders/{order}/redo',  [RedoOrderController::class, 'create'])->name('artist.orders.redo.create');
         Route::post('/artist/orders/{order}/redo', [RedoOrderController::class, 'store'])->name('artist.orders.redo.store');
+        Route::post('/artist/calendar', [ArtistCalendarController::class, 'index'])->name('artist.calendar');
+        Route::get('/calendar/events', [ArtistCalendarController::class, 'events'])->name('calendar.events');
+
+        Route::pattern('id', '\d+');
+        Route::pattern('order', '\d+');
+        Route::get('/artist/orders/leads/search', [ArtistOrderController::class, 'searchLeads'])->name('artist.orders.leads.search');        
+        Route::get('/artist/orders/leads/{id}', [ArtistOrderController::class, 'getLead'])->name('artist.orders.leads.get');
+        Route::get('/artist/orders/create/{lead_id?}', [ArtistOrderController::class, 'create'])->name('artist.orders.create');
+        Route::post('/artist/orders', [ArtistOrderController::class, 'store'])->name('artist.orders.store');        
+        Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');;
+        Route::put('/artist/orders/{id}', [ArtistOrderController::class, 'update'])->name('artist.orders.update');
+        Route::get('/artist/orders/{id}', [ArtistOrderController::class, 'show'])->name('artist.orders.show')->whereNumber('order');;
+        Route::delete('/artist/orders/{id}', [ArtistOrderController::class, 'destroy'])->name('artist.orders.destroy');
+        Route::post('/artist/orders/get', [ArtistOrderController::class, 'getOrders'])->name('artist.orders.get');
+        
+        Route::get('/artist/orders/csv-template', [ArtistOrderController::class, 'csvTemplate'])->name('artist.orders.csv_template');
+        Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show')->whereNumber('order');
+        Route::get('/artist/orders/{order}/edit', [ArtistController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])

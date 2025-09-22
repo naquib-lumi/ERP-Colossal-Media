@@ -87,6 +87,12 @@ html.layout-menu-hover .logo-text {
                   <div data-i18n="Job Orders">Job Orders</div>
                 </a>
               </li>
+              <li class="menu-item {{ request()->routeIs('artist.calendar') ? 'active' : '' }}">
+                <a href="{{ route('artist.calendar') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-calendar"></i>
+                  <div data-i18n="Calendar">Calendar</div>
+                </a>
+              </li>
               <li class="menu-item {{ request()->routeIs('artist.fulfillment.index') ? 'active' : '' }}">
                 <a href="{{ route('artist.fulfillment.index') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-check"></i>
