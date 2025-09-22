@@ -133,17 +133,43 @@
         max-height: none !important;
         min-height: 0 !important;
     }
+
+    .filters-hz{
+        display:flex; align-items:center; gap:.5rem;
+        white-space:nowrap; overflow-x:auto; overscroll-behavior-x:contain;
+        padding:.5rem .75rem; background:#fff;
+        border:1px solid rgba(0,0,0,.08); border-radius:12px;
+        box-shadow:0 1px 3px rgba(16,24,40,.04);
+    }
+    .filters-hz::-webkit-scrollbar{ height:8px; }
+    .filters-hz::-webkit-scrollbar-thumb{ background:#e6e9ed; border-radius:8px; }
+
+    .hz-field{
+        display:flex; align-items:center; gap:.4rem;
+        padding:.35rem .6rem; background:#fff;
+        border:1px solid rgba(0,0,0,.08); border-radius:5px;
+    }
+    .hz-field:focus-within{ border-color:#b6d4fe; box-shadow:0 0 0 2px rgba(13,110,253,.15); }
+
+    .hz-input{ border:0; outline:0; background:transparent; min-width:11rem; font-size:.875rem; }
+    .hz-input[type="date"]{ min-width:9.25rem; }
+    .hz-select{ border:0; outline:0; background:transparent; font-size:.875rem; padding-right:1rem; }
+    .hz-btn{ border-radius:5px; padding:.35rem .8rem; }
+
+    .hz-sep{ color:#98a2b3; user-select:none; }
+
+    .hz-grow{ min-width:16rem; }
+    @media (max-width: 992px){
+        .hz-grow{ min-width:12rem; }
+    }
 </style>
 @endpush
 
 <div class="container py-4">
     <h3 class="mb-4">Dashboard Overview</h3>
 
-    <!-- Content wrapper -->
     <div class="content-wrapper">
-        <!-- Content -->
         <div class="container-p-y">
-            <!-- Product List Widget -->
             <div class="card mb-6">
                 <div class="card-widget-separator-wrapper">
                     <div class="card-body card-widget-separator">
@@ -190,7 +216,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <!-- <i class="icon-base bx bx-gift icon-lg text-heading"></i> -->
+                                        <i class="icon-base bx bx-pencil icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -206,7 +232,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
+                                        <i class="icon-base bx bx-check icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -269,7 +295,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-gift icon-lg text-heading"></i>
+                                        <i class="icon-base bx bx-pencil icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -284,7 +310,7 @@
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
                                     <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
+                                        <i class="icon-base bx bx-check icon-lg text-heading"></i>
                                     </span>
                                     </span>
                                 </div>
@@ -316,36 +342,59 @@
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <h5 class="mb-0">Job Orders</h5>
 
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <div class="input-group" style="width:260px;">
-                                <span class="input-group-text bg-white border-end-0"><i class="bx bx-search"></i></span>
-                                <input id="jobSearch" type="text" class="form-control border-start-0" placeholder="Search orders…">
+                        {{-- HORIZONTAL FILTER STRIP --}}
+                        <div class="filters-hz mb-3">
+                        @if(auth()->user()->role === 'head-artist')
+                            {{-- Artist --}}
+                            <div class="hz-field">
+                            <i class="bx bx-user"></i>
+                            <input id="artistFilter" type="text" class="hz-input" placeholder="Search artist name…">
                             </div>
 
-                            <select id="statusFilter" class="form-select w-auto">
-                                <option value="">All statuses</option>
-                                @if(!$isHead ?? false)
-                                <option value="pending">Pending</option>
-                                @endif
-                                <option value="in_progress">In progress</option>
-                                <option value="completed">Completed</option>
-                                <option value="rejected">Rejected</option>
+                            {{-- Date range --}}
+                            <div class="hz-field">
+                            <i class="bx bx-calendar"></i>
+                            <input id="dateFrom" type="date" class="hz-input">
+                            </div>
+                            <span class="hz-sep">–</span>
+                            <div class="hz-field">
+                            <i class="bx bx-calendar"></i>
+                            <input id="dateTo" type="date" class="hz-input">
+                            </div>
+                        @endif
 
-                                {{-- head artist only --}}
-                                @if($isHead ?? false)
-                                <option value="to_assign">To assign</option>
-                                <option value="assigned">Assigned</option>
-                                @endif
+                        {{-- Search orders --}}
+                        <div class="hz-field hz-grow">
+                            <i class="bx bx-search"></i>
+                            <input id="jobSearch" type="text" class="hz-input" placeholder="Search orders…">
+                        </div>
+
+                        {{-- Status --}}
+                        <div class="hz-field">
+                            <select id="statusFilter" class="hz-select">
+                            <option value="">All statuses</option>
+                            <option value="to_assign">To Assign</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="rejected">Rejected</option>
                             </select>
+                        </div>
 
-                            <button id="exportExcel" class="btn btn-dark">
-                                <i class="bx bx-export me-1"></i> Export
-                            </button>
+                        {{-- Export --}}
+                        <button id="exportExcel" type="button" class="btn btn-sm btn-dark hz-btn">
+                            <i class="bx bx-export me-1"></i> Export
+                        </button>
                         </div>
                     </div>
 
-                    <div class="table-responsive" id="orders-table-wrapper">
-                        @include('artist.partials.orders-table', ['orders' => $orders])
+                    <div class="table-responsive" id="orders-table-wrapper-top5" data-dashboard>
+                        @include('artist.partials.orders-table', [
+                        'orders'        => $orders,        
+                        'tableContext'  => 'dashboard',   
+                        'tableId'       => 'jobOrdersTop5' 
+                        ])               
                     </div>
                 </div>
             </div>
@@ -383,7 +432,7 @@
             </div>
         </div>
 
-        @push('scripts')
+@push('scripts')
 <script>
   (function() {
         let dt = null;
@@ -398,178 +447,182 @@
         const status = document.getElementById('statusFilter');
         const search = document.getElementById('jobSearch');
 
-        // --- state kept in URL (no 'page' anymore: DataTables paginates client-side)
-        const qs = new URLSearchParams(location.search);
-        const params = {
-            status: qs.get('status') || (status?.value ?? ''),
-            q: qs.get('q') || (search?.value ?? '')
-        };
-        if (status) status.value = params.status;
-        if (search) search.value = params.q;
-
-        let inflight; // AbortController for fetch cancellation
-        const cache = new Map(); // tiny cache for HTML snippets
-
-        function setUrl() {
-            const url = new URL(location.href);
-            url.searchParams.delete('status');
-            url.searchParams.delete('q');
-            if (params.status) url.searchParams.set('status', params.status);
-            if (params.q) url.searchParams.set('q', params.q);
-            history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
-        }
-
-        function keyFor(p) {
-            const k = new URLSearchParams();
-            if (p.status) k.set('status', p.status);
-            if (p.q) k.set('q', p.q);
-            return k.toString();
-        }
-
-        function buildUrl(p) {
-            const base = @json(route('artist.orders'));
-            const url = new URL(base, location.origin);
-            if (p.status) url.searchParams.set('status', p.status);
-            if (p.q) url.searchParams.set('q', p.q);
-            return url.toString();
-        }
-
-        function debounce(fn, ms = 300) {
-            let t;
-            return (...a) => {
-                clearTimeout(t);
-                t = setTimeout(() => fn(...a), ms);
+        if (wrap) {
+            // --- state kept in URL (no 'page' anymore: DataTables paginates client-side)
+            const qs = new URLSearchParams(location.search);
+            const params = {
+                status: qs.get('status') || (status?.value ?? ''),
+                q: qs.get('q') || (search?.value ?? '')
             };
-        }
+            if (status) status.value = params.status;
+            if (search) search.value = params.q;
 
-        // ---- DataTables (re)initialization
-        function initDataTable() {
-            if (!window.jQuery || !$.fn.DataTable) return;
+            let inflight; // AbortController for fetch cancellation
+            const cache = new Map(); // tiny cache for HTML snippets
 
-            // Destroy previous instance safely
-            if (dt) {
-                dt.destroy();
-                dt = null;
+            function setUrl() {
+                const url = new URL(location.href);
+                url.searchParams.delete('status');
+                url.searchParams.delete('q');
+                if (params.status) url.searchParams.set('status', params.status);
+                if (params.q) url.searchParams.set('q', params.q);
+                history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
             }
-            clearDtFilters();
 
-            // IMPORTANT: assign to outer 'dt', don't redeclare with 'const' or 'let' here
-            dt = $('#jobOrdersTable').DataTable({
-                dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
-                paging: true,
-                pageLength: 5,
-                lengthMenu: [
-                    [5, 10, 20, 30],
-                    [5, 10, 20, 30]
-                ],
-                autoWidth: false,
-                responsive: true,
-                order: [],
-                buttons: [{
-                    extend: 'excel',
-                    title: 'Job Orders',
-                    className: 'd-none',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5]
-                    }
-                }],
-                columnDefs: [
-                    { targets: -1, orderable: false, searchable: false, className: 'text-end' },
-                    // (optional) safety: fill blanks instead of warning if a cell is missing
-                    { targets: '_all', defaultContent: '' }
-                ],
-                language: {
-                    lengthMenu: 'Show _MENU_',
-                    emptyTable: 'No matching records found',
-                    zeroRecords: 'No matching records found',
-                    info: 'Showing _START_ to _END_ of _TOTAL_ results',
-                    infoEmpty: 'Showing 0 to 0 of 0 results',
-                    paginate: { previous: 'Previous', next: 'Next' }
-                },
-                drawCallback: function() {
-                    this.api().columns.adjust().responsive.recalc();
+            function keyFor(p) {
+                const k = new URLSearchParams();
+                if (p.status) k.set('status', p.status);
+                if (p.q) k.set('q', p.q);
+                return k.toString();
+            }
+
+            function buildUrl(p) {
+                const base = @json(route('artist.orders'));
+                const url = new URL(base, location.origin);
+                if (p.status) url.searchParams.set('status', p.status);
+                if (p.q) url.searchParams.set('q', p.q);
+                return url.toString();
+            }
+
+            function debounce(fn, ms = 300) {
+                let t;
+                return (...a) => {
+                    clearTimeout(t);
+                    t = setTimeout(() => fn(...a), ms);
+                };
+            }
+
+            // ---- DataTables (re)initialization
+            function initDataTable() {
+                if (!window.jQuery || !$.fn.DataTable) return;
+
+                // Destroy previous instance safely
+                if (dt) {
+                    dt.destroy();
+                    dt = null;
                 }
-            });
+                clearDtFilters();
 
-            // --- custom filter by data-status-code
-            const filterFn = function(settings, data, dataIndex) {
-                const desired = (document.getElementById('statusFilter')?.value || '').toLowerCase();
-                if (!desired) return true; // no filter
-                const node = dt.row(dataIndex).node();
-                const code = (node.querySelector('td[data-status-code]')?.dataset.statusCode || '').toLowerCase();
-                return code === desired;
-            };
-            filterFn._ordersStatusFilter = true; // tag so we can remove it cleanly
-            $.fn.dataTable.ext.search.push(filterFn);
+                const $t = $('#jobOrdersTable');
+                if (!$t.length || $t.is('[data-no-dt="1"]')) return;
 
-            // external controls
-            $('#jobSearch').off('keyup.dt').on('keyup.dt', function() {
-                dt.search(this.value).draw();
-            });
-
-            $('#statusFilter').off('change.dt').on('change.dt', function() {
-                dt.draw(); // just redraw; the custom filter uses the dropdown’s value
-            });
-
-            $('#exportExcel').off('click.dt').on('click.dt', function() {
-                dt.button(0).trigger();
-            });
-
-            // apply current external values
-            const s = document.getElementById('jobSearch');
-            if (s && s.value) dt.search(s.value).draw();
-            const f = document.getElementById('statusFilter');
-            if (f && f.value) dt.draw();
-        }
-
-        async function load(force = false) {
-            const k = keyFor(params);
-            setUrl();
-
-            if (cache.has(k) && !force) {
-                wrap.innerHTML = cache.get(k);
-                initDataTable();
-                return;
-            }
-
-            // cancel previous request
-            inflight?.abort?.();
-            inflight = new AbortController();
-
-            wrap.style.opacity = 0.6;
-            try {
-                const res = await fetch(buildUrl(params), {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+                // IMPORTANT: assign to outer 'dt', don't redeclare with 'const' or 'let' here
+                dt = $t.DataTable({
+                    dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
+                    paging: true,
+                    pageLength: 5,
+                    lengthMenu: [
+                        [5, 10, 20, 30],
+                        [5, 10, 20, 30]
+                    ],
+                    autoWidth: false,
+                    responsive: true,
+                    order: [],
+                    buttons: [{
+                        extend: 'excel',
+                        title: 'Job Orders',
+                        className: 'd-none',
+                        exportOptions: {
+                            columns: [0, 1, 2, 3, 4, 5]
+                        }
+                    }],
+                    columnDefs: [
+                        { targets: -1, orderable: false, searchable: false, className: 'text-end' },
+                        // (optional) safety: fill blanks instead of warning if a cell is missing
+                        { targets: '_all', defaultContent: '' }
+                    ],
+                    language: {
+                        lengthMenu: 'Show _MENU_',
+                        emptyTable: 'No matching records found',
+                        zeroRecords: 'No matching records found',
+                        info: 'Showing _START_ to _END_ of _TOTAL_ results',
+                        infoEmpty: 'Showing 0 to 0 of 0 results',
+                        paginate: { previous: 'Previous', next: 'Next' }
                     },
-                    signal: inflight.signal
+                    drawCallback: function() {
+                        this.api().columns.adjust().responsive.recalc();
+                    }
                 });
-                const html = await res.text();
-                cache.set(k, html);
-                wrap.innerHTML = html;
-                initDataTable(); // ← re-init after content swap
-            } catch (e) {
-                if (e.name !== 'AbortError') console.error(e);
-            } finally {
-                wrap.style.opacity = 1;
+
+                // --- custom filter by data-status-code
+                const filterFn = function(settings, data, dataIndex) {
+                    const desired = (document.getElementById('statusFilter')?.value || '').toLowerCase();
+                    if (!desired) return true; // no filter
+                    const node = dt.row(dataIndex).node();
+                    const code = (node.querySelector('td[data-status-code]')?.dataset.statusCode || '').toLowerCase();
+                    return code === desired;
+                };
+                filterFn._ordersStatusFilter = true; // tag so we can remove it cleanly
+                $.fn.dataTable.ext.search.push(filterFn);
+
+                // external controls
+                $('#jobSearch').off('keyup.dt').on('keyup.dt', function() {
+                    dt.search(this.value).draw();
+                });
+
+                $('#statusFilter').off('change.dt').on('change.dt', function() {
+                    dt.draw(); // just redraw; the custom filter uses the dropdown’s value
+                });
+
+                $('#exportExcel').off('click.dt').on('click.dt', function() {
+                    dt.button(0).trigger();
+                });
+
+                // apply current external values
+                const s = document.getElementById('jobSearch');
+                if (s && s.value) dt.search(s.value).draw();
+                const f = document.getElementById('statusFilter');
+                if (f && f.value) dt.draw();
             }
+
+            async function load(force = false) {
+                const k = keyFor(params);
+                setUrl();
+
+                if (cache.has(k) && !force) {
+                    wrap.innerHTML = cache.get(k);
+                    initDataTable();
+                    return;
+                }
+
+                // cancel previous request
+                inflight?.abort?.();
+                inflight = new AbortController();
+
+                wrap.style.opacity = 0.6;
+                try {
+                    const res = await fetch(buildUrl(params), {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        signal: inflight.signal
+                    });
+                    const html = await res.text();
+                    cache.set(k, html);
+                    wrap.innerHTML = html;
+                    initDataTable(); // ← re-init after content swap
+                } catch (e) {
+                    if (e.name !== 'AbortError') console.error(e);
+                } finally {
+                    wrap.style.opacity = 1;
+                }
+            }
+
+            // initial render
+            load(true);
+
+            // status -> change (fetch new HTML, then DT paginates client-side)
+            status?.addEventListener('change', () => {
+                params.status = status.value || '';
+                load();
+            });
+
+            // search -> input (server fetch; DT still paginates the new set)
+            search?.addEventListener('input', debounce(() => {
+                params.q = search.value.trim();
+                load();
+            }, 300));
         }
-
-        // initial render
-        load(true);
-
-        // status -> change (fetch new HTML, then DT paginates client-side)
-        status?.addEventListener('change', () => {
-            params.status = status.value || '';
-            load();
-        });
-
-        // search -> input (server fetch; DT still paginates the new set)
-        search?.addEventListener('input', debounce(() => {
-            params.q = search.value.trim();
-            load();
-        }, 300));
-
     // Fulfillment bar chart 
     if (!window.Chart) return;
 
@@ -682,52 +735,144 @@
       let dt;
       try {
         if (!$.fn.DataTable) throw new Error('DataTables plugin not loaded');
+        const $table = $('#jobOrdersTable');
 
-        dt = $('#jobOrdersTable').DataTable({
-          dom: 'Brt<"d-flex justify-content-between align-items-center mt-3"ip>',
-          paging: true,
-          pageLength: 5,
-          autoWidth: false,
-          responsive: true,
-          order: [],
-          buttons: [{
-            extend: 'excel',
-            title: 'Job Orders',
-            className: 'd-none',
-            exportOptions: { columns: [0,1,2,3,4,5] }
-          }],
-          columnDefs: [
-            { // status pill
-              targets: 4,
-              createdCell: function (td, cellData) {
-                $(td).html(pill(cellData));
-              }
+        // If dashboard table (has data-no-dt) OR already initialized, skip.
+        if (!$table.length || $table.is('[data-no-dt="1"]') || $.fn.dataTable.isDataTable('#jobOrdersTable')) {
+            // skip
+        } else {
+            $table.DataTable({
+            dom: 'Brt<"d-flex justify-content-between align-items-center mt-3"ip>',
+            paging: true,
+            pageLength: 5,
+            autoWidth: false,
+            responsive: true,
+            order: [], // (use [[5,'asc']] if you want deadline asc here)
+            buttons: [{
+                extend: 'excel',
+                title: 'Job Orders',
+                className: 'd-none',
+                exportOptions: { columns: [0,1,2,3,4,5] }
+            }],
+            columnDefs: [
+                { targets: -1, orderable: false, searchable: false, className: 'text-end' }
+            ],
+            language: {
+                info: 'Showing _START_ to _END_ of _TOTAL_ results',
+                paginate: { previous: 'Previous', next: 'Next' }
             },
-            { // actions
-              targets: -1,
-              orderable: false,
-              searchable: false,
-              className: 'text-end'
+            drawCallback: function() {
+                this.api().columns.adjust().responsive.recalc();
             }
-          ],
-          language: {
-            info: 'Showing _START_ to _END_ of _TOTAL_ results',
-            paginate: { previous: 'Previous', next: 'Next' }
-          },
-          drawCallback: function() {
-            this.api().columns.adjust().responsive.recalc();
-          }
-        });
+            });
 
-        // External controls
-        $('#jobSearch').on('keyup', function () { dt.search(this.value).draw(); });
-        $('#statusFilter').on('change', function () { dt.column(4).search(this.value).draw(); });
-        $('#exportExcel').on('click', function () { dt.button(0).trigger(); });
-        window.addEventListener('resize', () => setTimeout(() => dt.columns.adjust().responsive.recalc(), 100));
-
-      } catch (e) {
+            // external controls (only if we actually initialized)
+            $('#jobSearch').off('keyup.dt').on('keyup.dt', function () {
+            $table.DataTable().search(this.value).draw();
+            });
+            $('#statusFilter').off('change.dt').on('change.dt', function () {
+            $table.DataTable().column(4).search(this.value).draw();
+            });
+            $('#exportExcel').off('click.dt').on('click.dt', function () {
+            $table.DataTable().button(0).trigger();
+            });
+        }
+        } catch (e) {
         console.error('Failed to initialize DataTables:', e);
-      }
+        }
+
+        // === Dashboard top-5 DataTable (local-only) ===
+        const $dashTable = window.jQuery ? jQuery('#jobOrdersTop5') : null;
+        if ($dashTable && $dashTable.length) {
+        try {
+            if (!jQuery.fn.DataTable) throw new Error('DataTables plugin not loaded');
+
+            // clear old filters for this table
+            jQuery.fn.dataTable.ext.search = jQuery.fn.dataTable.ext.search
+            .filter(fn => !fn._dashDateFilter && !fn._dashStatusFilter);
+
+            const dt = $dashTable.DataTable({
+            dom: 'rt<"d-flex justify-content-between align-items-center mt-2"ip>',
+            paging: true,
+            pageLength: 5,
+            lengthChange: false,
+            searching: true,
+            autoWidth: false,
+            responsive: true,
+            order: [], // keep the server/pre-sorted (top-5) order
+            columnDefs: [
+                { targets: -1, orderable: false, searchable: false, className: 'text-end' },
+                { targets: '_all', defaultContent: '' }
+            ]
+            });
+
+            // ---- HEAD-ARTIST: Artist search (col 3) ----
+            const artistInput = document.getElementById('artistFilter');
+            if (artistInput) {
+            artistInput.addEventListener('input', function () {
+                dt.column(3).search(this.value).draw();
+            });
+            }
+
+            // ---- HEAD-ARTIST: Date range filter (using data-deadline) ----
+            const fromEl = document.getElementById('dateFrom');
+            const toEl   = document.getElementById('dateTo');
+            if (fromEl || toEl) {
+            const dateFilter = function (settings, data, dataIndex) {
+                if (settings.nTable !== $dashTable.get(0)) return true;
+
+                const row = dt.row(dataIndex).node();
+                const td  = row ? row.querySelector('td:nth-child(6)') : null; // 6th col = Deadline
+                const iso = td ? td.getAttribute('data-deadline') : '';
+                if (!iso) return true;
+
+                const d = new Date(iso);
+                if (isNaN(d)) return true;
+
+                const from = fromEl && fromEl.value ? new Date(fromEl.value) : null;
+                const to   = toEl   && toEl.value   ? new Date(toEl.value)   : null;
+
+                if (from && d < from) return false;
+                if (to   && d > to)   return false;
+                return true;
+            };
+            dateFilter._dashDateFilter = true;
+            jQuery.fn.dataTable.ext.search.push(dateFilter);
+
+            const redraw = () => dt.draw();
+            fromEl && fromEl.addEventListener('change', redraw);
+            toEl   && toEl.addEventListener('change', redraw);
+            }
+
+            // ---- ORIGINAL dashboard controls on the right ----
+            const jobSearch = document.getElementById('jobSearch');
+            if (jobSearch) {
+            jobSearch.addEventListener('input', function () {
+                dt.search(this.value).draw();
+            });
+            }
+
+            const statusSel = document.getElementById('statusFilter');
+            if (statusSel) {
+            const statusFilter = function (settings, data, dataIndex) {
+                if (settings.nTable !== $dashTable.get(0)) return true;
+                const want = (statusSel.value || '').toLowerCase();
+                if (!want) return true;
+                const rowNode = dt.row(dataIndex).node();
+                const code = (rowNode?.querySelector('td[data-status-code]')?.dataset.statusCode || '').toLowerCase();
+                return code === want;
+            };
+            statusFilter._dashStatusFilter = true;
+            jQuery.fn.dataTable.ext.search.push(statusFilter);
+            statusSel.addEventListener('change', () => dt.draw());
+            }
+
+            // keep layout tidy
+            window.addEventListener('resize', () => setTimeout(() => dt.columns.adjust().responsive.recalc(), 80));
+        } catch (e) {
+            console.warn('Dashboard top-5 DataTables init failed:', e);
+        }
+        }
 
       // ===== Apex donut: Scheduled vs Canceled (meetings) =====
       try {

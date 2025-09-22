@@ -1,5 +1,32 @@
-<table id="jobOrdersTable" class="table table-modern table-hover w-100">
-  @php $isHead = auth()->user()->role === 'head-artist'; @endphp
+@php
+  use Carbon\Carbon;
+
+  $isDashboard = ($tableContext ?? null) === 'dashboard';
+  $tableId     = $tableId ?? ($isDashboard ? 'jobOrdersTop5' : 'jobOrdersTable');
+
+  $isPaginator = $orders instanceof \Illuminate\Pagination\AbstractPaginator;
+  $col         = $isPaginator ? $orders->getCollection() : collect($orders);
+
+  $deadlineKey = fn($o) => $o->deadline
+      ? Carbon::parse($o->deadline)
+      : Carbon::parse('2100-01-01');
+
+  if ($isDashboard) {
+      $col = $col
+        ->reject(fn($o) => strtolower((string)$o->orderStatus) === 'completed')
+        ->sortByDesc($deadlineKey)  // DESC
+        ->take(5)
+        ->values();
+  } else {
+      $col = $col->sortByDesc($deadlineKey)->values(); // Orders page DESC
+  }
+
+  $orders = $isPaginator ? $orders->setCollection($col) : $col;
+
+  $isHead = auth()->user()->role === 'head-artist';
+@endphp
+
+<table id="{{ $tableId }}" class="table table-modern table-hover w-100">
   <thead>
     <tr>
       <th>Order ID</th>
@@ -15,7 +42,7 @@
     @forelse ($orders as $order)
     @continue( (int) ($order->status ?? 0) === 1 )
     @php
-      $rawStatus = $order->orderStatus; // e.g. 'in_progress'
+      $rawStatus = $order->orderStatus;
       $isPending = (!$isHead) && $rawStatus === 'assigned' && (int) $order->pending === 1;
 
       $label = $isPending
@@ -72,7 +99,9 @@
       <td data-status-code="{{ $isPending ? 'pending' : $rawStatus }}">
         <span class="{{ $badgeClass }}">{{ $label }}</span>
       </td>
-      <td>{{ $deadline }}</td>
+      <td data-deadline="{{ $order->deadline ? \Carbon\Carbon::parse($order->deadline)->toDateString() : '' }}">
+        {{ $deadline }}
+      </td> 
       @php
       $status = strtolower($order->orderStatus ?? '');
       $isCompleted = $status === 'completed';

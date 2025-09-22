@@ -31,7 +31,7 @@
 
   {{-- Header --}}
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0">Product Details - #{{ sprintf('ORD%03d-P%d', $order->id ?? 0, $product->ProductID) }}</h4>
+    <h4 class="mb-0">Product Details - {{ $productCode }}</h4>
     <a href="{{ route('artist.fulfillment.product.export', $product) }}" class="btn btn-dark">
       <i class="bx bx-printer me-1"></i> Export PDF
     </a>
@@ -142,60 +142,107 @@
       <div class="border rounded p-3 mb-3">
         <div class="d-flex flex-wrap gap-3 align-items-center">
           <div class="fw-semibold">Product</div>
-          <div>#ORD{{ $order->id ?? '—' }}-P{{ $product->ProductID }}: {{ $product->productName ?? '-' }}</div>
+          <div>{{ $productCode }}: {{ $product->productName ?? '-' }}</div>
           <div class="ms-auto key">Qty: <span class="fw-semibold">{{ $product->totalQuantity ?? 0 }}</span></div>
         </div>
         <div class="key mt-2">Material / Remark: <span class="fw-semibold">{{ $product->materialRemark ?? '-' }}</span></div>
       </div>
 
       {{-- Items --}}
-      @foreach($product->items as $i => $item)
-        @php
-          $spec = $item->spec;   // <-- SPEC FOR THIS ITEM ONLY
-        @endphp
-
-        <hr class="my-4">
-
-        <div class="row">
-          <div class="col-md-6">
-            <div class="key">Item {{ $i+1 }}</div>
-            <div class="fw-semibold">{{ $item->itemName ?? '-' }}</div>
-
-            <div class="key mt-3">Quantity per Item</div>
-            <div class="fw-semibold">{{ $item->quantity ?? '-' }}</div>
-
-            <div class="key mt-3">Size</div>
-            <div class="fw-semibold">
-              {{ optional($item)->sizeWidth }} × {{ optional($item)->sizeHeight }}
-              @if(!empty($item->sizeLength)) × {{ $item->sizeLength }} @endif
+      @foreach($product->items as $it)
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-semibold">Item {{ $loop->iteration }} — {{ $it->itemName ?? 'Item' }}</div>
+                <div class="text-muted small">Qty: {{ (int)($it->quantity ?? 0) }}</div>
+              </div>
             </div>
 
-            <div class="key mt-3">Bleed Size</div>
-            <div class="fw-semibold">
-              {{ $item->bleedTop ?? 0 }} × {{ $item->bleedLeft ?? 0 }}
+            <div class="row g-3 mt-2">
+              {{-- Size + unit --}}
+              <div class="col-md-3">
+                <small class="text-muted d-block">Size</small>
+                <div class="fw-medium">
+                  {{ rtrim((string)$it->sizeWidth) }} × {{ rtrim((string)$it->sizeHeight) }}
+                  {{ $it->sizeUnit ?? '' }}
+                </div>
+              </div>
+
+              {{-- Bleed (Top / Right / Bottom / Left) + unit --}}
+              <div class="col-md-5">
+                <small class="text-muted d-block">Bleed</small>
+                @php
+                  $bu = $it->bleedUnit ?: ($it->sizeUnit ?? '');
+                  $fmt = fn($v) => $v === null ? '—' : rtrim((string)$v);
+                @endphp
+                <div class="fw-medium">
+                  Top: {{ $fmt($it->bleedTop) }} {{ $bu }} &nbsp; |
+                  Right: {{ $fmt($it->bleedRight) }} {{ $bu }} &nbsp; |
+                  Bottom: {{ $fmt($it->bleedBottom) }} {{ $bu }} &nbsp; |
+                  Left: {{ $fmt($it->bleedLeft) }} {{ $bu }}
+                </div>
+              </div>
+
+              {{-- Prime Centre --}}
+              <div class="col-md-6">
+                <small class="text-muted d-block">Prime Centre</small>
+                <div class="fw-medium">
+                  {{ ((int)($it->prime_centre ?? 0) === 1) ? 'Yes' : 'No' }}
+                </div>
+              </div>
+
+              <div class="col-md-12">
+                @php
+                  // $it is the current item
+                  $mat = $it->material ?? null;
+
+                  // Normalize to a string
+                  if ($mat instanceof \Illuminate\Support\Collection) {
+                      $mat = $mat->toArray();
+                  }
+
+                  if (is_array($mat)) {
+                      $materialText = implode(', ', array_filter($mat, fn($v) => $v !== '' && $v !== null));
+                  } elseif (is_string($mat)) {
+                      // handle JSON-in-string case
+                      $decoded = json_decode($mat, true);
+                      if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                          $materialText = implode(', ', array_filter($decoded, fn($v) => $v !== '' && $v !== null));
+                      } else {
+                          $materialText = trim($mat);
+                      }
+                  } else {
+                      $materialText = '';
+                  }
+                @endphp
+
+                @if($materialText !== '')
+                  <small class="text-muted d-block">Material</small>
+                  <div class="fw-medium mb-2">{{ $materialText }}</div>
+                @elseif($materialText == '')
+                  <small class="text-muted d-block">Material</small>
+                  <div class="fw-medium mb-2">—</div>
+                @endif
+
+                @if($it->spec)
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <small class="text-muted d-block">Lamination</small>
+                      <div class="fw-medium">{{ $it->spec->lamination ?? '—' }}</div>
+                    </div>
+                    <div class="col-md-4">
+                      <small class="text-muted d-block">Printer</small>
+                      <div class="fw-medium">{{ $it->spec->printer ?? '—' }}</div>
+                    </div>
+                    <div class="col-md-4">
+                      <small class="text-muted d-block">Cutter</small>
+                      <div class="fw-medium">{{ $it->spec->cutter ?? '—' }}</div>
+                    </div>
+                  </div>
+                @endif
+              </div>
             </div>
-
-            <div class="key mt-3">Material</div>
-            <div class="fw-semibold">
-              @php
-                $materials = is_array($item->material) ? $item->material : (array) $item->material;
-              @endphp
-              {{ count($materials) ? implode(', ', array_filter($materials)) : '-' }}
-            </div>
-
-            <div class="key mt-3">Finishing</div>
-            <div class="fw-semibold">{{ $item->finishing ?: '-' }}</div>
-          </div>
-
-          <div class="col-md-6">
-            <div class="key">Printer</div>
-            <div class="fw-semibold">{{ $spec->printer ?? '-' }}</div>
-
-            <div class="key mt-3">Cutter</div>
-            <div class="fw-semibold">{{ $spec->cutter ?? '-' }}</div>
-
-            <div class="key mt-3">Lamination</div>
-            <div class="fw-semibold">{{ $spec->lamination ?? '-' }}</div>
           </div>
         </div>
       @endforeach

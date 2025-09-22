@@ -130,6 +130,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/artist/orders', [ArtistController::class, 'orders'])->name('artist.orders');
         Route::get('/artist/orders/{order}/edit', [ArtistController::class, 'edit'])->name('artist.orders.edit');
         Route::put('/artist/orders/{order}', [ArtistController::class, 'update'])->name('artist.orders.update');
+        // Data Entry assignment (AJAX)
+        Route::get('/data-entry/users', [ArtistController::class, 'dataEntryUsers'])->name('dataEntry.users');
+        Route::post('/artist/orders/{order}/pass-to-data-entry', [ArtistController::class, 'passToDataEntry'])->name('artist.orders.passToDataEntry');
+        Route::get('/data-entry/users', [ArtistController::class, 'dataEntryUsers'])->name('dataEntry.users');
+        Route::post('/artist/orders/{order}/pass-to-data-entry', [ArtistController::class, 'passToDataEntry'])->name('artist.orders.passToDataEntry');
+
         Route::post('/artist/orders/{order}/attachments/upload', [ArtistController::class, 'uploadAttachment'])->name('artist.orders.attachments.upload');
         Route::post('/artist/orders/{order}/attachments/delete', [ArtistController::class, 'deleteAttachment'])->name('artist.orders.attachments.delete');
         Route::delete('/artist/orders/{order}/items/{item}', [ArtistController::class, 'destroyItem'])->name('artist.orders.items.destroy');
