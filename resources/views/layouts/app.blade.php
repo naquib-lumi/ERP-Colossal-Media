@@ -120,11 +120,11 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li>
             @endif
-            @if (in_array(auth()->user()->role, ['Printing', 'Installation', 'Delivery', 'Furnishing']))
-              <li class="menu-item {{ request()->routeIs('operations.tasks') ? 'active' : '' }}">
-                <a href="{{ route('operations.tasks') }}" class="menu-link">
+            @if (in_array(auth()->user()->role, ['operations-printing', 'Installation', 'Delivery', 'Furnishing']))
+              <li class="menu-item {{ request()->routeIs('printing.history') ? 'active' : '' }}">
+                <a href="{{ route('printing.history') }}" class="menu-link">
                   <i class="menu-icon tf-icons ti ti-tools"></i>
-                  <div data-i18n="Tasks">Tasks</div>
+                  <div data-i18n="Tasks">History</div>
                 </a>
               </li>
             @endif

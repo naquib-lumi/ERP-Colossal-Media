@@ -221,7 +221,7 @@
     // Update on file input change
     fileInput.addEventListener('change', () => {
         addFiles(fileInput.files);
-        fileInput.value = ''; // Clear input to allow re-selecting same files
+        //fileInput.value = ''; // Clear input to allow re-selecting same files
     });
 
     function addFiles(files) {
