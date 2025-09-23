@@ -330,9 +330,28 @@
                     </div>
                     @endif
 
+                    @if(auth()->check() && auth()->user()->role === 'head-artist')
+                      <hr class="my-4">
+
+                      <div class="card">
+                        <div class="card-body">
+                          <div class="d-flex align-items-center mb-3">
+                            <i class="bx bx-user-plus me-2"></i>
+                            <h6 class="m-0">Assign Artist</h6>
+                          </div>
+
+                          <div class="mb-1 text-muted small">
+                            Select an artist to assign this job order.
+                          </div>
+
+                          <label class="form-label">Artist</label>
+                          <select id="assignee_artist_id" name="assignee_artist_id" class="form-control" style="width:100%"></select>
+                          <div class="form-text">Search by artist name or email.</div>
+                        </div>
+                      </div>
+                    @endif
                 </div>
             </div>
-
         </div>
 
         {{-- Sticky save bar --}}
@@ -484,374 +503,403 @@ $(function () {
   /**************************
  * PRODUCTS (+ REMARKS) UI
  **************************/
-const $hidden = $('#hidden-products');             // container for hidden inputs
-const $tbody  = $('#product-table tbody');         // visible table body
-const $addBtn = $('#addProductBtn');               // "Add Product" button
-let fromCsv   = Number({{ old('from_csv', 0) }});  // 1 if CSV used
-let pIndex    = $tbody.find('tr').length || 0;     // product index
-const MAX_MANUAL = 5;
+  const $hidden = $('#hidden-products');             
+  const $tbody  = $('#product-table tbody');        
+  const $addBtn = $('#addProductBtn');         
+  let fromCsv   = Number({{ old('from_csv', 0) }}); 
+  let pIndex    = $tbody.find('tr').length || 0;  
+  const MAX_MANUAL = 5;
 
-function escapeHtml(str) {
-  return (str ?? '').toString()
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-}
+  function escapeHtml(str) {
+    return (str ?? '').toString()
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
 
-// ---------- modal helpers ----------
-function addRemarkRowHTML(op = '', text = '') {
-  return `
-    <div class="row g-2 align-items-center remark-row">
-      <div class="col-md-3">
-        <select class="form-select remark-op">
-          <option value="">— Select —</option>
-          <option value="printing"     ${op==='printing'?'selected':''}>Printing</option>
-          <option value="furnishing"   ${op==='furnishing'?'selected':''}>Furnishing</option>
-          <option value="installation" ${op==='installation'?'selected':''}>Delivery & Installation</option>
-          <option value="courier"      ${op==='courier'?'selected':''}>Courier</option>
-          <option value="self_pickup"  ${op==='self_pickup'?'selected':''}>Self Pickup</option>
-        </select>
-      </div>
-      <div class="col-md-8">
-        <input type="text" class="form-control remark-text" placeholder="Write a note…" value="${escapeHtml(text)}">
-      </div>
-      <div class="col-md-1 text-end">
-        <button type="button" class="btn btn-link text-danger remove-remark" title="Remove">✕</button>
-      </div>
-    </div>
-  `;
-}
-
-// Build HTML for remarks (each on its own line)
-function buildRemarksHtml(prod) {
-  // normalize any legacy values (e.g. "Delivery & Installation", "Self Pickup")
-  const alias = {
-    'delivery & installation': 'installation',
-    'delivery and installation': 'installation',
-    'self pickup': 'self_pickup',
-  };
-
-  const colors = {
-    printing:     'primary',
-    furnishing:   'warning',
-    installation: 'secondary',
-    courier:      'info',
-    self_pickup:  'dark'
-  };
-
-  const labels = {
-    printing:     'Printing',
-    furnishing:   'Furnishing',
-    installation: 'Delivery & Installation',
-    courier:      'Courier',
-    self_pickup:  'Self Pickup'
-  };
-
-  if (prod.remarks && prod.remarks.length) {
-    return prod.remarks.map(r => {
-      const raw = (r.operation || '').toLowerCase().trim();
-      const key = alias[raw] || raw;                  // normalized key
-      const color = colors[key] || 'secondary';
-      const label = labels[key] || (key || 'Remark');
-      return `
-        <div class="remark-line">
-          <span class="badge bg-${color} me-2">${label}</span>
-          <span class="remark-note">${escapeHtml(r.remark || '')}</span>
+  // ---------- modal helpers ----------
+  function addRemarkRowHTML(op = '', text = '') {
+    return `
+      <div class="row g-2 align-items-center remark-row">
+        <div class="col-md-3">
+          <select class="form-select remark-op">
+            <option value="">— Select —</option>
+            <option value="printing"     ${op==='printing'?'selected':''}>Printing</option>
+            <option value="furnishing"   ${op==='furnishing'?'selected':''}>Furnishing</option>
+            <option value="installation" ${op==='installation'?'selected':''}>Delivery & Installation</option>
+            <option value="courier"      ${op==='courier'?'selected':''}>Courier</option>
+            <option value="self_pickup"  ${op==='self_pickup'?'selected':''}>Self Pickup</option>
+          </select>
         </div>
-      `;
-    }).join('');
-  }
-
-  return prod.remark
-    ? `<div class="remark-line">
-         <span class="badge bg-primary me-2">Remark</span>
-         <span class="remark-note">${escapeHtml(prod.remark)}</span>
-       </div>`
-    : '<span class="text-muted">-</span>';
-}
-
-// Fill modal with a product object
-function setModalFromProduct(prod) {
-  $('#p_name').val(prod.product_name || '');
-  $('#p_qty').val(prod.quantity || '');
-  $('#p_material').val(prod.material_info || '');
-  const $rows = $('#remarkRows').empty();
-  if (prod.remarks && prod.remarks.length) {
-    prod.remarks.forEach(r => $rows.append(addRemarkRowHTML(r.operation, r.remark)));
-  } else {
-    $rows.append(addRemarkRowHTML());
-  }
-}
-
-// Extract a product object from hidden inputs for index idx
-function getProductFromHidden(idx) {
-  const wrap = $hidden.find(`div[data-index="${idx}"]`);
-  const prod = {
-    product_name: wrap.find(`input[name="products[${idx}][product_name]"]`).val() || '',
-    quantity:     Number(wrap.find(`input[name="products[${idx}][quantity]"]`).val() || 0),
-    material_info:wrap.find(`input[name="products[${idx}][material_info]"]`).val() || '',
-    remarks: []
-  };
-  // collect remarks
-  wrap.find(`input[name^="products[${idx}][remarks]"][name$="[operation]"]`).each(function () {
-    const m = this.name.match(/\[remarks]\[(\d+)]\[operation]/);
-    if (!m) return;
-    const k = m[1];
-    const op = $(this).val();
-    const tx = wrap.find(`input[name="products[${idx}][remarks][${k}][remark]"]`).val() || '';
-    if (op && tx) prod.remarks.push({ operation: op, remark: tx });
-  });
-  return prod;
-}
-
-// Replace wrapper content for index idx with new hidden inputs for prod
-function rewriteHiddenProduct(idx, prod) {
-  const $wrap = $hidden.find(`div[data-index="${idx}"]`).empty();
-  $wrap.append(`<input type="hidden" name="products[${idx}][product_name]"  value="${escapeHtml(prod.product_name)}">`);
-  $wrap.append(`<input type="hidden" name="products[${idx}][quantity]"      value="${escapeHtml(prod.quantity)}">`);
-  $wrap.append(`<input type="hidden" name="products[${idx}][material_info]" value="${escapeHtml(prod.material_info || '')}">`);
-  (prod.remarks || []).forEach((r, i) => {
-    $wrap.append(`<input type="hidden" name="products[${idx}][remarks][${i}][operation]" value="${escapeHtml(r.operation)}">`);
-    $wrap.append(`<input type="hidden" name="products[${idx}][remarks][${i}][remark]"    value="${escapeHtml(r.remark)}">`);
-  });
-}
-
-// Create wrapper for new product (used when adding)
-function appendHiddenProduct(idx, prod) {
-  $hidden.append(`<div data-index="${idx}"></div>`);
-  rewriteHiddenProduct(idx, prod);
-}
-
-// Visible row + hidden inputs
-function addProductRow(prod, readOnly = false) {
-  const idx = pIndex++;
-
-  if ($tbody.length) {
-    const tr = $(`
-      <tr data-index="${idx}" ${readOnly ? 'class="read-only"' : ''}>
-        <td>${escapeHtml(prod.product_name)}</td>
-        <td>${escapeHtml(prod.quantity)}</td>
-        <td class="remarks-cell"></td>
-        <td>${escapeHtml(prod.material_info || '')}</td>
-        <td>
-          ${ readOnly ? '' : `
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-secondary edit-product">Edit</button>
-              <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
-            </div>
-          `}
-        </td>
-      </tr>
-    `);
-    tr.find('.remarks-cell').html(buildRemarksHtml(prod)); // <<< line breaks here
-    $tbody.append(tr);
-  }
-
-  appendHiddenProduct(idx, prod);
-  if (!fromCsv && pIndex >= MAX_MANUAL) $addBtn.hide();
-}
-
-// ----- modal open / add / edit -----
-const $addModal = $('#addProductModal');
-let editIdx = null; // null = add, number = edit index
-
-$addBtn.on('click', function () {
-  if (!fromCsv && pIndex >= MAX_MANUAL) return;
-  editIdx = null;
-  // fresh modal
-  $('#p_name').val('');
-  $('#p_qty').val('');
-  $('#p_material').val('');
-  $('#remarkRows').html(addRemarkRowHTML());
-  $addModal.modal('show');
-});
-
-// When modal is shown without editIdx, ensure at least one blank row exists
-$addModal.on('shown.bs.modal', function () {
-  if (editIdx !== null) return; // already populated for edit
-  if (!$('#remarkRows .remark-row').length) {
-    $('#remarkRows').html(addRemarkRowHTML());
-  }
-});
-
-// Add/remove remark rows in modal
-$('#addRemarkRow').on('click', () => $('#remarkRows').append(addRemarkRowHTML()));
-$('#remarkRows').on('click', '.remove-remark', function () { $(this).closest('.remark-row').remove(); });
-
-// Click "Edit" on a row
-$tbody.on('click', '.edit-product', function () {
-  if (fromCsv) return; // CSV rows are read-only
-  editIdx = Number($(this).closest('tr').data('index'));
-  const current = getProductFromHidden(editIdx);
-  setModalFromProduct(current);
-  $addModal.modal('show');
-});
-
-// Save from modal (add or edit)
-$('#productForm').on('submit', function (e) {
-  e.preventDefault();
-  if (fromCsv) return; // CSV mode: manual add disabled
-
-  const name = ($('#p_name').val() || '').trim();
-  const qty  = parseInt($('#p_qty').val(), 10) || 0;
-  const mat  = ($('#p_material').val() || '').trim();
-  if (!name || qty <= 0) return;
-
-  const remarks = [];
-  $('#remarkRows .remark-row').each(function () {
-    const op = $(this).find('.remark-op').val();
-    const tx = ($(this).find('.remark-text').val() || '').trim();
-    if (op && tx) remarks.push({ operation: op, remark: tx });
-  });
-
-  const prod = { product_name: name, quantity: qty, material_info: mat, remarks };
-
-  if (editIdx === null) {
-    // add new
-    addProductRow(prod, false);
-  } else {
-    // update existing (row + hidden)
-    const $row = $tbody.find(`tr[data-index="${editIdx}"]`);
-    $row.find('td:eq(0)').text(name);
-    $row.find('td:eq(1)').text(qty);
-    $row.find('.remarks-cell').html(buildRemarksHtml(prod));
-    $row.find('td:eq(3)').text(mat || '');
-    rewriteHiddenProduct(editIdx, prod);
-    editIdx = null;
-  }
-
-  $addModal.modal('hide');
-});
-
-// Remove row
-$tbody.on('click', '.remove-product', function () {
-  const $tr = $(this).closest('tr');
-  const idx = Number($tr.data('index'));
-  $tr.remove();
-  $hidden.find(`div[data-index="${idx}"]`).remove();
-
-  // Reindex wrappers' names to keep products[0..n-1]
-  $hidden.children('div').each(function (i) {
-    $(this).attr('data-index', i);
-    $(this).find('input').each(function () {
-      this.name = this.name.replace(/\[\d+\]/, `[${i}]`); // replace first [number]
-    });
-  });
-
-  // Reindex rows' data-index
-  $tbody.find('tr').each(function (i) { $(this).attr('data-index', i); });
-
-  pIndex = $tbody.find('tr').length;
-  if (!fromCsv && pIndex < MAX_MANUAL) $addBtn.show();
-});
-
-
-  /*************
-   * CSV UPLOAD
-   *************/
-  const fileInput = document.getElementById('fileInput');
-  const listEl    = document.getElementById('preview');
-  const msgEl     = document.getElementById('attach-msg');
-  const box       = document.getElementById('attach-box');
-  const ALLOWED   = ['csv'];
-  const $fromCsv  = $('#from_csv');
-
-  let selectedFile = null;
-
-  function addPreviewRow(file, { status = 'ready', note = '' }) {
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <span>${escapeHtml(file.name)}${
-        status === 'error' ? ` – <span class="err">${escapeHtml(note)}</span>` :
-                             ` – <span class="ok">ready</span>`}
-      </span>
-      <button class="remove-x" title="Remove">×</button>
+        <div class="col-md-8">
+          <input type="text" class="form-control remark-text" placeholder="Write a note…" value="${escapeHtml(text)}">
+        </div>
+        <div class="col-md-1 text-end">
+          <button type="button" class="btn btn-link text-danger remove-remark" title="Remove">✕</button>
+        </div>
+      </div>
     `;
-    li.querySelector('.remove-x').addEventListener('click', () => {
-      li.remove();
-      selectedFile = null;
-      // Clear CSV products
-      $tbody.empty();
-      $hidden.empty();
-      pIndex  = 0;
-      fromCsv = 0; $fromCsv.val(0);
-      $addBtn.show();
-      updateSummary();
-    });
-    listEl.innerHTML = '';
-    listEl.appendChild(li);
   }
 
-  function updateSummary() {
-    msgEl.innerHTML = selectedFile ? `<span class="ok">1 file selected for upload</span>` : '';
-  }
-
-  function parseCsv(file) {
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const text = e.target.result || '';
-      const lines = text.split(/\r?\n/).filter(l => l.trim().length);
-      if (!lines.length) return;
-
-      // Clear current products
-      $tbody.empty();
-      $hidden.empty();
-      pIndex = 0;
-
-      // Expected columns: name, quantity, remark(optional), material_info(optional)
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(s => s.trim());
-        if (!cols[0]) continue;
-        const prod = {
-          product_name: cols[0],
-          quantity:     Number(cols[1] || 0),
-          material_info:(cols[3] || '')
-        };
-        // If a single remark column is present, treat as Printing
-        const rText = cols[2] || '';
-        if (rText) prod.remarks = [{ operation: 'printing', remark: rText }];
-
-        addProductRow(prod, true); // readOnly row
-      }
-
-      fromCsv = 1; $fromCsv.val(1);
-      $addBtn.hide();
+  // Build HTML for remarks (each on its own line)
+  function buildRemarksHtml(prod) {
+    // normalize any legacy values (e.g. "Delivery & Installation", "Self Pickup")
+    const alias = {
+      'delivery & installation': 'installation',
+      'delivery and installation': 'installation',
+      'self pickup': 'self_pickup',
     };
-    reader.readAsText(file);
-  }
 
-  function handleCsvUpload() {
-    if (!fileInput?.files?.length) return;
-    const f = fileInput.files[0];
-    const ext = (f.name.split('.').pop() || '').toLowerCase();
-    if (!ALLOWED.includes(ext)) {
-      addPreviewRow(f, { status: 'error', note: 'Invalid file type' });
-      selectedFile = null;
-    } else {
-      selectedFile = f;
-      addPreviewRow(f, { status: 'ready' });
-      parseCsv(f);
+    const colors = {
+      printing:     'primary',
+      furnishing:   'warning',
+      installation: 'secondary',
+      courier:      'info',
+      self_pickup:  'dark'
+    };
+
+    const labels = {
+      printing:     'Printing',
+      furnishing:   'Furnishing',
+      installation: 'Delivery & Installation',
+      courier:      'Courier',
+      self_pickup:  'Self Pickup'
+    };
+
+    if (prod.remarks && prod.remarks.length) {
+      return prod.remarks.map(r => {
+        const raw = (r.operation || '').toLowerCase().trim();
+        const key = alias[raw] || raw;                  
+        const color = colors[key] || 'secondary';
+        const label = labels[key] || (key || 'Remark');
+        return `
+          <div class="remark-line">
+            <span class="badge bg-${color} me-2">${label}</span>
+            <span class="remark-note">${escapeHtml(r.remark || '')}</span>
+          </div>
+        `;
+      }).join('');
     }
-    updateSummary();
-    fileInput.value = '';
+
+    return prod.remark
+      ? `<div class="remark-line">
+          <span class="badge bg-primary me-2">Remark</span>
+          <span class="remark-note">${escapeHtml(prod.remark)}</span>
+        </div>`
+      : '<span class="text-muted">-</span>';
   }
 
-  if (fileInput) fileInput.addEventListener('change', handleCsvUpload);
+  // Fill modal with a product object
+  function setModalFromProduct(prod) {
+    $('#p_name').val(prod.product_name || '');
+    $('#p_qty').val(prod.quantity || '');
+    $('#p_material').val(prod.material_info || '');
+    const $rows = $('#remarkRows').empty();
+    if (prod.remarks && prod.remarks.length) {
+      prod.remarks.forEach(r => $rows.append(addRemarkRowHTML(r.operation, r.remark)));
+    } else {
+      $rows.append(addRemarkRowHTML());
+    }
+  }
 
-  if (box) {
-    ['dragenter', 'dragover'].forEach(evt =>
-      box.addEventListener(evt, e => { e.preventDefault(); box.classList.add('ring'); })
-    );
-    ['dragleave', 'drop'].forEach(evt =>
-      box.addEventListener(evt, e => { e.preventDefault(); box.classList.remove('ring'); })
-    );
-    box.addEventListener('drop', e => {
-      fileInput.files = e.dataTransfer.files;
-      handleCsvUpload();
+  // Extract a product object from hidden inputs for index idx
+  function getProductFromHidden(idx) {
+    const wrap = $hidden.find(`div[data-index="${idx}"]`);
+    const prod = {
+      product_name: wrap.find(`input[name="products[${idx}][product_name]"]`).val() || '',
+      quantity:     Number(wrap.find(`input[name="products[${idx}][quantity]"]`).val() || 0),
+      material_info:wrap.find(`input[name="products[${idx}][material_info]"]`).val() || '',
+      remarks: []
+    };
+    // collect remarks
+    wrap.find(`input[name^="products[${idx}][remarks]"][name$="[operation]"]`).each(function () {
+      const m = this.name.match(/\[remarks]\[(\d+)]\[operation]/);
+      if (!m) return;
+      const k = m[1];
+      const op = $(this).val();
+      const tx = wrap.find(`input[name="products[${idx}][remarks][${k}][remark]"]`).val() || '';
+      if (op && tx) prod.remarks.push({ operation: op, remark: tx });
+    });
+    return prod;
+  }
+
+  // Replace wrapper content for index idx with new hidden inputs for prod
+  function rewriteHiddenProduct(idx, prod) {
+    const $wrap = $hidden.find(`div[data-index="${idx}"]`).empty();
+    $wrap.append(`<input type="hidden" name="products[${idx}][product_name]"  value="${escapeHtml(prod.product_name)}">`);
+    $wrap.append(`<input type="hidden" name="products[${idx}][quantity]"      value="${escapeHtml(prod.quantity)}">`);
+    $wrap.append(`<input type="hidden" name="products[${idx}][material_info]" value="${escapeHtml(prod.material_info || '')}">`);
+    (prod.remarks || []).forEach((r, i) => {
+      $wrap.append(`<input type="hidden" name="products[${idx}][remarks][${i}][operation]" value="${escapeHtml(r.operation)}">`);
+      $wrap.append(`<input type="hidden" name="products[${idx}][remarks][${i}][remark]"    value="${escapeHtml(r.remark)}">`);
     });
   }
 
-  // Initial button visibility
-  if (!fromCsv && pIndex >= MAX_MANUAL) $addBtn.hide();
+  // Create wrapper for new product (used when adding)
+  function appendHiddenProduct(idx, prod) {
+    $hidden.append(`<div data-index="${idx}"></div>`);
+    rewriteHiddenProduct(idx, prod);
+  }
+
+  // Visible row + hidden inputs
+  function addProductRow(prod, readOnly = false) {
+    const idx = pIndex++;
+
+    if ($tbody.length) {
+      const tr = $(`
+        <tr data-index="${idx}" ${readOnly ? 'class="read-only"' : ''}>
+          <td>${escapeHtml(prod.product_name)}</td>
+          <td>${escapeHtml(prod.quantity)}</td>
+          <td class="remarks-cell"></td>
+          <td>${escapeHtml(prod.material_info || '')}</td>
+          <td>
+            ${ readOnly ? '' : `
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-secondary edit-product">Edit</button>
+                <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
+              </div>
+            `}
+          </td>
+        </tr>
+      `);
+      tr.find('.remarks-cell').html(buildRemarksHtml(prod)); 
+      $tbody.append(tr);
+    }
+
+    appendHiddenProduct(idx, prod);
+    if (!fromCsv && pIndex >= MAX_MANUAL) $addBtn.hide();
+  }
+
+  // ----- modal open / add / edit -----
+  const $addModal = $('#addProductModal');
+  let editIdx = null; 
+
+  $addBtn.on('click', function () {
+    if (!fromCsv && pIndex >= MAX_MANUAL) return;
+    editIdx = null;
+    // fresh modal
+    $('#p_name').val('');
+    $('#p_qty').val('');
+    $('#p_material').val('');
+    $('#remarkRows').html(addRemarkRowHTML());
+    $addModal.modal('show');
+  });
+
+  // When modal is shown without editIdx, ensure at least one blank row exists
+  $addModal.on('shown.bs.modal', function () {
+    if (editIdx !== null) return; 
+    if (!$('#remarkRows .remark-row').length) {
+      $('#remarkRows').html(addRemarkRowHTML());
+    }
+  });
+
+  // Add/remove remark rows in modal
+  $('#addRemarkRow').on('click', () => $('#remarkRows').append(addRemarkRowHTML()));
+  $('#remarkRows').on('click', '.remove-remark', function () { $(this).closest('.remark-row').remove(); });
+
+  // Click "Edit" on a row
+  $tbody.on('click', '.edit-product', function () {
+    if (fromCsv) return; 
+    editIdx = Number($(this).closest('tr').data('index'));
+    const current = getProductFromHidden(editIdx);
+    setModalFromProduct(current);
+    $addModal.modal('show');
+  });
+
+  // Save from modal (add or edit)
+  $('#productForm').on('submit', function (e) {
+    e.preventDefault();
+    if (fromCsv) return; 
+
+    const name = ($('#p_name').val() || '').trim();
+    const qty  = parseInt($('#p_qty').val(), 10) || 0;
+    const mat  = ($('#p_material').val() || '').trim();
+    if (!name || qty <= 0) return;
+
+    const remarks = [];
+    $('#remarkRows .remark-row').each(function () {
+      const op = $(this).find('.remark-op').val();
+      const tx = ($(this).find('.remark-text').val() || '').trim();
+      if (op && tx) remarks.push({ operation: op, remark: tx });
+    });
+
+    const prod = { product_name: name, quantity: qty, material_info: mat, remarks };
+
+    if (editIdx === null) {
+      addProductRow(prod, false);
+    } else {
+      // update existing (row + hidden)
+      const $row = $tbody.find(`tr[data-index="${editIdx}"]`);
+      $row.find('td:eq(0)').text(name);
+      $row.find('td:eq(1)').text(qty);
+      $row.find('.remarks-cell').html(buildRemarksHtml(prod));
+      $row.find('td:eq(3)').text(mat || '');
+      rewriteHiddenProduct(editIdx, prod);
+      editIdx = null;
+    }
+
+    $addModal.modal('hide');
+  });
+
+  // Remove row
+  $tbody.on('click', '.remove-product', function () {
+    const $tr = $(this).closest('tr');
+    const idx = Number($tr.data('index'));
+    $tr.remove();
+    $hidden.find(`div[data-index="${idx}"]`).remove();
+
+    // Reindex wrappers' names to keep products[0..n-1]
+    $hidden.children('div').each(function (i) {
+      $(this).attr('data-index', i);
+      $(this).find('input').each(function () {
+        this.name = this.name.replace(/\[\d+\]/, `[${i}]`);
+      });
+    });
+
+    // Reindex rows' data-index
+    $tbody.find('tr').each(function (i) { $(this).attr('data-index', i); });
+
+    pIndex = $tbody.find('tr').length;
+    if (!fromCsv && pIndex < MAX_MANUAL) $addBtn.show();
+  });
+
+
+    /*************
+     * CSV UPLOAD
+     *************/
+    const fileInput = document.getElementById('fileInput');
+    const listEl    = document.getElementById('preview');
+    const msgEl     = document.getElementById('attach-msg');
+    const box       = document.getElementById('attach-box');
+    const ALLOWED   = ['csv'];
+    const $fromCsv  = $('#from_csv');
+
+    let selectedFile = null;
+
+    function addPreviewRow(file, { status = 'ready', note = '' }) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span>${escapeHtml(file.name)}${
+          status === 'error' ? ` – <span class="err">${escapeHtml(note)}</span>` :
+                              ` – <span class="ok">ready</span>`}
+        </span>
+        <button class="remove-x" title="Remove">×</button>
+      `;
+      li.querySelector('.remove-x').addEventListener('click', () => {
+        li.remove();
+        selectedFile = null;
+        // Clear CSV products
+        $tbody.empty();
+        $hidden.empty();
+        pIndex  = 0;
+        fromCsv = 0; $fromCsv.val(0);
+        $addBtn.show();
+        updateSummary();
+      });
+      listEl.innerHTML = '';
+      listEl.appendChild(li);
+    }
+
+    function updateSummary() {
+      msgEl.innerHTML = selectedFile ? `<span class="ok">1 file selected for upload</span>` : '';
+    }
+
+    function parseCsv(file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const text = e.target.result || '';
+        const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+        if (!lines.length) return;
+
+        // Clear current products
+        $tbody.empty();
+        $hidden.empty();
+        pIndex = 0;
+
+        // Expected columns: name, quantity, remark(optional), material_info(optional)
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(s => s.trim());
+          if (!cols[0]) continue;
+          const prod = {
+            product_name: cols[0],
+            quantity:     Number(cols[1] || 0),
+            material_info:(cols[3] || '')
+          };
+          // If a single remark column is present, treat as Printing
+          const rText = cols[2] || '';
+          if (rText) prod.remarks = [{ operation: 'printing', remark: rText }];
+
+          addProductRow(prod, true); 
+        }
+
+        fromCsv = 1; $fromCsv.val(1);
+        $addBtn.hide();
+      };
+      reader.readAsText(file);
+    }
+
+    function handleCsvUpload() {
+      if (!fileInput?.files?.length) return;
+      const f = fileInput.files[0];
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      if (!ALLOWED.includes(ext)) {
+        addPreviewRow(f, { status: 'error', note: 'Invalid file type' });
+        selectedFile = null;
+      } else {
+        selectedFile = f;
+        addPreviewRow(f, { status: 'ready' });
+        parseCsv(f);
+      }
+      updateSummary();
+      fileInput.value = '';
+    }
+
+    if (fileInput) fileInput.addEventListener('change', handleCsvUpload);
+
+    if (box) {
+      ['dragenter', 'dragover'].forEach(evt =>
+        box.addEventListener(evt, e => { e.preventDefault(); box.classList.add('ring'); })
+      );
+      ['dragleave', 'drop'].forEach(evt =>
+        box.addEventListener(evt, e => { e.preventDefault(); box.classList.remove('ring'); })
+      );
+      box.addEventListener('drop', e => {
+        fileInput.files = e.dataTransfer.files;
+        handleCsvUpload();
+      });
+    }
+
+    // Initial button visibility
+    if (!fromCsv && pIndex >= MAX_MANUAL) $addBtn.hide();
+
+    // head artist search artist to assign 
+    const $assignee = $('#assignee_artist_id');
+    if (!$assignee.length) return; 
+
+    $assignee.select2({
+      placeholder: 'Search artists…',
+      allowClear: true,
+      width: '100%',
+      minimumInputLength: 1,
+      dropdownParent: $assignee.closest('.card, .modal, form'),
+      ajax: {
+        url: @json(route('artist.orders.assignees.search')),
+        dataType: 'json',
+        delay: 200,
+        data: params => ({ q: params.term }),
+        processResults: data => data, 
+        cache: true
+      },
+      templateResult: item => {
+        if (!item.id) return item.text;
+        const m = item.meta || {};
+        return $(`<div>
+          <div class="fw-semibold">${item.text || ''}</div>
+          <div class="text-muted small">${m.email || ''}</div>
+        </div>`);
+      },
+      templateSelection: item => item.text || item.id,
+      escapeMarkup: m => m
+    });
 });
 </script>
 

@@ -185,6 +185,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show')->whereNumber('order');
         Route::get('/artist/orders/{order}/edit', [ArtistController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');
 
+        // AJAX search for artists (head-artist assigning)
+        Route::get('/artist/orders/assignees/search', [ArtistOrderController::class, 'searchArtists'])->name('artist.orders.assignees.search');
+
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])
             ->name('artists.search');

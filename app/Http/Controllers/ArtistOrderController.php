@@ -140,42 +140,41 @@ class ArtistOrderController extends Controller
 
         // Try the new name first, fall back to the old file name if present
         return view()->first([
-            'artist.orders.create',     // resources/views/artist/orders/create.blade.php
-            'artist.orders.add-order',  // fallback if you still had the old file name around
+            'artist.orders.create',    
+            'artist.orders.add-order',  
         ], compact('lead'));
     }
 
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('artist')) {
+        if (!$user || !($user->hasRole('artist') || $user->hasRole('head-artist'))) {
             return back()->with('error', 'Unauthorized');
         }
 
         try {
             $request->validate([
-                'lead_id'                  => 'nullable|exists:leads,id', // artist can create without a lead
-                'orderTitle'               => 'required|string|max:255',
-                'deadline'                 => 'nullable|date|after_or_equal:today',
-                'approval'                 => 'required|boolean',
-                'orderDetail'              => 'nullable|string',
+                'lead_id'     => 'nullable|exists:leads,id',
+                'orderTitle'  => 'required|string|max:255',
+                'deadline'    => 'nullable|date|after_or_equal:today',
+                'approval'    => 'required|boolean',
+                'orderDetail' => 'nullable|string',
 
-                'products'                         => ['required','array','min:1'],
-                'products.*.product_name'          => ['required','string','max:255'],
-                'products.*.quantity'              => ['required','integer','min:1'],
-                'products.*.material_info'         => ['nullable','string'],
-                'products.*.remarks'               => ['nullable','array'],
-                'products.*.remarks.*.operation'   => ['required_with:products.*.remarks.*.remark','in:printing,furnishing,installation,courier,self_pickup'],
-                'products.*.remarks.*.remark'      => ['required_with:products.*.remarks.*.operation','string'],
+                'products'                       => ['required','array','min:1'],
+                'products.*.product_name'        => ['required','string','max:255'],
+                'products.*.quantity'            => ['required','integer','min:1'],
+                'products.*.material_info'       => ['nullable','string'],
+                'products.*.remarks'             => ['nullable','array'],
+                'products.*.remarks.*.operation' => ['required_with:products.*.remarks.*.remark','in:printing,furnishing,installation,courier,self_pickup'],
+                'products.*.remarks.*.remark'    => ['required_with:products.*.remarks.*.operation','string'],
 
-                'csv_file'                 => 'nullable|file|mimes:csv,txt',
-                'attachments'              => 'nullable|array',
-                'attachments.*'            => 'file|mimes:pdf,jpg,png,ai|max:2048',
+                'csv_file'    => 'nullable|file|mimes:csv,txt',
+                'attachments' => 'nullable|array',
+                'attachments.*'=> 'file|mimes:pdf,jpg,png,ai|max:2048',
             ]);
 
             $lead = $request->filled('lead_id') ? Lead::find($request->lead_id) : null;
 
-            // Save attachments (optional)
             $attachments = [];
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
@@ -185,23 +184,22 @@ class ArtistOrderController extends Controller
             $attachmentString = implode(',', $attachments) ?: null;
 
             // Create Order (as Artist)
-            $order          = new Order();
-            $order->order_number   = $this->makeOrderNumber();           // keep/introduce order_number
-            $order->artist_id      = $user->id;                          // creator = artist
-            $order->salesperson_id = $lead->salesperson_id ?? null;      // if lead exists
+            $order                    = new Order();
+            $order->order_number      = $this->makeOrderNumber();
+            $order->artist_id         = $user->id;                        
+            $order->salesperson_id    = $lead->salesperson_id ?? null;
+            $order->lead_id           = $lead->id           ?? null;
+            $order->leadName          = $lead->name         ?? null;
+            $order->leadPhone         = $lead->phone        ?? null;
+            $order->leadEmail         = $lead->email        ?? null;
+            $order->companyName       = $lead->company_name ?? null;
 
-            $order->lead_id     = $lead->id           ?? null;
-            $order->leadName    = $lead->name         ?? null;
-            $order->leadPhone   = $lead->phone        ?? null;
-            $order->leadEmail   = $lead->email        ?? null;
-            $order->companyName = $lead->company_name ?? null;
-
-            $order->orderTitle      = $request->orderTitle;
-            $order->orderDetail     = $request->orderDetail;
-            $order->deadline        = $request->deadline;
-            $order->approval        = (int) $request->approval;
-            $order->orderDate       = now();
-            $order->orderAttachment = $attachmentString;
+            $order->orderTitle        = $request->orderTitle;
+            $order->orderDetail       = $request->orderDetail;
+            $order->deadline          = $request->deadline;
+            $order->approval          = (int) $request->approval;
+            $order->orderDate         = now();
+            $order->orderAttachment   = $attachmentString ?? null;
 
             // Default statuses for a new artist order
             $order->orderStatus = 'in_progress';
@@ -209,6 +207,13 @@ class ArtistOrderController extends Controller
             $order->submit      = 0;
             $order->pending     = 0;
             $order->status      = 0;
+            
+            // Head-artist assigning to a normal artist
+            if ($user->role === 'head-artist' && $request->filled('assignee_artist_id')) {
+                $order->artist_id   = (int) $request->input('assignee_artist_id');
+                $order->orderStatus = 'assigned';  
+                $order->pending     = 1;   
+            }
 
             $order->save();
 
@@ -223,7 +228,7 @@ class ArtistOrderController extends Controller
                 $rows        = $spreadsheet->getActiveSheet()->toArray();
 
                 foreach ($rows as $idx => $row) {
-                    if ($idx === 0) continue; // header
+                    if ($idx === 0) continue; 
                     $productsData[] = [
                         'product_name'  => $row[0] ?? '',
                         'quantity'      => (int)($row[1] ?? 0),
@@ -247,7 +252,6 @@ class ArtistOrderController extends Controller
                     'productName'   => $p['product_name'],
                     'totalQuantity' => (int) $p['quantity'],
                     'materialRemark'=> $p['material_info'] ?? null,
-                    // let defaults handle: taskType, status ('in_progress'), editable (1)
                 ]);
 
                 // Save remarks into product_remarks (use model if you have one; else DB::table)
@@ -257,8 +261,8 @@ class ArtistOrderController extends Controller
                     foreach ($p['remarks'] as $r) {
                         if (empty($r['operation']) || empty($r['remark'])) continue;
                         $rows[] = [
-                            'ProductID'   => $product->getKey(), // primary key (ProductID)
-                            'operation'   => $r['operation'],    // enum: printing/furnishing/installation/delivery
+                            'ProductID'   => $product->getKey(), 
+                            'operation'   => $r['operation'],   
                             'remark'      => $r['remark'],
                             'created_at'  => $now,
                             'updated_at'  => $now,
@@ -268,6 +272,12 @@ class ArtistOrderController extends Controller
                         DB::table('product_remarks')->insert($rows);
                     }
                 }
+            }
+
+            if (auth()->user()->role === 'head-artist') {
+                return redirect()
+                    ->route('artist.orders')         
+                    ->with('success', 'Order created and assigned.');
             }
 
             return redirect()->route('artist.orders.show', $order->id)
@@ -398,7 +408,7 @@ class ArtistOrderController extends Controller
 
     public function searchLeads(\Illuminate\Http\Request $request)
     {
-        $q = trim((string) $request->query('q', ''));   // << read ?q=
+        $q = trim((string) $request->query('q', ''));   
         if ($q === '' || strlen($q) < 2) {
             return response()->json(['results' => []]);
         }
@@ -439,4 +449,29 @@ class ArtistOrderController extends Controller
             'company_phone' => $lead->company_phone ?? '',
         ]);
     }
+
+    public function searchArtists(\Illuminate\Http\Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        if ($q === '') return response()->json(['results' => []]);
+
+        $artists = \App\Models\User::query()
+            ->where('role', 'artist')
+            ->where(function ($w) use ($q) {
+                $w->where('name', 'like', "%{$q}%")
+                ->orWhere('email', 'like', "%{$q}%");
+            })
+            ->orderBy('name')
+            ->limit(15)
+            ->get(['id','name','email']);
+
+        return response()->json([
+            'results' => $artists->map(fn($u) => [
+                'id' => $u->id,
+                'text' => $u->name,
+                'meta' => ['email' => $u->email],
+            ]),
+        ]);
+    }
+
 }
