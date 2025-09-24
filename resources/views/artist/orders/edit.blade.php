@@ -2288,6 +2288,94 @@
 
     window.getSelectedFiles = () => Array.from(selected.values());
 
+    // helpers
+    const _trim = el => $.trim($(el).val() || '');
+
+    // ≥1 file either newly uploaded or already attached
+    function hasAtLeastOneAttachment() {
+      const newCount = ($('input[type="file"][name="attachments[]"]')[0]?.files?.length) || 0;
+      const existingCount =
+        $('input[name^="existing_attachments["]').length ||
+        $('#existing-attachments .attachment-item').length ||
+        $('#attachment-list .file-row').length || 0;
+      return (newCount + existingCount) > 0;
+    }
+
+    // ITEMS: ≥1 item AND each item has required fields (skip Lamination/Printer/Cutter)
+    function validateItems() {
+      const $wraps = $('#hidden-products > div');
+      if ($wraps.length === 0) return false;
+
+      let ok = true;
+      $wraps.each(function () {
+        const name = _trim($(this).find('input[name$="[product_name]"]'));
+        const qty  = Number(_trim($(this).find('input[name$="[quantity]"]'))) || 0;
+        if (!name || qty <= 0) { ok = false; return false; }
+
+        // check other item fields you post (skip optional + remarks bundle)
+        $(this).find('input,select,textarea').each(function () {
+          const nm = (this.name || '').toLowerCase();
+          if (!nm) return;
+          if (nm.includes('lamination') || nm.includes('printer') || nm.includes('cutter')) return; // optional
+          if (nm.includes('[remarks]')) return; // remarks validated separately
+          if (/\[product_name]$|\[quantity]$|\[material_info]$|\[size]$|\[color]$/.test(nm)) {
+            if (!_trim(this)) { ok = false; return false; }
+          }
+        });
+        if (!ok) return false;
+      });
+      return ok;
+    }
+
+    // DELIVERY: ≥1 breakdown AND required fields filled (skip Location Address & Date/Time)
+    function validateDelivery() {
+      let $rows = $('.delivery-row');
+      if ($rows.length === 0) {
+        $rows = $('[name^="deliveries["]').closest('.delivery-row, .row, .delivery-block');
+      }
+      if ($rows.length === 0) return false;
+
+      let ok = true;
+      $rows.each(function () {
+        const $req = $(this).find('input,select,textarea').filter(function () {
+          const nm = (this.name || '').toLowerCase();
+          if (!nm) return false;
+          if (nm.includes('location') || nm.includes('address') || nm.includes('date') || nm.includes('time')) return false; // optional
+          if (nm.endsWith('[id]')) return false; // internal ids
+          return true;
+        });
+        $req.each(function () { if (!_trim(this)) { ok = false; return false; }});
+        if (!ok) return false;
+      });
+      return ok;
+    }
+
+    // PRODUCT REMARKS: ≥1 pair anywhere AND every pair has both fields
+    function validateProductRemarks() {
+      const $wraps = $('#hidden-products > div');
+      let total = 0, pairsOK = true;
+
+      $wraps.each(function () {
+        $(this).find('input[name*="[remarks]"][name$="[operation]"]').each(function () {
+          const opName = this.name;
+          const rmName = opName.replace('[operation]', '[remark]');
+          const opVal  = _trim(this);
+          const rmVal  = _trim($(this.form).find(`input[name='${rmName.replace(/'/g,"\\'")}']`));
+          if (opVal || rmVal) {
+            if (!opVal || !rmVal) { pairsOK = false; return false; }
+            total++;
+          }
+        });
+        if (!pairsOK) return false;
+      });
+      return total > 0 && pairsOK;
+    }
+
+    // single gate your modal logic calls
+    function isReadyForPrinting() {
+      return validateItems() && validateDelivery() && validateProductRemarks() && hasAtLeastOneAttachment();
+    }
+
     // submit order form
     const form = document.getElementById('order-form');
     const btnDraft = document.getElementById('btn-draft');
@@ -2386,12 +2474,29 @@
     ]);
 
     function isOptional(el) {
-      // Option A — prefer data-optional on the exact fields you want to ignore:
+      // Respect explicit opt-outs
       if (el.hasAttribute('data-optional')) return true;
 
-      // Option B — fallback by name whitelist:
-      const n = (el.getAttribute('name') || '').replace(/\[\]$/, '').trim();
-      return OPTIONAL_NAME_WHITELIST.has(n);
+      // Use full, lowercase name to match nested array fields safely
+      const name = (el.getAttribute('name') || '').toLowerCase();
+
+      // Item row (optional): lamination, printer, cutter
+      if (name.includes('[items]') && (
+          name.includes('[lamination]') ||
+          name.includes('[printer]') ||
+          name.includes('[cutter]')
+      )) return true;
+
+      // Delivery row (optional): installation type, costing
+      if (name.includes('[deliveries]') && (
+          name.includes('[deliver_install_type]') ||
+          name.includes('[outsource_cost]') ||
+          name.includes('[location]') ||
+          name.includes('[datetime]')
+      )) return true;
+
+      // Everything else is required (do NOT treat location/date/time as optional)
+      return false;
     }
 
     function requiredElements() {
@@ -2427,27 +2532,7 @@
     }
 
     // Intercept Save & Submit
-    document.getElementById('btn-submit').addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const hasAttach = selectedAttachmentCount() > 0;
-      const complete  = formComplete();
-
-      if (complete && hasAttach) {
-        getModal('#modal-submit-ok').show();
-        return;
-      }
-      if (!complete && hasAttach) {
-        getModal('#modal-submit-incomplete').show();
-        return;
-      }
-      // not complete + no attachment
-      (window.Swal
-        ? Swal.fire({icon:'error', title:'Missing info', text:'Please complete required fields or upload at least one attachment.'})
-        : alert('Please complete required fields or upload at least one attachment.')
-      );
-    });
+    document.getElementById('btn-submit')?.addEventListener('click', onSubmitClick);
 
     // Modal 1 → Send to Printing (now it really submits)
     document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
@@ -2535,19 +2620,37 @@
     }
 
     // Mark everything required EXCEPT: lamination, printer, cutter, install type & cost
-    (function markRequired() {
-      const exclude = /\[(lamination|printer|cutter|deliver_install_type|outsource_cost)\]/;
-      document.querySelectorAll('#order-form input, #order-form select, #order-form textarea').forEach(el => {
-        if (!el.name || el.disabled) return;
-        if (el.type === 'hidden' || el.type === 'file') return;
-        if (exclude.test(el.name)) return;
-        el.required = true;
-      });
-    })();
+    function markRequired() {
+      document.querySelectorAll('#order-form input, #order-form select, #order-form textarea')
+        .forEach(el => {
+          if (!el.name || el.disabled) return;
+          if (el.type === 'hidden' || el.type === 'file') return;
+          if (isOptional(el)) return; // uses the new robust checker
+          el.required = true;         // enforce required everywhere else
+        });
+    }
 
+    function requiredElements() {
+      const nodes = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
+      return nodes.filter(el => !isOptional(el)); // belt-and-suspenders
+    }
+
+    function requiredOK() {
+      return requiredElements().every(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          const group = document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`);
+          return Array.from(group).some(x => x.checked);
+        }
+        const v = (el.value || '').toString().trim();
+        return v.length > 0;
+      });
+    }
+
+    // Use our strict checker instead of browser's
     function formComplete() {
-      // uses the 'required' flags we just set
-      return document.getElementById('order-form').checkValidity();
+      // make sure required flags are applied before checking
+      markRequired();
+      return requiredOK();
     }
 
     async function onSubmitClick(e) {
@@ -2557,13 +2660,30 @@
       const hasAttach = selectedAttachmentCount() > 0;
       const complete = formComplete();
 
+      const hasAtLeastOneItem = !!document.querySelector('input[name^="products["][name*="[items]"][name$="[itemName]"]');
+
+      const hasAtLeastOneDelivery = !!document.querySelector('input[name^="products["][name*="[deliveries]"][name$="[quantity]"]');
+
+      // At least one product remark pair (operation + remark text)
+      const hasAtLeastOneRemarkPair = (() => {
+        const ops = Array.from(document.querySelectorAll('select[name^="products["][name*="[remarks]"][name$="[operation]"]'))
+          .filter(el => (el.value || '').trim() !== '');
+        return ops.some(op => {
+          const remarkName = op.name.replace('[operation]', '[remark]');
+          const remarkEl = document.querySelector(`input[name="${CSS.escape(remarkName)}"]`);
+          return remarkEl && (remarkEl.value || '').trim() !== '';
+        });
+      })();
+
+      const strictComplete = complete && hasAtLeastOneItem && hasAtLeastOneDelivery && hasAtLeastOneRemarkPair;
+
       // i. complete + has attachment → OK modal
-      if (complete && hasAttach) {
+      if (strictComplete && hasAttach) {
         new bootstrap.Modal(document.getElementById('modal-submit-ok')).show();
         return;
       }
       // ii. incomplete + has attachment → Incomplete modal (then choose DE)
-      if (!complete && hasAttach) {
+      if (!strictComplete && hasAttach) {
         new bootstrap.Modal(document.getElementById('modal-submit-incomplete')).show();
         return;
       }
