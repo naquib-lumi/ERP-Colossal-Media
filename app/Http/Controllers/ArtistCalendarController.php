@@ -2,101 +2,122 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Meeting;
-use App\Models\Reminder;
-use App\Models\Lead;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class ArtistCalendarController extends Controller
 {
+    // GET /artist/calendar
     public function index()
     {
-        $user = Auth::user();
-        if (!$user->hasRole('artist')) {
-            abort(403, 'Unauthorized');
-        }
-        return view('artist.calendar');
+        return view('artist.calendar', [
+            'artistId' => Auth::id(), // used by JS
+        ]);
     }
 
+    // GET /artist/calendar/events
     public function events(Request $request)
-    {
-        $user = Auth::user();
-        if (!$user->hasRole('artist')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+{
+    $start = \Carbon\Carbon::parse($request->query('start', now()->startOfMonth()));
+    $end   = \Carbon\Carbon::parse($request->query('end',   now()->endOfMonth()));
 
-        Log::info('events called for user: ' . $user->email);
-
-        $start = $request->input('start');
-        $end = $request->input('end');
-
-        $meetings = Meeting::where('user_id', $user->id)
-            ->whereBetween('start_time', [$start, $end])
-            ->with('lead')
-            ->get()
-            ->map(function ($meeting) {
-                $color = match($meeting->status) {
-                    'scheduled' => '#007bff',
-                    'canceled' => '#090a0bff',
-                    'postponed' => '#007bff',
-                    default => '#007bff'
-                };
-                $textColor = ($color === '#ffc107') ? '#000' : '#fff';
-                return [
-                    'id' => 'meeting-' . $meeting->id,
-                    'title' => $meeting->title,
-                    'start' => $meeting->start_time->toIso8601String(),
-                    'end' => $meeting->end_time ? $meeting->end_time->toIso8601String() : null,
-                    'allDay' => false,
-                    'extendedProps' => [
-                        'calendar' => 'Meeting',
-                        'type' => 'meeting',
-                        'meeting_type' => $meeting->type,
-                        'location' => $meeting->location,
-                        'url' => $meeting->url,
-                        'status' => $meeting->status,
-                        'lead_id' => $meeting->lead_id,
-                        'lead_text' => $meeting->lead ? $meeting->lead->company_name . ' - ' . $meeting->lead->name : 'Unknown',
-                        'note' => $meeting->note,
-                    ],
-                    'backgroundColor' => $color,
-                    'borderColor' => $color,
-                    'textColor' => $textColor,
-                ];
-            });
-
-        $reminders = Reminder::whereHas('lead', function ($q) use ($user) {
-                $q->where('salesperson_id', $user->id);
+    // ---- MEETINGS: return ANY that overlap the requested range ----
+    $meetings = DB::table('meetings')
+        ->leftJoin('users', 'users.id', '=', 'meetings.user_id') // << add name
+        ->select([
+            'meetings.id',
+            'meetings.title',
+            'meetings.start_time','meetings.end_time',
+            'meetings.new_start_time','meetings.new_end_time',
+            'meetings.status','meetings.type','meetings.url','meetings.location',
+            'meetings.note','meetings.lead_id','meetings.user_id',
+            'users.name as artist_name', // << new
+        ])
+        ->where(function ($q) use ($start, $end) {
+            $q->where(function($qq) use ($start,$end){
+                $qq->whereNotNull('start_time')
+                    ->where(function($qqq) use ($start,$end){
+                        $qqq->whereBetween('start_time',[$start,$end])
+                            ->orWhereBetween('end_time',[$start,$end])
+                            ->orWhere(function($q4) use ($start,$end){
+                                $q4->where('start_time','<=',$start)
+                                ->where('end_time','>=',$start);
+                            });
+                    });
             })
-            ->whereBetween('due_date', [$start, $end])
-            ->with('lead')
-            ->get()
-            ->map(function ($reminder) {
-                $color = $reminder->status === 'completed' ? '#6c757d' : ($reminder->due_date->isPast() ? '#dc3545' : '#28a745');
-                $textColor = ($color === '#ffc107') ? '#000' : '#fff';
-                return [
-                    'id' => 'reminder-' . $reminder->id,
-                    'title' => $reminder->title,
-                    'start' => $reminder->due_date->toIso8601String(),
-                    'allDay' => true,
-                    'extendedProps' => [
-                        'calendar' => 'Reminder',
-                        'type' => 'reminder',
-                        'status' => $reminder->status,
-                        'lead_id' => $reminder->lead_id,
-                        'lead_text' => $reminder->lead ? $reminder->lead->company_name . ' - ' . $reminder->lead->name : 'Unknown',
-                        'recurrence_type' => $reminder->recurrence_type,
-                        'recurrence_time' => $reminder->recurrence_time,
-                    ],
-                    'backgroundColor' => $color,
-                    'borderColor' => $color,
-                    'textColor' => $textColor,
-                ];
+            ->orWhere(function($qq) use ($start,$end){
+                $qq->whereNotNull('new_start_time')
+                    ->where(function($qqq) use ($start,$end){
+                        $qqq->whereBetween('new_start_time',[$start,$end])
+                            ->orWhereBetween('new_end_time',[$start,$end])
+                            ->orWhere(function($q4) use ($start,$end){
+                                $q4->where('new_start_time','<=',$start)
+                                ->where('new_end_time','>=',$start);
+                            });
+                    });
             });
+        })
+        ->get();
 
-        return response()->json($meetings->merge($reminders));
+    // ---- REMINDERS: any due_date in range (table has no user_id) ----
+    $reminders = DB::table('reminders')->select([
+        'id','title','due_date','status','recurrence_type','recurrence_time','end_date','lead_id',
+    ])->whereBetween('due_date', [$start, $end])->get();
+
+    // Map to FullCalendar events
+    $events = [];
+
+    $statusColors = [
+        'scheduled' => ['bg' => '#4e73df', 'text' => '#fff'],
+        'postponed' => ['bg' => '#f6c23e', 'text' => '#fff'],
+        'canceled'  => ['bg' => '#000a0b', 'text' => '#fff'],
+    ];
+
+    foreach ($meetings as $m) {
+        $startAt = $m->new_start_time ? \Carbon\Carbon::parse($m->new_start_time) : \Carbon\Carbon::parse($m->start_time);
+        $endAt   = $m->new_end_time   ? \Carbon\Carbon::parse($m->new_end_time)   : ($m->end_time ? \Carbon\Carbon::parse($m->end_time) : (clone $startAt)->addMinutes(60));
+
+        $colors = $statusColors[$m->status] ?? ['bg' => '#6c757d', 'text' => '#fff'];
+
+        $events[] = [
+            'id'    => "meeting-{$m->id}",
+            'title' => $m->title ?? 'Meeting',
+            'start' => $startAt->toIso8601String(),
+            'end'   => $endAt->toIso8601String(),
+            'allDay'=> false,
+            'backgroundColor' => $colors['bg'],
+            'borderColor'     => $colors['bg'],
+            'textColor'       => $colors['text'],
+            'extendedProps' => [
+                'type'        => 'meeting',
+                'status'      => $m->status,
+                'meeting_type'=> $m->type,
+                'url'         => $m->url,
+                'location'    => $m->location,
+                'note'        => $m->note,
+                'lead_id'     => $m->lead_id,
+                'artist_id'   => $m->user_id,
+                'artist_name' => $m->artist_name, // << use this in the dropdown
+            ],
+            'backgroundColor' => $colors['bg'],  // from your status map
+            'borderColor'     => $colors['bg'],
+            'textColor'       => $colors['text'],
+        ];
     }
+
+    return response()->json($events);
+}
+
+
+    // All mutate endpoints disabled in view-only:
+    public function storeReminder(Request $r){ abort(403,'View-only calendar'); }
+    public function updateReminder(Request $r,$id){ abort(403,'View-only calendar'); }
+    public function completeReminder(Request $r,$id){ abort(403,'View-only calendar'); }
+    public function destroyReminder($id){ abort(403,'View-only calendar'); }
+    public function storeMeeting(Request $r){ abort(403,'View-only calendar'); }
+    public function updateMeeting(Request $r,$id){ abort(403,'View-only calendar'); }
+    public function updateMeetingStatus(Request $r,$id){ abort(403,'View-only calendar'); }
+    public function destroyMeeting($id){ abort(403,'View-only calendar'); }
 }
