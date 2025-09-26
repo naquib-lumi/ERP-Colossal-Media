@@ -165,9 +165,12 @@ class OrderController extends Controller
             'products' => 'required|array|min:1',
             'products.*.product_name' => 'required|string|max:255',
             'products.*.quantity' => 'required|integer|min:1',
+            'products.*.remark' => 'nullable|string',
             'products.*.material_info' => 'nullable|string',
+            'products.*.location' => 'nullable|string',
+            'products.*.date_time' => 'nullable|date',
             'products.*.remarks' => 'nullable|array',
-            'products.*.remarks.*.type' => 'required|in:printing,furnishing,installation,courier,self_pickup',
+            'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup',
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
             'attachments' => 'nullable|array',
@@ -215,7 +218,10 @@ class OrderController extends Controller
                 $productsData[] = [
                     'product_name' => isset($row[0]) ? trim($row[0], '"') : '',
                     'quantity' => isset($row[1]) ? trim($row[1], '"') : '',
-                    'material_info' => isset($row[2]) ? trim($row[2], '"') : '',
+                    'remark' => isset($row[2]) ? trim($row[2], '"') : '',
+                    'material_info' => isset($row[3]) ? trim($row[3], '"') : '',
+                    'location' => isset($row[4]) ? trim($row[4], '"') : '',
+                    'date_time' => isset($row[5]) ? trim($row[5], '"') : '',
                     'remarks' => [],
                 ];
             }
@@ -226,13 +232,16 @@ class OrderController extends Controller
                 'OrderID' => $order->id,
                 'productName' => $productData['product_name'],
                 'totalQuantity' => $productData['quantity'],
+                'productRemark' => $productData['remark'] ?? null,
                 'materialRemark' => $productData['material_info'] ?? null,
+                'location' => $productData['location'] ?? null,
+                'date_time' => $productData['date_time'] ?? null,
             ]);
 
             foreach ($productData['remarks'] ?? [] as $remarkData) {
                 ProductRemark::create([
                     'ProductID' => $product->ProductID,
-                    'operation' => $remarkData['type'],
+                    'operation' => $remarkData['operation'],
                     'remark' => $remarkData['remark'] ?? null,
                 ]);
             }

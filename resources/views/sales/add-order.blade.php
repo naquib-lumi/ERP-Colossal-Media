@@ -269,7 +269,7 @@
                                         <tr>
                                             <th>Product Name</th>
                                             <th>Quantity</th>
-                                            <th>Material Info</th>
+                                            <th>Material Remark</th>
                                             <th>Remarks</th>
                                         </tr>
                                     </thead>
@@ -283,7 +283,7 @@
                                                     @if (!empty($product['remarks']))
                                                         <ul>
                                                             @foreach ($product['remarks'] as $r)
-                                                                <li>{{ e($r['type']) }}: {{ e($r['remark'] ?? '') }}</li>
+                                                               <li>{{ $r['operation'] ?? '' }}: {{ e($r['remark'] ?? '') }}</li>
                                                             @endforeach
                                                         </ul>
                                                     @endif
@@ -397,7 +397,7 @@
                             <input id="quantity" type="number" class="form-control">
                         </div>
                         <div class="col-12">
-                            <label>Material Info</label>
+                            <label>Material Remark</label>
                             <textarea id="material_info" class="form-control"></textarea>
                         </div>
                         <div class="col-12">
@@ -524,7 +524,7 @@
                         <option value="printing" ${operation === 'printing' ? 'selected' : ''}>Printing</option>
                         <option value="furnishing" ${operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
                         <option value="installation" ${operation === 'installation' ? 'selected' : ''}>Installation</option>
-                        <option value="self pickup" ${operation === 'self pickup' ? 'selected' : ''}>Self Pickup</option>
+                        <option value="self_pickup" ${operation === 'self pickup' ? 'selected' : ''}>Self Pickup</option>
                         <option value="courier" ${operation === 'courier' ? 'selected' : ''}>Courier</option>
                     </select>
                     <input type="text" class="form-control" placeholder="Write a note…" value="${escapeHtml(remark)}">
