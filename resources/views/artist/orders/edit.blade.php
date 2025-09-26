@@ -1125,7 +1125,7 @@
                             @forelse($rows as $r)
                             <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
                               <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
-                              <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
+                              <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
                                 <option value="">— Select —</option>
                                 @foreach($ops as $k => $label)
                                 <option value="{{ $k }}" @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)>{{ $label }}</option>
@@ -1134,7 +1134,7 @@
                               <input type="text"
                                 name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][remark]"
                                 class="form-control"
-                                placeholder="Write a note…" {{ $readonly }}
+                                placeholder="Write a note…" {{ $readonly }} data-optional="true"
                                 value="{{ old("products.$pIndex.remarks.$loop->index.remark", $r->remark) }}">
                               @if ($submitted)
                               <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -1144,13 +1144,13 @@
                             </div>
                             @empty
                             <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
-                              <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
+                              <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
                                 <option value="">— Select —</option>
                                 @foreach($ops as $k => $label)
                                 <option value="{{ $k }}">{{ $label }}</option>
                                 @endforeach
                               </select>
-                              <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }}>
+                              <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }} data-optional="true">
                               @if ($submitted)
                               <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                 <i class="bx bx-trash fs-5"></i>
@@ -1982,7 +1982,7 @@
         div.className = 'd-flex align-items-center gap-2 mb-2 remark-row';
         div.setAttribute('data-remark', '');
         div.innerHTML = `
-          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
+          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
             <option value="">— Select —</option>
             <option value="printing">Printing</option>
             <option value="furnishing">Furnishing</option>
@@ -1990,7 +1990,7 @@
             <option value="self pickup">Self Pickup</option>
             <option value="courier">Courier</option>
           </select>
-          <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…" {{$readonly}}>
+          <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…" {{$readonly}} data-optional="true">
           <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
             <i class="bx bx-trash fs-5"></i>
           </button>`;
@@ -2350,30 +2350,9 @@
       return ok;
     }
 
-    // PRODUCT REMARKS: ≥1 pair anywhere AND every pair has both fields
-    function validateProductRemarks() {
-      const $wraps = $('#hidden-products > div');
-      let total = 0, pairsOK = true;
-
-      $wraps.each(function () {
-        $(this).find('input[name*="[remarks]"][name$="[operation]"]').each(function () {
-          const opName = this.name;
-          const rmName = opName.replace('[operation]', '[remark]');
-          const opVal  = _trim(this);
-          const rmVal  = _trim($(this.form).find(`input[name='${rmName.replace(/'/g,"\\'")}']`));
-          if (opVal || rmVal) {
-            if (!opVal || !rmVal) { pairsOK = false; return false; }
-            total++;
-          }
-        });
-        if (!pairsOK) return false;
-      });
-      return total > 0 && pairsOK;
-    }
-
     // single gate your modal logic calls
     function isReadyForPrinting() {
-      return validateItems() && validateDelivery() && validateProductRemarks() && hasAtLeastOneAttachment();
+      return validateItems() && validateDelivery() && hasAtLeastOneAttachment();
     }
 
     // submit order form
@@ -2485,6 +2464,11 @@
           name.includes('[lamination]') ||
           name.includes('[printer]') ||
           name.includes('[cutter]')
+      )) return true;
+
+      if (name.includes('[remarks]') && (
+          name.includes('[remark]') ||
+          name.includes('[operation]')
       )) return true;
 
       // Delivery row (optional): installation type, costing
@@ -2664,18 +2648,7 @@
 
       const hasAtLeastOneDelivery = !!document.querySelector('input[name^="products["][name*="[deliveries]"][name$="[quantity]"]');
 
-      // At least one product remark pair (operation + remark text)
-      const hasAtLeastOneRemarkPair = (() => {
-        const ops = Array.from(document.querySelectorAll('select[name^="products["][name*="[remarks]"][name$="[operation]"]'))
-          .filter(el => (el.value || '').trim() !== '');
-        return ops.some(op => {
-          const remarkName = op.name.replace('[operation]', '[remark]');
-          const remarkEl = document.querySelector(`input[name="${CSS.escape(remarkName)}"]`);
-          return remarkEl && (remarkEl.value || '').trim() !== '';
-        });
-      })();
-
-      const strictComplete = complete && hasAtLeastOneItem && hasAtLeastOneDelivery && hasAtLeastOneRemarkPair;
+      const strictComplete = complete && hasAtLeastOneItem && hasAtLeastOneDelivery;
 
       // i. complete + has attachment → OK modal
       if (strictComplete && hasAttach) {

@@ -105,7 +105,7 @@
       @php
       $status = strtolower($order->orderStatus ?? '');
       $isCompleted = $status === 'completed';
-      $reportBlocked = in_array($status, ['to_assign','assigned','pending'], true);
+      $reportBlocked = in_array($status, ['to_assign','assigned','pending', 'in_progress'], true);
       @endphp
 
       <td class="text-end">

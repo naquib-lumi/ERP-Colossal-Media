@@ -219,7 +219,7 @@
 </head>
 {{-- DataTables CSS for pages that need it --}}
 
-@if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') || Request::is('sales/leads') || Request::is('sales/orders'))
+@if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') || Request::is('sales/leads') || Request::is('sales/orders') || Request::is('artist/calendar') || Request::is('calendar/*'))
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet"
         href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
@@ -230,6 +230,8 @@
         href="{{ asset('assets/vendor/libs/datatables-fixedheader-bs5/fixedheader.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/dropzone/dropzone.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
 @endif
 
 {{-- Page-level extra styles from views --}}
@@ -269,10 +271,13 @@
     @endif
 
     {{-- DataTables JS + export deps (AFTER jQuery) --}}
-    @if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') )
+    @if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') || Request::is('artist/calendar') || Request::is('calendar/*') )
         <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/chartjs/chartjs.js') }}"></script>
+        <script src="{{ asset('assets/js/artist-app-calendar.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
+        <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
     @endif
 
     <!-- endbuild -->
@@ -308,6 +313,7 @@
         <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
         <!-- <script src="{{ asset('assets/js/tables-datatables-advanced.js') }}"></script> -->
     @endif
+
 
     {{-- View-level scripts --}}
     @stack('scripts')

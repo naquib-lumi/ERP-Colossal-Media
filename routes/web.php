@@ -166,8 +166,8 @@ Route::middleware('auth')->group(function () {
         Route::patch('/artist/profile',     [ArtistController::class, 'ProfileUpdate'])->name('artist.profile.update');
         Route::get('/artist/orders/{order}/redo',  [RedoOrderController::class, 'create'])->name('artist.orders.redo.create');
         Route::post('/artist/orders/{order}/redo', [RedoOrderController::class, 'store'])->name('artist.orders.redo.store');
-        Route::post('/artist/calendar', [ArtistCalendarController::class, 'index'])->name('artist.calendar');
-        Route::get('/calendar/events', [ArtistCalendarController::class, 'events'])->name('calendar.events');
+        Route::get('/artist/calendar', [ArtistCalendarController::class, 'index'])->name('artist.calendar');
+        Route::get('/artist/calendar/events', [ArtistCalendarController::class, 'events'])->name('artist.calendar.events');
 
         Route::pattern('id', '\d+');
         Route::pattern('order', '\d+');
@@ -177,7 +177,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/artist/orders', [ArtistOrderController::class, 'store'])->name('artist.orders.store');        
         Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');;
         Route::put('/artist/orders/{id}', [ArtistOrderController::class, 'update'])->name('artist.orders.update');
-        Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'show'])->name('artist.orders.show')->whereNumber('order');;
+        Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'show'])->name('artist.orders.shows')->whereNumber('order');;
         Route::delete('/artist/orders/{id}', [ArtistOrderController::class, 'destroy'])->name('artist.orders.destroy');
         Route::post('/artist/orders/get', [ArtistOrderController::class, 'getOrders'])->name('artist.orders.get');
         
