@@ -118,24 +118,6 @@
     .read-only td:last-child {
         display: none;
     }
-
-    .remark-row {
-        display: flex;
-        gap: 1rem;
-        align-items: flex-start;
-    }
-
-    .remark-row select {
-        flex: 0 0 160px;
-    }
-
-    .remark-row input {
-        flex: 1;
-    }
-
-    .remark-row button {
-        flex: 0 0 auto;
-    }
 </style>
 @endpush
 
@@ -246,6 +228,7 @@
 
                     </div>
 
+                    {{-- Attachments (bottom) --}}
                     <div class="card mt-4">
                         <div class="card-header d-flex align-items-center justify-content-between">
                             <h5 class="card-title mb-0">Product Details</h5>
@@ -269,8 +252,10 @@
                                         <tr>
                                             <th>Product Name</th>
                                             <th>Quantity</th>
+                                            <th>Remark</th>
                                             <th>Material Info</th>
-                                            <th>Remarks</th>
+                                            <th>Location</th>
+                                            <th>Date</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -278,16 +263,10 @@
                                             <tr data-index="{{ $index }}" {{ old('from_csv') ? 'class="read-only"' : '' }}>
                                                 <td>{!! e($product['product_name'] ?? '') !!}</td>
                                                 <td>{!! e($product['quantity'] ?? '') !!}</td>
+                                                <td>{!! e($product['remark'] ?? '') !!}</td>
                                                 <td>{!! e($product['material_info'] ?? '') !!}</td>
-                                                <td>
-                                                    @if (!empty($product['remarks']))
-                                                        <ul>
-                                                            @foreach ($product['remarks'] as $r)
-                                                                <li>{{ e($r['type']) }}: {{ e($r['remark'] ?? '') }}</li>
-                                                            @endforeach
-                                                        </ul>
-                                                    @endif
-                                                </td>
+                                                <td>{!! e($product['location'] ?? '') !!}</td>
+                                                <td>{!! e($product['date_time'] ?? '') !!}</td>
                                                 <td>
                                                     <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit">Edit</button>
                                                     <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
@@ -298,6 +277,7 @@
                                 </table>
                             </div>
 
+                            <!-- Top row: left label + right CSV template download -->
                             <div class="d-flex align-items-center justify-content-between mb-2">
                                 <span class="text-muted">Upload CSV (Optional)</span>
                                 <a id="csvTemplateBtn" href="{{ route('orders.csv_template') }}" class="btn btn-link p-0 text-decoration-none">
@@ -305,6 +285,7 @@
                                 </a>
                             </div>
 
+                            <!-- Drop area -->
                             <div id="attach-box" class="attach-box">
                                 <div class="attach-inner">
                                     <div class="attach-icon" aria-hidden="true">
@@ -314,6 +295,7 @@
                                     <div class="attach-hint">(CSV)</div>
                                 </div>
 
+                                <!-- This input sits on top, invisible, and owns the click -->
                                 <input id="fileInput" type="file"
                                     accept=".csv"
                                     class="file-overlay">
@@ -325,6 +307,7 @@
                             <div id="attach-msg" class="mt-2 text-sm"></div>
                             <ul id="preview" class="mt-3 space-y-2"></ul>
 
+                            <!-- Remarks -->
                             <div class="mt-3">
                                 <label class="form-label">Remarks</label>
                                 <textarea name="orderDetail" rows="3" class="form-control" placeholder="Remarks">{{ old('orderDetail') }}</textarea>
@@ -355,6 +338,7 @@
 
         </div>
 
+        {{-- Sticky save bar --}}
         <div class="col-12">
             <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
                 <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
@@ -362,21 +346,25 @@
             </div>
         </div>
     </div>
-    <div id="hidden-products" style="display: none;">
-        @foreach (old('products', []) as $index => $product)
-            <div data-index="{{ $index }}">
-                <input type="hidden" name="products[{{ $index }}][product_name]" value="{{ $product['product_name'] ?? '' }}">
-                <input type="hidden" name="products[{{ $index }}][quantity]" value="{{ $product['quantity'] ?? '' }}">
-                <input type="hidden" name="products[{{ $index }}][material_info]" value="{{ $product['material_info'] ?? '' }}">
-                @foreach ($product['remarks'] ?? [] as $rindex => $remark)
-                    <input type="hidden" name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" value="{{ $remark['operation'] ?? '' }}">
-                    <input type="hidden" name="products[{{ $index }}][remarks][{{ $rindex }}][remark]" value="{{ $remark['remark'] ?? '' }}">
-                @endforeach
-            </div>
-        @endforeach
-    </div>
+    <!-- Hidden products -->
+    
+<div id="hidden-products" style="display: none;">
+    @foreach (old('products', []) as $index => $product)
+        <div data-index="{{ $index }}">
+            <input type="hidden" name="products[{{ $index }}][product_name]" value="{{ $product['product_name'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][quantity]" value="{{ $product['quantity'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][remark]" value="{{ $product['remark'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][material_info]" value="{{ $product['material_info'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][location]" value="{{ $product['location'] ?? '' }}">
+            <input type="hidden" name="products[{{ $index }}][date_time]" value="{{ $product['date_time'] ?? '' }}">
+        </div>
+    @endforeach
+</div>
 </form>
 
+
+
+<!-- Product Modal (for add/edit) -->
 <div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -397,13 +385,20 @@
                             <input id="quantity" type="number" class="form-control">
                         </div>
                         <div class="col-12">
+                            <label>Remark</label>
+                            <textarea id="remark" class="form-control"></textarea>
+                        </div>
+                        <div class="col-12">
                             <label>Material Info</label>
                             <textarea id="material_info" class="form-control"></textarea>
                         </div>
-                        <div class="col-12">
-                            <label>Remarks</label>
-                            <div id="remarks-container"></div>
-                            <button type="button" id="addRemarkBtn" class="btn btn-secondary btn-sm mt-2">Add Remark</button>
+                        <div class="col-md-6">
+                            <label>Location</label>
+                            <input id="location" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Date</label>
+                            <input id="date_time" type="date" class="form-control">
                         </div>
                     </div>
                 </form>
@@ -487,7 +482,6 @@
 
             $('#productForm')[0].reset();
             $('#product_index').val('');
-            $('#remarks-container').empty();
             $('#productModalTitle').text('Add Product');
 
             if (mode === 'edit') {
@@ -497,47 +491,11 @@
                 const hidden = $(`#hidden-products > div[data-index="${index}"]`);
                 $('#product_name').val(hidden.find('input[name$="[product_name]"]').val());
                 $('#quantity').val(hidden.find('input[name$="[quantity]"]').val());
+                $('#remark').val(hidden.find('input[name$="[remark]"]').val());
                 $('#material_info').val(hidden.find('input[name$="[material_info]"]').val());
-
-                hidden.find('input[name^="products[' + index + '][remarks]"]').each(function() {
-                    const name = $(this).attr('name');
-                    if (name.includes('[operation]')) {
-                        const rindex = name.match(/\[remarks\]\[(\d+)\]/)[1];
-                        const operation = $(this).val();
-                        const remark = hidden.find(`input[name="products[${index}][remarks][${rindex}][remark]"]`).val();
-                        addRemarkRow(operation, remark);
-                    }
-                });
+                $('#location').val(hidden.find('input[name$="[location]"]').val());
+                $('#date_time').val(hidden.find('input[name$="[date_time]"]').val());
             }
-        });
-
-        $('#addRemarkBtn').on('click', function() {
-            addRemarkRow();
-        });
-
-        function addRemarkRow(operation = '', remark = '') {
-            const rindex = $('#remarks-container .remark-row').length;
-            const html = `
-                <div class="remark-row mb-2">
-                    <select class="form-select w-auto" style="min-width:160px;">
-                        <option value="">— Select —</option>
-                        <option value="printing" ${operation === 'printing' ? 'selected' : ''}>Printing</option>
-                        <option value="furnishing" ${operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
-                        <option value="installation" ${operation === 'installation' ? 'selected' : ''}>Installation</option>
-                        <option value="self pickup" ${operation === 'self pickup' ? 'selected' : ''}>Self Pickup</option>
-                        <option value="courier" ${operation === 'courier' ? 'selected' : ''}>Courier</option>
-                    </select>
-                    <input type="text" class="form-control" placeholder="Write a note…" value="${escapeHtml(remark)}">
-                    <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                        <i class="bx bx-trash fs-5"></i>
-                    </button>
-                </div>
-            `;
-            $('#remarks-container').append(html);
-        }
-
-        $(document).on('click', '.remove-remark', function() {
-            $(this).closest('.remark-row').remove();
         });
 
         $('#saveProduct').on('click', function() {
@@ -545,39 +503,31 @@
             const data = {
                 product_name: $('#product_name').val() || '',
                 quantity: $('#quantity').val() || '',
+                remark: $('#remark').val() || '',
                 material_info: $('#material_info').val() || '',
-                remarks: []
+                location: $('#location').val() || '',
+                date_time: $('#date_time').val() || ''
             };
 
-            $('#remarks-container .remark-row').each(function() {
-                data.remarks.push({
-                    operation: $(this).find('select').val(),
-                    remark: $(this).find('input').val() || ''
-                });
-            });
-
-            let remarksHtml = '';
-            if (data.remarks.length) {
-                remarksHtml = '<ul>' + data.remarks.map(r => `<li>${escapeHtml(r.operation)}: ${escapeHtml(r.remark)}</li>`).join('') + '</ul>';
-            }
-
             if (index !== '') {
+                // Edit existing
                 const row = $(`#product-table tbody tr[data-index="${index}"]`);
                 row.find('td:eq(0)').html(escapeHtml(data.product_name));
                 row.find('td:eq(1)').html(escapeHtml(data.quantity));
-                row.find('td:eq(2)').html(escapeHtml(data.material_info));
-                row.find('td:eq(3)').html(remarksHtml);
+                row.find('td:eq(2)').html(escapeHtml(data.remark));
+                row.find('td:eq(3)').html(escapeHtml(data.material_info));
+                row.find('td:eq(4)').html(escapeHtml(data.location));
+                row.find('td:eq(5)').html(escapeHtml(data.date_time));
 
                 const hidden = $(`#hidden-products > div[data-index="${index}"]`);
                 hidden.find('input[name$="[product_name]"]').val(data.product_name);
                 hidden.find('input[name$="[quantity]"]').val(data.quantity);
+                hidden.find('input[name$="[remark]"]').val(data.remark);
                 hidden.find('input[name$="[material_info]"]').val(data.material_info);
-                hidden.find('input[name^="products[' + index + '][remarks]"]').remove();
-                data.remarks.forEach((r, rindex) => {
-                    hidden.append(`<input type="hidden" name="products[${index}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`);
-                    hidden.append(`<input type="hidden" name="products[${index}][remarks][${rindex}][remark]" value="${escapeHtml(r.remark)}">`);
-                });
+                hidden.find('input[name$="[location]"]').val(data.location);
+                hidden.find('input[name$="[date_time]"]').val(data.date_time);
             } else {
+                // Add new
                 if (productIndex >= 5) {
                     alert('Maximum 5 products allowed. Use CSV for more.');
                     return;
@@ -587,8 +537,10 @@
                     <tr data-index="${productIndex}">
                         <td>${escapeHtml(data.product_name)}</td>
                         <td>${escapeHtml(data.quantity)}</td>
+                        <td>${escapeHtml(data.remark)}</td>
                         <td>${escapeHtml(data.material_info)}</td>
-                        <td>${remarksHtml}</td>
+                        <td>${escapeHtml(data.location)}</td>
+                        <td>${escapeHtml(data.date_time)}</td>
                         <td>
                             <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit">Edit</button>
                             <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
@@ -597,17 +549,16 @@
                 `;
                 $('#product-table tbody').append(html);
 
-                let hiddenHtml = `
+                const hiddenHtml = `
                     <div data-index="${productIndex}">
                         <input type="hidden" name="products[${productIndex}][product_name]" value="${escapeHtml(data.product_name)}">
                         <input type="hidden" name="products[${productIndex}][quantity]" value="${escapeHtml(data.quantity)}">
+                        <input type="hidden" name="products[${productIndex}][remark]" value="${escapeHtml(data.remark)}">
                         <input type="hidden" name="products[${productIndex}][material_info]" value="${escapeHtml(data.material_info)}">
+                        <input type="hidden" name="products[${productIndex}][location]" value="${escapeHtml(data.location)}">
+                        <input type="hidden" name="products[${productIndex}][date_time]" value="${escapeHtml(data.date_time)}">
+                    </div>
                 `;
-                data.remarks.forEach((r, rindex) => {
-                    hiddenHtml += `<input type="hidden" name="products[${productIndex}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`;
-                    hiddenHtml += `<input type="hidden" name="products[${productIndex}][remarks][${rindex}][remark]" value="${escapeHtml(r.remark)}">`;
-                });
-                hiddenHtml += '</div>';
                 $('#hidden-products').append(hiddenHtml);
 
                 productIndex++;
@@ -625,6 +576,7 @@
             row.remove();
             $(`#hidden-products > div[data-index="${index}"]`).remove();
 
+            // Reindex
             $('#product-table tbody tr').each(function(i) {
                 $(this).attr('data-index', i);
             });
@@ -641,6 +593,7 @@
             }
         });
 
+        // CSV upload handling
         const input = document.getElementById('fileInput');
         const listEl = document.getElementById('preview');
         const msgEl = document.getElementById('attach-msg');
@@ -660,7 +613,7 @@
             const errors = [];
             if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
 
-            listEl.innerHTML = '';
+            listEl.innerHTML = ''; // Clear previous
 
             if (errors.length) {
                 addRow(f, { status: 'error', note: errors.join(', ') });
@@ -691,6 +644,7 @@
                 selectedFile = null;
                 updateSummary();
                 if (!selectedFile) {
+                    // Clear products when removing CSV
                     $('#product-table tbody').empty();
                     $('#hidden-products').empty();
                     productIndex = 0;
@@ -710,60 +664,69 @@
                 '';
         }
 
-        function stripQuotes(str) {
-            return str.replace(/^"(.*)"$/, '$1');
-        }
+    function stripQuotes(str) {
+    return str.replace(/^"(.*)"$/, '$1');
+}
 
         function parseCsv(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                const lines = text.split(/\r?\n/);
-                const headers = lines[0].split(',').map(h => h.trim());
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split(/\r?\n/);
+        const headers = lines[0].split(',').map(h => h.trim());
 
-                $('#product-table tbody').empty();
-                $('#hidden-products').empty();
-                productIndex = 0;
+        // Clear existing
+        $('#product-table tbody').empty();
+        $('#hidden-products').empty();
+        productIndex = 0;
 
-                for (let i = 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue;
-                    const data = lines[i].split(',').map(d => stripQuotes(d.trim()));
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const data = lines[i].split(',').map(d => stripQuotes(d.trim()));
 
-                    const product = {
-                        product_name: data[0] || '',
-                        quantity: data[1] || '',
-                        material_info: data[2] || '',
-                    };
-
-                    const html = `
-                        <tr data-index="${productIndex}" class="read-only">
-                            <td>${escapeHtml(product.product_name)}</td>
-                            <td>${escapeHtml(product.quantity)}</td>
-                            <td>${escapeHtml(product.material_info)}</td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                    `;
-                    $('#product-table tbody').append(html);
-
-                    const hiddenHtml = `
-                        <div data-index="${productIndex}">
-                            <input type="hidden" name="products[${productIndex}][product_name]" value="${escapeHtml(product.product_name)}">
-                            <input type="hidden" name="products[${productIndex}][quantity]" value="${escapeHtml(product.quantity)}">
-                            <input type="hidden" name="products[${productIndex}][material_info]" value="${escapeHtml(product.material_info)}">
-                        </div>
-                    `;
-                    $('#hidden-products').append(hiddenHtml);
-
-                    productIndex++;
-                }
-
-                isFromCsv = 1;
-                $('#from_csv').val(1);
-                $('#addProductBtn').hide();
+            const product = {
+                product_name: data[0] || '',
+                quantity: data[1] || '',
+                remark: data[2] || '',
+                material_info: data[3] || '',
+                location: data[4] || '',
+                date_time: data[5] || ''
             };
-            reader.readAsText(file);
+
+            const html = `
+                <tr data-index="${productIndex}" class="read-only">
+                    <td>${escapeHtml(product.product_name)}</td>
+                    <td>${escapeHtml(product.quantity)}</td>
+                    <td>${escapeHtml(product.remark)}</td>
+                    <td>${escapeHtml(product.material_info)}</td>
+                    <td>${escapeHtml(product.location)}</td>
+                    <td>${escapeHtml(product.date_time)}</td>
+                    <td></td>
+                </tr>
+            `;
+            $('#product-table tbody').append(html);
+
+            const hiddenHtml = `
+                <div data-index="${productIndex}">
+                    <input type="hidden" name="products[${productIndex}][product_name]" value="${escapeHtml(product.product_name)}">
+                    <input type="hidden" name="products[${productIndex}][quantity]" value="${escapeHtml(product.quantity)}">
+                    <input type="hidden" name="products[${productIndex}][remark]" value="${escapeHtml(product.remark)}">
+                    <input type="hidden" name="products[${productIndex}][material_info]" value="${escapeHtml(product.material_info)}">
+                    <input type="hidden" name="products[${productIndex}][location]" value="${escapeHtml(product.location)}">
+                    <input type="hidden" name="products[${productIndex}][date_time]" value="${escapeHtml(product.date_time)}">
+                </div>
+            `;
+            $('#hidden-products').append(hiddenHtml);
+
+            productIndex++;
         }
+
+        isFromCsv = 1;
+        $('#from_csv').val(1);
+        $('#addProductBtn').hide();
+    };
+    reader.readAsText(file);
+}
 
         const box = document.getElementById('attach-box');
         if (box) {
@@ -784,6 +747,8 @@
                 handleCsvUpload();
             });
         }
+
+
     });
 </script>
 @endpush
