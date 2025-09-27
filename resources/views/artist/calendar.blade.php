@@ -80,16 +80,7 @@
   <div class="row g-0">
     <!-- Sidebar (unchanged layout; we only append Upcoming here) -->
     <div class="col app-calendar-sidebar flex-grow-0 border-end" id="app-calendar-sidebar">
-      <div class="px-3 pt-3">
-        <button
-          type="button"
-          class="btn btn-outline-secondary w-100 mb-3 btn-toggle-sidebar"
-          id="btnToggleSidebar">
-          <i class="bx bx-chevron-left me-1"></i>
-          <span>Hide Sidebar</span>
-        </button>
-      </div>
-
+    
       <div class="px-3 pt-2">
         <div class="inline-calendar" data-flatpickr></div>
       </div>
@@ -159,9 +150,6 @@
           </li>
           <li class="d-flex align-items-center">
             <span class="status-dot me-2" style="background-color:#f6c23e;"></span> Postponed
-          </li>
-          <li class="d-flex align-items-center">
-            <span class="status-dot me-2" style="background-color:#28a730;"></span> Reminder
           </li>
         </ul>
       </div>

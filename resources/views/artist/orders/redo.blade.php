@@ -1,16 +1,36 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container-fluid">
 
-  <h4 class="mb-3">Report Issue – Redo Job Order <span class="text-muted">{{ $order->order_number }}</span></h4>
+<div class="container-fluid">
+  <h4 class="mb-3">Report Issue – Redo Job Order 
+    <span class="text-muted">
+      @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
+          @php
+          $order->loadMissing('originalOrder:id,order_number');
+          @endphp
+          {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
+      @else
+           {{ $order->order_number }}
+      @endif
+    </span>
+  </h4>
   <div class="card mb-6">
       <div class="card-body">
         <div class="fw-semibold mb-2">Current Order Summary</div>
         <div class="row g-3">
           <div class="col-md-3">
             <div class="text-muted small">Order ID</div>
-            <div class="fw-semibold">{{ $order->order_number }}</div>
+            <div class="fw-semibold">
+              @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
+                  @php
+                  $order->loadMissing('originalOrder:id,order_number');
+                  @endphp
+                  {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
+              @else
+                  {{ $order->order_number }}
+              @endif
+            </div>
           </div>
           <div class="col-md-3">
             <div class="text-muted small">Client</div>
@@ -57,19 +77,40 @@
         <div class="fw-semibold mb-2"><i class="ti ti-package-export me-2"></i>Products to copy</div>
         <div class="text-muted small mb-2">Select which products should be copied into the redo order. If you leave all unchecked, all products will be copied.</div>
 
-        <div class="row g-2">
-          @foreach($products as $p)
-            <div class="col-md-6">
-              <label class="card p-2 d-flex align-items-center justify-content-between">
-                <div>
-                  <div class="fw-semibold">{{ $p->productName }}</div>
-                  <div class="text-muted small">Qty: {{ $p->totalQuantity }} · {{ ucfirst($p->taskType) }}</div>
-                </div>
-                <input type="checkbox" class="form-check-input" name="products[]" value="{{ $p->ProductID }}">
+        <div class="row g-3">
+  @foreach ($products as $p)
+    @php $inputId = 'redo-product-'.$p->ProductID; @endphp
+    <div class="col-md-6">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-start justify-content-between">
+            <div>
+              <div class="fw-medium">{{ $p->productName }}</div>
+              <small class="text-muted">
+                Qty: {{ $p->totalQuantity }} · {{ ucfirst($p->taskType) }}
+              </small>
+            </div>
+
+            <div class="form-check mt-1">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                name="products[]"
+                id="{{ $inputId }}"
+                value="{{ $p->ProductID }}"
+                {{ in_array($p->ProductID, old('products', [])) ? 'checked' : '' }}
+              >
+              <label for="{{ $inputId }}" class="visually-hidden">
+                Select {{ $p->productName }}
               </label>
             </div>
-          @endforeach
+          </div>
         </div>
+      </div>
+    </div>
+  @endforeach
+</div>
+
       </div>
     </div>
 
@@ -79,7 +120,18 @@
         <div class="alert alert-light border">
           <div class="fw-semibold mb-1">What happens next?</div>
           <ul class="mb-0">
-            <li>New Job Order will be auto-created with ID like: <code>{{ $order->order_number }}R</code></li>
+            <li>New Job Order will be auto-created with ID like: 
+              <code>
+                @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
+                    @php
+                    $order->loadMissing('originalOrder:id,order_number');
+                    @endphp
+                    {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
+                @else
+                    {{ $order->order_number }}R
+                @endif
+              </code>
+            </li>
             <li>Only selected products will be copied to the new order</li>
             <li>Status will be auto-set to <b>In Progress</b> for reassignment</li>
           </ul>
