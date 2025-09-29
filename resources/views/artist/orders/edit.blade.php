@@ -426,32 +426,35 @@
                           <div class="col-12 col-md-6 col-xl-3">
                             <label class="form-label">Product Name</label>
                             <input
-                              name="product[name]"
+                              name="products[{{ $pIndex }}][name]"
                               type="text"
                               class="form-control"
                               placeholder="e.g. Business Card"
-                              value="{{ old('product.name', $product->productName ?? '') }}" {{ $readonly }}>
+                              value="{{ old("products.$pIndex.name", $product->productName ?? '') }}"
+                              {{ $readonly }}>
                           </div>
 
                           <div class="col-12 col-md-6 col-xl-3">
                             <label class="form-label">Total Quantity</label>
                             <input id="totalQty"
-                              name="product[qty_total]"
+                              name="products[{{ $pIndex }}][qty_total]"
                               type="number"
                               min="0"
                               class="form-control"
                               placeholder="1000"
-                              value="{{ old('product.qty_total', $product->totalQuantity ?? '') }}" {{ $readonly }}>
+                              value="{{ old("products.$pIndex.qty_total", $product->totalQuantity ?? '') }}"
+                              {{ $readonly }}>
                           </div>
 
                           <div class="col-12 col-md-6 col-xl-6">
                             <label class="form-label">Material / Remark</label>
                             <input
-                              name="product[material]"
+                              name="products[{{ $pIndex }}][material]"
                               type="text"
                               class="form-control"
                               placeholder="Premium Paper, Glossy"
-                              value="{{ old('product.material', $product->materialRemark ?? '') }}" {{ $readonly }}>
+                              value="{{ old("products.$pIndex.material", $product->materialRemark ?? '') }}"
+                              {{ $readonly }}>
                           </div>
                         </div>
 

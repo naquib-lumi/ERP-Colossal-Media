@@ -708,14 +708,26 @@ class ArtistController extends Controller
                 $this->putOrderAttachments($order, $existing->values()->all());
 
                 // ----- 3) “Header” product (the one shown at the top) -----
-                $hdr = (array) $request->input('product', []);
-                $productHdr = Product::where('OrderID', $order->id)->first()
-                            ?: new Product(['OrderID' => $order->id]);
+                $postedProducts = collect($request->input('products', []))->values();
+                $hasPerProductHeader = $postedProducts->contains(function ($g) {
+                    return is_array($g) && (
+                        array_key_exists('name', $g) ||
+                        array_key_exists('qty_total', $g) ||
+                        array_key_exists('material', $g)
+                    );
+                });
 
-                if (array_key_exists('name', $hdr))      $productHdr->productName    = $hdr['name'];
-                if (array_key_exists('qty_total', $hdr)) $productHdr->totalQuantity  = $hdr['qty_total'];
-                if (array_key_exists('material', $hdr))  $productHdr->materialRemark = $hdr['material'];
-                $productHdr->save();
+                // ----- 3) “Header” product (only if no per-product header present) -----
+                if (!$hasPerProductHeader) {
+                    $hdr = (array) $request->input('product', []);
+                    $productHdr = Product::where('OrderID', $order->id)->first()
+                                ?: new Product(['OrderID' => $order->id]);
+
+                    if (array_key_exists('name', $hdr))      $productHdr->productName    = $hdr['name'];
+                    if (array_key_exists('qty_total', $hdr)) $productHdr->totalQuantity  = $hdr['qty_total'];
+                    if (array_key_exists('material', $hdr))  $productHdr->materialRemark = $hdr['material'];
+                    $productHdr->save();
+                }
 
                 // ----- 4) Per-product payload -----
                 $postedProducts = collect($request->input('products', []))->values();
@@ -728,6 +740,19 @@ class ArtistController extends Controller
                                     ->where('ProductID', $pid)
                                     ->first();
                     if (!$productRow) continue;
+
+                    // --- NEW: per-product header fields ---
+                    if (array_key_exists('name', $group)) {
+                        $productRow->productName = $group['name'] === '' ? null : $group['name'];
+                    }
+                    if (array_key_exists('qty_total', $group)) {
+                        $q = $group['qty_total'];
+                        $productRow->totalQuantity = ($q === '' || $q === null) ? null : (int) $q;
+                    }
+                    if (array_key_exists('material', $group)) {
+                        $productRow->materialRemark = $group['material'] === '' ? null : $group['material'];
+                    }
+                    $productRow->save();
 
                     // -------- Items --------
                     $keepItemIds = [];

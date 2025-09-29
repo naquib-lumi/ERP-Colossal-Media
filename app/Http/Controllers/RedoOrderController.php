@@ -23,7 +23,7 @@ public function create(Order $order)
     $alreadyInRedo = $redoOrder
         ? Product::where('OrderID', $redoOrder->id)->pluck('redoOf')->filter()->unique()->values()->toArray()
         : [];
-
+        
     $hasRedo = (bool) $redoOrder;
     $displayOrderNumber = ($order->redo || $hasRedo)
         ? ($baseOrder->order_number . 'R')
@@ -80,8 +80,19 @@ public function store(Request $request, Order $order)
 
         } else {
             // --- SUBSEQUENT REDO: reuse the existing redo order; don't touch statuses ---
+            if (in_array(strtolower((string)$redoOrder->orderStatus), ['completed', 'complete'])) {
+                $redoOrder->orderStatus = 'in_progress';
+                $redoOrder->draft       = 1;
+                $redoOrder->submit      = 0;
+                $redoOrder->updated_at  = now();
+            }
+
             if ($reasonText !== '') {
                 $redoOrder->orderDetail = trim(($redoOrder->orderDetail ? $redoOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
+            }
+
+            // Save only if anything changed
+            if ($redoOrder->isDirty()) {
                 $redoOrder->save();
             }
         }
