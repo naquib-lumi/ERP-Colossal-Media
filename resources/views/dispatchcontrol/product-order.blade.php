@@ -4,19 +4,23 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
+  /* ===== 基础布局与卡片 ===== */
   .page-wrap{max-width:1180px;margin:0 auto}
   .card.soft{border:0;box-shadow:0 3px 10px rgba(16,24,40,.06);border-radius:14px}
   .section-hd{display:flex;align-items:center;gap:8px;font-weight:700;color:#101828;margin-bottom:12px}
   .section-hd .bi{color:#667085}
 
+  /* 顶部信息 */
   .dl{display:grid;grid-template-columns:180px 1fr;row-gap:10px;column-gap:16px}
   .dl dt{font-size:12px;color:#667085;line-height:1.2}
   .dl dd{margin:0;color:#101828}
   .dl .muted{color:#475467}
 
+  /* 备注 chips */
   .chips{display:flex;gap:8px;flex-wrap:nowrap;overflow:auto hidden;padding-bottom:2px}
   .chip{white-space:nowrap;border-radius:999px;background:#F2F4F7;color:#344054;font-size:12px;padding:6px 10px}
 
+  /* 子卡片 */
   .subcard{border:1px solid #EEF2F7;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.04);padding:0}
   .subcard-head{display:flex;align-items:center;gap:8px;padding:20px}
   .subcard-title{font-weight:700;color:#101828}
@@ -26,11 +30,12 @@
   .subcard-body{padding:20px}
   .subcard-body.hidden{display:none}
 
-  /* 仅图标 Toggle */
+  /* 折叠按钮（图标版） */
   .btn-toggle-icon{border:1px solid #E5E7EB;background:#fff;border-radius:10px;width:36px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:#475467}
   .btn-toggle-icon .bi{transition:transform .2s ease}
   .btn-toggle-icon.open .bi{transform:rotate(180deg)}
 
+  /* 产品表格 */
   .table-products thead th{font-size:12px;color:#475467;font-weight:700;white-space:nowrap;background:#F8FAFC;position:sticky;top:0;z-index:1}
   .table-products> :not(caption)>*>*{padding:12px 14px;vertical-align:middle}
   .table-products tbody tr:nth-child(odd){background:#FCFCFD}
@@ -40,6 +45,7 @@
   .badge-yes,.badge-no{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;border-radius:999px;font-size:12px}
   .badge-yes{background:#ECFDF3;color:#027A48}.badge-no{background:#FFF1F3;color:#B42318}
 
+  /* Delivery */
   .dlv-card{border:0;box-shadow:0 3px 10px rgba(16,24,40,.06);border-radius:14px}
   .dlv-hd{display:flex;align-items:center;gap:8px;font-weight:700;color:#101828}
   .dlv-sub{color:#98A2B3;font-size:12px}
@@ -57,46 +63,71 @@
   .badge-delivery{background:#EEF2FF;color:#3730A3}.badge-courier{background:#ECFEFF;color:#155E75}.badge-pickup{background:#F0FDF4;color:#166534}
   .field .label{font-size:12px;color:#98A2B3;margin-bottom:2px}.field .value{color:#111827}.field .value-strong{font-weight:700}
 
+  /* 附件/上传者 */
   .file-row{display:flex;align-items:center;justify-content:space-between;border:1px solid #E5E7EB;border-radius:10px;padding:12px 16px;background:#fff}
   .file-row+.file-row{margin-top:10px}
   .file-meta{display:flex;align-items:center;gap:12px}
   .file-meta .bi{font-size:20px;color:#667085}
   .file-name{color:#101828;font-weight:500}.file-size{color:#98A2B3;font-size:12px}
-
   .assignee-chip,.uploader-chip{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-weight:600;font-size:12px;border:1px solid #E0E7FF;background:#EEF2FF;color:#3730A3}
 
-  /* 编辑态仅显示备注块 */
+  /* ===== 编辑态（只显示备注块） ===== */
   .edit-only{display:none !important;}
   .is-editing .edit-only{display:flex !important;}
 
-  /* ── Actionbar 三状态 + 右对齐 ── */
+  /* ===== Actionbar 三状态（右对齐） ===== */
   .actionbar{margin-top:12px}
   .actionbar .action-pre,
   .actionbar .action-post,
   .actionbar .action-edit{display:none !important;width:100%;}
-  .actionbar .action-pre{display:block !important;}
-  .is-accepted .actionbar .action-pre{display:none !important;}
+  .actionbar .action-pre{display:block !important;}                    /* 初始 */
+  .is-accepted .actionbar .action-pre{display:none !important;}        /* 已接受显示 post */
   .is-accepted .actionbar .action-post{display:block !important;}
   .is-editing .actionbar .action-pre,
-  .is-editing .actionbar .action-post{display:none !important;}
+  .is-editing .actionbar .action-post{display:none !important;}        /* 编辑只显示 edit */
   .is-editing .actionbar .action-edit{display:block !important;}
-  /* 内层工具条铺满并靠右 */
   .actionbar .toolbar{width:100%;display:flex;justify-content:flex-end;gap:.75rem}
 
-  /* Attachments 标题行，右侧作者标签对齐 */
-  .attachments-hd{display:flex;align-items:center;gap:8px;margin-bottom:12px}
-  .attachments-hd .uploader-chip{margin-left:auto}
+  /* ===== Modal（自定义，不使用 Bootstrap JS） ===== */
+  body.modal-open { overflow: hidden !important; }   /* 打开弹窗时锁滚动 */
+  .modal-mask{position:fixed;inset:0;background:rgba(2,6,23,.60);display:none !important;z-index:1050}
+  .modal-mask.show{display:block !important;}
+  .modal-wrap{position:fixed !important;inset:0 !important;display:grid !important;place-items:center !important;padding:24px !important}
+  .modal{
+    display:block !important;position:relative !important;inset:auto !important;
+    width:600px !important;max-width:92vw !important;height:auto !important;margin:0 !important;overflow:visible !important;
+    background:#fff !important;border:1px solid #E5E7EB !important;border-radius:14px !important;box-shadow:0 25px 80px rgba(0,0,0,.28) !important;
+  }
+  .modal-header{padding:18px 24px !important;border-bottom:1px solid #E6E8EC !important;gap:12px !important;display:flex;align-items:center}
+  .modal-title{font-weight:800 !important;font-size:18px !important;color:#0F172A !important}
+  .modal-header i.bi-check2,.modal-header i.bi-check2-circle,.modal-header i.bi-check-circle{color:#16A34A !important;font-size:18px !important}
+  .modal-close{margin-left:auto !important;color:#9AA4B2 !important;border:0 !important;background:transparent !important}
+  .modal-close:hover{color:#6B7280 !important}
+  .modal-body{padding:20px 24px !important;color:#334155 !important;font-size:16px !important;line-height:1.6 !important}
+  .modal-body .help{color:#6B7280 !important}
+  .modal-footer{display:flex !important;justify-content:flex-end !important;gap:12px !important;padding:14px 16px !important;border-top:1px solid #E6E8EC !important;background:#F8FAFC !important}
+  .modal .btn{display:inline-flex !important;align-items:center !important;gap:8px !important;font-weight:700 !important;border-radius:999px !important;padding:10px 16px !important;box-shadow:none !important;letter-spacing:.2px}
+  .modal .btn-back{background:#EEF2F6 !important;color:#0F172A !important;border:1px solid #E5E7EB !important}
+  .modal .btn-back:hover{background:#E2E8F0 !important}
+  .modal .btn-accept{background:#23263A !important;color:#fff !important;border:1px solid #23263A !important}
+  .modal .btn-accept:hover{background:#1D2033 !important;border-color:#1D2033 !important}
+  .modal .btn-reject{background:#fff !important;color:#E11D48 !important;border:2px solid #F43F5E !important}
+  .modal .btn-reject:hover{background:#FFF1F2 !important}
+  .modal i{font-size:14px}
+  .modal textarea{width:100%;min-height:110px;resize:vertical;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;color:#0F172A;outline:none}
+  .modal textarea::placeholder{color:#9AA4B2}
+  .modal textarea:focus{border-color:#94A3B8;box-shadow:0 0 0 3px rgba(148,163,184,.25)}
 </style>
 
 <div class="container-fluid py-4 px-4">
   <div class="page-wrap" id="pageRoot">
-    @php $dataKeyinUser = $dataKeyinUser ?? 'Data Keyin'; @endphp
+    @php $assignee = $assignee ?? 'Data Keyin'; @endphp
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
         <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
         <h1 class="h4 fw-bold mb-0">Project Task — <span class="text-muted">ORD005-P2</span></h1>
       </div>
-      <span class="assignee-chip">{{ $dataKeyinUser }}</span>
+      <span class="assignee-chip">{{ $assignee }}</span>
     </div>
     <div class="text-muted mb-3">Dispatch Control</div>
 
@@ -134,9 +165,10 @@
       </div>
     </div>
 
-    {{-- Product Details（只读，toggle 为图标） --}}
+    {{-- Product Details（只读） --}}
     <div class="card soft mb-4">
       <div class="card-body">
+        {{-- Product 1 --}}
         <div class="subcard mb-3">
           <div class="subcard-head">
             <div class="left">
@@ -175,6 +207,7 @@
           </div>
         </div>
 
+        {{-- Product 2 --}}
         <div class="subcard">
           <div class="subcard-head">
             <div class="left">
@@ -269,7 +302,7 @@
       </div>
     </div>
 
-    {{-- Add Remarks（编辑态） --}}
+    {{-- Add Remarks（仅编辑态显示） --}}
     <div class="card soft mb-4 edit-only">
       <div class="card-body">
         <div class="section-hd"><i class="bi bi-chat-dots"></i> Add Remarks</div>
@@ -288,15 +321,14 @@
       </div>
     </div>
 
-    {{-- Attachments（右上作者标签 + 仅 Download） --}}
+    {{-- Attachments --}}
     <div class="card soft mb-4">
       <div class="card-body">
-        <div class="attachments-hd">
+        <div class="d-flex align-items-center mb-2">
           <div class="section-hd mb-0"><i class="bi bi-paperclip"></i> Attachments</div>
           @php $uploader = $uploader ?? 'Artist A'; @endphp
-          @if($uploader)<span class="uploader-chip">{{ $uploader }}</span>@endif
+          @if($uploader)<span class="uploader-chip ms-auto">{{ $uploader }}</span>@endif
         </div>
-
         @php
           $files = $attachments ?? [
             ['name' => 'requirements.pdf', 'size' => '1.2 MB', 'url' => '#'],
@@ -304,7 +336,6 @@
             ['name' => 'design-specs.pdf','size' => '2.4 MB', 'url' => '#'],
           ];
         @endphp
-
         @foreach($files as $f)
           @php
             $n = strtolower($f['name'] ?? '');
@@ -325,7 +356,7 @@
       </div>
     </div>
 
-    {{-- Permit（仅 Download） --}}
+    {{-- Permit --}}
     <div class="card soft mb-4">
       <div class="card-body">
         <div class="section-hd"><i class="bi bi-file-earmark-lock"></i> Permit</div>
@@ -343,25 +374,28 @@
       </div>
     </div>
 
-    {{-- 底部操作（靠右） --}}
+    {{-- ===== 底部 Actionbar（三段式） ===== --}}
     <div class="actionbar">
+      <!-- 初始：Accept / Reject / Back -->
       <div class="action-pre">
         <div class="toolbar">
-          <button type="button" id="btnAccept" class="btn btn-dark btn-pill"><i class="bi bi-check2 me-1"></i>Accept</button>
-          <button type="button" id="btnReject" class="btn btn-outline-danger btn-pill"><i class="bi bi-x-lg me-1"></i>Reject</button>
-          <a href="javascript:history.back()" class="btn btn-light border btn-pill">Back</a>
+          <button type="button" id="btnAccept" class="btn btn-dark"><i class="bi bi-check2 me-1"></i>Accept</button>
+          <button type="button" id="btnReject" class="btn btn-outline-danger"><i class="bi bi-x-lg me-1"></i>Reject</button>
+          <a href="javascript:history.back()" class="btn btn-light border">Back</a>
         </div>
       </div>
+      <!-- 已接受：Edit / Back -->
       <div class="action-post">
         <div class="toolbar">
-          <button type="button" id="btnEdit" class="btn btn-light border btn-pill">Edit</button>
-          <a href="javascript:history.back()" class="btn btn-light border btn-pill">Back</a>
+          <button type="button" id="btnEdit" class="btn btn-light border"><i class="bi bi-pencil me-1"></i>Edit</button>
+          <a href="javascript:history.back()" class="btn btn-light border">Back</a>
         </div>
       </div>
+      <!-- 编辑中：Save / Cancel -->
       <div class="action-edit">
         <div class="toolbar">
-          <button type="button" id="btnSave" class="btn btn-dark btn-pill"><i class="bi bi-save2 me-1"></i>Save Task</button>
-          <button type="button" id="btnCancel" class="btn btn-outline-secondary btn-pill">Cancel</button>
+          <button type="button" id="btnSave" class="btn btn-dark"><i class="bi bi-save2 me-1"></i>Save Task</button>
+          <button type="button" id="btnCancel" class="btn btn-outline-secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -369,57 +403,146 @@
   </div>
 </div>
 
+<!-- ===== Accept Modal ===== -->
+<div id="modalAccept" class="modal-mask" aria-hidden="true">
+  <div class="modal-wrap">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="acceptTitle">
+      <div class="modal-header">
+        <i class="bi bi-check2-circle"></i>
+        <div id="acceptTitle" class="modal-title">Accept Logistic Task</div>
+        <button type="button" class="modal-close" data-close="modalAccept"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to accept this task?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-back" data-close="modalAccept">Cancel</button>
+        <button type="button" id="confirmAccept" class="btn btn-accept"><i class="bi bi-check2"></i>Accept</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Reject Modal ===== -->
+<div id="modalReject" class="modal-mask" aria-hidden="true">
+  <div class="modal-wrap">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
+      <div class="modal-header">
+        <div id="rejectTitle" class="modal-title">Reject Logistic Task</div>
+        <button type="button" class="modal-close" data-close="modalReject"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="help">Please provide a reason for rejecting this task.</div>
+        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."'></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-back" data-close="modalReject">Cancel</button>
+        <button type="button" id="confirmReject" class="btn btn-reject"><i class="bi bi-x-lg"></i>Reject</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-  // 折叠（icon-only）
-  document.querySelectorAll('[data-toggle="subcard"]').forEach(btn=>{
-    const body=document.getElementById(btn.dataset.target);
-    btn.addEventListener('click',()=>{
-      body?.classList.toggle('hidden');
-      btn.classList.toggle('open');
+/* ===== 折叠（icon-only） ===== */
+document.querySelectorAll('[data-toggle="subcard"]').forEach(btn=>{
+  const body=document.getElementById(btn.dataset.target);
+  btn.addEventListener('click',()=>{
+    body?.classList.toggle('hidden');
+    btn.classList.toggle('open');
+  });
+});
+
+/* ===== Modal 工具 ===== */
+function _openModalCore(id){
+  const el=document.getElementById(id);
+  if(el){ el.classList.add('show'); el.setAttribute('aria-hidden','false'); }
+}
+function _closeModalCore(id){
+  const el=document.getElementById(id);
+  if(el){ el.classList.remove('show'); el.setAttribute('aria-hidden','true'); }
+}
+
+// 包一层，顺便切换 body 滚动锁
+window.openModal=function(id){
+  document.body.classList.add('modal-open');
+  _openModalCore(id);
+};
+window.closeModal=function(id){
+  _closeModalCore(id);
+  // 若无任何弹窗开启，移除锁
+  if(!document.querySelector('.modal-mask.show')) document.body.classList.remove('modal-open');
+};
+
+/* 点击遮罩区域关闭 */
+['modalAccept','modalReject'].forEach(mid=>{
+  const mask=document.getElementById(mid);
+  mask && mask.addEventListener('click',(e)=>{ if(e.target===mask) closeModal(mid); });
+});
+
+/* Esc 关闭 */
+document.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape'){
+    ['modalAccept','modalReject'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el && el.classList.contains('show')) closeModal(id);
     });
+  }
+});
+
+/* ===== 三段式逻辑 + 绑定 ===== */
+const root=document.getElementById('pageRoot');
+
+document.getElementById('btnAccept')?.addEventListener('click',()=>openModal('modalAccept'));
+document.getElementById('btnReject')?.addEventListener('click',()=>openModal('modalReject'));
+
+document.getElementById('confirmAccept')?.addEventListener('click',()=>{
+  // TODO: 调后端“接受任务”
+  root.classList.add('is-accepted');
+  root.classList.remove('is-editing');
+  closeModal('modalAccept');
+});
+
+document.getElementById('confirmReject')?.addEventListener('click',()=>{
+  const reason=(document.getElementById('rejectReason')?.value||'').trim();
+  // TODO: 调后端“拒绝任务”，提交 {reason}
+  closeModal('modalReject');
+  console.log('Rejected with reason:', reason);
+});
+
+/* 编辑开关（仅备注块） */
+document.getElementById('btnEdit')?.addEventListener('click',()=>root.classList.add('is-editing'));
+document.getElementById('btnCancel')?.addEventListener('click',()=>root.classList.remove('is-editing'));
+document.getElementById('btnSave')?.addEventListener('click',()=>{
+  // TODO: 保存备注
+  root.classList.remove('is-editing');
+  root.classList.add('is-accepted');
+});
+
+/* Add Remarks 动态行 */
+(function(){
+  const list=document.getElementById('remarks-list');
+  const btn=document.getElementById('btn-add-remark');
+  function row(){
+    const d=document.createElement('div');
+    d.className='remark-row d-flex align-items-center gap-2';
+    d.innerHTML=`
+      <select class="form-select form-select-sm remark-cat" style="max-width:160px">
+        <option>Installation</option><option>Printing</option><option>Packing</option><option>General</option>
+      </select>
+      <input class="form-control form-control-sm remark-text" placeholder="Add your remark..." />
+      <button type="button" class="btn btn-link text-muted p-0 remove-remark" title="Remove">
+        <i class="bi bi-trash"></i>
+      </button>`;
+    return d;
+  }
+  btn?.addEventListener('click',()=>list.appendChild(row()));
+  list?.addEventListener('click',e=>{
+    const r=e.target.closest('.remove-remark'); if(!r) return;
+    const line=r.closest('.remark-row');
+    if(line && list.children.length>1) line.remove();
+    else if(line) line.querySelector('.remark-text').value='';
   });
-
-  const root=document.getElementById('pageRoot');
-
-  // 接受 → 已接受
-  document.getElementById('btnAccept')?.addEventListener('click',()=>{
-    root.classList.add('is-accepted');
-    root.classList.remove('is-editing');
-  });
-
-  // 拒绝（演示）
-  document.getElementById('btnReject')?.addEventListener('click',()=>alert('This task was rejected (demo).'));
-
-  // 进入/退出编辑（不改 Product，仅显示备注与按钮）
-  document.getElementById('btnEdit')?.addEventListener('click',()=>root.classList.add('is-editing'));
-  document.getElementById('btnCancel')?.addEventListener('click',()=>root.classList.remove('is-editing'));
-  document.getElementById('btnSave')?.addEventListener('click',()=>{
-    // TODO: 保存备注
-    root.classList.remove('is-editing');
-    root.classList.add('is-accepted');
-  });
-
-  // Add Remarks 动态行
-  (function(){
-    const list=document.getElementById('remarks-list');
-    const btn=document.getElementById('btn-add-remark');
-    function row(){
-      const d=document.createElement('div');
-      d.className='remark-row d-flex align-items-center gap-2';
-      d.innerHTML=`
-        <select class="form-select form-select-sm remark-cat" style="max-width:160px">
-          <option>Installation</option><option>Printing</option><option>Packing</option><option>General</option>
-        </select>
-        <input class="form-control form-control-sm remark-text" placeholder="Add your remark..." />
-        <button type="button" class="btn btn-link text-muted p-0 remove-remark" title="Remove"><i class="bi bi-trash"></i></button>`;
-      return d;
-    }
-    btn?.addEventListener('click',()=>list.appendChild(row()));
-    list?.addEventListener('click',e=>{
-      const r=e.target.closest('.remove-remark'); if(!r) return;
-      const line=r.closest('.remark-row');
-      if(line && list.children.length>1) line.remove(); else if(line) line.querySelector('.remark-text').value='';
-    });
-  })();
+})();
 </script>
 @endsection

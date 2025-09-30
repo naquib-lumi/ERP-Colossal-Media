@@ -87,6 +87,12 @@ html.layout-menu-hover .logo-text {
                   <div data-i18n="Job Orders">Job Orders</div>
                 </a>
               </li>
+              <li class="menu-item {{ request()->routeIs('artist.calendar') ? 'active' : '' }}">
+                <a href="{{ route('artist.calendar') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-calendar"></i>
+                  <div data-i18n="Calendar">Calendar</div>
+                </a>
+              </li>
               <li class="menu-item {{ request()->routeIs('artist.fulfillment.index') ? 'active' : '' }}">
                 <a href="{{ route('artist.fulfillment.index') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-check"></i>
@@ -114,13 +120,111 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li>
             @endif
-            @if (in_array(auth()->user()->role, ['operations-printing', 'Installation', 'Delivery', 'Furnishing']))
+            @if (in_array(auth()->user()->role, ['operations-printing']))
               <li class="menu-item {{ request()->routeIs('printing.history') ? 'active' : '' }}">
                 <a href="{{ route('printing.history') }}" class="menu-link">
-                  <i class="menu-icon tf-icons ti ti-tools"></i>
-                  <div data-i18n="Tasks">History</div>
+                  <i class="menu-icon icon-base bx bx-history"></i>
+                  <div data-i18n="Order History">Order History</div>
                 </a>
               </li>
+              <!-- <li class="menu-item {{ request()->routeIs('printing.history') ? 'active' : '' }}">
+                <a href="{{ route('printing.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="User">User</div>
+                </a>
+              </li> -->
+              <li class="menu-item {{ request()->routeIs('printing.profile') ? 'active' : '' }}">
+    <a href="{{ route('printing.profile') }}" class="menu-link">
+      <i class="menu-icon icon-base bx bx-user"></i>
+      <div data-i18n="Profile">Profile</div>
+    </a>
+  </li>
+            @endif
+            @if (in_array(auth()->user()->role, ['operations-manager']))
+              <li class="menu-item {{ request()->routeIs('furnishing.history') ? 'active' : '' }}">
+                <a href="{{ route('furnishing.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-history"></i>
+                  <div data-i18n="Order History">Order History</div>
+                </a>
+              </li>
+              <!-- <li class="menu-item {{ request()->routeIs('furnishing.history') ? 'active' : '' }}">
+                <a href="{{ route('furnishing.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="User">User</div>
+                </a>
+              </li> -->
+              <li class="menu-item {{ request()->routeIs('furnishing.profile') ? 'active' : '' }}">
+    <a href="{{ route('furnishing.profile') }}" class="menu-link">
+      <i class="menu-icon icon-base bx bx-user"></i>
+      <div data-i18n="Profile">Profile</div>
+    </a>
+  </li>
+            @endif
+            @if (in_array(auth()->user()->role, ['operations-installation']))
+              <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
+                <a href="{{ route('installation.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-history"></i>
+                  <div data-i18n="Order History">Order History</div>
+                </a>
+              </li>
+              <li class="menu-item {{ request()->routeIs('installation.calendar') ? 'active' : '' }}">
+    <a href="{{ route('installation.calendar') }}" class="menu-link">
+      <i class="menu-icon icon-base bx bx-calendar"></i>
+      <div data-i18n="Calendar">Calendar</div>
+    </a>
+  </li>
+                <li class="menu-item {{ request()->routeIs('installation.user') ? 'active' : '' }}">
+  <a href="{{ route('installation.user') }}" class="menu-link">
+    <i class="menu-icon icon-base bx bx-user"></i>
+    <div data-i18n="Profile">Profile</div>
+  </a>
+</li>
+
+
+              <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
+                <a href="{{ route('installation.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="Calendar">Calendar</div>
+                </a>
+              </li> -->
+              <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
+                <a href="{{ route('installation.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="User">User</div>
+                </a>
+              </li> -->
+            @endif
+            @if (in_array(auth()->user()->role, ['operations-delivery']))
+              <li class="menu-item {{ request()->routeIs('dispatchcontrol.job-order') ? 'active' : '' }}">
+                <a href="{{ route('dispatchcontrol.job-order') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-file"></i>
+                  <div data-i18n="Job Order">Job Order</div>
+                </a>
+              </li>
+              <li class="menu-item {{ request()->routeIs('dispatchcontrol.history') ? 'active' : '' }}">
+                <a href="{{ route('dispatchcontrol.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-history"></i>
+                  <div data-i18n="Order History">Order History</div>
+                </a>
+              </li>
+              <li class="menu-item {{ request()->routeIs('dispatchcontrol.user') ? 'active' : '' }}">
+    <a href="{{ route('dispatchcontrol.user') }}" class="menu-link">
+      <i class="menu-icon icon-base bx bx-user"></i>
+      <div data-i18n="Profile">Profile</div>
+    </a>
+  </li>
+              <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
+                <a href="{{ route('installation.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="Calendar">Calendar</div>
+                </a>
+              </li> -->
+              <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
+                <a href="{{ route('installation.history') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="User">User</div>
+                </a>
+              </li> -->
             @endif
             @if (auth()->user()->role === 'Boss')
               <li class="menu-item {{ request()->routeIs('boss.reports') ? 'active' : '' }}">
