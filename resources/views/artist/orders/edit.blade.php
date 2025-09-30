@@ -1125,7 +1125,7 @@
                             @forelse($rows as $r)
                             <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
                               <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
-                              <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
+                              <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
                                 <option value="">— Select —</option>
                                 @foreach($ops as $k => $label)
                                 <option value="{{ $k }}" @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)>{{ $label }}</option>
@@ -1134,7 +1134,7 @@
                               <input type="text"
                                 name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][remark]"
                                 class="form-control"
-                                placeholder="Write a note…" {{ $readonly }}
+                                placeholder="Write a note…" {{ $readonly }} data-optional="true"
                                 value="{{ old("products.$pIndex.remarks.$loop->index.remark", $r->remark) }}">
                               @if ($submitted)
                               <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -1144,13 +1144,13 @@
                             </div>
                             @empty
                             <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
-                              <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
+                              <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
                                 <option value="">— Select —</option>
                                 @foreach($ops as $k => $label)
                                 <option value="{{ $k }}">{{ $label }}</option>
                                 @endforeach
                               </select>
-                              <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }}>
+                              <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }} data-optional="true">
                               @if ($submitted)
                               <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                 <i class="bx bx-trash fs-5"></i>
@@ -1982,7 +1982,7 @@
         div.className = 'd-flex align-items-center gap-2 mb-2 remark-row';
         div.setAttribute('data-remark', '');
         div.innerHTML = `
-          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}}>
+          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
             <option value="">— Select —</option>
             <option value="printing">Printing</option>
             <option value="furnishing">Furnishing</option>
@@ -1990,7 +1990,7 @@
             <option value="self pickup">Self Pickup</option>
             <option value="courier">Courier</option>
           </select>
-          <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…" {{$readonly}}>
+          <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…" {{$readonly}} data-optional="true">
           <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
             <i class="bx bx-trash fs-5"></i>
           </button>`;
@@ -2288,6 +2288,73 @@
 
     window.getSelectedFiles = () => Array.from(selected.values());
 
+    // helpers
+    const _trim = el => $.trim($(el).val() || '');
+
+    // ≥1 file either newly uploaded or already attached
+    function hasAtLeastOneAttachment() {
+      const newCount = ($('input[type="file"][name="attachments[]"]')[0]?.files?.length) || 0;
+      const existingCount =
+        $('input[name^="existing_attachments["]').length ||
+        $('#existing-attachments .attachment-item').length ||
+        $('#attachment-list .file-row').length || 0;
+      return (newCount + existingCount) > 0;
+    }
+
+    // ITEMS: ≥1 item AND each item has required fields (skip Lamination/Printer/Cutter)
+    function validateItems() {
+      const $wraps = $('#hidden-products > div');
+      if ($wraps.length === 0) return false;
+
+      let ok = true;
+      $wraps.each(function () {
+        const name = _trim($(this).find('input[name$="[product_name]"]'));
+        const qty  = Number(_trim($(this).find('input[name$="[quantity]"]'))) || 0;
+        if (!name || qty <= 0) { ok = false; return false; }
+
+        // check other item fields you post (skip optional + remarks bundle)
+        $(this).find('input,select,textarea').each(function () {
+          const nm = (this.name || '').toLowerCase();
+          if (!nm) return;
+          if (nm.includes('lamination') || nm.includes('printer') || nm.includes('cutter')) return; // optional
+          if (nm.includes('[remarks]')) return; // remarks validated separately
+          if (/\[product_name]$|\[quantity]$|\[material_info]$|\[size]$|\[color]$/.test(nm)) {
+            if (!_trim(this)) { ok = false; return false; }
+          }
+        });
+        if (!ok) return false;
+      });
+      return ok;
+    }
+
+    // DELIVERY: ≥1 breakdown AND required fields filled (skip Location Address & Date/Time)
+    function validateDelivery() {
+      let $rows = $('.delivery-row');
+      if ($rows.length === 0) {
+        $rows = $('[name^="deliveries["]').closest('.delivery-row, .row, .delivery-block');
+      }
+      if ($rows.length === 0) return false;
+
+      let ok = true;
+      $rows.each(function () {
+        const $req = $(this).find('input,select,textarea').filter(function () {
+          const nm = (this.name || '').toLowerCase();
+          if (!nm) return false;
+          if (nm.includes('location') || nm.includes('address') || nm.includes('date') || nm.includes('time')) return false; // optional
+          if (nm.endsWith('[id]')) return false; // internal ids
+          return true;
+        });
+        $req.each(function () { if (!_trim(this)) { ok = false; return false; }});
+        if (!ok) return false;
+      });
+      return ok;
+    }
+
+    // single gate your modal logic calls
+    function isReadyForPrinting() {
+      return validateItems() && validateDelivery() && hasAtLeastOneAttachment();
+    }
+
     // submit order form
     const form = document.getElementById('order-form');
     const btnDraft = document.getElementById('btn-draft');
@@ -2386,12 +2453,34 @@
     ]);
 
     function isOptional(el) {
-      // Option A — prefer data-optional on the exact fields you want to ignore:
+      // Respect explicit opt-outs
       if (el.hasAttribute('data-optional')) return true;
 
-      // Option B — fallback by name whitelist:
-      const n = (el.getAttribute('name') || '').replace(/\[\]$/, '').trim();
-      return OPTIONAL_NAME_WHITELIST.has(n);
+      // Use full, lowercase name to match nested array fields safely
+      const name = (el.getAttribute('name') || '').toLowerCase();
+
+      // Item row (optional): lamination, printer, cutter
+      if (name.includes('[items]') && (
+          name.includes('[lamination]') ||
+          name.includes('[printer]') ||
+          name.includes('[cutter]')
+      )) return true;
+
+      if (name.includes('[remarks]') && (
+          name.includes('[remark]') ||
+          name.includes('[operation]')
+      )) return true;
+
+      // Delivery row (optional): installation type, costing
+      if (name.includes('[deliveries]') && (
+          name.includes('[deliver_install_type]') ||
+          name.includes('[outsource_cost]') ||
+          name.includes('[location]') ||
+          name.includes('[datetime]')
+      )) return true;
+
+      // Everything else is required (do NOT treat location/date/time as optional)
+      return false;
     }
 
     function requiredElements() {
@@ -2427,27 +2516,7 @@
     }
 
     // Intercept Save & Submit
-    document.getElementById('btn-submit').addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const hasAttach = selectedAttachmentCount() > 0;
-      const complete  = formComplete();
-
-      if (complete && hasAttach) {
-        getModal('#modal-submit-ok').show();
-        return;
-      }
-      if (!complete && hasAttach) {
-        getModal('#modal-submit-incomplete').show();
-        return;
-      }
-      // not complete + no attachment
-      (window.Swal
-        ? Swal.fire({icon:'error', title:'Missing info', text:'Please complete required fields or upload at least one attachment.'})
-        : alert('Please complete required fields or upload at least one attachment.')
-      );
-    });
+    document.getElementById('btn-submit')?.addEventListener('click', onSubmitClick);
 
     // Modal 1 → Send to Printing (now it really submits)
     document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
@@ -2535,19 +2604,37 @@
     }
 
     // Mark everything required EXCEPT: lamination, printer, cutter, install type & cost
-    (function markRequired() {
-      const exclude = /\[(lamination|printer|cutter|deliver_install_type|outsource_cost)\]/;
-      document.querySelectorAll('#order-form input, #order-form select, #order-form textarea').forEach(el => {
-        if (!el.name || el.disabled) return;
-        if (el.type === 'hidden' || el.type === 'file') return;
-        if (exclude.test(el.name)) return;
-        el.required = true;
-      });
-    })();
+    function markRequired() {
+      document.querySelectorAll('#order-form input, #order-form select, #order-form textarea')
+        .forEach(el => {
+          if (!el.name || el.disabled) return;
+          if (el.type === 'hidden' || el.type === 'file') return;
+          if (isOptional(el)) return; // uses the new robust checker
+          el.required = true;         // enforce required everywhere else
+        });
+    }
 
+    function requiredElements() {
+      const nodes = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
+      return nodes.filter(el => !isOptional(el)); // belt-and-suspenders
+    }
+
+    function requiredOK() {
+      return requiredElements().every(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          const group = document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`);
+          return Array.from(group).some(x => x.checked);
+        }
+        const v = (el.value || '').toString().trim();
+        return v.length > 0;
+      });
+    }
+
+    // Use our strict checker instead of browser's
     function formComplete() {
-      // uses the 'required' flags we just set
-      return document.getElementById('order-form').checkValidity();
+      // make sure required flags are applied before checking
+      markRequired();
+      return requiredOK();
     }
 
     async function onSubmitClick(e) {
@@ -2557,13 +2644,19 @@
       const hasAttach = selectedAttachmentCount() > 0;
       const complete = formComplete();
 
+      const hasAtLeastOneItem = !!document.querySelector('input[name^="products["][name*="[items]"][name$="[itemName]"]');
+
+      const hasAtLeastOneDelivery = !!document.querySelector('input[name^="products["][name*="[deliveries]"][name$="[quantity]"]');
+
+      const strictComplete = complete && hasAtLeastOneItem && hasAtLeastOneDelivery;
+
       // i. complete + has attachment → OK modal
-      if (complete && hasAttach) {
+      if (strictComplete && hasAttach) {
         new bootstrap.Modal(document.getElementById('modal-submit-ok')).show();
         return;
       }
       // ii. incomplete + has attachment → Incomplete modal (then choose DE)
-      if (!complete && hasAttach) {
+      if (!strictComplete && hasAttach) {
         new bootstrap.Modal(document.getElementById('modal-submit-incomplete')).show();
         return;
       }

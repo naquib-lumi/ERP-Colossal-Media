@@ -336,6 +336,10 @@
                             <button id="exportExcel" class="btn btn-dark">
                                 <i class="bx bx-export me-1"></i> Export
                             </button>
+
+                            <h5 style="margin-bottom: 0;" class="text-white pb-2 pt-2 d-flex justify-content-between align-items-center">
+                                <a href="{{ route('artist.orders.create') }}" class="btn btn-light text-primary">Add Order</a>
+                            </h5>
                         </div>
                     </div>
 

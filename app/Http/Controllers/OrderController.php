@@ -148,7 +148,7 @@ class OrderController extends Controller
         return view('sales.add-order', compact('lead'));
     }
 
-   public function store(Request $request)
+ public function store(Request $request)
 {
     $user = Auth::user();
     if (!$user->hasRole('salesperson')) {
@@ -167,8 +167,11 @@ class OrderController extends Controller
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.remark' => 'nullable|string',
             'products.*.material_info' => 'nullable|string',
-            'products.*.location' => 'nullable|string|max:255',
+            'products.*.location' => 'nullable|string',
             'products.*.date_time' => 'nullable|date',
+            'products.*.remarks' => 'nullable|array',
+            'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup',
+            'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
             'attachments' => 'nullable|array',
             'attachments.*' => 'file|mimes:pdf,jpg,png,ai|max:2048',
@@ -176,7 +179,6 @@ class OrderController extends Controller
 
         $lead = Lead::findOrFail($request->lead_id);
 
-        // Save attachments if uploaded
         $attachments = [];
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
@@ -186,7 +188,6 @@ class OrderController extends Controller
         }
         $attachmentString = implode(',', $attachments);
 
-        // Create Order
         $order = Order::create([
             'lead_id' => $request->lead_id,
             'salesperson_id' => $user->id,
@@ -203,10 +204,8 @@ class OrderController extends Controller
             'orderAttachment' => $attachmentString,
         ]);
 
-        // Collect products (from form + CSV)
         $productsData = $request->products;
 
-        // If CSV uploaded, parse and add to productsData
         if ($request->hasFile('csv_file')) {
             $path = $request->file('csv_file')->getPathname();
             $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
@@ -215,21 +214,21 @@ class OrderController extends Controller
             $rows = $sheet->toArray();
 
             foreach ($rows as $key => $row) {
-                if ($key == 0) continue; // skip header
+                if ($key == 0) continue;
                 $productsData[] = [
-                    'product_name' => $row[0] ?? '',
-                    'quantity' => $row[1] ?? '',
-                    'remark' => $row[2] ?? '',
-                    'material_info' => $row[3] ?? '',
-                    'location' => $row[4] ?? '',
-                    'date_time' => $row[5] ?? '',
+                    'product_name' => isset($row[0]) ? trim($row[0], '"') : '',
+                    'quantity' => isset($row[1]) ? trim($row[1], '"') : '',
+                    'remark' => isset($row[2]) ? trim($row[2], '"') : '',
+                    'material_info' => isset($row[3]) ? trim($row[3], '"') : '',
+                    'location' => isset($row[4]) ? trim($row[4], '"') : '',
+                    'date_time' => isset($row[5]) ? trim($row[5], '"') : '',
+                    'remarks' => [],
                 ];
             }
         }
 
-        // Save products
         foreach ($productsData as $productData) {
-            Product::create([
+            $product = Product::create([
                 'OrderID' => $order->id,
                 'productName' => $productData['product_name'],
                 'totalQuantity' => $productData['quantity'],
@@ -238,6 +237,14 @@ class OrderController extends Controller
                 'location' => $productData['location'] ?? null,
                 'date_time' => $productData['date_time'] ?? null,
             ]);
+
+            foreach ($productData['remarks'] ?? [] as $remarkData) {
+                ProductRemark::create([
+                    'ProductID' => $product->ProductID,
+                    'operation' => $remarkData['operation'],
+                    'remark' => $remarkData['remark'] ?? null,
+                ]);
+            }
         }
 
         return redirect()->route('sales.orders')->with('success', 'Order created successfully');
@@ -247,7 +254,6 @@ class OrderController extends Controller
         dd($e->getMessage());
     }
 }
-
 
   public function csvTemplate()
 {

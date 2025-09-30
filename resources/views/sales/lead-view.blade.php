@@ -158,14 +158,14 @@
                                      <div class="chat-message mb-2 p-2 bg-light rounded" style="max-width: 70%;">
                                             <p class="mb-1">{{ $note->content }}</p>
                                           <small class="text-muted">
-    {{ $note->user->name ?? 'Unknown' }} · 
-    @if($note->date->diffInDays() == 0) Today 
-    @elseif($note->date->diffInDays() == 1) Yesterday 
-    @elseif($note->date->diffInDays() == 2) Two days ago 
-    @else {{ $note->date->format('Y-m-d H:i') }}
-    @endif
-    {{ $note->date->diffInHours() >= 24 ? '' : 'at ' . $note->date->format('H:i') }}
-</small>
+                                            {{ $note->user->name ?? 'Unknown' }} · 
+                                            @if($note->date->diffInDays() == 0) Today 
+                                            @elseif($note->date->diffInDays() == 1) Yesterday 
+                                            @elseif($note->date->diffInDays() == 2) Two days ago 
+                                            @else {{ $note->date->format('Y-m-d H:i') }}
+                                            @endif
+                                            {{ $note->date->diffInHours() >= 24 ? '' : 'at ' . $note->date->format('H:i') }}
+                                        </small>
                                             @if ($note->tags)
                                             <div class="mt-1">
                                                 @foreach ($note->tags ?? [] as $tag)
