@@ -20,6 +20,22 @@ use App\Http\Controllers\ProductOrderController;
 use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\LogisticOrderHistoryController;
 use App\Http\Controllers\PrintingHistoryController;
+
+use App\Http\Controllers\FurnishingController;
+use App\Http\Controllers\FurnishingHistoryController;
+use App\Http\Controllers\FurnishingProductOrderController;
+
+use App\Http\Controllers\InstallationController;
+use App\Http\Controllers\InstallationHistoryController;
+use App\Http\Controllers\InstallationProductOrderController;
+use App\Http\Controllers\InstallationProfileController;
+
+use App\Http\Controllers\DispatchControlController;
+use App\Http\Controllers\DispatchControlHistoryController;
+use App\Http\Controllers\DispatchControlProductOrderController;
+use App\Http\Controllers\DispatchControlProfileController;
+
+
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -54,10 +70,12 @@ Route::get('/dashboard', function () {
                 return redirect()->route('admin.dashboard');
             case 'operations-printing':
                 return redirect()->route('printing.dashboard');
-            case 'installation':
-            case 'delivery':
-            case 'furnishing':
-                return redirect()->route('operations.tasks');
+            case 'operations-installation':
+                return redirect()->route('installation.dashboard');
+            case 'operations-delivery':
+                return redirect()->route('dispatchcontrol.dashboard');
+            case 'operations-manager':
+                return redirect()->route('furnishing.dashboard');
             case 'boss':
                 return redirect()->route('boss.dashboard');
             default:
@@ -200,8 +218,35 @@ Route::middleware('auth')->group(function () {
         // Route::get('/printing/productorder', [ProductOrderController::class, 'productorder'])->name('printing.productorder');
         Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
         Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
-        Route::get('/printing/history', [PrintingHistoryController::class, 'index'])
-    ->name('printing.history');
+        Route::get('/printing/history', [PrintingHistoryController::class, 'index'])->name('printing.history');
+        Route::get('/printing/profile', [\App\Http\Controllers\PrintingProfileController::class, 'index'])->name('printing.profile');
+    });
+
+    // Furnishing
+    Route::middleware(['web','auth','role:operations-manager'])->group(function () {
+        Route::get('/furnishing/dashboard', [FurnishingController::class, 'dashboard'])->name('furnishing.dashboard');
+        Route::get('/furnishing/product-order', [FurnishingProductOrderController::class, 'productorder'])->name('furnishing.product-order');
+        Route::get('/furnishing/history', [FurnishingHistoryController::class, 'index'])->name('furnishing.history');
+        Route::get('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'index'])->name('furnishing.profile');
+    });
+
+    // Delivery and installation
+    Route::middleware(['web','auth','role:operations-installation'])->group(function () {
+        Route::get('/installation/dashboard', [InstallationController::class, 'dashboard'])->name('installation.dashboard');
+        Route::get('/installation/product-order', [InstallationProductOrderController::class, 'productorder'])->name('installation.product-order');
+        Route::get('/installation/history', [InstallationHistoryController::class, 'index'])->name('installation.history');
+        Route::get('/installation/user', [InstallationProfileController::class, 'index'])->name('installation.user');
+        Route::get('/installation/calendar', [\App\Http\Controllers\InstallationCalendarController::class, 'index'])->name('installation.calendar');
+        Route::get('/installation/calendar/events', [\App\Http\Controllers\InstallationCalendarController::class, 'events'])->name('installation.calendar.events');
+    });
+
+    // Dispatch Control
+    Route::middleware(['web','auth','role:operations-delivery'])->group(function () {
+        Route::get('/dispatchcontrol/dashboard', [DispatchControlController::class, 'dashboard'])->name('dispatchcontrol.dashboard');
+        Route::get('/dispatchcontrol/product-order', [DispatchControlProductOrderController::class, 'productorder'])->name('dispatchcontrol.product-order');
+        Route::get('/dispatchcontrol/history', [DispatchControlHistoryController::class, 'index'])->name('dispatchcontrol.history');
+        Route::get('/dispatchcontrol/job-order', [DispatchControlController::class, 'jobOrder'])->name('dispatchcontrol.job-order');
+         Route::get('/dispatchcontrol/user', [DispatchControlProfileController::class, 'index'])->name('dispatchcontrol.user');
     });
 
     Route::middleware('role:admin')->group(function () {

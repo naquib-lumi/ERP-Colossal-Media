@@ -23,16 +23,6 @@
 .table tbody tr:hover{background:#FAFBFC}
 .table td:first-child{font-weight:600;color:#111827}
 
-/* === 仅收紧 Submission Date 与 Actions 的距离 === */
-.table-wrapper .table thead th:nth-child(5),
-.table-wrapper .table tbody td:nth-child(5){
-  width:180px;white-space:nowrap;padding-right:6px;
-}
-.table-wrapper .table thead th:nth-child(6),
-.table-wrapper .table tbody td:nth-child(6){
-  width:140px;white-space:nowrap;padding-left:6px;text-align:left;
-}
-
 /* ===== Action 按钮 ===== */
 .action-btn{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid #E3E8EF;border-radius:8px;background:#fff;color:#707780}
 .action-btn:hover{background:#F5F8FB;color:#111927;border-color:#D7DFE7}
@@ -57,14 +47,21 @@
 .cx-btn-dark{background:#111827;border:1px solid #111827;color:#fff}
 .cx-btn-dark:hover{background:#0B1220;border-color:#0B1220}
 
-/* 只加宽 Actions 列（第 6 列） */
-.table-wrapper .table thead th:nth-child(6),
-.table-wrapper .table tbody td:nth-child(6){
-  width: 190px;        /* 原来是 140px，按需可调 180–210 */
-  padding-left: 10px;  /* 略加留白，Submission Date 仍然贴近 */
+/* Furnishing：Submission Date / Actions —— 稍微拉开一点 */
+.furnishing .table thead th:nth-child(5),
+.furnishing .table tbody td:nth-child(5){
+  width: 175px !important;      /* 原 150px → 175px */
+  white-space: nowrap;
+  padding-right: 12px !important; /* 原 6px → 12px，和 Actions 拉开一点 */
 }
 
-/*（可选）如果有 5~6 个图标，想更松一点就用 210px */
+.furnishing .table thead th:nth-child(6),
+.furnishing .table tbody td:nth-child(6){
+  width: 210px !important;        /* 原 200px → 210px，图标不拥挤 */
+  white-space: nowrap;
+  padding-left: 12px !important;  /* 原 10px → 12px */
+  text-align: left !important;
+}
 
 </style>
 
@@ -90,16 +87,16 @@
       </div>
     </div>
 
-    <!-- Table -->
-    <section class="card table-card">
-      <div class="card-hd">Printing Jobs</div>
+    <!-- Furnishing Table -->
+    <section class="card table-card furnishing">
+      <div class="card-hd">Furnishing Jobs</div>
 
       <div class="table-wrapper">
         <table class="table align-middle mb-0">
           <thead>
             <tr>
               <th>PRODUCT ID</th>
-              <th>PRINTER</th>
+              <th>CUTTER</th>
               <th>SQ INCH</th>
               <th>DEADLINE</th>
               <th>SUBMISSION DATE</th>
@@ -107,21 +104,22 @@
             </tr>
           </thead>
           <tbody>
-            @php
+          @php
             $rows = [
-              ['ORD005-P1','HT 1 RTR 3.2','2500 sq in','2025-09-10','2025-09-08'],
-              ['ORD006-P1','HT 2 HYB 3.2','1800 sq in','2025-09-12','2025-09-09'],
-              ['ORD007-P1','Latex 3.2','3200 sq in','2025-09-18','2025-09-08'],
-              ['ORD014-P2','Solvent 3.2','1500 sq in','2025-09-20','2025-09-10'],
-              ['ORD015-P1','L1 UV6C 1.8','2700 sq in','2025-09-14','2025-09-11'],
-              ['ORD007-P3','A1 UV4C 1.8','4000 sq in','2025-09-22','2025-09-12'],
-              ['ORD006-P5','YF4C 5ft','2100 sq in','2025-09-15','2025-09-12'],
-              ['ORD006-P3','Flatbed 3.2','3600 sq in','2025-09-25','2025-09-13'],
-              ['ORD018-P2','Flatbed A2 DTF','2900 sq in','2025-09-19','2025-09-13'],
-              ['ORD020-P3','Minolta DGFP','3300 sq in','2025-09-28','2025-09-14'],
+              ['ORD005-P1','Jinwei 1 6x10','2500 sq in','2025-09-10','2025-09-08'],
+              ['ORD006-P1','AOL1 6x10','1800 sq in','2025-09-12','2025-09-09'],
+              ['ORD007-P1','AOL2 1000x700','3200 sq in','2025-09-18','2025-09-08'],
+              ['ORD014-P2','Router 1','1500 sq in','2025-09-20','2025-09-10'],
+              ['ORD015-P1','Laser 1 300W','2700 sq in','2025-09-14','2025-09-11'],
+              ['ORD007-P3','Laser 2 150W','4000 sq in','2025-09-22','2025-09-12'],
+              ['ORD006-P5','Laser 3 150W','2100 sq in','2025-09-15','2025-09-12'],
+              ['ORD006-P3','AOL1 6x10','3600 sq in','2025-09-25','2025-09-13'],
+              ['ORD018-P2','Paper cutter','2900 sq in','2025-09-19','2025-09-13'],
+              ['ORD020-P3','AOL1 6x10','3300 sq in','2025-09-28','2025-09-14'],
             ];
-            @endphp
-            @foreach($rows as $r)
+          @endphp
+
+          @foreach($rows as $r)
             <tr>
               <td>{{ $r[0] }}</td>
               <td>{{ $r[1] }}</td>
@@ -130,12 +128,12 @@
               <td>{{ $r[4] }}</td>
               <td>
                 <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-                <button class="action-btn js-mark-done" data-id="{{ $r[0] }}" title="Mark as Printed"><i class="bi bi-check2"></i></button>
+                <button class="action-btn js-furnish-done" data-id="{{ $r[0] }}" title="Mark as Furnished"><i class="bi bi-check2"></i></button>
                 <button class="action-btn" title="Issue"><i class="bi bi-exclamation-triangle"></i></button>
                 <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
               </td>
             </tr>
-            @endforeach
+          @endforeach
           </tbody>
         </table>
       </div>
@@ -155,40 +153,42 @@
   </div>
 </div>
 
-<!-- 确认弹窗 -->
-<div id="popConfirm" class="cx-mask" aria-hidden="true">
-  <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="cxTitle">
+<!-- 确认弹窗（Furnishing -> Dispatch Control） -->
+<div id="popConfirmFurnish" class="cx-mask" aria-hidden="true">
+  <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="cxTitleFurnish">
     <div class="cx-header">
-      <div id="cxTitle" class="cx-title">Confirmation</div>
+      <div id="cxTitleFurnish" class="cx-title">Confirmation</div>
       <button type="button" class="cx-close" data-close><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="cx-body">
       <div class="cx-qicon"><i class="bi bi-question-lg"></i></div>
       <div>
-        <div class="cx-q">Do you done the printing?</div>
-        <div class="cx-help">This action will save the job order and move it to the furnishing phase.</div>
+        <div class="cx-q">Have you completed furnishing?</div>
+        <div class="cx-help">This action will save the job order and move it to the dispatch control phase.</div>
       </div>
     </div>
     <div class="cx-footer">
       <button type="button" class="cx-btn cx-btn-ghost" data-close>No</button>
-      <button type="button" class="cx-btn cx-btn-dark" id="btnConfirmYes">Yes</button>
+      <button type="button" class="cx-btn cx-btn-dark" id="btnFurnishYes">Yes</button>
     </div>
   </div>
 </div>
 
 <script>
 (() => {
-  const mask = document.getElementById('popConfirm');
+  const mask = document.getElementById('popConfirmFurnish');
   let currentId = null;
 
+  // 打开弹窗
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.js-mark-done');
+    const btn = e.target.closest('.js-furnish-done');
     if (!btn) return;
     currentId = btn.dataset.id || null;
     mask.classList.add('show');
     mask.setAttribute('aria-hidden','false');
   });
 
+  // 关闭弹窗（遮罩或带 data-close 的按钮）
   mask.addEventListener('click', (e) => {
     if (e.target === mask || e.target.hasAttribute('data-close')) {
       mask.classList.remove('show');
@@ -196,9 +196,10 @@
     }
   });
 
-  document.getElementById('btnConfirmYes').addEventListener('click', () => {
-    // TODO: 后端标记 printed → furnishing（使用 currentId）
-    console.log('Marked as printed:', currentId);
+  // 确认完成（提交到后端）
+  document.getElementById('btnFurnishYes').addEventListener('click', () => {
+    // TODO: 调用后端接口：把 currentId 从 Furnishing 移到 Dispatch Control
+    console.log('Marked as furnished:', currentId);
     mask.classList.remove('show');
     mask.setAttribute('aria-hidden','true');
   });

@@ -1,302 +1,185 @@
 @extends('layouts.app')
 
 @section('content')
+{{-- 只在本页引入图标 --}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
-/* ===== 基础表格：固定列宽，确保四个阶段列等宽 ===== */
-.table-progress { table-layout: fixed; }
-.table-progress col.col-id        { width: 160px; }
-.table-progress col.col-stage     { width: 18%; }   /* 4 列阶段，每列等宽 */
-.table-progress col.col-date      { width: 140px; }
-.table-progress col.col-deadline  { width: 140px; }
-.table-progress col.col-actions   { width: 110px; }
-.table-progress thead th { font-size:12px; color:#475467; font-weight:700; }
-.table-progress td, .table-progress th { vertical-align: middle; padding:16px 14px; }
+  .page-wrap{max-width:1220px;margin:0 auto;}
+  .toolbar .form-control{height:44px}
+  .toolbar .btn{height:44px}
+  .btn-ghost{border:1px solid #E5E7EB;background:#fff;color:#344054}
+  .btn-ghost:hover{background:#F2F4F7}
+  .btn-dark{background:#111827;border-color:#111827}
+  .btn-dark:hover{background:#0f172a;border-color:#0f172a}
 
-/* ===== 统一轨道（跨四列） ===== */
-.pipeline {
-  position: relative;
-  height: 18px;            /* 行高留一点空间好看 */
-}
-.pipeline .track {
-  position: absolute; left:0; right:0; top:50%;
-  height:6px; transform: translateY(-50%);
-  border-radius: 999px; background:#E5E7EB;    /* 整条浅灰底 */
-}
-.pipeline .fill {
-  position:absolute; left:0; top:50%;
-  transform: translateY(-50%);
-  height:6px; border-radius:999px;
-  background:#12B76A;      /* 绿色完成段 */
-  width: var(--progress, 0%);   /* 关键：控制到哪一节点 */
-}
+  .card-elev{border:1px solid #EEF0F3;border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+  .table th{color:#475467;font-size:12px;font-weight:700}
+  .table td{vertical-align:middle}
+  .table > :not(caption) > * > *{padding:16px 14px}
 
-/* 四个节点（正中对齐四列中心） */
-.dot {
-  position:absolute; top:50%; transform:translate(-50%,-50%);
-  width:12px; height:12px; border-radius:50%;
-  background:#12B76A; box-shadow:0 0 0 2px #fff;
-}
-.dot.gray { background:#98A2B3; }
-.dot.red  { background:#F04438; }
+  .pill-icon-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    border:1px solid #E5E7EB;background:#fff;color:#475467;
+    padding:.45rem .9rem;border-radius:10px
+  }
+  .pill-icon-btn:hover{background:#F2F4F7}
 
-/* 节点位置：四列中心（12.5%、37.5%、62.5%、87.5%） */
-.dot.p1 { left:12.5%; }
-.dot.p2 { left:37.5%; }
-.dot.p3 { left:62.5%; }
-.dot.p4 { left:87.5%; }
+  .view-btn{border:1px solid #D0D5DD;background:#fff;border-radius:10px;padding:.35rem .75rem}
+  .view-btn:hover{background:#F2F4F7}
 
-/* Actions */
-.action-btn{
-  width:32px; height:32px; border:1px solid #D0D5DD; border-radius:8px; background:#fff; color:#475467;
-  display:inline-flex; align-items:center; justify-content:center;
-}
-.action-btn:hover{ background:#F2F4F7; color:#344054; }
-
-/* 统计卡片 */
-.stat-card {
-  border:1px solid #E5E7EB;
-  border-radius:12px;
-  padding:20px;
-  display:flex; align-items:center; justify-content:space-between;
-  background:#fff;
-  box-shadow:0 1px 2px rgba(16,24,40,.06);
-}
-.stat-card .num { font-size:32px; font-weight:700; }
-.stat-card small { color:#667085; }
-
+  /* 分页 */
+  .pagination .page-link{border:1px solid #E5E7EB;color:#344054;padding:.5rem .8rem;border-radius:10px}
+  .pagination .page-item.active .page-link{background:#4F46E5;border-color:#4F46E5;color:#fff}
+  .pagination .page-link:focus{box-shadow:none}
 </style>
-<div class="container-fluid py-4 px-4">
-  <h1 class="h4 fw-bold mb-4">Dashboard Overview</h1>
-
-  <!-- 顶部统计卡片 -->
-  <div class="row g-3 mb-4">
-    <div class="col-12 col-lg-6">
-      <div class="stat-card">
-        <div>
-          <div class="text-muted mb-1">In Progress</div>
-          <div class="num">24</div>
-        </div>
-        <i class="bi bi-clock fs-3 text-secondary"></i>
-      </div>
-    </div>
-    <div class="col-12 col-lg-6">
-      <div class="stat-card">
-        <div>
-          <div class="text-muted mb-1">Completed</div>
-          <div class="num">156</div>
-        </div>
-        <i class="bi bi-check2 fs-3 text-success"></i>
-      </div>
-    </div>
-  </div>
 
 <div class="container-fluid py-4 px-4">
-  <h1 class="h4 fw-bold mb-4">Dashboard Overview</h1>
+  <div class="page-wrap">
+    <h1 class="h4 fw-bold mb-4 d-flex align-items-center gap-2">
+      <i class="bi bi-arrow-left-short d-none"></i> Order History
+    </h1>
 
-  <div class="card border-0 shadow-sm">
-    <div class="card-body">
-      <h5 class="mb-3">Production Status</h5>
-
-      <div class="table-responsive">
-        <table class="table table-progress align-middle mb-0">
-          <!-- 固定列宽：四个阶段列等宽，下面的 colspan=4 就能拿到一整条轨道宽度 -->
-          <colgroup>
-            <col class="col-id">
-            <col class="col-stage">
-            <col class="col-stage">
-            <col class="col-stage">
-            <col class="col-stage">
-            <col class="col-date">
-            <col class="col-deadline">
-            <col class="col-actions">
-          </colgroup>
-
-          <thead class="table-light">
-            <tr>
-              <th>PRODUCT ID</th>
-              <th>PRINTING</th>
-              <th>FURNISHING</th>
-              <th>DISPATCH CONTROL</th>
-              <th>DELIVERY & INSTALLATION</th>
-              <th>DATE IN</th>
-              <th>DEADLINE</th>
-              <th class="text-center">ACTIONS</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <!-- Row 1：只有 Printing 灰点，进度 0%（和你的图一致） -->
-            <tr>
-              <td>#ORD005-P1</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:0%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot gray p1"></span>
-                </div>
-              </td>
-              <td>2025-07-25</td>
-              <td>2025-07-15</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
-
-            <!-- Row 2：绿线从 Printing 到 Delivery 中间，最后 Delivery 灰点 -->
-            <tr>
-              <td>#ORD003-P4</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:62.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot p3"></span>
-                  <span class="dot gray p4"></span>
-                </div>
-              </td>
-              <td>2025-07-28</td>
-              <td>2025-07-18</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
-
-            <!-- Row 3：绿线到 Dispatch 前（约 42%），Dispatch 处红点 -->
-            <tr>
-              <td>#ORD005-P2</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:42%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot red p3"></span>
-                  <span class="dot gray p4" style="opacity:.35"></span>
-                </div>
-              </td>
-              <td>2025-07-20</td>
-              <td>2025-07-10</td>
-              <td class="text-center">
-                <div class="d-inline-flex gap-1">
-                  <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-                  <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                  <button class="action-btn" title="Done"><i class="bi bi-check2"></i></button>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Row 4：到 Dispatch 完成（62.5%），Delivery 端出现问题（p4 红点） -->
-            <tr>
-              <td>#ORD001-P3</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:62.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot p3"></span>
-                  <span class="dot red p4"></span>
-                </div>
-              </td>
-              <td>2025-07-22</td>
-              <td>2025-07-11</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
-
-            <!-- Row 5：全流程完成（到 p4） -->
-            <tr>
-              <td>#ORD007-P6</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:87.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot p3"></span>
-                  <span class="dot p4"></span>
-                </div>
-              </td>
-              <td>2025-07-30</td>
-              <td>2025-07-16</td>
-              <td class="text-center">
-                <div class="d-inline-flex gap-1">
-                  <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-                  <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                  <button class="action-btn" title="Done"><i class="bi bi-check2"></i></button>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Row 6：到 p2（37.5%）完成，后续待开始 -->
-            <tr>
-              <td>#ORD008-P1</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:37.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot gray p3" style="opacity:.35"></span>
-                  <span class="dot gray p4" style="opacity:.35"></span>
-                </div>
-              </td>
-              <td>2025-07-18</td>
-              <td>2025-07-09</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
-
-            <!-- Row 7：只完成 p1（12.5%），其余待开始 -->
-            <tr>
-              <td>#ORD009-P2</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:12.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot gray p2" style="opacity:.35"></span>
-                  <span class="dot gray p3" style="opacity:.35"></span>
-                  <span class="dot gray p4" style="opacity:.35"></span>
-                </div>
-              </td>
-              <td>2025-07-21</td>
-              <td>2025-07-12</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
-
-  <!-- 全部完成：整条绿色，p1~p4 全部绿色 dot -->
-  <tr>
-    <td>#ORD010-P4</td>
-    <td colspan="4">
-      <div class="pipeline" style="--progress:100%;">
-        <div class="track"></div>
-        <div class="fill"></div>
-        <span class="dot p1"></span>
-        <span class="dot p2"></span>
-        <span class="dot p3"></span>
-        <span class="dot p4"></span>
+    {{-- Filter / Toolbar --}}
+    <div class="card card-elev mb-4">
+      <div class="card-body">
+        <div class="row g-2 align-items-center toolbar">
+          <div class="col-12 col-lg">
+            <input type="text" class="form-control" placeholder="Search by Order ID or Job Title">
+          </div>
+          <div class="col-6 col-md-3 col-lg-2">
+            <input type="text" class="form-control" placeholder="mm/dd/yyyy">
+          </div>
+          <div class="col-auto text-muted">to</div>
+          <div class="col-6 col-md-3 col-lg-2">
+            <input type="text" class="form-control" placeholder="mm/dd/yyyy">
+          </div>
+          <div class="col-auto d-none d-md-block">
+            <button class="btn btn-ghost" aria-label="calendar"><i class="bi bi-calendar2"></i></button>
+          </div>
+          <div class="col-auto ms-lg-auto">
+            <button class="btn pill-icon-btn"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-dark d-inline-flex align-items-center gap-2">
+              <i class="bi bi-funnel"></i> Apply Filter
+            </button>
+          </div>
+        </div>
       </div>
-    </td>
-    <td>2025-07-26</td>
-    <td>2025-07-17</td>
-    <td class="text-center">
-      <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-    </td>
-  </tr>
-
-          </tbody>
-        </table>
-      </div>
-
     </div>
+
+    {{-- Completed Orders --}}
+    <div class="card card-elev">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="mb-0">Completed Orders</h5>
+          <div class="small text-muted">248 total results</div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Product ID</th>
+                <th>Product Name</th>
+                <th>Completed Date</th>
+                <th>Proof File</th>
+                <th>Remarks</th>
+                <th>Product Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ORD005-P1</td>
+                <td>Business Cards - Premium</td>
+                <td>Jan 15, 2025</td>
+                <td><button class="view-btn"><i class="bi bi-eye me-1"></i>View</button></td>
+                <td>Perfect quality</td>
+                <td><button class="pill-icon-btn" aria-label="details"><i class="bi bi-eye"></i></button></td>
+              </tr>
+              <tr>
+                <td>ORD005-P2</td>
+                <td>Flyers A4 - Standard</td>
+                <td>Jan 14, 2025</td>
+                <td><button class="view-btn"><i class="bi bi-eye me-1"></i>View</button></td>
+                <td>–</td>
+                <td><button class="pill-icon-btn"><i class="bi bi-eye"></i></button></td>
+              </tr>
+              <tr>
+                <td>ORD006-P1</td>
+                <td>Brochure Tri-fold</td>
+                <td>Jan 13, 2025</td>
+                <td><button class="view-btn"><i class="bi bi-eye me-1"></i>View</button></td>
+                <td>Color correction applied</td>
+                <td><button class="pill-icon-btn"><i class="bi bi-eye"></i></button></td>
+              </tr>
+              <tr>
+                <td>ORD007-P1</td>
+                <td>Poster A2 - Glossy</td>
+                <td>Jan 12, 2025</td>
+                <td><button class="view-btn"><i class="bi bi-eye me-1"></i>View</button></td>
+                <td>Rush order completed</td>
+                <td><button class="pill-icon-btn"><i class="bi bi-eye"></i></button></td>
+              </tr>
+              <tr>
+                <td>ORD007-P2</td>
+                <td>Letterhead - Corporate</td>
+                <td>Jan 11, 2025</td>
+                <td><button class="view-btn"><i class="bi bi-eye me-1"></i>View</button></td>
+                <td>–</td>
+                <td><button class="pill-icon-btn"><i class="bi bi-eye"></i></button></td>
+              </tr>
+              <tr>
+                <td>ORD007-P5</td>
+                <td>Banner 3×6 feet</td>
+                <td>Jan 10, 2025</td>
+                <td><button class="view-btn"><i class="bi bi-eye me-1"></i>View</button></td>
+                <td>Weather resistant material</td>
+                <td><button class="pill-icon-btn"><i class="bi bi-eye"></i></button></td>
+              </tr>
+              <tr>
+                <td>ORD008-P1</td>
+                <td>Menu Cards - Restaurant</td>
+                <td>Jan 09, 2025</td>
+                <td><button class="view-btn"><i class="bi bi-eye me-1"></i>View</button></td>
+                <td>Laminated finish</td>
+                <td><button class="pill-icon-btn"><i class="bi bi-eye"></i></button></td>
+              </tr>
+              <tr>
+                <td>ORD008-P3</td>
+                <td>Stickers - Custom Shape</td>
+                <td>Jan 08, 2025</td>
+                <td><button class="view-btn"><i class="bi bi-eye me-1"></i>View</button></td>
+                <td>Die-cut precision</td>
+                <td><button class="pill-icon-btn"><i class="bi bi-eye"></i></button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {{-- footer / pagination --}}
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="small text-muted">Showing 1 to 8 of 248 results</div>
+          <nav>
+            <ul class="pagination mb-0">
+              <li class="page-item">
+                <a class="page-link" href="#" aria-label="Previous"><i class="bi bi-chevron-left"></i></a>
+              </li>
+              <li class="page-item active"><span class="page-link">1</span></li>
+              <li class="page-item"><a class="page-link" href="#">2</a></li>
+              <li class="page-item"><a class="page-link" href="#">3</a></li>
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+              <li class="page-item"><a class="page-link" href="#">31</a></li>
+              <li class="page-item">
+                <a class="page-link" href="#" aria-label="Next"><i class="bi bi-chevron-right"></i></a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 @endsection
