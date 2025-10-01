@@ -109,7 +109,9 @@ class CalendarController extends Controller
             ];
         });
 
-    return response()->json($meetings->merge($reminders));
+    $allEvents = $meetings->toArray();
+    $allEvents = array_merge($allEvents, $reminders->toArray());
+    return response()->json($allEvents);
 }
 
 }

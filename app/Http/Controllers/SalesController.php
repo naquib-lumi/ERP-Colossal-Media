@@ -16,67 +16,87 @@ class SalesController extends Controller
         return view('auth.login');
     }
 
-  public function dashboard()
-    {
-        $user = Auth::user();
-        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-           
-            abort(403, 'Unauthorized');
-        }
-
-        $currentYear = Carbon::now()->year; // Dynamically get current year (2025 as of August 05, 2025)
-        $currentMonth = Carbon::now()->month; // Current month (8 for August)
-
-        // Fetch leads for the authenticated user for the current year
-        $leads = $user->leads()
-            ->whereYear('created_at', $currentYear)
-            ->get();
-
-            
-
-        // Fetch upcoming meetings for the authenticated user (placeholder until Meeting model is implemented)
-      $meetings = $user->meetings()
-        ->where('start_time', '>=', Carbon::now())
-        ->orderBy('start_time')
-        ->take(3)
-        ->get() ?? collect();
-
-        
-        $orders = []; // Placeholder until Order model is implemented
-
-        // Calculate monthly status counts for the current year up to the current month
-        $monthlyData = $leads->groupBy(function ($lead) {
-            return Carbon::parse($lead->created_at)->format('M'); // Group by month name
-        })->map(function ($group) {
-            return [
-                'accept' => $group->where('status', 'accept')->count(),
-                'reject' => $group->where('status', 'reject')->count(),
-                'followup' => $group->where('status', 'followup')->count(),
-            ];
-        });
-
-        // Initialize arrays for 12 months, defaulting to 0, then limit to current month
-        $acceptCounts = array_fill(0, $currentMonth, 0); // Only up to August (index 7)
-        $rejectCounts = array_fill(0, $currentMonth, 0);
-        $followupCounts = array_fill(0, $currentMonth, 0);
-
-        // Map monthly data to arrays (Jan = 0, Feb = 1, etc.) up to current month
-        foreach ($monthlyData as $month => $counts) {
-            $monthIndex = Carbon::parse("$currentYear-$month-01")->month - 1;
-            if ($monthIndex < $currentMonth) { // Only fill up to current month
-                $acceptCounts[$monthIndex] = $counts['accept'];
-                $rejectCounts[$monthIndex] = $counts['reject'];
-                $followupCounts[$monthIndex] = $counts['followup'];
-            }
-        }
-
-        // Total counts for the year up to the current month
-        $acceptCount = $leads->where('status', 'accept')->count();
-        $rejectCount = $leads->where('status', 'reject')->count();
-        $followupCount = $leads->where('status', 'followup')->count();
-
-        return view('sales.dashboard', compact('leads', 'meetings', 'orders', 'acceptCount', 'rejectCount', 'followupCount', 'acceptCounts', 'rejectCounts', 'followupCounts', 'currentYear','currentMonth'));
+public function dashboard()
+{
+    $user = Auth::user();
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        abort(403, 'Unauthorized');
     }
+
+    $currentYear = Carbon::now()->year;
+    $currentMonth = Carbon::now()->month;
+
+    // ✅ Leads logic
+    if ($user->hasRole('head-salesperson')) {
+        // Head-salesperson sees all leads
+        $leads = Lead::whereYear('created_at', $currentYear)->get();
+    } else {
+        // Normal salesperson only sees their own leads
+        $leads = $user->leads()->whereYear('created_at', $currentYear)->get();
+    }
+
+    // ✅ Meetings logic
+    if ($user->hasRole('head-salesperson')) {
+        $meetings = Meeting::where('start_time', '>=', Carbon::now())
+            ->orderBy('start_time')
+            ->take(3)
+            ->get();
+    } else {
+        $meetings = $user->meetings()
+            ->where('start_time', '>=', Carbon::now())
+            ->orderBy('start_time')
+            ->take(3)
+            ->get() ?? collect();
+    }
+
+    $orders = []; // Placeholder
+
+    // ✅ Monthly stats
+    $monthlyData = $leads->groupBy(function ($lead) {
+        return Carbon::parse($lead->created_at)->format('M');
+    })->map(function ($group) {
+        return [
+            'accept' => $group->where('status', 'accept')->count(),
+            'reject' => $group->where('status', 'reject')->count(),
+            'followup' => $group->where('status', 'followup')->count(),
+        ];
+    });
+
+    $acceptCounts = array_fill(0, $currentMonth, 0);
+    $rejectCounts = array_fill(0, $currentMonth, 0);
+    $followupCounts = array_fill(0, $currentMonth, 0);
+
+    foreach ($monthlyData as $month => $counts) {
+        $monthIndex = Carbon::parse("$currentYear-$month-01")->month - 1;
+        if ($monthIndex < $currentMonth) {
+            $acceptCounts[$monthIndex] = $counts['accept'];
+            $rejectCounts[$monthIndex] = $counts['reject'];
+            $followupCounts[$monthIndex] = $counts['followup'];
+        }
+    }
+
+    $acceptCount = $leads->where('status', 'accept')->count();
+    $rejectCount = $leads->where('status', 'reject')->count();
+    $followupCount = $leads->where('status', 'followup')->count();
+
+    $monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    return view('sales.dashboard', compact(
+        'leads',
+        'meetings',
+        'orders',
+        'acceptCount',
+        'rejectCount',
+        'followupCount',
+        'acceptCounts',
+        'rejectCounts',
+        'followupCounts',
+        'currentYear',
+        'currentMonth',
+        'monthNames'
+    ));
+}
+
 
     public function leadManagement()
     {

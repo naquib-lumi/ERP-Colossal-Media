@@ -63,7 +63,8 @@ class MeetingController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $meeting = Meeting::findOrFail($id);
-        if ($meeting->user_id != Auth::id()) {
+        $user = Auth::user();
+        if ($meeting->user_id != $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
         $validated = $request->validate([
@@ -93,7 +94,7 @@ class MeetingController extends Controller
         ]);
 
         $lead = Lead::findOrFail($validated['lead_id']);
-        if ($lead->salesperson_id !== $user->id) {
+        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -124,7 +125,7 @@ class MeetingController extends Controller
         }
 
         $meeting = Meeting::findOrFail($id);
-        if ($meeting->user_id != $user->id) {
+        if ($meeting->user_id != $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -142,7 +143,7 @@ class MeetingController extends Controller
         ]);
 
         $lead = Lead::findOrFail($validated['lead_id']);
-        if ($lead->salesperson_id !== $user->id) {
+        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -180,7 +181,7 @@ class MeetingController extends Controller
         }
 
         $meeting = Meeting::findOrFail($id);
-        if ($meeting->user_id != $user->id) {
+        if ($meeting->user_id != $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

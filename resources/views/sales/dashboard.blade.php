@@ -65,19 +65,23 @@
                                     </div>
                                     <span class="badge bg-primary">{{ $meeting->start_time->diffForHumans() }}</span>
                                 </div>
-                                <p class="mt-2 mb-0 text-muted">
-                                    @if ($meeting->location)
-                                        @if (filter_var($meeting->location, FILTER_VALIDATE_URL))
-                                            <a href="{{ $meeting->location }}" target="_blank" rel="noopener">
-                                                {{ $meeting->location }}
-                                            </a>
-                                        @else
+                           <p class="mt-2 mb-0 text-muted">
+                                @if ($meeting->location)
+                                    @if (filter_var($meeting->location, FILTER_VALIDATE_URL))
+                                        <a href="{{ $meeting->location }}" target="_blank" rel="noopener">
                                             {{ $meeting->location }}
-                                        @endif
+                                        </a>
                                     @else
-                                        No Location provided
+                                        {{ $meeting->location }}
                                     @endif
-                                </p>
+                                @elseif ($meeting->url)
+                                    <a href="{{ $meeting->url }}" target="_blank" rel="noopener">
+                                        {{ $meeting->url }}
+                                    </a>
+                                @else
+                                    No Location or URL provided
+                                @endif
+                            </p>
                             </div>
                         @empty
                             <div class="text-center text-muted">
@@ -180,224 +184,225 @@
 
     @if (Request::is('sales/dashboard') || Request::is('sales/dashboard/*'))
         <script>
-            'use strict';
+    'use strict';
 
-            document.addEventListener('DOMContentLoaded', function(e) {
-                let cardColor, headingColor, labelColor, legendColor, borderColor, fontFamily;
+    document.addEventListener('DOMContentLoaded', function(e) {
+        let cardColor, headingColor, labelColor, legendColor, borderColor, fontFamily;
 
-                cardColor = '#fff';
-                headingColor = '#333';
-                labelColor = '#666';
-                legendColor = '#666';
-                borderColor = '#ddd';
-                fontFamily = 'Public Sans, sans-serif';
+        cardColor = '#fff';
+        headingColor = '#333';
+        labelColor = '#666';
+        legendColor = '#666';
+        borderColor = '#ddd';
+        fontFamily = 'Public Sans, sans-serif';
 
-                // Sales Activity (Bar Chart) - Reverted to old styling
-                const salesActivityChartEl = document.querySelector('#salesActivityChart');
-                if (salesActivityChartEl) {
-                    const salesActivityChartConfig = {
-                        chart: {
-                            type: 'bar',
-                            height: 235, // Match the card-body height
-                            stacked: true,
-                            toolbar: {
-                                show: false
-                            }
-                        },
-                        series: [{
-                                name: 'Accepted/Month',
-                                data: @json(array_slice($acceptCounts, 0, $currentMonth))
-                            },
-                            {
-                                name: 'Rejected/Month',
-                                data: @json(array_slice($rejectCounts, 0, $currentMonth))
-                            },
-                            {
-                                name: 'FollowUp/Month',
-                                data: @json(array_slice($followupCounts, 0, $currentMonth))
-                            }
-                        ],
-                        plotOptions: {
-                            bar: {
-                                horizontal: false,
-                                columnWidth: '40%',
-                                borderRadius: 9,
-                                startingShape: 'rounded',
-                                endingShape: 'rounded',
-                                borderRadiusApplication: 'around'
-                            }
-                        },
-                        dataLabels: {
-                            enabled: false
-                        },
-                        stroke: {
-                            curve: 'smooth',
-                            width: 6,
-                            lineCap: 'round',
-                            colors: [cardColor]
-                        },
-                        legend: {
-                            show: false
-                        },
-                        colors: ['#28c76f', '#000000', '#ff9f43'], // Accepted, Rejected (black), Follow Up
+        // In controller: $monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        // Sales Activity (Bar Chart) - Reverted to old styling
+        const salesActivityChartEl = document.querySelector('#salesActivityChart');
+        if (salesActivityChartEl) {
+            const salesActivityChartConfig = {
+                chart: {
+                    type: 'bar',
+                    height: 235, // Match the card-body height
+                    stacked: true,
+                    toolbar: {
+                        show: false
+                    }
+                },
+                series: [{
+                        name: 'Accepted/Month',
+                        data: @json(array_slice($acceptCounts, 0, $currentMonth))
+                    },
+                    {
+                        name: 'Rejected/Month',
+                        data: @json(array_slice($rejectCounts, 0, $currentMonth))
+                    },
+                    {
+                        name: 'FollowUp/Month',
+                        data: @json(array_slice($followupCounts, 0, $currentMonth))
+                    }
+                ],
+                plotOptions: {
+                    bar: {
+                        horizontal: false,
+                        columnWidth: '40%',
+                        borderRadius: 9,
+                        startingShape: 'rounded',
+                        endingShape: 'rounded',
+                        borderRadiusApplication: 'around'
+                    }
+                },
+                dataLabels: {
+                    enabled: false
+                },
+                stroke: {
+                    curve: 'smooth',
+                    width: 6,
+                    lineCap: 'round',
+                    colors: [cardColor]
+                },
+                legend: {
+                    show: false
+                },
+                colors: ['#28c76f', '#000000', '#ff9f43'], // Accepted, Rejected (black), Follow Up
 
 
-                        fill: {
-                            opacity: 1
-                        },
-                        grid: {
-                            show: false,
-                            strokeDashArray: 7,
-                            padding: {
-                                top: 0,
-                                left: 0,
-                                right: 0
-                            } // Adjusted padding to fit bottom
-                        },
-                        xaxis: {
-                            categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].slice(0,
-                                @json($currentMonth)),
-                            labels: {
-                                show: true,
-                                style: {
-                                    colors: labelColor,
-                                    fontSize: '15px',
-                                    fontFamily: fontFamily
-                                }
-                            },
-                            axisBorder: {
-                                show: false
-                            },
-                            axisTicks: {
-                                show: false
-                            }
-                        },
-                        yaxis: {
-                            show: false
-                        },
-                        responsive: [{
-                                breakpoint: 1440,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 10,
-                                            columnWidth: '50%'
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                breakpoint: 1300,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 11,
-                                            columnWidth: '55%'
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                breakpoint: 1200,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 10,
-                                            columnWidth: '45%'
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                breakpoint: 1040,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 10,
-                                            columnWidth: '50%'
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                breakpoint: 992,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 12,
-                                            columnWidth: '40%'
-                                        }
-                                    },
-                                    chart: {
-                                        height: 320
-                                    }
-                                }
-                            },
-                            {
-                                breakpoint: 768,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 11,
-                                            columnWidth: '25%'
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                breakpoint: 576,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 10,
-                                            columnWidth: '35%'
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                breakpoint: 440,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 10,
-                                            columnWidth: '45%'
-                                        }
-                                    }
-                                }
-                            },
-                            {
-                                breakpoint: 360,
-                                options: {
-                                    plotOptions: {
-                                        bar: {
-                                            borderRadius: 8,
-                                            columnWidth: '50%'
-                                        }
-                                    }
-                                }
-                            }
-                        ],
-                        states: {
-                            hover: {
-                                filter: {
-                                    type: 'none'
-                                }
-                            },
-                            active: {
-                                filter: {
-                                    type: 'none'
+                fill: {
+                    opacity: 1
+                },
+                grid: {
+                    show: false,
+                    strokeDashArray: 7,
+                    padding: {
+                        top: 0,
+                        left: 0,
+                        right: 0
+                    } // Adjusted padding to fit bottom
+                },
+                xaxis: {
+                    categories: @json(array_slice($monthNames, 0, $currentMonth)),
+                    labels: {
+                        show: true,
+                        style: {
+                            colors: labelColor,
+                            fontSize: '15px',
+                            fontFamily: fontFamily
+                        }
+                    },
+                    axisBorder: {
+                        show: false
+                    },
+                    axisTicks: {
+                        show: false
+                    }
+                },
+                yaxis: {
+                    show: false
+                },
+                responsive: [{
+                        breakpoint: 1440,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 10,
+                                    columnWidth: '50%'
                                 }
                             }
                         }
-                    };
-                    const salesActivityChart = new ApexCharts(salesActivityChartEl, salesActivityChartConfig);
-                    salesActivityChart.render();
+                    },
+                    {
+                        breakpoint: 1300,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 11,
+                                    columnWidth: '55%'
+                                }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 1200,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 10,
+                                    columnWidth: '45%'
+                                }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 1040,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 10,
+                                    columnWidth: '50%'
+                                }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 992,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 12,
+                                    columnWidth: '40%'
+                                }
+                            },
+                            chart: {
+                                height: 320
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 768,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 11,
+                                    columnWidth: '25%'
+                                }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 576,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 10,
+                                    columnWidth: '35%'
+                                }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 440,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 10,
+                                    columnWidth: '45%'
+                                }
+                            }
+                        }
+                    },
+                    {
+                        breakpoint: 360,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 8,
+                                    columnWidth: '50%'
+                                }
+                            }
+                        }
+                    }
+                ],
+                states: {
+                    hover: {
+                        filter: {
+                            type: 'none'
+                        }
+                    },
+                    active: {
+                        filter: {
+                            type: 'none'
+                        }
+                    }
                 }
+            };
+            const salesActivityChart = new ApexCharts(salesActivityChartEl, salesActivityChartConfig);
+            salesActivityChart.render();
+        }
 
 
-            });
-        </script>
+    });
+</script>
        <script>
     document.addEventListener('DOMContentLoaded', function() {
         function fetchMeetings() {
