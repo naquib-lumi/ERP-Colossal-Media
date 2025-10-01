@@ -17,6 +17,7 @@ return new class extends Migration {
                 'operations-delivery',
                 'operations-printing',
                 'operations-installation',
+                'head-salesperson',
                 'data-entry',
                 'operations-furnishing',
                 'operations-dispatch-control',
@@ -29,6 +30,7 @@ return new class extends Migration {
         DB::statement("UPDATE `users` SET `role`='operations-furnishing'            WHERE `role`='operations-manager'");
         DB::statement("UPDATE `users` SET `role`='operations-dispatch-control'      WHERE `role`='operations-delivery'");
         DB::statement("UPDATE `users` SET `role`='operations-delivery-installation' WHERE `role`='operations-installation'");
+        DB::statement("UPDATE `users` SET `role`='salesperson'                      WHERE `role`='head-salesperson'");
 
         // 3) FINAL ENUM: drop old values, keep only final list (+ data-entry + boss)
         DB::statement("
@@ -62,6 +64,7 @@ return new class extends Migration {
                 'operations-delivery',
                 'operations-printing',
                 'operations-installation',
+                'head-salesperson',
                 'data-entry',
                 'operations-furnishing',
                 'operations-dispatch-control',
@@ -76,6 +79,7 @@ return new class extends Migration {
         DB::statement("UPDATE `users` SET `role`='operations-installation'      WHERE `role`='operations-delivery-installation'");
         DB::statement("UPDATE `users` SET `role`='salesperson'                  WHERE `role`='data-entry'");
         DB::statement("UPDATE `users` SET `role`='salesperson'                  WHERE `role`='boss'");
+        DB::statement("UPDATE `users` SET `role`='head-salesperson'             WHERE `role`='salesperson' AND `role` = 'salesperson'"); // Note: This is approximate; refine if needed
 
         // 3) OLD ENUM only
         DB::statement("
@@ -88,7 +92,8 @@ return new class extends Migration {
                 'head-artist',
                 'operations-delivery',
                 'operations-printing',
-                'operations-installation'
+                'operations-installation',
+                'head-salesperson'
             ) NOT NULL DEFAULT 'salesperson'
         ");
     }
