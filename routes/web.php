@@ -48,7 +48,10 @@ use Illuminate\Support\Facades\Auth;
 // });
 
 Route::get('/', function () {
-    return view('welcome');
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+    return redirect()->route('login');
 });
 Route::get('/test-notification', [NotificationController::class, 'testSelf'])->name('test-notification');
 Route::get('/test-allnotif', [NotificationController::class, 'testAll'])->name('test-allnotif');
@@ -163,8 +166,6 @@ Route::middleware('auth')->group(function () {
         // Data Entry assignment (AJAX)
         Route::get('/data-entry/users', [ArtistController::class, 'dataEntryUsers'])->name('dataEntry.users');
         Route::post('/artist/orders/{order}/pass-to-data-entry', [ArtistController::class, 'passToDataEntry'])->name('artist.orders.passToDataEntry');
-        Route::get('/data-entry/users', [ArtistController::class, 'dataEntryUsers'])->name('dataEntry.users');
-        Route::post('/artist/orders/{order}/pass-to-data-entry', [ArtistController::class, 'passToDataEntry'])->name('artist.orders.passToDataEntry');
 
         Route::post('/artist/orders/{order}/attachments/upload', [ArtistController::class, 'uploadAttachment'])->name('artist.orders.attachments.upload');
         Route::post('/artist/orders/{order}/attachments/delete', [ArtistController::class, 'deleteAttachment'])->name('artist.orders.attachments.delete');
@@ -193,15 +194,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/artist/orders/leads/{id}', [ArtistOrderController::class, 'getLead'])->name('artist.orders.leads.get');
         Route::get('/artist/orders/create/{lead_id?}', [ArtistOrderController::class, 'create'])->name('artist.orders.create');
         Route::post('/artist/orders', [ArtistOrderController::class, 'store'])->name('artist.orders.store');        
-        Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');;
+        Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');
         Route::put('/artist/orders/{id}', [ArtistOrderController::class, 'update'])->name('artist.orders.update');
-        Route::get('/artist/orders/{id}/edit', [ArtistOrderController::class, 'show'])->name('artist.orders.shows')->whereNumber('order');;
+        Route::get('/artist/orders/{id}', [ArtistOrderController::class, 'show'])->name('artist.orders.show')->whereNumber('order');
         Route::delete('/artist/orders/{id}', [ArtistOrderController::class, 'destroy'])->name('artist.orders.destroy');
         Route::post('/artist/orders/get', [ArtistOrderController::class, 'getOrders'])->name('artist.orders.get');
         
         Route::get('/artist/orders/csv-template', [ArtistOrderController::class, 'csvTemplate'])->name('artist.orders.csv_template');
-        Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show')->whereNumber('order');
-        Route::get('/artist/orders/{order}/edit', [ArtistController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');
 
         // AJAX search for artists (head-artist assigning)
         Route::get('/artist/orders/assignees/search', [ArtistOrderController::class, 'searchArtists'])->name('artist.orders.assignees.search');
