@@ -400,33 +400,40 @@ public function show($id)
     }
 
     public function searchLeads(Request $request)
-    {
-        $user = Auth::user();
-        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $query = $request->input('query');
-        if (!$query || strlen($query) < 2) {
-            return response()->json([]);
-        }
-
-        $leads = Lead::where('salesperson_id', $user->id)
-            ->where(function ($q) use ($query) {
-                $q->where('company_name', 'LIKE', '%' . $query . '%')
-                  ->orWhere('name', 'LIKE', '%' . $query . '%');
-            })
-            ->take(20)
-            ->get(['id', 'company_name', 'name'])
-            ->map(function ($lead) {
-                return [
-                    'id' => $lead->id,
-                    'text' => $lead->company_name . ' - ' . $lead->name
-                ];
-            });
-
-        return response()->json($leads);
+{
+    $user = Auth::user();
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        return response()->json(['error' => 'Unauthorized'], 403);
     }
+
+    $query = $request->input('query');
+    if (!$query || strlen($query) < 2) {
+        return response()->json([]);
+    }
+
+    $leadsQuery = Lead::query();
+
+    // Restrict if normal salesperson
+    if ($user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
+        $leadsQuery->where('salesperson_id', $user->id);
+    }
+
+    $leads = $leadsQuery
+        ->where(function ($q) use ($query) {
+            $q->where('company_name', 'LIKE', '%' . $query . '%')
+              ->orWhere('name', 'LIKE', '%' . $query . '%');
+        })
+        ->take(20)
+        ->get(['id', 'company_name', 'name'])
+        ->map(function ($lead) {
+            return [
+                'id' => $lead->id,
+                'text' => $lead->company_name . ' - ' . $lead->name
+            ];
+        });
+
+    return response()->json($leads);
+}
 
     public function getLead($id)
     {
