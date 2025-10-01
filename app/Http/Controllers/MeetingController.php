@@ -77,7 +77,7 @@ class MeetingController extends Controller
     public function storeFromCalendar(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -119,7 +119,7 @@ class MeetingController extends Controller
     public function updateFromCalendar(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -175,7 +175,7 @@ class MeetingController extends Controller
     public function destroy($id)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

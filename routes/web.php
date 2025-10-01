@@ -65,6 +65,8 @@ Route::get('/dashboard', function () {
         switch ($user->role) {
             case 'salesperson':
                 return redirect()->route('sales.dashboard');
+             case 'head-salesperson':
+                return redirect()->route('sales.dashboard');
             case 'artist':
                 return redirect()->route('artist.dashboard');
             case 'head-artist':
@@ -99,7 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    Route::middleware('role:salesperson')->group(function () {
+    Route::middleware('role:salesperson|head-salesperson')->group(function () {
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
         Route::get('/sales/orders', [OrderController::class, 'index'])->name('sales.orders');
         Route::get('/sales/calendar', [CalendarController::class, 'index'])->name('sales.calendar');

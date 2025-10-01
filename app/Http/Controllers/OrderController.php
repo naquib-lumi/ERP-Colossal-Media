@@ -18,7 +18,7 @@ class OrderController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
         return view('sales.order-management');
@@ -27,7 +27,7 @@ class OrderController extends Controller
     public function getOrders(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -73,7 +73,7 @@ class OrderController extends Controller
             })
             ->addColumn('lead_details', function ($order) {
                 $lead = $order->lead;
-                $assignedTo = $order->salesperson?->name ?? 'Unassigned';
+                $assignedTo = $order->artist?->name ?? 'Unassigned';
                 return '<div class="lead-details-cell text-secondary">' .
                        '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . ($lead->name ?? 'N/A') . '</div>' .
                        '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
@@ -139,7 +139,7 @@ class OrderController extends Controller
     public function create($leadId = null)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
         $lead = null;
@@ -154,7 +154,7 @@ class OrderController extends Controller
     public function store(Request $request)
 {
     $user = Auth::user();
-    if (!$user->hasRole('salesperson')) {
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
         return back()->with('error', 'Unauthorized');
     }
 
@@ -402,7 +402,7 @@ public function show($id)
     public function searchLeads(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

@@ -80,6 +80,26 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li>
             @endif
+                 @if (auth()->user()->role === 'head-salesperson')
+              <li class="menu-item {{ request()->routeIs('sales.leads') ? 'active' : '' }}">
+                <a href="{{ route('sales.leads') }}" class="menu-link">
+             <i class="menu-icon icon-base bx bx-user"></i>
+                  <div data-i18n="Leads">Leads</div>
+                </a>
+              </li>
+              <li class="menu-item {{ request()->routeIs('sales.calendar') ? 'active' : '' }}">
+                <a href="{{ route('sales.calendar') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-calendar"></i>
+                  <div data-i18n="Calendar">Calendar</div>
+                </a>
+              </li>
+              <li class="menu-item {{ request()->routeIs('sales.orders') ? 'active' : '' }}">
+                <a href="{{ route('sales.orders') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-file"></i>
+                  <div data-i18n="Orders">Orders</div>
+                </a>
+              </li>
+            @endif
             @if (in_array(auth()->user()->role, ['artist', 'head-artist']))
               <li class="menu-item {{ request()->routeIs('artist.orders') ? 'active' : '' }}">
                 <a href="{{ route('artist.orders') }}" class="menu-link">
