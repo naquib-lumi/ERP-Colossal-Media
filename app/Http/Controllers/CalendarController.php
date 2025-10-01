@@ -21,7 +21,7 @@ class CalendarController extends Controller
         return view('sales.calendar');
     }
 
-    public function events(Request $request)
+   public function events(Request $request)
 {
     $user = Auth::user();
     if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
@@ -42,7 +42,7 @@ class CalendarController extends Controller
 
     $meetings = $meetingsQuery
         ->whereBetween('start_time', [$start, $end])
-        ->with('lead')
+        ->with(['lead', 'user'])
         ->get()
         ->map(function ($meeting) {
             $color = match($meeting->status) {
@@ -68,6 +68,7 @@ class CalendarController extends Controller
                     'lead_id' => $meeting->lead_id,
                     'lead_text' => $meeting->lead ? $meeting->lead->company_name . ' - ' . $meeting->lead->name : 'Unknown',
                     'note' => $meeting->note,
+                    'created_by' => $meeting->user ? $meeting->user->name : 'Unknown',
                 ],
                 'backgroundColor' => $color,
                 'borderColor' => $color,
@@ -76,7 +77,7 @@ class CalendarController extends Controller
         });
 
     // ----- Reminders -----
-    $remindersQuery = Reminder::with('lead')->whereBetween('due_date', [$start, $end]);
+    $remindersQuery = Reminder::with(['lead.user'])->whereBetween('due_date', [$start, $end]);
 
     if ($user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
         $remindersQuery->whereHas('lead', function ($q) use ($user) {
@@ -102,6 +103,7 @@ class CalendarController extends Controller
                     'lead_text' => $reminder->lead ? $reminder->lead->company_name . ' - ' . $reminder->lead->name : 'Unknown',
                     'recurrence_type' => $reminder->recurrence_type,
                     'recurrence_time' => $reminder->recurrence_time,
+                    'created_by' => $reminder->user ? $reminder->user->name : 'Unknown',
                 ],
                 'backgroundColor' => $color,
                 'borderColor' => $color,

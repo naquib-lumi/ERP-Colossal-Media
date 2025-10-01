@@ -102,6 +102,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::middleware('role:salesperson|head-salesperson')->group(function () {
+
+
+
+Route::get('/sales/profile', [SalesController::class, 'ProfileShow'])->name('sales.profile.show');
+Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name('sales.profile.update');
+
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
         Route::get('/sales/orders', [OrderController::class, 'index'])->name('sales.orders');
         Route::get('/sales/calendar', [CalendarController::class, 'index'])->name('sales.calendar');

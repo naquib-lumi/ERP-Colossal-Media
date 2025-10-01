@@ -9,6 +9,12 @@ use App\Models\JobOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Support\Arr;
+use Illuminate\Validation\Rule;
 class SalesController extends Controller
 {
     public function login()
@@ -210,4 +216,45 @@ public function dashboard()
         $jobOrders = collect(); // Placeholder, implement JobOrder model if needed
         return view('sales.job-order-status', compact('jobOrders'));
     }
+
+
+    // In SalesController.php, add these methods
+
+public function ProfileShow(Request $request)
+{
+    $user = $request->user();
+    return view('sales.profile.show', compact('user'));
+}
+
+public function ProfileUpdate(Request $request)
+{
+    $user = $request->user();
+
+    $validated = $request->validate([
+        'name'           => ['required','string','max:255'],
+        'email'          => ['required','email','max:255'],
+        'contact_number' => ['nullable','string','max:30'],
+
+        // Password section (optional)
+        // If 'password' is present, 'current_password' must match the logged-in user
+        'current_password' => ['nullable','required_with:password','current_password'],
+        'password'         => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
+    ]);
+
+    // Update profile fields
+    $user->fill([
+        'name'           => $validated['name'],
+        'email'          => $validated['email'],
+        'contact_number' => $validated['contact_number'] ?? null,
+    ]);
+
+    // Update password if provided
+    if (!empty($validated['password'])) {
+        $user->password = Hash::make($validated['password']);
+    }
+
+    $user->save();
+
+    return back()->with('success', 'Profile updated.');
+}
 }
