@@ -59,6 +59,44 @@ tbody tr:first-child td{border-top:1px solid var(--border)}
   .kpi{grid-template-columns:1fr 1fr}
   .filters{grid-template-columns:1fr 1fr}
 }
+
+table th:nth-child(1),
+table td:nth-child(1){
+  width:120px; /* 可调到 160~180px */
+}
+table th:nth-last-child(2),
+table td:nth-last-child(2){
+  width:100px;
+  text-align:center;
+}
+table th:nth-child(3),
+table td:nth-child(3){
+  width:70px; /* 可调到 100~120px */
+}
+table th:nth-child(4),
+table td:nth-child(4){
+  width:120px; /* 可调到 160~180px */
+}
+table th:nth-child(5),
+table td:nth-child(5){
+  width:120px; /* 可调到 160~180px */
+}
+table th:nth-child(6),
+table td:nth-child(6){
+  width:140px; /* 可调到 160~180px */
+}
+table th:nth-child(7),
+table td:nth-child(7){
+  width:150px; /* 可调到 160~180px */
+}
+table th:nth-child(8),
+table td:nth-child(8){
+  width:90px; /* 可调到 160~180px */
+}
+table th:nth-child(9),
+table td:nth-child(9){
+  width:85px; /* 可调到 160~180px */
+}
 </style>
 
 <div class="page">

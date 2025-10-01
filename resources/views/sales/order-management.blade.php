@@ -43,7 +43,6 @@
                         <th>Company Info</th>
                         <th>Lead Details</th>
                         <th>Status</th>
-                        <th>Products</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -94,7 +93,6 @@
                 { data: 'company_info' },
                 { data: 'lead_details' },
                 { data: 'status' },
-                { data: 'products' },
                 { data: 'actions' }
             ],
             order: [[0, 'desc']],

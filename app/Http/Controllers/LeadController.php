@@ -19,7 +19,7 @@ class LeadController extends Controller
     public function leadManagement()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
         $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
@@ -50,7 +50,7 @@ class LeadController extends Controller
     public function searchLeads(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

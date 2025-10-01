@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
+  /* ===== 基础布局与卡片 ===== */
   .page-wrap{max-width:1180px;margin:0 auto}
   .card.soft{border:0;box-shadow:0 3px 10px rgba(16,24,40,.06);border-radius:14px}
   .section-hd{display:flex;align-items:center;gap:8px;font-weight:700;color:#101828;margin-bottom:12px}
@@ -15,35 +16,11 @@
   .dl dd{margin:0;color:#101828}
   .dl .muted{color:#475467}
 
-  /* remark chips */
+  /* 备注 chips */
   .chips{display:flex;gap:8px;flex-wrap:nowrap;overflow:auto hidden;padding-bottom:2px}
   .chip{white-space:nowrap;border-radius:999px;background:#F2F4F7;color:#344054;font-size:12px;padding:6px 10px}
-  .chips::-webkit-scrollbar{height:6px}
-  .chips::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:999px}
 
-  /* 表格 */
-  .table-products thead th{font-size:12px;color:#475467;font-weight:700;position:sticky;top:0;background:#F8FAFC;z-index:1;white-space:nowrap}
-  .table-products> :not(caption)>*>*{padding:10px 12px;vertical-align:middle}
-  .table-products tbody tr:nth-child(odd){background:#FCFCFD}
-  .td-tight{padding-top:12px !important;padding-bottom:12px !important}
-
-  .col-item{min-width:180px}
-  .col-qty{width:90px}
-  .col-size{width:110px}
-  .col-bleed{width:90px}
-  .col-material{width:120px}
-  .col-centre{width:100px}
-  .col-lam{width:140px}
-  .col-printer{width:160px}
-  .col-cutter{width:180px}
-  .col-assemble{width:100px}
-
-  /* 徽章 */
-  .badge-yes,.badge-no{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;border-radius:999px;font-size:12px;line-height:1;padding:0 .5rem}
-  .badge-yes{background:#ECFDF3;color:#027A48}
-  .badge-no{background:#FFF1F3;color:#B42318}
-
-  /* 子卡片 */
+  /* Product */
   .subcard{border:1px solid #EEF2F7;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.04);padding:0}
   .subcard-head{display:flex;align-items:center;gap:8px;padding:20px}
   .subcard-title{font-weight:700;color:#101828}
@@ -53,15 +30,24 @@
   .subcard-body{padding:20px}
   .subcard-body.hidden{display:none}
 
-  /* 折叠按钮（图标版） */
-  .btn-toggle{border:1px solid #E5E7EB;background:#fff;border-radius:10px;padding:6px 8px;font-size:12px;color:#475467;display:inline-flex;align-items:center;justify-content:center;width:34px;height:28px}
+  /* icon-only toggle */
+  .btn-toggle{border:1px solid #E5E7EB;background:#fff;border-radius:10px;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;color:#475467}
   .btn-toggle .bi{transition:transform .2s ease}
   .btn-toggle.open .bi{transform:rotate(180deg)}
 
-  /* Delivery cards */
+  .table-products thead th{font-size:12px;color:#475467;font-weight:700;white-space:nowrap;background:#F8FAFC;position:sticky;top:0;z-index:1}
+  .table-products> :not(caption)>*>*{padding:12px 14px;vertical-align:middle}
+  .table-products tbody tr:nth-child(odd){background:#FCFCFD}
+  .col-item{min-width:200px}.col-qty{width:100px}.col-size{width:120px}.col-bleed{width:110px}
+  .col-material{width:140px}.col-centre{width:110px}.col-lam{width:160px}.col-printer{width:170px}
+  .col-cutter{width:170px}.col-assemble{width:110px}
+  .badge-yes,.badge-no{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;border-radius:999px;font-size:12px}
+  .badge-yes{background:#ECFDF3;color:#027A48}.badge-no{background:#FFF1F3;color:#B42318}
+  .is-editing .td-printer{background:#FFFBEB}
+
+  /* Delivery Breakdown */
   .dlv-card{border:0;box-shadow:0 3px 10px rgba(16,24,40,.06);border-radius:14px}
   .dlv-hd{display:flex;align-items:center;gap:8px;font-weight:700;color:#101828}
-  .dlv-hd .bi{color:#667085}
   .dlv-sub{color:#98A2B3;font-size:12px}
   .dlv-product{margin-top:14px}
   .dlv-product-title{font-weight:600;color:#101828;margin-bottom:10px}
@@ -74,180 +60,73 @@
   @media (max-width:992px){  .dlv-fields{grid-template-columns:repeat(2,minmax(180px,1fr))} }
   @media (max-width:576px){  .dlv-fields{grid-template-columns:1fr} }
   .badge-method{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:600}
-  .badge-delivery{background:#EEF2FF;color:#3730A3}
-  .badge-courier{background:#ECFEFF;color:#155E75}
-  .badge-pickup{background:#F0FDF4;color:#166534}
-  .field .label{font-size:12px;color:#98A2B3;margin-bottom:2px}
-  .field .value{color:#111827}
-  .field .value-strong{font-weight:700}
+  .badge-delivery{background:#EEF2FF;color:#3730A3}.badge-courier{background:#ECFEFF;color:#155E75}.badge-pickup{background:#F0FDF4;color:#166534}
+  .field .label{font-size:12px;color:#98A2B3;margin-bottom:2px}.field .value{color:#111827}.field .value-strong{font-weight:700}
 
-  /* 附件 */
+  /* 附件 & Permit */
   .file-row{display:flex;align-items:center;justify-content:space-between;border:1px solid #E5E7EB;border-radius:10px;padding:12px 16px;background:#fff}
   .file-row+.file-row{margin-top:10px}
   .file-meta{display:flex;align-items:center;gap:12px}
   .file-meta .bi{font-size:20px;color:#667085}
-  .file-name{color:#101828;font-weight:500}
-  .file-size{color:#98A2B3;font-size:12px}
+  .file-name{color:#101828;font-weight:500}.file-size{color:#98A2B3;font-size:12px}
 
-  /* 标签 chips */
-  .assignee-chip{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-weight:600;font-size:12px;line-height:1;border:1px solid transparent}
-  .assignee-chip--blue{background:#EEF2FF;color:#3730A3;border-color:#E0E7FF}
-  .uploader-chip{background:#EEF2FF;color:#3730A3;border:1px solid #E0E7FF;border-radius:999px;padding:6px 12px;font-weight:600;font-size:12px}
+  /* 顶部与标签 */
+  .assignee-chip{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-weight:600;font-size:12px;border:1px solid transparent}
+  .assignee-chip--purple{background:#EEF2FF;color:#3730A3;border-color:#E0E7FF}
 
-  /* === 编辑态显隐（必须先 Accept，Edit 才显示备注） === */
+  /* 附件区上传者标签：固定到卡片右上角 */
+  .attach-body{position:relative}
+  .uploader-chip{position:absolute;right:16px;top:16px;background:#EEF2FF;color:#3730A3;border:1px solid #E0E7FF;border-radius:999px;font-weight:600;font-size:12px;padding:6px 12px}
+
+  /* 备注（只在编辑时显示） */
   .edit-only{display:none !important;}
-  .view-only{display:flex !important;}
   .is-editing .edit-only{display:flex !important;}
-  .is-editing .view-only{display:none !important;}
-
-  /* 仅在编辑时高亮 Cutter 列 */
-  .is-editing .td-cutter{background:#FFFBEB}
-  .form-select-sm,.form-control-sm{min-height:34px}
-  .remark-row .bi-trash{font-size:16px}
 
   /* Actionbar 三状态 */
   .actionbar .action-pre,.actionbar .action-post,.actionbar .action-edit{display:none !important;}
-  .actionbar .action-pre{display:flex !important;}                 /* 初始：未接受 */
+  .actionbar .action-pre{display:flex !important;}
   .is-accepted .actionbar .action-pre{display:none !important;}
-  .is-accepted .actionbar .action-post{display:flex !important;}   /* 已接受：Edit/Back */
+  .is-accepted .actionbar .action-post{display:flex !important;}
   .is-editing .actionbar .action-post{display:none !important;}
-  .is-editing .actionbar .action-edit{display:flex !important;}    /* 编辑：Save/Cancel */
+  .is-editing .actionbar .action-edit{display:flex !important;}
 
-/* Attachments 头部：标题 + 上传者标签 */
-.attach-head{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin-bottom:12px;        /* 让标题与列表有合适间距 */
-}
-.attach-head .uploader-chip{
-  margin-left:auto;
-  padding:6px 14px;
-  font-size:12px;
-  line-height:1;
-  border-radius:999px;
-  background:#EEF2FF;
-  color:#3730A3;
-  border:1px solid #E0E7FF;
-  display:inline-flex;
-  /* 只剩文字，去掉 gap */
-  gap:0;
-}
-/* 固定布局 + 统一行高/内边距 */
-.table-products{
-  table-layout: fixed;
-  width: 100%;
-}
-.table-products thead th,
-.table-products td{
-  padding: 14px 12px !important;
-  line-height: 1.5;
-  vertical-align: top;
-  white-space: nowrap;       /* 默认单行 */
-  overflow: hidden;
-  text-overflow: ellipsis;   /* 默认超出省略 */
-}
-
-/* 让表格能换行，而不是省略号 */
-.table-products { table-layout: fixed; width: 100%; }
-.table-products thead th,
-.table-products td{
-  white-space: normal;      /* 默认允许换行 */
-  overflow: visible;        /* 不裁切 */
-  text-overflow: clip;      /* 不显示 … */
-  line-height: 1.5;
-  padding: 14px 12px !important;
-  word-break: break-word;   /* 长词也能断行 */
-  hyphens: auto;
-}
-
-/* 紧凑的短数字列保持单行，避免行高被拉高 */
-.table-products .col-qty,
-.table-products .col-bleed,
-.table-products .col-centre,
-.table-products .col-assemble{
-  white-space: nowrap;      /* 这些列不换行 */
-  text-align: center;
-}
-
-/* 列宽再微调一下：把空间让给容易换行的几列 */
-.table-products .col-item{     width:18%; }  /* ITEM 稍短 */
-.table-products .col-qty{      width:6%;  }
-.table-products .col-size{     width:11%; }  /* 尺寸加宽，避免挤在一起 */
-.table-products .col-bleed{    width:6%;  }
-.table-products .col-material{ width:11%; }
-.table-products .col-centre{   width:7%;  }
-.table-products .col-lam{      width:13%; }  /* 这几列可换行 */
-.table-products .col-printer{  width:11%; }
-.table-products .col-cutter{   width:10%; }
-.table-products .col-assemble{ width:7%;  }
-
-/* 可选：尺寸数字看齐一点点 */
-.table-products .col-size{ font-variant-numeric: tabular-nums; }
-/* === Printing/Furnishing 产品表：更均衡的列宽 + 适中间距 + 无横向滚动 === */
-
-/* 1) 取消 .table-responsive 的横向滚动条（仅限这块表格） */
-.subcard-body .table-responsive{
-  overflow-x: visible;   /* 或者 clip；避免出现滚动条 */
-}
-
-/* 2) 固定列宽配比，整体 <= 100%，不会挤，也不会太松 */
-.table-products{ table-layout: fixed; width:100%; }
-
-/* 单元格间距：12px 垂直 + 10px 水平，适中不拥挤 */
-.table-products> :not(caption)>*>*{
-  padding:12px 10px !important;
-  line-height:1.5;
-  white-space: normal;    /* 允许自动换行 */
-  overflow: visible;
-  text-overflow: clip;
-  word-break: break-word; /* 长词也能断行 */
-  hyphens: auto;
-}
-
-/* 3) 数字/短文本列保持单行更紧凑 */
-.table-products .col-qty,
-.table-products .col-centre,
-.table-products .col-assemble{
-  white-space: nowrap;
-  text-align:center;
-}
-
-/* —— 给长字段更多空间；保证总计=100% —— */
-.table-products .col-item{     width:15%}  /* 产品名多行，看齐左侧 */
-.table-products .col-qty{      width:9% }
-.table-products .col-size{     width:11% }
-.table-products .col-bleed{    width:9% }
-.table-products .col-material{ width:10%}
-.table-products .col-centre{   width:12% }  /* ← 加宽，标题不再截断 */
-.table-products .col-lam{      width:12%}
-.table-products .col-printer{  width:11%}
-.table-products .col-cutter{   width:10%}
-.table-products .col-assemble{ width:11% }
-
-
-/* 5) 表头不需要换行，防止抖动（文字较长可自行简写） */
-.table-products thead th{
-  white-space: nowrap;
-}
-
-
+  /* ===== Modal（按你给的图） ===== */
+  .modal-mask{position:fixed;inset:0;background:rgba(2,6,23,.60);display:none !important;z-index:1050}
+  .modal-mask.show{display:block !important;}
+  .modal-wrap{position:fixed !important;inset:0 !important;display:grid !important;place-items:center !important;padding:24px !important}
+  .modal{display:block !important;position:relative !important;inset:auto !important;width:520px !important;max-width:92vw !important;height:auto !important;margin:0 !important;overflow:visible !important;background:#fff !important;border:1px solid #E5E7EB !important;border-radius:12px !important;box-shadow:0 25px 80px rgba(0,0,0,.28) !important}
+  .modal-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #E6E8EC}
+  .modal-title{font-weight:800;font-size:18px;color:#0F172A}
+  .modal-close{margin-left:auto;color:#9AA4B2;border:0;background:transparent}
+  .modal-close:hover{color:#6B7280}
+  .modal-body{padding:18px 20px;color:#334155;font-size:16px;line-height:1.6}
+  .modal-body .help{color:#6B7280;font-size:14px;margin-bottom:10px}
+  .modal-footer{display:flex;justify-content:flex-end;gap:12px;padding:14px 16px;border-top:1px solid #E6E8EC;background:#F8FAFC}
+  .modal .btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;border-radius:999px;padding:10px 16px}
+  .modal .btn-back{background:#EEF2F6;color:#0F172A;border:1px solid #E5E7EB}
+  .modal .btn-back:hover{background:#E2E8F0}
+  .modal .btn-accept{background:#23263A;color:#fff;border:1px solid #23263A}
+  .modal .btn-accept:hover{background:#1D2033;border-color:#1D2033}
+  .modal .btn-reject{background:#fff;color:#E11D48;border:2px solid #F43F5E}
+  .modal .btn-reject:hover{background:#FFF1F2}
+  .modal textarea{width:100%;min-height:110px;resize:vertical;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;color:#0F172A}
+  .modal textarea::placeholder{color:#9AA4B2}
+  .modal textarea:focus{border-color:#94A3B8;box-shadow:0 0 0 3px rgba(148,163,184,.25)}
 </style>
 
 <div class="container-fluid py-4 px-4">
   <div class="page-wrap" id="pageRoot">
-    {{-- 顶部 --}}
-    @php
-      $jobCreator = trim($jobCreator ?? '') !== '' ? $jobCreator : 'Data Keyin';  // 谁填写 Job Order
-    @endphp
+
+    {{-- 顶部：填写者 --}}
+    @php $filledBy = isset($filledBy) && trim($filledBy) !== '' ? $filledBy : 'Data Keyin'; @endphp
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
         <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
-        <h1 class="h4 fw-bold mb-0">Furnishing Task — <span class="text-muted">ORD005-P1</span></h1>
+        <h1 class="h4 fw-bold mb-0">Printing Task — <span class="text-muted">ORD005-P2</span></h1>
       </div>
-      <span class="assignee-chip assignee-chip--blue">{{ $jobCreator }}</span>
+      <span class="assignee-chip assignee-chip--purple">{{ $filledBy }}</span>
     </div>
-    <div class="text-muted mb-3">Furnishing Module</div>
+    <div class="text-muted mb-3">Printing</div>
 
     {{-- Job Information --}}
     <div class="card soft mb-4">
@@ -283,7 +162,7 @@
       </div>
     </div>
 
-    {{-- Product Details --}}
+    {{-- Product Details（Edit 时仅可改 Printer） --}}
     <div class="card soft mb-4">
       <div class="card-body">
 
@@ -298,11 +177,12 @@
               </div>
             </div>
             <div class="right">
-              <button class="btn-toggle open" data-toggle="subcard" data-target="p1-body" aria-label="Toggle section">
-                <i class="bi bi-caret-down-fill"></i>
+              <button class="btn-toggle" data-toggle="subcard" data-target="p1-body" aria-label="Toggle section">
+                <i class="bi bi-chevron-down"></i>
               </button>
             </div>
           </div>
+
           <div class="subcard-body" id="p1-body">
             <div class="table-responsive">
               <table class="table table-products align-middle mb-0">
@@ -322,47 +202,44 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td class="td-tight">Standard Business Card (ENG)</td>
-                    <td class="td-tight">500</td>
-                    <td class="td-tight">9 × 5.4 cm</td>
-                    <td class="td-tight">0.3 cm</td>
-                    <td class="td-tight">Art Card</td>
-                    <td class="td-tight"><span class="badge-yes">Yes</span></td>
-                    <td class="td-tight">Matt UV Lamination</td>
-                    <td class="td-tight">Handtop Roll2Roll</td>
-                    <td class="td-tight td-cutter">
-                      <span class="view-text">Ruijie Flatbed Router</span>
+                    <td>Standard Business Card (ENG)</td>
+                    <td>500</td>
+                    <td>9 × 5.4 cm</td>
+                    <td>0.3 cm</td>
+                    <td>Art Card</td>
+                    <td><span class="badge-yes">Yes</span></td>
+                    <td>Matt UV Lamination</td>
+                    <td class="td-printer">
+                      <span class="view-text">Handtop Roll2Roll</span>
                       <select class="form-select form-select-sm edit-input d-none">
-                        <option>Ruijie Flatbed Router</option>
-                        <option>Graphtec Cutter</option>
-                        <option>Zünd G3 Digital Cutter</option>
-                        <option>Laser Cutter</option>
-                        <option>Manual Cutting</option>
+                        <option>Handtop Roll2Roll</option>
+                        <option>HP Indigo 7800</option>
+                        <option>Epson SureColor</option>
+                        <option>Canon imagePRESS</option>
                       </select>
                     </td>
-                    <td class="td-tight"><span class="badge-yes">Yes</span></td>
+                    <td>Ruijie Flatbed Router</td>
+                    <td><span class="badge-yes">Yes</span></td>
                   </tr>
-
                   <tr>
-                    <td class="td-tight">Standard Business Card (CN)</td>
-                    <td class="td-tight">500</td>
-                    <td class="td-tight">9 × 5.4 cm</td>
-                    <td class="td-tight">0.3 cm</td>
-                    <td class="td-tight">Art Card</td>
-                    <td class="td-tight"><span class="badge-yes">Yes</span></td>
-                    <td class="td-tight">Matt UV Lamination</td>
-                    <td class="td-tight">Handtop Roll2Roll</td>
-                    <td class="td-tight td-cutter">
-                      <span class="view-text">Ruijie Flatbed Router</span>
+                    <td>Standard Business Card (CN)</td>
+                    <td>500</td>
+                    <td>9 × 5.4 cm</td>
+                    <td>0.3 cm</td>
+                    <td>Art Card</td>
+                    <td><span class="badge-yes">Yes</span></td>
+                    <td>Matt UV Lamination</td>
+                    <td class="td-printer">
+                      <span class="view-text">Handtop Roll2Roll</span>
                       <select class="form-select form-select-sm edit-input d-none">
-                        <option>Ruijie Flatbed Router</option>
-                        <option>Graphtec Cutter</option>
-                        <option>Zünd G3 Digital Cutter</option>
-                        <option>Laser Cutter</option>
-                        <option>Manual Cutting</option>
+                        <option>Handtop Roll2Roll</option>
+                        <option>HP Indigo 7800</option>
+                        <option>Epson SureColor</option>
+                        <option>Canon imagePRESS</option>
                       </select>
                     </td>
-                    <td class="td-tight"><span class="badge-yes">Yes</span></td>
+                    <td>Ruijie Flatbed Router</td>
+                    <td><span class="badge-yes">Yes</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -381,11 +258,12 @@
               </div>
             </div>
             <div class="right">
-              <button class="btn-toggle open" data-toggle="subcard" data-target="p2-body" aria-label="Toggle section">
-                <i class="bi bi-caret-down-fill"></i>
+              <button class="btn-toggle" data-toggle="subcard" data-target="p2-body" aria-label="Toggle section">
+                <i class="bi bi-chevron-down"></i>
               </button>
             </div>
           </div>
+
           <div class="subcard-body" id="p2-body">
             <div class="table-responsive">
               <table class="table table-products align-middle mb-0">
@@ -405,25 +283,24 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td class="td-tight nowrap">Business&nbsp;Card&nbsp;(ALT)</td>
-                    <td class="td-tight">1000</td>
-                    <td class="td-tight">9 × 5.4 cm</td>
-                    <td class="td-tight">0.3 cm</td>
-                    <td class="td-tight">Linen Card</td>
-                    <td class="td-tight"><span class="badge-yes">Yes</span></td>
-                    <td class="td-tight">Gloss Lamination</td>
-                    <td class="td-tight">HP Indigo 7800</td>
-                    <td class="td-tight td-cutter">
-                      <span class="view-text">Graphtec Cutter</span>
+                    <td class="nowrap">Business&nbsp;Card&nbsp;(ALT)</td>
+                    <td>1000</td>
+                    <td>9 × 5.4 cm</td>
+                    <td>0.3 cm</td>
+                    <td>Linen Card</td>
+                    <td><span class="badge-yes">Yes</span></td>
+                    <td>Gloss Lamination</td>
+                    <td class="td-printer">
+                      <span class="view-text">HP Indigo 7800</span>
                       <select class="form-select form-select-sm edit-input d-none">
-                        <option>Graphtec Cutter</option>
-                        <option>Ruijie Flatbed Router</option>
-                        <option>Zünd G3 Digital Cutter</option>
-                        <option>Laser Cutter</option>
-                        <option>Manual Cutting</option>
+                        <option>HP Indigo 7800</option>
+                        <option>Handtop Roll2Roll</option>
+                        <option>Epson SureColor</option>
+                        <option>Canon imagePRESS</option>
                       </select>
                     </td>
-                    <td class="td-tight"><span class="badge-no">No</span></td>
+                    <td>Graphtec Cutter</td>
+                    <td><span class="badge-no">No</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -492,7 +369,7 @@
       </div>
     </div>
 
-    {{-- Add Remarks（仅编辑出现） --}}
+    {{-- Add Remarks（仅编辑） --}}
     <div class="card soft mb-4 edit-only">
       <div class="card-body">
         <div class="section-hd"><i class="bi bi-chat-dots"></i> Add Remarks</div>
@@ -511,68 +388,73 @@
           </div>
         </div>
         <div class="mt-2">
-          <button id="btn-add-remark" type="button" class="btn btn-dark btn-sm">
-            <i class="bi bi-plus-lg me-1"></i>Add Remark
-          </button>
+          <button id="btn-add-remark" type="button" class="btn btn-dark btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Remark</button>
         </div>
       </div>
     </div>
 
-<div class="card soft mb-4">
-  <div class="card-body">
+    {{-- Attachments（右上角显示上传者） --}}
+    <div class="card soft mb-4">
+      <div class="card-body attach-body">
+        <div class="section-hd mb-2"><i class="bi bi-paperclip"></i> Attachments</div>
+        @php $uploader = $attachments_uploader ?? 'Artist A'; @endphp
+        <span class="uploader-chip">{{ $uploader }}</span>
 
-    {{-- 这个头部替换成 attach-head --}}
-    <div class="attach-head">
-      <div class="section-hd mb-0">
-        <i class="bi bi-paperclip"></i> Attachments
-      </div>
-<span class="uploader-chip">{{ $uploader ?? 'Artist A' }}</span>
-    </div>
+        @php $files = $attachments ?? [
+          ['name'=>'requirements.pdf','size'=>'1.2 MB','url'=>'#'],
+          ['name'=>'logo.png','size'=>'856 KB','url'=>'#'],
+          ['name'=>'design-specs.pdf','size'=>'2.4 MB','url'=>'#'],
+        ]; @endphp
 
-    {{-- ↓↓↓ 下面保持你原来的文件列表循环不变 ↓↓↓ --}}
-    @php $files = $attachments ?? [
-      ['name' => 'requirements.pdf', 'size' => '1.2 MB', 'url' => '#'],
-      ['name' => 'logo.png',        'size' => '856 KB', 'url' => '#'],
-      ['name' => 'design-specs.pdf','size' => '2.4 MB', 'url' => '#'],
-    ]; @endphp
-
-    @foreach($files as $f)
-      @php
-        $n = strtolower($f['name'] ?? '');
-        $icon = (str_ends_with($n, '.pdf') ? 'file-earmark-pdf' :
-                (preg_match('/\.(png|jpe?g|gif|svg)$/', $n) ? 'file-earmark-image' : 'file-earmark'));
-      @endphp
-      <div class="file-row">
-        <div class="file-meta">
-          <i class="bi bi-{{ $icon }}"></i>
-          <div>
-            <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
-            <div class="file-size">{{ $f['size'] ?? '' }}</div>
+        @foreach($files as $f)
+          @php
+            $n = strtolower($f['name'] ?? '');
+            $icon = (str_ends_with($n, '.pdf') ? 'file-earmark-pdf' :
+                    (preg_match('/\.(png|jpe?g|gif|svg)$/', $n) ? 'file-earmark-image' : 'file-earmark'));
+          @endphp
+          <div class="file-row">
+            <div class="file-meta">
+              <i class="bi bi-{{ $icon }}"></i>
+              <div>
+                <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
+                <div class="file-size">{{ $f['size'] ?? '' }}</div>
+              </div>
+            </div>
+            <a class="btn btn-light border btn-sm" href="{{ $f['url'] ?? '#' }}"><i class="bi bi-download me-1"></i>Download</a>
           </div>
-        </div>
-        <a class="btn btn-light border btn-sm" href="{{ $f['url'] ?? '#' }}">
-          <i class="bi bi-download me-1"></i>Download
-        </a>
+        @endforeach
       </div>
-    @endforeach
-  </div>
-</div>
+    </div>
 
+    {{-- Permit --}}
+    <div class="card soft mb-4">
+      <div class="card-body">
+        <div class="section-hd"><i class="bi bi-file-earmark-lock"></i> Permit</div>
+        @php $permit = $permit ?? ['name'=>'Permit.pdf','size'=>'1.2 MB','url'=>'#']; @endphp
+        <div class="file-row">
+          <div class="file-meta">
+            <i class="bi bi-file-earmark-pdf"></i>
+            <div>
+              <div class="file-name">{{ $permit['name'] }}</div>
+              <div class="file-size">{{ $permit['size'] }}</div>
+            </div>
+          </div>
+          <a class="btn btn-light border btn-sm" href="{{ $permit['url'] }}"><i class="bi bi-download me-1"></i>Download</a>
+        </div>
+      </div>
+    </div>
 
-    {{-- Sticky Actionbar：三种状态 --}}
+    {{-- Actionbar --}}
     <div class="actionbar">
-      <!-- 未接受 -->
       <div class="action-pre d-flex justify-content-end gap-2">
         <button type="button" id="btnAccept" class="btn btn-dark btn-pill"><i class="bi bi-check2 me-1"></i>Accept</button>
         <button type="button" id="btnReject" class="btn btn-outline-danger btn-pill"><i class="bi bi-x-lg me-1"></i>Reject</button>
         <a href="javascript:history.back()" class="btn btn-light border btn-pill">Back</a>
       </div>
-      <!-- 已接受 -->
       <div class="action-post d-flex justify-content-end gap-2">
         <button type="button" id="btnEdit" class="btn btn-light border btn-pill">Edit</button>
         <a href="javascript:history.back()" class="btn btn-light border btn-pill">Back</a>
       </div>
-      <!-- 编辑中 -->
       <div class="action-edit d-flex justify-content-end gap-2">
         <button type="button" id="btnSave" class="btn btn-dark btn-pill"><i class="bi bi-save2 me-1"></i>Save Task</button>
         <button type="button" id="btnCancel" class="btn btn-outline-secondary btn-pill">Cancel</button>
@@ -582,60 +464,120 @@
   </div>
 </div>
 
+{{-- ===== Accept Modal：Accept Printing Task ===== --}}
+<div id="modalAccept" class="modal-mask" aria-hidden="true">
+  <div class="modal-wrap">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="acceptTitle">
+      <div class="modal-header">
+        <i class="bi bi-check2-circle" style="color:#16A34A"></i>
+        <div id="acceptTitle" class="modal-title">Accept Printing Task</div>
+        <button type="button" class="modal-close" data-close="modalAccept"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to accept this task?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-back" data-close="modalAccept">Cancel</button>
+        <button type="button" id="confirmAccept" class="btn btn-accept"><i class="bi bi-check2"></i>Accept</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- ===== Reject Modal：Reject Printing Task ===== --}}
+<div id="modalReject" class="modal-mask" aria-hidden="true">
+  <div class="modal-wrap">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
+      <div class="modal-header">
+        <div id="rejectTitle" class="modal-title">Reject Printing Task</div>
+        <button type="button" class="modal-close" data-close="modalReject"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="help">Please provide a reason for rejecting this task.</div>
+        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."'></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-back" data-close="modalReject">Cancel</button>
+        <button type="button" id="confirmReject" class="btn btn-reject"><i class="bi bi-x-lg"></i>Reject</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-  // 折叠
+  /* 折叠 */
   document.querySelectorAll('[data-toggle="subcard"]').forEach(btn=>{
     const body=document.getElementById(btn.dataset.target);
     btn.addEventListener('click',()=>{ body?.classList.toggle('hidden'); btn.classList.toggle('open'); });
   });
 
-  const root = document.getElementById('pageRoot');
-  document.addEventListener('DOMContentLoaded',()=>root?.classList.remove('is-editing')); // 初始非编辑
+  /* Modal 工具 */
+  function openModal(id){ const el=document.getElementById(id); if(el){ el.classList.add('show'); el.setAttribute('aria-hidden','false'); } }
+  function closeModal(id){ const el=document.getElementById(id); if(el){ el.classList.remove('show'); el.setAttribute('aria-hidden','true'); } }
+  document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.getAttribute('data-close'))));
+  ['modalAccept','modalReject'].forEach(mid=>{
+    const mask=document.getElementById(mid);
+    mask && mask.addEventListener('click',e=>{ if(e.target===mask) closeModal(mid); });
+  });
 
-  // —— 状态流转
-  document.getElementById('btnAccept')?.addEventListener('click',()=>{
+  /* 三段式逻辑 + Printer 可编辑 */
+  const root=document.getElementById('pageRoot');
+
+  // 打开弹窗
+  document.getElementById('btnAccept')?.addEventListener('click',()=>openModal('modalAccept'));
+  document.getElementById('btnReject')?.addEventListener('click',()=>openModal('modalReject'));
+
+  // 确认 Accept
+  document.getElementById('confirmAccept')?.addEventListener('click',()=>{
+    // TODO: 调用后端“接受任务”
     root.classList.add('is-accepted');
     root.classList.remove('is-editing');
-  });
-  document.getElementById('btnReject')?.addEventListener('click',()=>alert('Rejected (demo)'));
-
-  document.getElementById('btnEdit')?.addEventListener('click',()=>{
-    root.classList.add('is-editing');
-    toggleCutterInputs(true);
+    closeModal('modalAccept');
   });
 
-  document.getElementById('btnCancel')?.addEventListener('click',()=>{
-    toggleCutterInputs(false, /*revert*/ true);
-    root.classList.remove('is-editing');
+  // 确认 Reject
+  document.getElementById('confirmReject')?.addEventListener('click',()=>{
+    const reason=(document.getElementById('rejectReason')?.value||'').trim();
+    // TODO: 调用后端“拒绝任务”，payload: { reason }
+    closeModal('modalReject');
+    console.log('Rejected with reason:', reason);
   });
 
+  // 进入/退出编辑（仅 Printer 列）
+  document.getElementById('btnEdit')?.addEventListener('click',()=>{ root.classList.add('is-editing'); enablePrinterSelects(true); });
+  document.getElementById('btnCancel')?.addEventListener('click',()=>{ enablePrinterSelects(false,true); root.classList.remove('is-editing'); });
   document.getElementById('btnSave')?.addEventListener('click',()=>{
-    toggleCutterInputs(false, /*revert*/ false); // 写回文本
-    // TODO: 这里提交保存（Ajax / 表单）
+    // TODO: 保存到后端
+    enablePrinterSelects(false,false);
     root.classList.remove('is-editing');
   });
 
-  // 仅 Cutter 可编辑
-  function toggleCutterInputs(edit, revert=false){
-    document.querySelectorAll('.td-cutter').forEach(td=>{
+  function enablePrinterSelects(edit, revert=false){
+    document.querySelectorAll('.td-printer').forEach(td=>{
       const span=td.querySelector('.view-text');
       const sel =td.querySelector('.edit-input');
       if(!span||!sel) return;
 
       if(edit){
-        [...sel.options].forEach(o=>o.selected=(o.text.trim()===span.textContent.trim()));
+        td.dataset.prev = span.textContent.trim();
+        [...sel.options].forEach(o=>o.selected = (o.text.trim()===span.textContent.trim()));
         sel.classList.remove('d-none'); span.classList.add('d-none');
       }else{
-        if(!revert) span.textContent = sel.value;
+        if(revert){
+          const prev=td.dataset.prev || span.textContent.trim();
+          sel.value=prev; span.textContent=prev;
+        }else{
+          span.textContent=sel.value;
+        }
         sel.classList.add('d-none'); span.classList.remove('d-none');
       }
     });
   }
 
-  // Add Remarks 动态行
+  /* Add Remarks 动态行 */
   (function(){
-    const list=document.getElementById('remarks-list');
-    const btn =document.getElementById('btn-add-remark');
+    const list=document.getElementById('remarks-list'); const btn=document.getElementById('btn-add-remark');
+    if(!list||!btn) return;
     function row(){
       const d=document.createElement('div');
       d.className='remark-row d-flex align-items-center gap-2';
@@ -649,12 +591,11 @@
         </button>`;
       return d;
     }
-    btn?.addEventListener('click',()=>list.appendChild(row()));
-    list?.addEventListener('click',e=>{
+    btn.addEventListener('click',()=>list.appendChild(row()));
+    list.addEventListener('click',e=>{
       const r=e.target.closest('.remove-remark'); if(!r) return;
       const line=r.closest('.remark-row');
-      if(line && list.children.length>1) line.remove();
-      else if(line) line.querySelector('.remark-text').value='';
+      if(line && list.children.length>1) line.remove(); else if(line) line.querySelector('.remark-text').value='';
     });
   })();
 </script>

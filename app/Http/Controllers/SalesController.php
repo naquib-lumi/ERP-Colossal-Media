@@ -19,7 +19,8 @@ class SalesController extends Controller
   public function dashboard()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+           
             abort(403, 'Unauthorized');
         }
 
@@ -80,7 +81,7 @@ class SalesController extends Controller
     public function leadManagement()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
 
@@ -91,7 +92,7 @@ class SalesController extends Controller
     public function addLead()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
 
@@ -101,7 +102,7 @@ class SalesController extends Controller
     public function storeLead(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
 
@@ -128,7 +129,7 @@ class SalesController extends Controller
     public function calendar()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
 
@@ -139,7 +140,7 @@ class SalesController extends Controller
     public function scheduleMeeting()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
 
@@ -149,7 +150,7 @@ class SalesController extends Controller
     public function storeMeeting(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
 
@@ -170,7 +171,7 @@ class SalesController extends Controller
     public function order()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
 
@@ -181,7 +182,7 @@ class SalesController extends Controller
     public function jobOrderStatus()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
 

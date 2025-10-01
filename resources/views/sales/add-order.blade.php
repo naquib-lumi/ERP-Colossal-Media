@@ -57,12 +57,12 @@
         align-items: center;
         justify-content: center;
         background: #fff;
-        cursor: pointer
+        cursor: pointer;
     }
 
     .attach-inner {
         text-align: center;
-        pointer-events: none
+        pointer-events: none;
     }
 
     .attach-icon {
@@ -74,24 +74,24 @@
         justify-content: center;
         background: #f1f5f9;
         border-radius: 8px;
-        font-size: 20px
+        font-size: 20px;
     }
 
     .attach-title {
         color: #475569;
-        font-weight: 600
+        font-weight: 600;
     }
 
     .attach-hint {
         color: #64748b;
-        font-size: 12px
+        font-size: 12px;
     }
 
     .file-overlay {
         position: absolute;
         inset: 0;
         opacity: 0;
-        cursor: pointer
+        cursor: pointer;
     }
 
     .remove-x {
@@ -100,29 +100,26 @@
         color: #dc2626;
         font-weight: 700;
         cursor: pointer;
-        margin-left: 8px
+        margin-left: 8px;
     }
 
     .remove-x:hover {
-        color: #b91c1c
+        color: #b91c1c;
     }
 
     .ok {
-        color: #15803d
+        color: #15803d;
     }
 
     .err {
-        color: #b91c1c
-    }
-
-    .read-only td:last-child {
-        display: none;
+        color: #b91c1c;
     }
 
     .remark-row {
         display: flex;
         gap: 1rem;
         align-items: flex-start;
+        margin-bottom: 0.5rem;
     }
 
     .remark-row select {
@@ -243,20 +240,18 @@
                                 </div>
                             </div>
                         </div>
-
                     </div>
 
                     <div class="card mt-4">
                         <div class="card-header d-flex align-items-center justify-content-between">
                             <h5 class="card-title mb-0">Product Details</h5>
-
                             <div class="d-flex align-items-center gap-3">
                                 <span class="text-muted small">Max 5 products</span>
                                 <button type="button" id="addProductBtn"
-                                    class="btn btn-primary btn-sm"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#productModal"
-                                    data-mode="add">
+                                        class="btn btn-primary btn-sm"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#productModal"
+                                        data-mode="add">
                                     Add Product
                                 </button>
                             </div>
@@ -271,26 +266,38 @@
                                             <th>Quantity</th>
                                             <th>Material Remark</th>
                                             <th>Remarks</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach (old('products', []) as $index => $product)
-                                            <tr data-index="{{ $index }}" {{ old('from_csv') ? 'class="read-only"' : '' }}>
-                                                <td>{!! e($product['product_name'] ?? '') !!}</td>
-                                                <td>{!! e($product['quantity'] ?? '') !!}</td>
-                                                <td>{!! e($product['material_info'] ?? '') !!}</td>
+                                            <tr data-index="{{ $index }}">
+                                                <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
+                                                <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ $product['quantity'] ?? '' }}"></td>
+                                                <td><input type="text" name="products[{{ $index }}][material_info]" class="form-control" value="{{ $product['material_info'] ?? '' }}"></td>
                                                 <td>
-                                                    @if (!empty($product['remarks']))
-                                                        <ul>
-                                                            @foreach ($product['remarks'] as $r)
-                                                               <li>{{ $r['operation'] ?? '' }}: {{ e($r['remark'] ?? '') }}</li>
-                                                            @endforeach
-                                                        </ul>
-                                                    @endif
+                                                    <div id="remarks-container-{{ $index }}">
+                                                        @foreach ($product['remarks'] ?? [] as $rindex => $remark)
+                                                            <div class="remark-row">
+                                                                <select name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" class="form-select w-auto" style="min-width:160px;">
+                                                                    <option value="printing" {{ $remark['operation'] == 'printing' ? 'selected' : '' }}>Printing</option>
+                                                                    <option value="furnishing" {{ $remark['operation'] == 'furnishing' ? 'selected' : '' }}>Furnishing</option>
+                                                                    <option value="installation" {{ $remark['operation'] == 'installation' ? 'selected' : '' }}>Installation</option>
+                                                                    <option value="self_pickup" {{ $remark['operation'] == 'self_pickup' ? 'selected' : '' }}>Self Pickup</option>
+                                                                    <option value="courier" {{ $remark['operation'] == 'courier' ? 'selected' : '' }}>Courier</option>
+                                                                </select>
+                                                                <input type="text" name="products[{{ $index }}][remarks][{{ $rindex }}][remark]" class="form-control" value="{{ $remark['remark'] ?? '' }}" placeholder="Write a note…">
+                                                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                                                    <i class="bx bx-trash fs-5"></i>
+                                                                </button>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $index }}">Add Remark</button>
                                                 </td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit">Edit</button>
-                                                    <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
+                                                    <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="{{ $index }}">Edit</button>
+                                                    <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $index }}">Delete</button>
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -313,15 +320,11 @@
                                     <div class="attach-title">Drop CSV file here or click to upload</div>
                                     <div class="attach-hint">(CSV)</div>
                                 </div>
-
-                                <input id="fileInput" type="file"
-                                    accept=".csv"
-                                    class="file-overlay">
+                                <input id="fileInput" type="file" accept=".csv" class="file-overlay">
                             </div>
                             @error('csv_file')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
-
                             <div id="attach-msg" class="mt-2 text-sm"></div>
                             <ul id="preview" class="mt-3 space-y-2"></ul>
 
@@ -349,10 +352,8 @@
                         </ul>
                     </div>
                     @endif
-
                 </div>
             </div>
-
         </div>
 
         <div class="col-12">
@@ -361,19 +362,6 @@
                 <button type="submit" class="btn btn-primary">Save Order</button>
             </div>
         </div>
-    </div>
-    <div id="hidden-products" style="display: none;">
-        @foreach (old('products', []) as $index => $product)
-            <div data-index="{{ $index }}">
-                <input type="hidden" name="products[{{ $index }}][product_name]" value="{{ $product['product_name'] ?? '' }}">
-                <input type="hidden" name="products[{{ $index }}][quantity]" value="{{ $product['quantity'] ?? '' }}">
-                <input type="hidden" name="products[{{ $index }}][material_info]" value="{{ $product['material_info'] ?? '' }}">
-                @foreach ($product['remarks'] ?? [] as $rindex => $remark)
-                    <input type="hidden" name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" value="{{ $remark['operation'] ?? '' }}">
-                    <input type="hidden" name="products[{{ $index }}][remarks][{{ $rindex }}][remark]" value="{{ $remark['remark'] ?? '' }}">
-                @endforeach
-            </div>
-        @endforeach
     </div>
 </form>
 
@@ -451,7 +439,7 @@
             }
         });
 
-        leadSelect.on('select2:select', function (e) {
+        leadSelect.on('select2:select', function(e) {
             var data = e.params.data;
             var getLeadBase = "{{ route('orders.leads.get', ':id') }}";
             $.ajax({
@@ -475,7 +463,6 @@
         let isFromCsv = {{ old('from_csv', 0) }};
         if (isFromCsv) {
             $('#addProductBtn').hide();
-            $('#product-table tbody tr').addClass('read-only');
         } else if (productIndex >= 5) {
             $('#addProductBtn').hide();
         }
@@ -483,14 +470,14 @@
         $('#productModal').on('show.bs.modal', function(e) {
             const button = $(e.relatedTarget);
             const mode = button.data('mode');
-            const index = button.closest('tr').data('index');
+            const index = button.data('index');
 
             $('#productForm')[0].reset();
             $('#product_index').val('');
             $('#remarks-container').empty();
             $('#productModalTitle').text('Add Product');
 
-            if (mode === 'edit') {
+            if (mode === 'edit' && index !== undefined) {
                 $('#productModalTitle').text('Edit Product');
                 $('#product_index').val(index);
 
@@ -519,15 +506,15 @@
             const rindex = $('#remarks-container .remark-row').length;
             const html = `
                 <div class="remark-row mb-2">
-                    <select class="form-select w-auto" style="min-width:160px;">
+                    <select name="remark_operation" class="form-select w-auto" style="min-width:160px;">
                         <option value="">— Select —</option>
                         <option value="printing" ${operation === 'printing' ? 'selected' : ''}>Printing</option>
                         <option value="furnishing" ${operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
                         <option value="installation" ${operation === 'installation' ? 'selected' : ''}>Installation</option>
-                        <option value="self_pickup" ${operation === 'self pickup' ? 'selected' : ''}>Self Pickup</option>
+                        <option value="self_pickup" ${operation === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
                         <option value="courier" ${operation === 'courier' ? 'selected' : ''}>Courier</option>
                     </select>
-                    <input type="text" class="form-control" placeholder="Write a note…" value="${escapeHtml(remark)}">
+                    <input type="text" name="remark_text" class="form-control" placeholder="Write a note…" value="${escapeHtml(remark)}">
                     <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                         <i class="bx bx-trash fs-5"></i>
                     </button>
@@ -550,10 +537,11 @@
             };
 
             $('#remarks-container .remark-row').each(function() {
-                data.remarks.push({
-                    operation: $(this).find('select').val(),
-                    remark: $(this).find('input').val() || ''
-                });
+                const operation = $(this).find('select').val();
+                const remark = $(this).find('input').val() || '';
+                if (operation) {
+                    data.remarks.push({ operation, remark });
+                }
             });
 
             let remarksHtml = '';
@@ -563,10 +551,29 @@
 
             if (index !== '') {
                 const row = $(`#product-table tbody tr[data-index="${index}"]`);
-                row.find('td:eq(0)').html(escapeHtml(data.product_name));
-                row.find('td:eq(1)').html(escapeHtml(data.quantity));
-                row.find('td:eq(2)').html(escapeHtml(data.material_info));
-                row.find('td:eq(3)').html(remarksHtml);
+                row.find('td:eq(0)').html(`<input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}">`);
+                row.find('td:eq(1)').html(`<input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}">`);
+                row.find('td:eq(2)').html(`<input type="text" name="products[${index}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}">`);
+                row.find('td:eq(3)').html(`
+                    <div id="remarks-container-${index}">
+                        ${data.remarks.map((r, rindex) => `
+                            <div class="remark-row">
+                                <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
+                                    <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>Printing</option>
+                                    <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
+                                    <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>Installation</option>
+                                    <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
+                                    <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>Courier</option>
+                                </select>
+                                <input type="text" name="products[${index}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
+                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                    <i class="bx bx-trash fs-5"></i>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${index}">Add Remark</button>
+                `);
 
                 const hidden = $(`#hidden-products > div[data-index="${index}"]`);
                 hidden.find('input[name$="[product_name]"]').val(data.product_name);
@@ -585,13 +592,32 @@
 
                 const html = `
                     <tr data-index="${productIndex}">
-                        <td>${escapeHtml(data.product_name)}</td>
-                        <td>${escapeHtml(data.quantity)}</td>
-                        <td>${escapeHtml(data.material_info)}</td>
-                        <td>${remarksHtml}</td>
+                        <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
+                        <td><input type="number" name="products[${productIndex}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}"></td>
+                        <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}"></td>
                         <td>
-                            <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit">Edit</button>
-                            <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
+                            <div id="remarks-container-${productIndex}">
+                                ${data.remarks.map((r, rindex) => `
+                                    <div class="remark-row">
+                                        <select name="products[${productIndex}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
+                                            <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>Printing</option>
+                                            <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
+                                            <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>Installation</option>
+                                            <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
+                                            <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>Courier</option>
+                                        </select>
+                                        <input type="text" name="products[${productIndex}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
+                                        <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                            <i class="bx bx-trash fs-5"></i>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">Add Remark</button>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="${productIndex}">Edit</button>
+                            <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">Delete</button>
                         </td>
                     </tr>
                 `;
@@ -620,13 +646,16 @@
         });
 
         $(document).on('click', '.remove-product', function() {
-            const row = $(this).closest('tr');
-            const index = row.data('index');
-            row.remove();
+            const index = $(this).data('index');
+            $(`#product-table tbody tr[data-index="${index}"]`).remove();
             $(`#hidden-products > div[data-index="${index}"]`).remove();
 
             $('#product-table tbody tr').each(function(i) {
                 $(this).attr('data-index', i);
+                $(this).find('.edit-product').attr('data-index', i);
+                $(this).find('.remove-product').attr('data-index', i);
+                $(this).find('.add-remark').attr('data-index', i);
+                $(this).find('#remarks-container-' + i).attr('id', 'remarks-container-' + i);
             });
             $('#hidden-products > div').each(function(i) {
                 $(this).attr('data-index', i);
@@ -639,6 +668,34 @@
             if (productIndex < 5 && !isFromCsv) {
                 $('#addProductBtn').show();
             }
+        });
+
+        $(document).on('click', '.add-remark', function() {
+            const index = $(this).data('index');
+            const container = $(`#remarks-container-${index}`);
+            const remarks = container.find('.remark-row');
+            const rindex = remarks.length;
+            const html = `
+                <div class="remark-row">
+                    <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
+                        <option value="">— Select —</option>
+                        <option value="printing">Printing</option>
+                        <option value="furnishing">Furnishing</option>
+                        <option value="installation">Installation</option>
+                        <option value="self_pickup">Self Pickup</option>
+                        <option value="courier">Courier</option>
+                    </select>
+                    <input type="text" name="products[${index}][remarks][${rindex}][remark]" class="form-control" placeholder="Write a note…">
+                    <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                        <i class="bx bx-trash fs-5"></i>
+                    </button>
+                </div>
+            `;
+            container.append(html);
+        });
+
+        $(document).on('click', '.remove-remark', function() {
+            $(this).closest('.remark-row').remove();
         });
 
         const input = document.getElementById('fileInput');
@@ -719,7 +776,7 @@
             reader.onload = function(e) {
                 const text = e.target.result;
                 const lines = text.split(/\r?\n/);
-                const headers = lines[0].split(',').map(h => h.trim());
+                const headers = lines[0].split(',').map(h => h.trim()); // Preserve exact case
 
                 $('#product-table tbody').empty();
                 $('#hidden-products').empty();
@@ -728,31 +785,71 @@
                 for (let i = 1; i < lines.length; i++) {
                     if (!lines[i].trim()) continue;
                     const data = lines[i].split(',').map(d => stripQuotes(d.trim()));
-
+                    console.log('Headers:', headers); // Debug: Check headers
+                    console.log('Data:', data); // Debug: Check data for each row
                     const product = {
-                        product_name: data[0] || '',
-                        quantity: data[1] || '',
-                        material_info: data[2] || '',
+                        product_name: data[headers.indexOf('Product_Name')] || '',
+                        quantity: data[headers.indexOf('Quantity')] || '',
+                        material_info: data[headers.indexOf('Material_Info')] || '',
+                        remarks: []
                     };
 
+                    // Populate remarks
+                    const remarkColumns = ['Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
+                    remarkColumns.forEach((col, idx) => {
+                        const remarkIdx = headers.indexOf(col);
+                        if (remarkIdx !== -1 && data[remarkIdx]) {
+                            product.remarks.push({
+                                operation: ['printing', 'furnishing', 'installation', 'courier', 'self_pickup'][idx],
+                                remark: data[remarkIdx]
+                            });
+                        }
+                    });
+                    console.log('productname: '+ product.product_name);
                     const html = `
-                        <tr data-index="${productIndex}" class="read-only">
-                            <td>${escapeHtml(product.product_name)}</td>
-                            <td>${escapeHtml(product.quantity)}</td>
-                            <td>${escapeHtml(product.material_info)}</td>
-                            <td></td>
-                            <td></td>
+                        <tr data-index="${productIndex}">
+                            <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(product.product_name)}"></td>
+                            <td><input type="number" name="products[${productIndex}][quantity]" class="form-control" value="${escapeHtml(product.quantity)}"></td>
+                            <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(product.material_info)}"></td>
+                            <td>
+                                <div id="remarks-container-${productIndex}">
+                                    ${product.remarks.map((r, rindex) => `
+                                        <div class="remark-row">
+                                            <select name="products[${productIndex}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
+                                                <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>Printing</option>
+                                                <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
+                                                <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>Installation</option>
+                                                <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
+                                                <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>Courier</option>
+                                            </select>
+                                            <input type="text" name="products[${productIndex}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
+                                            <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                                <i class="bx bx-trash fs-5"></i>
+                                            </button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">Add Remark</button>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="${productIndex}">Edit</button>
+                                <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">Delete</button>
+                            </td>
                         </tr>
                     `;
                     $('#product-table tbody').append(html);
 
-                    const hiddenHtml = `
+                    let hiddenHtml = `
                         <div data-index="${productIndex}">
                             <input type="hidden" name="products[${productIndex}][product_name]" value="${escapeHtml(product.product_name)}">
                             <input type="hidden" name="products[${productIndex}][quantity]" value="${escapeHtml(product.quantity)}">
                             <input type="hidden" name="products[${productIndex}][material_info]" value="${escapeHtml(product.material_info)}">
-                        </div>
                     `;
+                    product.remarks.forEach((r, rindex) => {
+                        hiddenHtml += `<input type="hidden" name="products[${productIndex}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`;
+                        hiddenHtml += `<input type="hidden" name="products[${productIndex}][remarks][${rindex}][remark]" value="${escapeHtml(r.remark)}">`;
+                    });
+                    hiddenHtml += '</div>';
                     $('#hidden-products').append(hiddenHtml);
 
                     productIndex++;
@@ -760,7 +857,9 @@
 
                 isFromCsv = 1;
                 $('#from_csv').val(1);
-                $('#addProductBtn').hide();
+                if (productIndex >= 5) {
+                    $('#addProductBtn').hide();
+                }
             };
             reader.readAsText(file);
         }

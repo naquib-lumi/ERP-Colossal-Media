@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductRemark;
 use App\Models\Lead;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class OrderController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
         return view('sales.order-management');
@@ -26,7 +27,7 @@ class OrderController extends Controller
     public function getOrders(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -72,7 +73,7 @@ class OrderController extends Controller
             })
             ->addColumn('lead_details', function ($order) {
                 $lead = $order->lead;
-                $assignedTo = $order->salesperson?->name ?? 'Unassigned';
+                $assignedTo = $order->artist?->name ?? 'Unassigned';
                 return '<div class="lead-details-cell text-secondary">' .
                        '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . ($lead->name ?? 'N/A') . '</div>' .
                        '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
@@ -95,21 +96,23 @@ class OrderController extends Controller
                     . ucwords(str_replace('_', ' ', $order->orderStatus)) .
                     '</span>';
             })
-            ->addColumn('products', function ($order) {
-                return '<button class="btn view-products" data-id="' . $order->id . '"  style="white-space: nowrap; min-width:120px; text-align:center;">
-                            <span class="icon-base bx bxs-show me-2"></span>
-                            View Products
-                        </button>';
-            })
-            ->addColumn('actions', function ($order) {
-                $editRoute = route('orders.edit', $order->id);
-                $leadViewRoute = route('orders.show', $order->id);
-                $html = '<div class="actions-cell d-flex gap-2">' .
-                        '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
-                        '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
-                $html .= '</div>';
-                return $html;
-            })
+            // ->addColumn('products', function ($order) {
+            //     return '<button class="btn view-products" data-id="' . $order->id . '"  style="white-space: nowrap; min-width:120px; text-align:center;">
+            //                 <span class="icon-base bx bxs-show me-2"></span>
+            //                 View Products
+            //             </button>';
+            // })
+         ->addColumn('actions', function ($order) {
+    $editRoute = route('orders.edit', $order->id);
+    $leadViewRoute = route('orders.show', $order->id);
+    $html = '<div class="actions-cell d-flex gap-2">';
+    if ($order->orderStatus == 'to_assign') {
+        $html .= '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>';
+    }
+    $html .= '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
+    $html .= '</div>';
+    return $html;
+})
             ->rawColumns(['company_info', 'lead_details', 'status', 'products', 'actions'])
             ->toJson();
     }
@@ -136,7 +139,7 @@ class OrderController extends Controller
     public function create($leadId = null)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
         $lead = null;
@@ -148,10 +151,10 @@ class OrderController extends Controller
         return view('sales.add-order', compact('lead'));
     }
 
- public function store(Request $request)
+    public function store(Request $request)
 {
     $user = Auth::user();
-    if (!$user->hasRole('salesperson')) {
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
         return back()->with('error', 'Unauthorized');
     }
 
@@ -165,10 +168,7 @@ class OrderController extends Controller
             'products' => 'required|array|min:1',
             'products.*.product_name' => 'required|string|max:255',
             'products.*.quantity' => 'required|integer|min:1',
-            'products.*.remark' => 'nullable|string',
             'products.*.material_info' => 'nullable|string',
-            'products.*.location' => 'nullable|string',
-            'products.*.date_time' => 'nullable|date',
             'products.*.remarks' => 'nullable|array',
             'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup',
             'products.*.remarks.*.remark' => 'nullable|string',
@@ -195,7 +195,7 @@ class OrderController extends Controller
             'deadline' => $request->deadline,
             'approval' => $request->approval,
             'orderDetail' => $request->orderDetail,
-            'orderStatus' => 'pending',
+            'orderStatus' => 'to_assign',
             'leadName' => $lead->name,
             'leadPhone' => $lead->phone,
             'companyName' => $lead->company_name,
@@ -213,17 +213,36 @@ class OrderController extends Controller
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray();
 
-            foreach ($rows as $key => $row) {
-                if ($key == 0) continue;
-                $productsData[] = [
-                    'product_name' => isset($row[0]) ? trim($row[0], '"') : '',
-                    'quantity' => isset($row[1]) ? trim($row[1], '"') : '',
-                    'remark' => isset($row[2]) ? trim($row[2], '"') : '',
-                    'material_info' => isset($row[3]) ? trim($row[3], '"') : '',
-                    'location' => isset($row[4]) ? trim($row[4], '"') : '',
-                    'date_time' => isset($row[5]) ? trim($row[5], '"') : '',
+            $headers = array_map('trim', $rows[0]);
+            array_shift($rows); // Remove header row
+
+            foreach ($rows as $row) {
+                if (empty(array_filter($row))) continue; // Skip empty rows
+                $rowData = array_map(function($value) { return trim($value, '"'); }, $row);
+                $product = [
+                    'product_name' => $rowData[array_search('Product Name', $headers)] ?? '',
+                    'quantity' => $rowData[array_search('Quantity', $headers)] ?? '',
+                    'material_info' => $rowData[array_search('Material Info', $headers)] ?? '',
                     'remarks' => [],
                 ];
+                // Map remarks based on exact header names
+                $remarkMappings = [
+                    'Printing Remark' => 'printing',
+                    'Furnishing Remark' => 'furnishing',
+                    'Installation Remark' => 'installation',
+                    'Courier Remark' => 'courier',
+                    'Self Pickup Remark' => 'self_pickup',
+                ];
+                foreach ($remarkMappings as $header => $operation) {
+                    $index = array_search($header, $headers);
+                    if ($index !== false && isset($rowData[$index]) && !empty(trim($rowData[$index]))) {
+                        $product['remarks'][] = [
+                            'operation' => $operation,
+                            'remark' => $rowData[$index],
+                        ];
+                    }
+                }
+                $productsData[] = $product;
             }
         }
 
@@ -232,10 +251,7 @@ class OrderController extends Controller
                 'OrderID' => $order->id,
                 'productName' => $productData['product_name'],
                 'totalQuantity' => $productData['quantity'],
-                'productRemark' => $productData['remark'] ?? null,
                 'materialRemark' => $productData['material_info'] ?? null,
-                'location' => $productData['location'] ?? null,
-                'date_time' => $productData['date_time'] ?? null,
             ]);
 
             foreach ($productData['remarks'] ?? [] as $remarkData) {
@@ -255,37 +271,33 @@ class OrderController extends Controller
     }
 }
 
-  public function csvTemplate()
-{
-    // CSV headers
+
+
+public function csvTemplate()
+{ 
     header("Content-type: text/csv");
     header("Content-Disposition: attachment; filename=products_template.csv");
 
     $output = fopen("php://output", "w");
 
     // Add column headers
-    fputcsv($output, ['Product Name', 'Quantity', 'Remark', 'Material Info', 'Location', 'Date']);
+    $headers = ['Product_Name', 'Quantity', 'Material_Info', 'Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
+    fputcsv($output, $headers);
 
-    // Generate example data
+    // Generate example data with material info and up to 5 remarks, some empty
     $data = [
-        // 3 rows → 3 days from now
-        ['Banner Print', 100, 'Urgent order', 'Vinyl 12oz', 'Kuala Lumpur', now()->addDays(3)->format('Y-m-d')],
-        ['Flyer A5', 5000, 'Double sided', 'Art Paper 128gsm', 'Penang', now()->addDays(3)->format('Y-m-d')],
-        ['T-Shirt', 50, 'Black color only', 'Cotton', 'Johor Bahru', now()->addDays(3)->format('Y-m-d')],
-
-        // 2 rows → 5 days from now
-        ['Poster A3', 200, 'Gloss finish', 'Art Card 260gsm', 'Melaka', now()->addDays(5)->format('Y-m-d')],
-        ['Sticker Roll', 1000, 'Waterproof', 'PP Synthetic', 'Ipoh', now()->addDays(5)->format('Y-m-d')],
-
-        // 5 rows → 2 days from now
-        ['Name Card', 300, 'Matte Lamination', 'Art Card 310gsm', 'Shah Alam', now()->addDays(2)->format('Y-m-d')],
-        ['Booklet A4', 100, 'Saddle stitch', '80gsm Simili', 'Kuantan', now()->addDays(2)->format('Y-m-d')],
-        ['Backdrop', 5, 'Event hall size', 'Tarpaulin', 'Kota Kinabalu', now()->addDays(2)->format('Y-m-d')],
-        ['Mug Print', 40, 'Full wrap print', 'Ceramic', 'Kuching', now()->addDays(2)->format('Y-m-d')],
-        ['Cap Embroidery', 25, 'Logo front only', 'Polyester', 'Seremban', now()->addDays(2)->format('Y-m-d')],
+        ['Banner Print', 100, 'Vinyl 12oz', 'High resolution', '', '', 'Next day', ''],
+        ['Flyer A5', 5000, 'Art Paper 128gsm', '', 'Glossy finish', '', '', ''],
+        ['T-Shirt', 50, 'Cotton', 'Front print', '', 'Embroidery', '', ''],
+        ['Poster A3', 200, 'Art Card 260gsm', '', '', '', 'Fragile', ''],
+        ['Sticker Roll', 1000, 'PP Synthetic', '', '', '', '', 'Call ahead'],
+        ['Name Card', 300, 'Art Card 310gsm', '', 'Double sided', '', '', ''],
+        ['Booklet A4', 100, '80gsm Simili', 'Color print', '', '', 'Express', ''],
+        ['Backdrop', 5, 'Tarpaulin', '', 'Sturdy frame', '', '', ''],
+        ['Mug Print', 40, 'Ceramic', 'Heat resistant', '', '', '', ''],
+        ['Cap Embroidery', 25, 'Polyester', '', 'Red thread', '', '', ''],
     ];
 
-    // Write rows
     foreach ($data as $row) {
         fputcsv($output, $row);
     }
@@ -293,8 +305,6 @@ class OrderController extends Controller
     fclose($output);
     exit;
 }
-
-
     public function edit($id)
     {
         $order = Order::with('products')->findOrFail($id);
@@ -304,27 +314,54 @@ class OrderController extends Controller
         return view('sales.order-edit', compact('order'));
     }
 
-    public function update(Request $request, $id)
-    {
-        $order = Order::findOrFail($id);
-        if ($order->salesperson_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
-        }
+   public function update(Request $request, $id)
+{
+    $order = Order::findOrFail($id);
+    if ($order->salesperson_id !== Auth::id()) {
+        abort(403, 'Unauthorized');
+    }
 
-        $request->validate([
-            'products' => 'required|array',
-            'products.*.id' => 'required|exists:products,ProductID',
-            'products.*.location' => 'nullable|string|max:255',
+    $request->validate([
+        'products' => 'required|array',
+        'products.*.id' => 'required|exists:products,ProductID',
+        'products.*.product_name' => 'required|string|max:255',
+        'products.*.quantity' => 'required|integer|min:1',
+        'products.*.material_remark' => 'nullable|string',
+        'products.*.remarks' => 'nullable|array',
+        'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup',
+        'products.*.remarks.*.remark' => 'nullable|string',
+    ]);
+
+    foreach ($request->products as $productData) {
+        $product = Product::findOrFail($productData['id']);
+        if ($product->OrderID !== $order->id) abort(403);
+        $product->update([
+            'productName' => $productData['product_name'],
+            'totalQuantity' => $productData['quantity'],
+            'materialRemark' => $productData['material_remark'] ?? null,
         ]);
 
-        foreach ($request->products as $productData) {
-            $product = Product::findOrFail($productData['id']);
-            if ($product->OrderID !== $order->id) abort(403);
-            $product->update(['location' => $productData['location']]);
+        // Sync remarks
+        $existingRemarks = $product->remarks()->pluck('remark', 'operation')->toArray();
+        $newRemarks = [];
+        foreach ($productData['remarks'] ?? [] as $remarkData) {
+            $newRemarks[$remarkData['operation']] = $remarkData['remark'] ?? null;
         }
-
-        return redirect()->route('sales.orders')->with('success', 'Order updated successfully');
+        foreach ($existingRemarks as $operation => $remark) {
+            if (!array_key_exists($operation, $newRemarks)) {
+                $product->remarks()->where('operation', $operation)->delete();
+            }
+        }
+        foreach ($newRemarks as $operation => $remark) {
+            $product->remarks()->updateOrCreate(
+                ['operation' => $operation],
+                ['remark' => $remark]
+            );
+        }
     }
+
+    return redirect()->route('sales.orders')->with('success', 'Order updated successfully');
+}
 
 public function show($id)
 {
@@ -365,7 +402,7 @@ public function show($id)
     public function searchLeads(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

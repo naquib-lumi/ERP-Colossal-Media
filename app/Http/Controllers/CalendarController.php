@@ -15,7 +15,7 @@ class CalendarController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             abort(403, 'Unauthorized');
         }
         return view('sales.calendar');
@@ -24,7 +24,7 @@ class CalendarController extends Controller
     public function events(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('salesperson')) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
