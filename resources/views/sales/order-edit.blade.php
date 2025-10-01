@@ -3,7 +3,21 @@
 @section('content')
 @push('styles')
 <style>
-    /* Reuse from add-order, add if needed */
+    .remark-row {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        margin-bottom: 0.5rem;
+    }
+    .remark-row select {
+        flex: 0 0 160px;
+    }
+    .remark-row input {
+        flex: 1;
+    }
+    .remark-row button {
+        flex: 0 0 auto;
+    }
 </style>
 @endpush
 
@@ -98,23 +112,48 @@
                                         <tr>
                                             <th>Product Name</th>
                                             <th>Quantity</th>
-                                            <th>Remark</th>
-                                            <th>Material Info</th>
-                                            <th>Location</th>
-                                            <th>Date</th>
+                                            <th>Material Remark</th>
+                                            <th>Remarks</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach ($order->products as $product)
-                                            <tr>
-                                                <td>{{ $product->productName }}</td>
-                                                <td>{{ $product->totalQuantity }}</td>
-                                                <td>{{ $product->productRemark }}</td>
-                                                <td>{{ $product->materialRemark }}</td>
+                                            <tr data-product-id="{{ $product->ProductID }}">
                                                 <td>
-                                                    <input name="products[{{ $product->id }}][location]" type="text" class="form-control" value="{{ $product->location }}">
+                                                    <input type="hidden" name="products[{{ $product->ProductID }}][id]" value="{{ $product->ProductID }}">
+                                                    <input type="text" name="products[{{ $product->ProductID }}][product_name]" class="form-control" value="{{ $product->productName }}">
                                                 </td>
-                                                <td>{{ $product->date_time ? \Carbon\Carbon::parse($product->date_time)->format('d/m/Y') : '-' }}</td>
+                                                <td>
+                                                    <input type="number" name="products[{{ $product->ProductID }}][quantity]" class="form-control" value="{{ $product->totalQuantity }}">
+                                                </td>
+                                                <td>
+                                                    <input type="text" name="products[{{ $product->ProductID }}][material_remark]" class="form-control" value="{{ $product->materialRemark ?? '' }}">
+                                                </td>
+                                                <td>
+                                                    <div id="remarks-container-{{ $product->ProductID }}">
+                                                        @foreach ($product->remarks as $remark)
+                                                            <div class="remark-row">
+                                                                <input type="hidden" name="products[{{ $product->ProductID }}][remarks][{{ $loop->index }}][operation]" value="{{ $remark->operation }}">
+                                                                <select name="products[{{ $product->ProductID }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;">
+                                                                    <option value="printing" {{ $remark->operation == 'printing' ? 'selected' : '' }}>Printing</option>
+                                                                    <option value="furnishing" {{ $remark->operation == 'furnishing' ? 'selected' : '' }}>Furnishing</option>
+                                                                    <option value="installation" {{ $remark->operation == 'installation' ? 'selected' : '' }}>Installation</option>
+                                                                    <option value="self_pickup" {{ $remark->operation == 'self_pickup' ? 'selected' : '' }}>Self Pickup</option>
+                                                                    <option value="courier" {{ $remark->operation == 'courier' ? 'selected' : '' }}>Courier</option>
+                                                                </select>
+                                                                <input type="text" name="products[{{ $product->ProductID }}][remarks][{{ $loop->index }}][remark]" class="form-control" value="{{ $remark->remark ?? '' }}" placeholder="Write a note…">
+                                                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                                                    <i class="bx bx-trash fs-5"></i>
+                                                                </button>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-product-id="{{ $product->ProductID }}">Add Remark</button>
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -143,5 +182,53 @@
         </div>
     </div>
 </form>
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.add-remark').forEach(button => {
+            button.addEventListener('click', function() {
+                const productId = this.getAttribute('data-product-id');
+                const container = document.getElementById(`remarks-container-${productId}`);
+                const remarks = container.getElementsByClassName('remark-row');
+                const index = remarks.length;
+
+                const html = `
+                    <div class="remark-row">
+                        <input type="hidden" name="products[${productId}][remarks][${index}][operation]" value="">
+                        <select name="products[${productId}][remarks][${index}][operation]" class="form-select w-auto" style="min-width:160px;">
+                            <option value="">— Select —</option>
+                            <option value="printing">Printing</option>
+                            <option value="furnishing">Furnishing</option>
+                            <option value="installation">Installation</option>
+                            <option value="self_pickup">Self Pickup</option>
+                            <option value="courier">Courier</option>
+                        </select>
+                        <input type="text" name="products[${productId}][remarks][${index}][remark]" class="form-control" placeholder="Write a note…">
+                        <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                            <i class="bx bx-trash fs-5"></i>
+                        </button>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        });
+
+        document.querySelectorAll('.remove-remark').forEach(button => {
+            button.addEventListener('click', function() {
+                this.closest('.remark-row').remove();
+            });
+        });
+
+        document.querySelectorAll('.remove-product').forEach(button => {
+            button.addEventListener('click', function() {
+                if (confirm('Are you sure you want to delete this product?')) {
+                    this.closest('tr').remove();
+                }
+            });
+        });
+    });
+</script>
+@endpush
 
 @endsection
