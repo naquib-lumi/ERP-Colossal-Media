@@ -176,6 +176,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/artist/orders/{order}/assign', [ArtistController::class, 'showAssign'])->name('artist.orders.assign.show');
         Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'storeAssign'])->middleware('role:head-artist')->name('artist.orders.assign.store');
         Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show');
+        Route::post('/artist/orders/{order}/products', [ArtistOrderController::class, 'storeProduct'])->name('artist.orders.products.store');
+        
         Route::get('/artist/fulfillment', [FulfillmentController::class, 'index'])->name('artist.fulfillment.index');
         Route::get('/artist/fulfillment/products/{product}', [FulfillmentController::class, 'show'])->name('artist.fulfillment.product.show');
         Route::delete('/artist/orders/{order}/remarks/{remark}', [ArtistController::class, 'destroyRemark'])->name('artist.orders.remarks.destroy');

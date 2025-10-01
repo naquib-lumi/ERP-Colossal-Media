@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\DeliveryBreakdown;
 use App\Models\Lead;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -472,6 +473,83 @@ class ArtistOrderController extends Controller
                 'meta' => ['email' => $u->email],
             ]),
         ]);
+    }
+
+    public function storeProduct(Request $request, \App\Models\Order $order)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->hasRole('artist') || $user->hasRole('head-artist'))) {
+            return back()->with('error', 'Unauthorized');
+        }
+
+        $request->validate([
+            'product_name'        => ['required','string','max:255'],
+            'quantity'            => ['required','integer','min:1'],
+            'material_info'       => ['nullable','string'],
+            'remarks'             => ['nullable','array'],
+            'remarks.*.operation' => ['required_with:remarks.*.remark','in:printing,furnishing,installation,courier,self_pickup'],
+            'remarks.*.remark'    => ['required_with:remarks.*.operation','string'],
+        ]);
+
+        // Create product (columns match your products table)
+        $product = \App\Models\Product::create([
+            'OrderID'        => $order->id,
+            'productName'    => $request->product_name,
+            'totalQuantity'  => (int) $request->quantity,
+            'materialRemark' => $request->material_info,
+            // optional defaults that exist in your schema:
+            'status'      => 'in_progress',
+            'editable'    => 1,
+        ]);
+
+        // Optional: save product remarks if provided (product_remarks table)
+        if ($request->filled('remarks') && is_array($request->remarks)) {
+            $rows = [];
+            $now  = now();
+            foreach ($request->remarks as $r) {
+                if (empty($r['operation']) || empty($r['remark'])) continue;
+                $rows[] = [
+                    'ProductID'  => $product->getKey(),
+                    'operation'  => $r['operation'],
+                    'remark'     => $r['remark'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+            if ($rows) {
+                DB::table('product_remarks')->insert($rows);
+            }
+        }
+
+        // Redirect back to edit page so the new accordion block appears
+        return redirect()
+            ->back()
+            ->with('success', 'Product added to order.');
+    }
+
+    public function saveDeliveries(Request $request, $orderId)
+    {
+        $deliveries = $request->input('deliveries', []); // shape: [productId => [rows...]]
+
+        foreach ($deliveries as $productId => $rows) {
+            $productTotal = (int) Product::whereKey($productId)->value('totalQuantity');
+            $alreadySaved = (int) DeliveryBreakdown::where('ProductID', $productId)->sum('quantity');
+
+            $incoming = 0;
+            foreach ($rows as $row) {
+                $incoming += (int) ($row['quantity'] ?? 0);
+            }
+
+            if ($alreadySaved + $incoming > $productTotal) {
+                $remain = max($productTotal - $alreadySaved, 0);
+                return back()->withErrors([
+                    "deliveries.$productId" =>
+                        "Quantity for product #$productId exceeds its total ($productTotal). Remaining: $remain."
+                ])->withInput();
+            }
+        }
+
+        // ... proceed to upsert rows ...
     }
 
 }

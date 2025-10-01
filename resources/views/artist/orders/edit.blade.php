@@ -381,6 +381,16 @@
             </div>
           </div>
 
+          <!-- add product btn -->
+           @if(!$isSubmitted)
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Products</h5>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
+              + Add Product
+            </button>
+          </div>
+          @endif
+
           <div class="accordion" id="productsAcc">
             @foreach($order->products as $pIndex => $product)
             @php
@@ -1442,6 +1452,69 @@
 </div>
 {{-- ===== /Submit Modals ===== --}}
 
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Product</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form id="productForm" method="POST" action="{{ route('artist.orders.products.store', $order->id) }}" autocomplete="off">
+        @csrf
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label">Product Name</label>
+              <input type="text" class="form-control" id="p_name" name="product_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Quantity</label>
+              <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Material Remark</label>
+              <textarea class="form-control" id="p_material" name="material_info" rows="2" placeholder="Optional"></textarea>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label m-0">Product Remarks</label>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addRemarkRow">+ Add Remarks</button>
+          </div>
+
+          <div id="remarkRows" class="vstack gap-2">
+            {{-- rows injected by JS --}}
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{{-- Template for one remark row --}}
+<script type="text/template" id="remarkRowTpl">
+  <div class="remark-row d-flex gap-2 align-items-start">
+    <select class="form-select" name="remarks[__IDX__][operation]">
+      <option value="" disabled selected>Select operation</option>
+      <option value="printing">Printing</option>
+      <option value="furnishing">Furnishing</option>
+      <option value="installation">Installation</option>
+      <option value="courier">Courier</option>
+      <option value="self_pickup">Self Pickup</option>
+    </select>
+    <input class="form-control" name="remarks[__IDX__][remark]" placeholder="Remark…">
+    <button type="button" class="btn btn-outline-danger remove-remark">&times;</button>
+  </div>
+</script>
+
 @endsection
 
 @push('scripts')
@@ -1700,10 +1773,15 @@
         }
 
         function getTotalAllowed() {
-          const totalQtyEl =
-            root.querySelector('input[name="product[qty_total]"]') ||
-            document.getElementById('totalQty');
-          const v = (totalQtyEl?.value ?? '').trim();
+          const span = root.querySelector('#del-sum-total-' + pIndex);
+          if (span) {
+            const s = (span.textContent || '').replace(/,/g, '').trim();
+            const n = parseFloat(s);
+            if (!Number.isNaN(n)) return n;
+          }
+
+          const totalQtyEl = root.querySelector(`input[name="products[${pIndex}][qty_total]"]`);
+          const v = (totalQtyEl?.value ?? '').replace(/,/g, '').trim();
           const n = parseFloat(v);
           return Number.isFinite(n) ? n : 0;
         }
@@ -1911,10 +1989,17 @@
           }
         });
 
-        // qty guard just for this product’s deliveries
         function getTotalAllowed() {
-          const totalEl = root.querySelector('input[name="product[qty_total]"]') || document.getElementById('totalQty');
-          const n = parseFloat((totalEl?.value ?? '').trim());
+          const span = root.querySelector('#del-sum-total-' + pIndex);
+          if (span) {
+            const s = (span.textContent || '').replace(/,/g, '').trim();
+            const n = parseFloat(s);
+            if (!Number.isNaN(n)) return n;
+          }
+
+          const totalQtyEl = root.querySelector(`input[name="products[${pIndex}][qty_total]"]`);
+          const v = (totalQtyEl?.value ?? '').replace(/,/g, '').trim();
+          const n = parseFloat(v);
           return Number.isFinite(n) ? n : 0;
         }
 
@@ -2926,5 +3011,49 @@
 
   // safety: before opening any modal, clear leftovers (optional)
   function openModalSafe(sel) { forceEnableScroll(); (bootstrap.Modal.getInstance(sel) || new bootstrap.Modal(sel)).show(); }
+
+  (function () {
+    const $rows = document.getElementById('remarkRows');
+    const tpl   = document.getElementById('remarkRowTpl').innerHTML;
+    let rIdx    = 0;
+
+    function addRemarkRow() {
+      const html = tpl.replaceAll('__IDX__', rIdx++);
+      const wrap = document.createElement('div');
+      wrap.innerHTML = html.trim();
+      $rows.appendChild(wrap.firstElementChild);
+    }
+
+    document.getElementById('addRemarkRow').addEventListener('click', addRemarkRow);
+    $rows.addEventListener('click', function (e) {
+      if (e.target.closest('.remove-remark')) {
+        e.target.closest('.remark-row').remove();
+      }
+    });
+
+    // Ensure modal starts with one blank row
+    document.getElementById('addProductModal').addEventListener('shown.bs.modal', function () {
+      if (!$rows.querySelector('.remark-row')) addRemarkRow();
+    });
+
+    // Reset on close (optional)
+    document.getElementById('addProductModal').addEventListener('hidden.bs.modal', function () {
+      $rows.innerHTML = '';
+      rIdx = 0;
+      document.getElementById('p_name').value     = '';
+      document.getElementById('p_qty').value      = '';
+      document.getElementById('p_material').value = '';
+    });
+
+    function toInt(v){ v=String(v??'').trim(); const n=parseInt(v,10); return isNaN(n)?0:n; }
+
+    // Parse pIndex and delivery row index from the input name
+    function parseName(name){
+      const m = name.match(/^products\[(\d+)\]\[deliveries\]\[(\d+)\]\[quantity\]$/);
+      return m ? { pIndex: m[1], dIndex: m[2] } : null;
+    }
+
+
+  })();
 </script>
 @endpush
