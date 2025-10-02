@@ -35,6 +35,7 @@ use App\Http\Controllers\DispatchControlHistoryController;
 use App\Http\Controllers\DispatchControlProductOrderController;
 use App\Http\Controllers\DispatchControlProfileController;
 
+use App\Http\Controllers\DataEntryController;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -83,6 +84,8 @@ Route::get('/dashboard', function () {
                 return redirect()->route('furnishing.dashboard');
             case 'boss':
                 return redirect()->route('boss.dashboard');
+            case 'data-entry':
+                return redirect()->route('data-entry.dashboard');
             default:
                 return view('dashboard');
         }
@@ -158,8 +161,6 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::delete('/calendar/meetings/{id}', [MeetingController::class, 'destroy']);
     });
 
-
-
     Route::get('/test-route', function () {
         return 'Route is working';
     });
@@ -218,6 +219,14 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])
             ->name('artists.search');
+
+    });
+
+    Route::middleware(['web','auth','role:data-entry'])->group(function () {
+        Route::get('/data-entry/dashboard', [DataEntryController::class, 'dashboard'])->name('data-entry.dashboard');
+        Route::get('/data-entry/orders', [DataEntryController::class, 'orders'])->name('data-entry.orders');
+        Route::get('/data-entry/orders/{order}',        [DataEntryController::class, 'show'])->name('data-entry.orders.show');
+        Route::get('/data-entry/orders/{order}/edit',   [DataEntryController::class, 'edit'])->name('data-entry.orders.edit');
 
     });
 
