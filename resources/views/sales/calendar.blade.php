@@ -58,48 +58,35 @@
 
             <!-- Reminder Offcanvas -->
             <div class="offcanvas offcanvas-end" tabindex="-1" id="addReminderSidebar" aria-labelledby="addReminderSidebarLabel">
-                <div class="offcanvas-header border-bottom">
-                    <h5 class="offcanvas-title" id="addReminderSidebarLabel">Add Reminder</h5>
-                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                </div>
-                <div class="offcanvas-body">
-                    <form class="pt-0" id="reminderForm">
-                        @csrf
-                        <input type="hidden" name="id">
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderLeadId">Lead</label>
-                            <select class="form-select select2" id="reminderLeadId" name="lead_id" required>
-                                <option value="">Search for a lead</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderTitle">Title</label>
-                            <input type="text" class="form-control" id="reminderTitle" name="title" placeholder="Reminder Title" required />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderDueDate">Due Date & Time</label>
-                            <input type="datetime-local" class="form-control" id="reminderDueDate" name="due_date" required />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="recurrenceType">Recurrence Type</label>
-                            <select class="form-select select2" id="recurrenceType" name="recurrence_type">
-                                <option value="none">None</option>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="recurrenceTime">Recurrence Time</label>
-                            <input type="time" class="form-control" id="recurrenceTime" name="recurrence_time" value="{{ now()->format('H:i') }}" />
-                        </div>
-                        <div class="d-flex mt-4 gap-2">
-                            <button type="submit" class="btn btn-primary btn-add-reminder me-2">Add</button>
-                            <button type="reset" class="btn btn-label-secondary btn-cancel" data-bs-dismiss="offcanvas">Cancel</button>
-                        </div>
-                    </form>
-                </div>
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="addReminderSidebarLabel">Add Reminder</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <form class="pt-0" id="reminderForm">
+            @csrf
+            <input type="hidden" name="id">
+            <div class="mb-3">
+                <label class="form-label" for="reminderLeadId">Lead</label>
+                <select class="form-select select2" id="reminderLeadId" name="lead_id" required>
+                    <option value="">Search for a lead</option>
+                </select>
             </div>
+            <div class="mb-3">
+                <label class="form-label" for="reminderTitle">Title</label>
+                <input type="text" class="form-control" id="reminderTitle" name="title" placeholder="Reminder Title" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="reminderRemindAt">Remind Time & Date</label>
+                <input type="datetime-local" class="form-control" id="reminderRemindAt" name="remind_at" required />
+            </div>
+            <div class="d-flex mt-4 gap-2">
+                <button type="submit" class="btn btn-primary btn-add-reminder me-2">Add</button>
+                <button type="reset" class="btn btn-label-secondary btn-cancel" data-bs-dismiss="offcanvas">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
 
             <!-- Meeting Offcanvas -->
             <div class="offcanvas offcanvas-end" tabindex="-1" id="addMeetingSidebar" aria-labelledby="addMeetingSidebarLabel">

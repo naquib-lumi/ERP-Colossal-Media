@@ -77,39 +77,37 @@ class CalendarController extends Controller
         });
 
     // ----- Reminders -----
-    $remindersQuery = Reminder::with(['lead.user'])->whereBetween('due_date', [$start, $end]);
+  $remindersQuery = Reminder::with(['lead.user'])->whereBetween('remind_at', [$start, $end]);
 
-    if ($user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
-        $remindersQuery->whereHas('lead', function ($q) use ($user) {
-            $q->where('salesperson_id', $user->id);
-        });
-    }
+if ($user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
+    $remindersQuery->whereHas('lead', function ($q) use ($user) {
+        $q->where('salesperson_id', $user->id);
+    });
+}
 
-    $reminders = $remindersQuery
-        ->get()
-        ->map(function ($reminder) {
-            $color = $reminder->status === 'completed' ? '#6c757d' : ($reminder->due_date->isPast() ? '#dc3545' : '#28a745');
-            $textColor = ($color === '#ffc107') ? '#000' : '#fff';
-            return [
-                'id' => 'reminder-' . $reminder->id,
-                'title' => $reminder->title,
-                'start' => $reminder->due_date->toIso8601String(),
-                'allDay' => true,
-                'extendedProps' => [
-                    'calendar' => 'Reminder',
-                    'type' => 'reminder',
-                    'status' => $reminder->status,
-                    'lead_id' => $reminder->lead_id,
-                    'lead_text' => $reminder->lead ? $reminder->lead->company_name . ' - ' . $reminder->lead->name : 'Unknown',
-                    'recurrence_type' => $reminder->recurrence_type,
-                    'recurrence_time' => $reminder->recurrence_time,
-                    'created_by' => $reminder->user ? $reminder->user->name : 'Unknown',
-                ],
-                'backgroundColor' => $color,
-                'borderColor' => $color,
-                'textColor' => $textColor,
-            ];
-        });
+$reminders = $remindersQuery
+    ->get()
+    ->map(function ($reminder) {
+        $color = $reminder->status === 'completed' ? '#6c757d' : ($reminder->remind_at->isPast() ? '#dc3545' : '#28a745');
+        $textColor = ($color === '#ffc107') ? '#000' : '#fff';
+        return [
+            'id' => 'reminder-' . $reminder->id,
+            'title' => $reminder->title,
+            'start' => $reminder->remind_at->toIso8601String(),
+            'allDay' => true,
+            'extendedProps' => [
+                'calendar' => 'Reminder',
+                'type' => 'reminder',
+                'status' => $reminder->status,
+                'lead_id' => $reminder->lead_id,
+                'lead_text' => $reminder->lead ? $reminder->lead->company_name . ' - ' . $reminder->lead->name : 'Unknown',
+                'created_by' => $reminder->user ? $reminder->user->name : 'Unknown',
+            ],
+            'backgroundColor' => $color,
+            'borderColor' => $color,
+            'textColor' => $textColor,
+        ];
+    });
 
     $allEvents = $meetings->toArray();
     $allEvents = array_merge($allEvents, $reminders->toArray());

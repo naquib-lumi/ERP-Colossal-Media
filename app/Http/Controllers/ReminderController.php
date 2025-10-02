@@ -4,49 +4,56 @@ namespace App\Http\Controllers;
 
 use App\Models\Reminder;
 use App\Models\Lead;
+use App\Helpers\Helpers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class ReminderController extends Controller
 {
-    public function store(Request $request)
-    {
-        $user = Auth::user();
-        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $validated = $request->validate([
-            'lead_id' => 'required|exists:leads,id',
-            'title' => 'required|string|max:255',
-            'due_date' => 'required|date',
-            'recurrence_type' => 'nullable|in:none,daily,weekly,monthly',
-            'recurrence_time' => 'nullable|date_format:H:i',
-        ]);
-
-        $lead = Lead::findOrFail($validated['lead_id']);
-        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $validated['salesperson_id'] = $user->id;
-        $validated['is_auto'] = false;
-        $validated['end_date'] = Carbon::parse($validated['due_date'])->addDays(3);
-        $validated['last_notify_time'] = null;
-        $validated['status'] = 'upcoming';
-
-        try {
-            $reminder = Reminder::create($validated);
-            $reminder->notifyUser();
-            Log::info("Reminder ID {$reminder->id} created for lead ID {$validated['lead_id']}");
-            return response()->json(['success' => true, 'reminder' => $reminder]);
-        } catch (\Exception $e) {
-            Log::error("Error creating reminder: " . $e->getMessage());
-            return response()->json(['error' => 'Failed to create reminder'], 500);
-        }
+ public function store(Request $request)
+{
+    $user = Auth::user();
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        return response()->json(['error' => 'Unauthorized'], 403);
     }
+
+    $validated = $request->validate([
+        'lead_id' => 'required|exists:leads,id',
+        'title' => 'required|string|max:255',
+        'remind_at' => 'required|date',
+    ]);
+
+    $lead = Lead::findOrFail($validated['lead_id']);
+    if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+
+    $validated['salesperson_id'] = $user->id;
+    $validated['created_by'] = $user->id;
+    $validated['is_auto'] = false;
+    $validated['status'] = 'upcoming';
+
+    try {
+        $reminder = Reminder::create($validated);
+        Log::info("Reminder ID {$reminder->id} created for lead ID {$validated['lead_id']}");
+        return response()->json(['success' => true, 'reminder' => $reminder]);
+    } catch (\Exception $e) {
+        Log::error("Error creating reminder: " . $e->getMessage());
+        return response()->json(['error' => 'Failed to create reminder'], 500);
+    }
+}
+
+public function completeFromNotification(Reminder $reminder)
+{
+    if (Auth::id() !== $reminder->created_by) {
+        abort(403);
+    }
+
+    $reminder->update(['status' => 'completed']);
+
+    return redirect("/leads/{$reminder->lead_id}")->with('success', 'Reminder completed.');
+}
 
     public function update(Request $request, $id)
     {
@@ -63,9 +70,7 @@ class ReminderController extends Controller
         $validated = $request->validate([
             'lead_id' => 'required|exists:leads,id',
             'title' => 'required|string|max:255',
-            'due_date' => 'required|date',
-            'recurrence_type' => 'nullable|in:none,daily,weekly,monthly',
-            'recurrence_time' => 'nullable|date_format:H:i',
+            'remind_at' => 'required|date',
         ]);
 
         $lead = Lead::findOrFail($validated['lead_id']);
@@ -73,12 +78,10 @@ class ReminderController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $validated['end_date'] = Carbon::parse($validated['due_date'])->addDays(3);
-
         try {
             $reminder->update($validated);
             Log::info("Reminder ID {$id} updated for lead ID {$validated['lead_id']}");
-            return response()->json(['success' => true, 'reminder' => $reminder]);
+            return response()->json(['success' => true, 'reminder' => $reminder->fresh()]);
         } catch (\Exception $e) {
             Log::error("Error updating reminder: " . $e->getMessage());
             return response()->json(['error' => 'Failed to update reminder'], 500);

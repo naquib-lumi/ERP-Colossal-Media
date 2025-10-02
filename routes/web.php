@@ -103,7 +103,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:salesperson|head-salesperson')->group(function () {
 
-
+        Route::get('/notifications/reminders/{reminder}/complete', [ReminderController::class, 'completeFromNotification'])->name('reminders.complete.notification');
 
 Route::get('/sales/profile', [SalesController::class, 'ProfileShow'])->name('sales.profile.show');
 Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name('sales.profile.update');

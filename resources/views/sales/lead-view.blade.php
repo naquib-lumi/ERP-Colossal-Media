@@ -132,7 +132,7 @@
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             <div>
                                                 <strong>{{ $reminder->title }}</strong><br>
-                                                <small class="text-muted">Due: {{ $reminder->due_date instanceof \Carbon\Carbon ? $reminder->due_date->format('Y-m-d H:i') : $reminder->due_date }}</small>
+                                                <small class="text-muted">Due: {{ $reminder->remind_at instanceof \Carbon\Carbon ? $reminder->remind_at->format('Y-m-d H:i') : $reminder->remind_at }}</small>
                                             </div>
                                             <span class="badge bg-{{ $reminder->status == 'overdue' ? 'danger' : ($reminder->status == 'upcoming' ? 'warning' : 'success') }} rounded-pill">
                                                 {{ ucfirst($reminder->status) }}

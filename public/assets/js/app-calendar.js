@@ -392,9 +392,7 @@ ${extraInfo}
               form.querySelector('[name="note"]').value = info.event.extendedProps.note || '';
             } else {
               form.querySelector('[name="due_date"]').value = moment(info.event.start).format('YYYY-MM-DDTHH:mm') || '';
-              const recurrenceTypeVal = info.event.extendedProps.recurrence_type || 'none';
-              $('#recurrenceType').val(recurrenceTypeVal).trigger('change');
-              form.querySelector('[name="recurrence_time"]').value = info.event.extendedProps.recurrence_time || '';
+  form.querySelector('[name="remind_at"]').value = moment(info.event.start).format('YYYY-MM-DDTHH:mm') || '';
             }
           }
         });
@@ -522,8 +520,8 @@ ${extraInfo}
           formData.append('_method', 'PUT');
         }
 
-        if (!formData.get('lead_id') || !formData.get('title') || !formData.get('due_date')) {
-          alert('Please fill in all required fields: Lead, Title, and Due Date.');
+        if (!formData.get('lead_id') || !formData.get('title') || !formData.get('remind_at')) {
+      alert('Please fill in all required fields: Lead, Title, and Remind Time & Date.');
           reminderSubmitting = false;
           submitBtn.disabled = false;
           return;

@@ -11,3 +11,5 @@ Artisan::command('inspire', function () {
 
 
 Schedule::command('notifications:prune')->daily();
+
+Schedule::command('reminders:send')->everyMinute();
