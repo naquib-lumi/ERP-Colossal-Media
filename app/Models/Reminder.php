@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Notifications\ReminderNotification;
 use Illuminate\Support\Facades\Log;
-
+   use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+   
 class Reminder extends Model
 {
     use HasFactory;
@@ -34,6 +35,20 @@ class Reminder extends Model
     {
         return $this->belongsTo(Lead::class);
     }
+
+ 
+
+public function user()
+{
+    return $this->hasOneThrough(
+        User::class,
+        Lead::class,
+        'id', // Foreign key on reminders
+        'id', // Foreign key on users
+        'lead_id', // Local key on reminders
+        'salesperson_id' // Local key on leads
+    );
+}
 
     public function notifyUser()
     {

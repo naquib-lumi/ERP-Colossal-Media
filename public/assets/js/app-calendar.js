@@ -237,25 +237,31 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('reminderDueDate').value = date;
         }
       },
-      eventClick: function (info) {
-        console.log('Event Click Data:', info.event);
-        let modalId = 'eventDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
-        if (!$('#' + modalId).length) {
-          const isReminder = info.event.extendedProps.type === 'reminder';
-          const modalBody = `
-  <p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-  <p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-  <p><strong>Status:</strong> 
-    <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
-      <option value="scheduled" ${info.event.extendedProps.status === "scheduled" ? "selected" : ""}>Scheduled</option>
-      <option value="canceled" ${info.event.extendedProps.status === "canceled" ? "selected" : ""}>Canceled</option>
-      <option value="postponed" ${info.event.extendedProps.status === "postponed" ? "selected" : ""}>Postponed</option>
-      ${isReminder
-              ? `<option value="completed" ${info.event.extendedProps.status === "completed" ? "selected" : ""}>Completed</option>`
-              : ""
-            }
-    </select>
-  </p>
+   eventClick: function (info) {
+    console.log('Event Click Data:', info.event.extendedProps);
+    let modalId = 'eventDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
+    if (!$('#' + modalId).length) {
+      const isReminder = info.event.extendedProps.type === 'reminder';
+      const isHeadSalesperson = window.currentUserRole === 'head-salesperson';
+      let extraInfo = '';
+      if (isHeadSalesperson && info.event.extendedProps.created_by) {
+        extraInfo = `<p><strong>Created by:</strong> <span id="eventCreatorDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}">${info.event.extendedProps.created_by}</span></p>`;
+      }
+      const modalBody = `
+<p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+${extraInfo}
+<p><strong>Status:</strong> 
+  <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
+    <option value="scheduled" ${info.event.extendedProps.status === "scheduled" ? "selected" : ""}>Scheduled</option>
+    <option value="canceled" ${info.event.extendedProps.status === "canceled" ? "selected" : ""}>Canceled</option>
+    <option value="postponed" ${info.event.extendedProps.status === "postponed" ? "selected" : ""}>Postponed</option>
+    ${isReminder
+            ? `<option value="completed" ${info.event.extendedProps.status === "completed" ? "selected" : ""}>Completed</option>`
+            : ""
+          }
+  </select>
+</p>
 `;
 
           $('body').append(`

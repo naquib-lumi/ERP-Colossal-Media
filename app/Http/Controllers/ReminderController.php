@@ -27,7 +27,7 @@ class ReminderController extends Controller
         ]);
 
         $lead = Lead::findOrFail($validated['lead_id']);
-        if ($lead->salesperson_id !== $user->id) {
+        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -56,7 +56,7 @@ class ReminderController extends Controller
         }
 
         $reminder = Reminder::findOrFail($id);
-        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id) {
+        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -69,7 +69,7 @@ class ReminderController extends Controller
         ]);
 
         $lead = Lead::findOrFail($validated['lead_id']);
-        if ($lead->salesperson_id !== $user->id) {
+        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -93,7 +93,7 @@ class ReminderController extends Controller
         }
 
         $reminder = Reminder::findOrFail($id);
-        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id) {
+        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -114,7 +114,7 @@ class ReminderController extends Controller
         }
 
         $reminder = Reminder::findOrFail($id);
-        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id) {
+        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
