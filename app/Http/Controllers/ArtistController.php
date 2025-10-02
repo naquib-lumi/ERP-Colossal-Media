@@ -531,7 +531,7 @@ class ArtistController extends Controller
         ]);
 
         $order->data_entry_id = (int)$validated['user_id'];
-        $order->orderStatus   = 'in_progress'; // matches your enum
+        $order->orderStatus   = 'completed'; // matches your enum
         $order->draft         = 0;
         $order->submit        = 1;
         $order->pending       = 1;
