@@ -85,7 +85,7 @@ Route::get('/dashboard', function () {
             case 'boss':
                 return redirect()->route('boss.dashboard');
             case 'data-entry':
-                return redirect()->route('data-entry.dashboard');
+                return redirect()->route('data-entry.orders');
             default:
                 return view('dashboard');
         }
@@ -184,7 +184,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'storeAssign'])->middleware('role:head-artist')->name('artist.orders.assign.store');
         Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show');
         Route::post('/artist/orders/{order}/products', [ArtistOrderController::class, 'storeProduct'])->name('artist.orders.products.store');
-        
+
         Route::get('/artist/fulfillment', [FulfillmentController::class, 'index'])->name('artist.fulfillment.index');
         Route::get('/artist/fulfillment/products/{product}', [FulfillmentController::class, 'show'])->name('artist.fulfillment.product.show');
         Route::delete('/artist/orders/{order}/remarks/{remark}', [ArtistController::class, 'destroyRemark'])->name('artist.orders.remarks.destroy');
@@ -212,6 +212,8 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::post('/artist/orders/get', [ArtistOrderController::class, 'getOrders'])->name('artist.orders.get');
         
         Route::get('/artist/orders/csv-template', [ArtistOrderController::class, 'csvTemplate'])->name('artist.orders.csv_template');
+        Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.shows')->whereNumber('order');
+        Route::get('/artist/orders/{order}/edit', [ArtistController::class, 'edit'])->name('artist.orders.edit')->whereNumber('order');
 
         // AJAX search for artists (head-artist assigning)
         Route::get('/artist/orders/assignees/search', [ArtistOrderController::class, 'searchArtists'])->name('artist.orders.assignees.search');
@@ -228,6 +230,22 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/data-entry/orders/{order}',        [DataEntryController::class, 'show'])->name('data-entry.orders.show');
         Route::get('/data-entry/orders/{order}/edit',   [DataEntryController::class, 'edit'])->name('data-entry.orders.edit');
 
+        Route::put('/data-entry/orders/{order}', [DataEntryController::class, 'update'])->name('data-entry.orders.update');
+        
+        // If your Blade still uses these actions:
+        Route::delete('/data-entry/orders/{order}/remarks/{remark}', [DataEntryController::class, 'destroyRemark'])
+        ->name('data-entry.orders.remarks.destroy');
+
+        Route::delete('/data-entry/orders/{order}/items/{item}', [DataEntryController::class, 'destroyItem'])
+            ->name('data-entry.orders.items.destroy');
+
+        Route::delete('/data-entry/orders/{order}/delivery/{delivery}', [DataEntryController::class, 'deleteDelivery'])
+            ->name('data-entry.orders.delivery.destroy');
+
+        Route::delete('/data-entry/orders/{order}/attachments', [DataEntryController::class, 'deleteAttachment'])
+            ->name('data-entry.orders.attachments.destroy');
+
+        Route::patch('/data-entry/orders/{order}/begin', [DataEntryController::class, 'begin'])->name('data-entry.orders.begin');
     });
 
     // Printing

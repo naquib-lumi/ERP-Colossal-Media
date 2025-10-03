@@ -239,6 +239,7 @@
                                     <option value="">All statuses</option>
                                     
                                     <option value="in_progress">In progress</option>
+                                    <option value="pending">Pending</option>
                                     <option value="completed">Completed</option>
                                     <option value="rejected">Rejected</option>
                                 </select>
