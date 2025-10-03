@@ -1119,7 +1119,7 @@
                             $ops = [
                             'printing' => 'Printing',
                             'furnishing' => 'Furnishing',
-                            'installation' => 'Installation',
+                            'installation' => 'Delivery & Installation',
                             'courier' => 'Courier',
                             'self_pickup' => 'Self Pickup',
                             ];

@@ -268,12 +268,11 @@ class DataEntryController extends Controller
         }
 
         // Only flip if not submitted yet
-        if ((int)$order->submit === 0) {
+        if ((int)$order->submit === 1) {
             $order->fill([
                 'pending'       => 0,                 // <-- set Pending -> 0
                 'draft'         => 1,                 // mark as in progress (editable)
                 'submit'        => 0,
-                'orderStatus'   => 'in_progress',     // use your exact enum value
                 'data_entry_id' => $order->data_entry_id ?: $user->id,
             ])->save();
         }
