@@ -48,7 +48,7 @@ class FulfillmentController extends Controller
         // Search / filters
         if ($q !== '')      $query->where('p.productName', 'like', "%{$q}%");
         if ($task !== '')   $query->whereRaw('LOWER(p.taskType) = ?', [$task]);
-        if ($status !== '') $query->whereRaw('LOWER(o.orderStatus) = ?', [$status]);
+        if ($status !== '') $query->whereRaw('LOWER(p.status) = ?', [$status]);
 
         // Select fields
         $query->select([
@@ -60,7 +60,7 @@ class FulfillmentController extends Controller
             'p.OrderID as order_id_current',              // for edit/report links
             DB::raw('COALESCE(oo.id, o.id) as order_id_for_display'),
             DB::raw("DATE_FORMAT(o.deadline, '%Y-%m-%d') as deadline"),
-            DB::raw('LOWER(o.orderStatus) as status'),
+            DB::raw('LOWER(p.status) as status'),
             DB::raw("DATE_FORMAT(dd.date, '%Y-%m-%d') as deliv_date"),
             DB::raw("DATE_FORMAT(dd.time, '%H:%i')     as deliv_time"),
             'dd.location as deliv_loc',
@@ -96,7 +96,13 @@ class FulfillmentController extends Controller
         });
 
         $taskTypes = ['printing','furnishing','installation'];
-        $statuses  = ['in_progress','completed','pending','rejected'];
+        $statuses = DB::table('products')
+            ->whereNotNull('status')
+            ->selectRaw('LOWER(status) as status')
+            ->distinct()
+            ->orderBy('status')
+            ->pluck('status')
+            ->toArray();
 
         if ($request->ajax()) {
             return view('artist.fulfillment._table', compact('rows'))->render();
