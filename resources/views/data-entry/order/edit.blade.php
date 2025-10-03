@@ -267,7 +267,7 @@
 {{-- Validation errors (client-side 422) --}}
 <div id="form-errors" class="text-danger small mb-2"></div>
 
-<form id="order-form" action="{{ route('artist.orders.update', $order) }}" method="POST" enctype="multipart/form-data">
+<form id="order-form" action="{{ route('data-entry.orders.update', $order) }}" method="POST" enctype="multipart/form-data">
   @csrf
   @method('PUT')
 
@@ -381,16 +381,6 @@
             </div>
           </div>
 
-          <!-- add product btn -->
-           @if(!$isSubmitted)
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0">Products</h5>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
-              + Add Product
-            </button>
-          </div>
-          @endif
-
           <div class="accordion" id="productsAcc">
             @foreach($order->products as $pIndex => $product)
             @php
@@ -502,7 +492,7 @@
                           $materialSuggestions = collect($materials ?? [])
                           ->pluck('materialName')->filter()->values();
                           @endphp
-                          <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
+                          <input type="hidden" name="products[{{ $pIndex }}][items][{{ $i }}][id]" value="{{ data_get($it,'ItemID') }}">
                           <div class="accordion-item mb-3 border rounded" id="item{{ $pIndex }}_{{ $i }}" data-kind="item">
                             <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
                               <div>
@@ -523,7 +513,7 @@
                                   title="Delete this item from DB"
                                   data-action="delete-item"
                                   data-item-id="{{ data_get($it,'ItemID') }}"
-                                  data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID')]) }}">
+                                  data-url="{{ route('data-entry.orders.items.destroy', [$order, data_get($it,'ItemID')]) }}">
                                   <i class="bx bx-trash fs-5"></i>
                                 </button>
                                 @endif
@@ -564,10 +554,11 @@
                                   <div class="col-12">
                                     <label class="form-label">Material</label>
                                     <div class="tags-input"
-                                      data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
-                                      data-suggestions='@json($materialSuggestions)'
-                                      data-values='@json($materialVal)'
-                                      data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
+                                        data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
+                                        data-suggestions='@json($materialSuggestions)'
+                                        data-values='@json($materialVal)'
+                                        data-allow-custom="1"
+                                        data-readonly="{{ ($order->submit || $locked) ? '1' : '0' }}">
                                     </div>
                                   </div>
 
@@ -933,7 +924,7 @@
                           <div class="card mb-3"
                             data-delivery
                             data-id="{{ $d->getKey() }}"
-                            data-url="{{ route('artist.orders.delivery.destroy', ['order' => $order, 'delivery' => $d->getKey()]) }}">
+                            data-url="{{ route('data-entry.orders.delivery.destroy', ['order' => $order, 'delivery' => $d->getKey()]) }}">
                             <div class="card-body">
                               <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="fw-semibold">Delivery <span class="delivery-index">{{ $i + 1 }}</span></div>
@@ -1128,7 +1119,7 @@
                             $ops = [
                             'printing' => 'Printing',
                             'furnishing' => 'Furnishing',
-                            'installation' => 'Installation',
+                            'installation' => 'Delivery & Installation',
                             'courier' => 'Courier',
                             'self_pickup' => 'Self Pickup',
                             ];
@@ -1136,7 +1127,7 @@
                             @endphp
 
                             @forelse($rows as $r)
-                            <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
+                            <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('data-entry.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
                               <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
                               <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
                                 <option value="">— Select —</option>
@@ -1234,7 +1225,7 @@
                     <button type="button"
                       class="btn btn-sm btn-outline-danger delete-order-file"
                       title="Delete"
-                      data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
+                      data-url="{{ route('data-entry.orders.attachments.destroy', $order) }}"
                       data-path="{{ $f['path'] }}">
                       <i class="bx bx-trash"></i>
                     </button>
@@ -1391,129 +1382,6 @@
   </div>
 </template>
 
-{{-- ===== Submit Modals ===== --}}
-<div class="modal fade" id="modal-submit-ok" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-3">
-      <div class="modal-header border-0">
-        <h5 class="modal-title">Submit Job Order</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center">
-        <div class="display-6 mb-3">✅</div>
-        <p class="mb-0">All required fields are complete. What do you want to do with this order?</p>
-      </div>
-      <div class="modal-footer flex-column gap-2 border-0">
-        <button type="button" class="btn btn-dark w-100" id="btn-confirm-send-printing">Send to Printing</button>
-        <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">← Back to Order Page</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="modal-submit-incomplete" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-3">
-      <div class="modal-header border-0">
-        <h5 class="modal-title">Submit Job Order</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center">
-        <div class="display-6 mb-3">✅</div>
-        <p class="mb-0">The required input field(s) are not fully filled. Do you want to pass this to Data Entry?</p>
-      </div>
-      <div class="modal-footer flex-column gap-2 border-0">
-        <button type="button" class="btn btn-dark w-100" id="btn-open-choose-de">Pass to Data Entry</button>
-        <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">← Back to Order Page</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="modal-choose-de-user" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-3">
-      <div class="modal-header">
-        <h5 class="modal-title">Assign to Data Entry</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <label class="form-label">Select Data Entry User</label>
-        <select id="de-user-select" class="form-select">
-          <option value="">Please select a user</option>
-        </select>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-dark" id="btn-confirm-assign">Confirm &amp; Assign</button>
-      </div>
-    </div>
-  </div>
-</div>
-{{-- ===== /Submit Modals ===== --}}
-
-<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Add Product</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-
-      <form id="productForm" method="POST" action="{{ route('artist.orders.products.store', $order->id) }}" autocomplete="off">
-        @csrf
-        <div class="modal-body">
-          <div class="row g-3">
-            <div class="col-md-8">
-              <label class="form-label">Product Name</label>
-              <input type="text" class="form-control" id="p_name" name="product_name">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Quantity</label>
-              <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1">
-            </div>
-            <div class="col-12">
-              <label class="form-label">Material Remark</label>
-              <textarea class="form-control" id="p_material" name="material_info" rows="2" placeholder="Optional"></textarea>
-            </div>
-          </div>
-
-          <hr class="my-4">
-
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <label class="form-label m-0">Product Remarks</label>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="addRemarkRow">+ Add Remarks</button>
-          </div>
-
-          <div id="remarkRows" class="vstack gap-2">
-            {{-- rows injected by JS --}}
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
-          <button type="submit" class="btn btn-primary">Save</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-{{-- Template for one remark row --}}
-<script type="text/template" id="remarkRowTpl">
-  <div class="remark-row d-flex gap-2 align-items-start">
-    <select class="form-select" name="remarks[__IDX__][operation]">
-      <option value="" disabled selected>Select operation</option>
-      <option value="printing">Printing</option>
-      <option value="furnishing">Furnishing</option>
-      <option value="installation">Installation</option>
-      <option value="courier">Courier</option>
-      <option value="self_pickup">Self Pickup</option>
-    </select>
-    <input class="form-control" name="remarks[__IDX__][remark]" placeholder="Remark…">
-    <button type="button" class="btn btn-outline-danger remove-remark">&times;</button>
-  </div>
-</script>
 
 @endsection
 
@@ -2031,6 +1899,21 @@
           document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
         }
 
+        function updateDeliverySummaryBar() {
+          const totalEl = document.getElementById('del-sum-total-' + pIndex);
+          const delEl   = document.getElementById('del-sum-delivered-' + pIndex);
+          const remEl   = document.getElementById('del-sum-remaining-' + pIndex);
+          if (!totalEl || !delEl || !remEl) return;
+
+          const total = getTotalAllowed();
+          const delivered = sumDeliveryQty();
+          const remaining = Math.max(total - delivered, 0);
+
+          totalEl.textContent = String(total);
+          delEl.textContent   = String(delivered);
+          remEl.textContent   = String(remaining);
+        }
+
         function validateDeliveries() {
           const ok = sumDeliveryQty() <= getTotalAllowed();
           setQtyValidity(ok, ok ? '' : 'Delivery quantities exceed Product Total Quantity.');
@@ -2444,65 +2327,126 @@
     }
 
     // submit order form
-    const form = document.getElementById('order-form');
-    const btnDraft = document.getElementById('btn-draft');
-    const btnSubmit = document.getElementById('btn-submit');
-    const isDraftEl = document.getElementById('is_draft');
-    const overlay = document.getElementById('loading-overlay');
+    const form       = document.getElementById('order-form');
+    const btnDraft   = document.getElementById('btn-draft');
+    const btnSubmit  = document.getElementById('btn-submit');
+    const isDraftEl  = document.getElementById('is_draft');
+    const overlay    = document.getElementById('loading-overlay');
 
-    const action = @json(route('artist.orders.update', $order));
-    const csrf = @json(csrf_token());
+    const action = @json(route('data-entry.orders.update', $order));
+    const csrf   = @json(csrf_token());
 
     function getSelectedFiles() {
       return (typeof window.getSelectedFiles === 'function') ? window.getSelectedFiles() : [];
     }
 
     function loading(on) {
-      overlay.classList.toggle('is-open', !!on);
-      btnDraft.disabled = btnSubmit.disabled = !!on;
+      overlay?.classList.toggle('is-open', !!on);
+      if (btnDraft)  btnDraft.disabled  = !!on;
+      if (btnSubmit) btnSubmit.disabled = !!on;
     }
-    const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
+    const nextPaint = () => new Promise(r => requestAnimationFrame(r));
 
-    async function send(isDraft) {
-      isDraftEl.value = isDraft ? 1 : 0;
+    // Treat most fields as required except the ones you marked optional with data-optional="true"
+    function isOptional(el) {
+      const name = (el.getAttribute('name') || '').toLowerCase();
+      if (el.hasAttribute('data-optional')) return true;
+      if (name.includes('[items]') && (name.includes('[lamination]') || name.includes('[printer]') || name.includes('[cutter]'))) return true;
+      if (name.includes('[remarks]')) return true;
+      if (name.includes('[deliveries]') && (name.includes('[deliver_install_type]') || name.includes('[outsource_cost]') || name.includes('[location]') || name.includes('[datetime]'))) return true;
+      return false;
+    }
 
-      const fd = new FormData(form);
-      fd.set('is_draft', isDraftEl.value);
-      fd.append('_method', 'PUT');
-      for (const f of getSelectedFiles()) fd.append('attachments[]', f);
+    function markRequired() {
+      document.querySelectorAll('#order-form input, #order-form select, #order-form textarea')
+        .forEach(el => {
+          if (!el.name || el.disabled) return;
+          if (el.type === 'hidden' || el.type === 'file') return;
+          el.required = !isOptional(el);
+        });
+    }
 
-      // 1) show loading and allow the browser to paint it
+    function requiredOK() {
+      const nodes = Array.from(document.querySelectorAll('#order-form [required]'))
+        .filter(el => !isOptional(el));
+      return nodes.every(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          const group = document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`);
+          return Array.from(group).some(x => x.checked);
+        }
+        return (el.value || '').toString().trim().length > 0;
+      });
+    }
+
+    function selectedAttachmentCount() {
+      const newOnes = getSelectedFiles().length;
+      const existing = document.querySelectorAll('[data-file-row]').length;
+      return newOnes + existing;
+    }
+
+// grab hidden fields once
+const submitEl  = document.getElementById('submit-input');
+
+// Save Draft
+btnDraft?.addEventListener('click', (e) => {
+  e.preventDefault();
+  submitEl.value  = '0';   // <— ensure submit=0
+  isDraftEl.value = '1';
+  markRequired();
+  send(true);
+});
+
+// Save & Submit
+btnSubmit?.addEventListener('click', async (e) => {
+  e.preventDefault();
+  submitEl.value  = '1';   // <— ensure submit=1
+  isDraftEl.value = '0';
+  markRequired();
+
+  if (!requiredOK()) {
+    return Swal.fire({ icon: 'error', title: 'Missing info', text: 'Please complete all required fields before submitting.' });
+  }
+  if (selectedAttachmentCount() === 0) {
+    return Swal.fire({ icon: 'error', title: 'Attachment required', text: 'Please upload at least one attachment.' });
+  }
+  await send(false);
+});
+
+async function send(isDraft) {
+  // keep hidden fields in sync
+  isDraftEl.value = isDraft ? '1' : '0';
+  submitEl.value  = isDraft ? '0' : '1';
+
+  const fd = new FormData(form);
+  // be explicit even if hidden inputs were already updated
+  fd.set('is_draft', isDraft ? '1' : '0');
+  fd.set('submit',  isDraft ? '0' : '1');   // <— CRUCIAL
+  fd.append('_method', 'PUT');
+
+  for (const f of getSelectedFiles()) fd.append('attachments[]', f);
+
       loading(true);
-      await nextPaint(); // ensures "Saving… please wait" is visible
+      await nextPaint();
 
-      let res, data;
       try {
-        res = await fetch(action, {
+        const res = await fetch(action, {
           method: 'POST',
           body: fd,
           credentials: 'same-origin',
           headers: {
             'X-CSRF-TOKEN': csrf,
-            'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
+            'X-Requested-With': 'XMLHttpRequest'
           }
         });
 
         if (res.status === 422) {
-          data = await res.json().catch(() => ({}));
-          // 2) hide loading BEFORE showing SweetAlert
+          const data = await res.json().catch(() => ({}));
           loading(false);
           const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
-          await Swal.fire({
-            icon: 'error',
-            title: 'Validation error',
-            text: msg
-          });
-          return;
+          return Swal.fire({ icon: 'error', title: 'Validation error', text: msg });
         }
 
-        data = await res.json().catch(() => ({}));
-
-        // 2) hide loading BEFORE showing SweetAlert
+        const data = await res.json().catch(() => ({}));
         loading(false);
 
         if (res.ok && data?.ok) {
@@ -2511,7 +2455,6 @@
             title: isDraft ? 'Draft saved' : 'Order saved',
             text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
           });
-          // optional refresh
           window.location.reload();
         } else {
           await Swal.fire({
@@ -2521,539 +2464,34 @@
           });
         }
       } catch (e) {
-        console.error(e);
-        loading(false); // be sure to hide on network errors too
-        await Swal.fire({
-          icon: 'error',
-          title: 'Network error',
-          text: 'Could not save. Please try again.'
-        });
-      }
-    }
-
-    const OPTIONAL_NAME_WHITELIST = new Set([
-      'lamination', // adjust to your actual name/id
-      'printer_id',
-      'cutter_id',
-      'delivery_installation_type',
-      'delivery_cost', // e.g., a single input
-      // if these are multiple inputs (e.g. delivery[cost]), use a data-attribute instead (see note below)
-    ]);
-
-    function isOptional(el) {
-      // Respect explicit opt-outs
-      if (el.hasAttribute('data-optional')) return true;
-
-      // Use full, lowercase name to match nested array fields safely
-      const name = (el.getAttribute('name') || '').toLowerCase();
-
-      // Item row (optional): lamination, printer, cutter
-      if (name.includes('[items]') && (
-          name.includes('[lamination]') ||
-          name.includes('[printer]') ||
-          name.includes('[cutter]')
-      )) return true;
-
-      if (name.includes('[remarks]') && (
-          name.includes('[remark]') ||
-          name.includes('[operation]')
-      )) return true;
-
-      // Delivery row (optional): installation type, costing
-      if (name.includes('[deliveries]') && (
-          name.includes('[deliver_install_type]') ||
-          name.includes('[outsource_cost]') ||
-          name.includes('[location]') ||
-          name.includes('[datetime]')
-      )) return true;
-
-      // Everything else is required (do NOT treat location/date/time as optional)
-      return false;
-    }
-
-    function requiredElements() {
-      // grab all required fields currently in the DOM
-      const nodes = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
-      // exclude the optional ones
-      return nodes.filter(el => !isOptional(el));
-    }
-
-    function requiredOK() {
-      return requiredElements().every(el => {
-        // treat checkboxes/radios vs text/select
-        if (el.type === 'checkbox' || el.type === 'radio') {
-          // at least one of the group must be checked
-          const name = el.name;
-          const group = document.querySelectorAll(`[name="${CSS.escape(name)}"]`);
-          return Array.from(group).some(x => x.checked);
-        }
-        const v = (el.value || '').toString().trim();
-        return v.length > 0;
-      });
-    }
-
-    function selectedAttachmentCount() {
-      const newOnes = (window.getSelectedFiles?.() || []).length;
-      const existing = document.querySelectorAll('[data-file-row]').length;
-      return newOnes + existing;
-    }
-
-    // mark & check required (use your existing logic or this)
-    function formComplete() {
-      return document.getElementById('order-form').checkValidity();
-    }
-
-    // Intercept Save & Submit
-    document.getElementById('btn-submit')?.addEventListener('click', onSubmitClick);
-
-    // Modal 1 → Send to Printing (now it really submits)
-    document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
-      getModal('#modal-submit-ok').hide();
-      await send(false);   // your existing submit flow
-    });
-
-    // Modal 2 → Pass to Data Entry → open the picker AFTER the modal is fully hidden
-    document.getElementById('btn-open-choose-de').addEventListener('click', () => {
-      const inc = document.getElementById('modal-submit-incomplete');
-      const onHidden = async () => {
-        inc.removeEventListener('hidden.bs.modal', onHidden);
-        const choose = getModal('#modal-choose-de-user');
-        choose.show();
-
-        // load users AFTER it opens (so you always see the modal)
-        const sel = document.getElementById('de-user-select');
-        sel.innerHTML = `<option value="">Loading…</option>`;
-        try {
-          const r = await fetch(@json(route('dataEntry.users')), { headers: { 'X-Requested-With':'XMLHttpRequest' }});
-          const data = await r.json();
-          sel.innerHTML = `<option value="">Please select a user</option>`;
-          (data?.users || []).forEach(u => {
-            const opt = document.createElement('option');
-            opt.value = u.id; opt.textContent = u.name;
-            sel.appendChild(opt);
-          });
-        } catch {
-          sel.innerHTML = `<option value="">Failed to load users</option>`;
-        }
-      };
-      inc.addEventListener('hidden.bs.modal', onHidden, { once:true });
-      getModal(inc).hide();
-    });
-
-    // Choose DE → Confirm & Assign (now it really submits)
-    document.getElementById('btn-confirm-assign').addEventListener('click', async () => {
-      const sel = document.getElementById('de-user-select');
-      if (!sel.value) { sel.focus(); return; }
-
-      getModal('#modal-choose-de-user').hide();
-
-      loading(true);
-      try {
-        const res = await fetch(@json(route('artist.orders.passToDataEntry', $order)), {
-          method: 'POST',
-          headers: {
-            'X-CSRF-TOKEN': @json(csrf_token()),
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ user_id: sel.value })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.ok) {
-          window.location.href = @json(route('artist.orders.show', $order));
-        } else {
-          const msg = data?.message || `HTTP ${res.status}`;
-          (window.Swal ? Swal.fire({icon:'error', title:'Assign failed', text: msg}) : alert(msg));
-        }
-      } catch {
-        (window.Swal ? Swal.fire({icon:'error', title:'Network error', text:'Could not assign to Data Entry.'}) : alert('Network error'));
-      } finally {
         loading(false);
+        await Swal.fire({ icon: 'error', title: 'Network error', text: 'Could not save. Please try again.' });
       }
-    });
-
-    // ===== /Submit UI logic =====
-    const draftBtn = document.getElementById('btn-draft');
-    const submitBtn = document.getElementById('btn-submit');
-
-    if (draftBtn) draftBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      send(true); // Save Draft (no modal)
-    });
-
-    if (submitBtn) submitBtn.addEventListener('click', onSubmitClick);
-
-    function selectedAttachmentCount() {
-      const newOnes = (window.getSelectedFiles?.() || []).length;
-      const existing = document.querySelectorAll('[data-file-row]').length;
-      return newOnes + existing;
     }
 
-    // Mark everything required EXCEPT: lamination, printer, cutter, install type & cost
-    function markRequired() {
-      document.querySelectorAll('#order-form input, #order-form select, #order-form textarea')
-        .forEach(el => {
-          if (!el.name || el.disabled) return;
-          if (el.type === 'hidden' || el.type === 'file') return;
-          if (isOptional(el)) return; // uses the new robust checker
-          el.required = true;         // enforce required everywhere else
-        });
-    }
-
-    function requiredElements() {
-      const nodes = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
-      return nodes.filter(el => !isOptional(el)); // belt-and-suspenders
-    }
-
-    function requiredOK() {
-      return requiredElements().every(el => {
-        if (el.type === 'checkbox' || el.type === 'radio') {
-          const group = document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`);
-          return Array.from(group).some(x => x.checked);
-        }
-        const v = (el.value || '').toString().trim();
-        return v.length > 0;
+    // Bind buttons (no modals)
+    if (btnDraft) {
+      btnDraft.addEventListener('click', (e) => {
+        e.preventDefault();
+        markRequired(); // still mark (so drafts can highlight missing if you wish)
+        send(true);
       });
     }
 
-    // Use our strict checker instead of browser's
-    function formComplete() {
-      // make sure required flags are applied before checking
-      markRequired();
-      return requiredOK();
-    }
+    if (btnSubmit) {
+      btnSubmit.addEventListener('click', async (e) => {
+        e.preventDefault();
+        markRequired();
 
-    async function onSubmitClick(e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const hasAttach = selectedAttachmentCount() > 0;
-      const complete = formComplete();
-
-      const hasAtLeastOneItem = !!document.querySelector('input[name^="products["][name*="[items]"][name$="[itemName]"]');
-
-      const hasAtLeastOneDelivery = !!document.querySelector('input[name^="products["][name*="[deliveries]"][name$="[quantity]"]');
-
-      const strictComplete = complete && hasAtLeastOneItem && hasAtLeastOneDelivery;
-
-      // i. complete + has attachment → OK modal
-      if (strictComplete && hasAttach) {
-        new bootstrap.Modal(document.getElementById('modal-submit-ok')).show();
-        return;
-      }
-      // ii. incomplete + has attachment → Incomplete modal (then choose DE)
-      if (!strictComplete && hasAttach) {
-        new bootstrap.Modal(document.getElementById('modal-submit-incomplete')).show();
-        return;
-      }
-      // iii. incomplete + NO attachment → error
-      if (!complete && !hasAttach) {
-        if (window.Swal) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Missing info',
-            text: 'Please complete the required fields or upload at least one attachment before submitting.'
-          });
-        } else {
-          alert('Please complete the required fields or upload at least one attachment before submitting.');
+        if (!requiredOK()) {
+          return Swal.fire({ icon: 'error', title: 'Missing info', text: 'Please complete all required fields before submitting.' });
         }
-        return;
-      }
-      // (Optional) complete + NO attachment → block
-      if (complete && !hasAttach) {
-        if (window.Swal) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Attachment required',
-            text: 'Please upload at least one attachment.'
-          });
-        } else {
-          alert('Please upload at least one attachment.');
+        if (selectedAttachmentCount() === 0) {
+          return Swal.fire({ icon: 'error', title: 'Attachment required', text: 'Please upload at least one attachment.' });
         }
-      }
-    }
-
-    // “Send to Printing” actually submits
-    document.getElementById('btn-confirm-send-printing')
-      ?.addEventListener('click', async () => {
-        bootstrap.Modal.getInstance(document.getElementById('modal-submit-ok'))?.hide();
         await send(false);
       });
-
-    // “Pass to Data Entry” → open picker modal and lazy-load users
-    document.getElementById('btn-open-choose-de')
-      ?.addEventListener('click', async () => {
-        bootstrap.Modal.getInstance(document.getElementById('modal-submit-incomplete'))?.hide();
-
-        const sel = document.getElementById('de-user-select');
-        sel.innerHTML = `<option value="">Loading...</option>`;
-        try {
-          const r = await fetch(@json(route('dataEntry.users')), {
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest'
-            }
-          });
-          const data = await r.json();
-          sel.innerHTML = `<option value="">Please select a user</option>`;
-          (data?.users || []).forEach(u => {
-            const opt = document.createElement('option');
-            opt.value = u.id;
-            opt.textContent = u.name;
-            sel.appendChild(opt);
-          });
-        } catch {
-          sel.innerHTML = `<option value="">Failed to load users</option>`;
-        }
-
-        new bootstrap.Modal(document.getElementById('modal-choose-de-user')).show();
-      });
-
-    // Confirm & Assign → POST to server then redirect
-    document.getElementById('btn-confirm-assign')
-      ?.addEventListener('click', async () => {
-        const sel = document.getElementById('de-user-select');
-        const userId = sel.value;
-        if (!userId) {
-          sel.focus();
-          return;
-        }
-
-        bootstrap.Modal.getInstance(document.getElementById('modal-choose-de-user'))?.hide();
-
-        loading(true);
-        try {
-          const res = await fetch(@json(route('artist.orders.passToDataEntry', $order)), {
-            method: 'POST',
-            headers: {
-              'X-CSRF-TOKEN': @json(csrf_token()),
-              'X-Requested-With': 'XMLHttpRequest',
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              user_id: userId
-            })
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data?.ok) {
-            window.location.href = @json(route('artist.orders.show', $order));
-          } else {
-            const msg = data?.message || `HTTP ${res.status}`;
-            if (window.Swal) await Swal.fire({
-              icon: 'error',
-              title: 'Assign failed',
-              text: msg
-            });
-            else alert(msg);
-          }
-        } catch {
-          if (window.Swal) await Swal.fire({
-            icon: 'error',
-            title: 'Network error',
-            text: 'Could not assign to Data Entry.'
-          });
-          else alert('Network error');
-        } finally {
-          loading(false);
-        }
-      });
-
-      // --- helpers ---
-      function getModal(el) {
-        const node = (typeof el === 'string') ? document.querySelector(el) : el;
-        return bootstrap.Modal.getInstance(node) || new bootstrap.Modal(node);
-      }
-
-      function cleanupModalArtifacts() {
-        // If no modals are showing, remove any leftover classes/backdrops
-        const anyOpen = document.querySelector('.modal.show');
-        if (!anyOpen) {
-          document.body.classList.remove('modal-open');
-          document.body.style.removeProperty('padding-right');
-          document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-        }
-      }
-
-      // Attach once to all modals present on the page
-      document.querySelectorAll('.modal').forEach(m => {
-        m.addEventListener('hidden.bs.modal', cleanupModalArtifacts);
-      });
-
-  });
-
-  document.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.delete-order-file');
-    if (!btn) return;
-
-    const url = btn.dataset.url;
-    const path = btn.dataset.path;
-    const row = btn.closest('[data-file-row]');
-    if (!url || !path || !row) return;
-
-    // confirm
-    const ok = window.Swal ?
-      (await Swal.fire({
-        icon: 'warning',
-        title: 'Delete this file?',
-        text: 'This will remove it from the order.',
-        showCancelButton: true,
-        confirmButtonText: 'Delete',
-        confirmButtonColor: '#d33'
-      })).isConfirmed :
-      confirm('Delete this file?');
-
-    if (!ok) return;
-
-    // prevent double click
-    if (btn.disabled) return;
-    btn.disabled = true;
-
-    try {
-      const res = await fetch(url, {
-        method: 'DELETE',
-        credentials: 'same-origin',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': window.CSRF_TOKEN || document.querySelector('meta[name=csrf-token]')?.content || ''
-        },
-        body: JSON.stringify({
-          path
-        })
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.ok) {
-        row.remove();
-        if (window.Swal) Swal.fire({
-          icon: 'success',
-          title: 'Deleted',
-          timer: 1100,
-          showConfirmButton: false
-        });
-      } else {
-        const msg = data?.message || `HTTP ${res.status}`;
-        if (window.Swal) Swal.fire({
-          icon: 'error',
-          title: 'Delete failed',
-          text: msg
-        });
-        else alert('Delete failed: ' + msg);
-        btn.disabled = false;
-      }
-    } catch (err) {
-      if (window.Swal) Swal.fire({
-        icon: 'error',
-        title: 'Network error',
-        text: String(err)
-      });
-      else alert('Network error: ' + err);
-      btn.disabled = false;
     }
-  });
-
-  function setDeliveryRowState(row) {
-    const methodSel = row.querySelector('[data-method-select]');
-    const typeSel = row.querySelector('[data-install-type]');
-    const costInp = row.querySelector('[data-outsource-cost]');
-    if (!methodSel || !typeSel || !costInp) return;
-
-    const method = (methodSel.value || '').toLowerCase();
-    const isDI = (method === 'delivery_installation');
-
-    // Rule 1: only enabled when "Delivery & Installation"
-    typeSel.disabled = !isDI;
-    costInp.disabled = !isDI;
-
-    // Rule 2: cost only enabled when type is outsource/both
-    if (isDI) {
-      const t = (typeSel.value || '').toLowerCase();
-      costInp.disabled = !(t === 'outsource' || t === 'both');
-    }
-  }
-
-  document.addEventListener('change', function(e) {
-    if (e.target.matches('[data-method-select], [data-install-type]')) {
-      const row = e.target.closest('[data-delivery-row]');
-      if (row) setDeliveryRowState(row);
-    }
-  });
-
-  // initialize on load
-  document.querySelectorAll('[data-delivery-row]').forEach(setDeliveryRowState);
-
-  function forceEnableScroll() {
-    // remove Bootstrap locking + any stray styles/backdrops
-    document.documentElement.style.removeProperty('overflow');
-    document.body.style.removeProperty('overflow');
-    document.body.style.removeProperty('position');
-    document.body.style.removeProperty('top');
-    document.body.style.removeProperty('width');
-    document.body.style.removeProperty('padding-right');
-    document.body.classList.remove('modal-open');
-    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-  }
-
-  // bind to both hide and hidden (covers fast close / race cases)
-  ['#modal-submit-ok', '#modal-submit-incomplete', '#modal-choose-de-user'].forEach(sel => {
-    const el = document.querySelector(sel);
-    if (!el) return;
-    el.addEventListener('hide.bs.modal',   forceEnableScroll);
-    el.addEventListener('hidden.bs.modal', forceEnableScroll);
-  });
-
-  // also run after any button with data-bs-dismiss="modal" is clicked
-  document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
-    btn.addEventListener('click', () => setTimeout(forceEnableScroll, 50));
-  });
-
-  // safety: before opening any modal, clear leftovers (optional)
-  function openModalSafe(sel) { forceEnableScroll(); (bootstrap.Modal.getInstance(sel) || new bootstrap.Modal(sel)).show(); }
-
-  (function () {
-    const $rows = document.getElementById('remarkRows');
-    const tpl   = document.getElementById('remarkRowTpl').innerHTML;
-    let rIdx    = 0;
-
-    function addRemarkRow() {
-      const html = tpl.replaceAll('__IDX__', rIdx++);
-      const wrap = document.createElement('div');
-      wrap.innerHTML = html.trim();
-      $rows.appendChild(wrap.firstElementChild);
-    }
-
-    document.getElementById('addRemarkRow').addEventListener('click', addRemarkRow);
-    $rows.addEventListener('click', function (e) {
-      if (e.target.closest('.remove-remark')) {
-        e.target.closest('.remark-row').remove();
-      }
-    });
-
-    // Ensure modal starts with one blank row
-    document.getElementById('addProductModal').addEventListener('shown.bs.modal', function () {
-      if (!$rows.querySelector('.remark-row')) addRemarkRow();
-    });
-
-    // Reset on close (optional)
-    document.getElementById('addProductModal').addEventListener('hidden.bs.modal', function () {
-      $rows.innerHTML = '';
-      rIdx = 0;
-      document.getElementById('p_name').value     = '';
-      document.getElementById('p_qty').value      = '';
-      document.getElementById('p_material').value = '';
-    });
-
-    function toInt(v){ v=String(v??'').trim(); const n=parseInt(v,10); return isNaN(n)?0:n; }
-
-    // Parse pIndex and delivery row index from the input name
-    function parseName(name){
-      const m = name.match(/^products\[(\d+)\]\[deliveries\]\[(\d+)\]\[quantity\]$/);
-      return m ? { pIndex: m[1], dIndex: m[2] } : null;
-    }
-
-
   })();
 </script>
 @endpush

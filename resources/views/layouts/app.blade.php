@@ -54,12 +54,14 @@ html.layout-menu-hover .logo-text {
 
           <ul class="menu-inner py-1">
           @if (auth()->check())
+            @if (auth()->user()->role !== 'data-entry')
             <li class="menu-item {{ request()->routeIs('sales.dashboard', 'admin.dashboard', 'boss.dashboard') ? 'active open' : '' }}">
               <a href="{{ route('dashboard') }}" class="menu-link">
             <i class="menu-icon icon-base bx bx-home-smile"></i>
                 <div data-i18n="Dashboard">Dashboard</div>
               </a>
             </li>
+            @endif
             @if (auth()->user()->role === 'salesperson')
               <li class="menu-item {{ request()->routeIs('sales.leads') ? 'active' : '' }}">
                 <a href="{{ route('sales.leads') }}" class="menu-link">

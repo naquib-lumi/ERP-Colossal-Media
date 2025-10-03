@@ -1128,7 +1128,7 @@
                             $ops = [
                             'printing' => 'Printing',
                             'furnishing' => 'Furnishing',
-                            'installation' => 'Installation',
+                            'installation' => 'Delivery & Installation',
                             'courier' => 'Courier',
                             'self_pickup' => 'Self Pickup',
                             ];
@@ -1506,7 +1506,7 @@
       <option value="" disabled selected>Select operation</option>
       <option value="printing">Printing</option>
       <option value="furnishing">Furnishing</option>
-      <option value="installation">Installation</option>
+      <option value="installation">Delivery & Installation</option>
       <option value="courier">Courier</option>
       <option value="self_pickup">Self Pickup</option>
     </select>
@@ -2308,6 +2308,38 @@
 
     const selected = new Map();
 
+    const products = document.querySelectorAll('.accordion-collapse[id^="pCollapse"]');
+
+    const productHasAtLeastOneItem = (root) =>
+      !!root.querySelector('input[name^="products["][name*="[items]"], select[name^="products["][name*="[items]"], textarea[name^="products["][name*="[items]"]');
+
+    const productHasAtLeastOneDelivery = (root) =>
+      !!root.querySelector('input[name^="products["][name*="[deliveries]"], select[name^="products["][name*="[deliveries]"], textarea[name^="products["][name*="[deliveries]"]');
+
+    const findBtn = (scope, selector, textRx) => {
+      // Prefer data-attrs if you have them; else fall back to text match
+      let btn = scope.querySelector(selector);
+      if (btn) return btn;
+      return Array.from(scope.querySelectorAll('button,a'))
+        .find(b => textRx.test((b.textContent || '').trim().toLowerCase()));
+    };
+
+    products.forEach((root) => {
+    const scope = root.closest('.accordion-item') || root;
+
+    // Seed 1 Item if none
+    if (!productHasAtLeastOneItem(root)) {
+      const addItemBtn = findBtn(scope, '[data-add-item],[data-action="add-item"]', /\badd\s*item\b/);
+      if (addItemBtn) addItemBtn.click();
+    }
+
+    // Seed 1 Delivery if none
+    if (!productHasAtLeastOneDelivery(root)) {
+      const addDelBtn = findBtn(scope, '[data-add-delivery],[data-action="add-delivery"]', /\badd\s*delivery(\s*breakdown)?\b/);
+      if (addDelBtn) addDelBtn.click();
+    }
+  });
+
     input.addEventListener('change', () => {
       if (!input.files?.length) return;
       const incoming = Array.from(input.files);
@@ -2463,10 +2495,23 @@
     }
     const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
 
-    async function send(isDraft) {
+    // Build FormData but include values from disabled inputs by temporarily enabling them.
+    function buildFormDataIncludingDisabled(formEl) {
+      const disabled = Array.from(formEl.querySelectorAll('[disabled]'));
+      // Temporarily enable everything disabled so FormData sees them
+      disabled.forEach(el => el.removeAttribute('disabled'));
+      const fd = new FormData(formEl);
+      // Restore the disabled state
+      disabled.forEach(el => el.setAttribute('disabled', 'disabled'));
+      return fd;
+    }
+
+    async function send(isDraft, options = {}) {
+      const silent = !!options.silent;
+      
       isDraftEl.value = isDraft ? 1 : 0;
 
-      const fd = new FormData(form);
+      const fd = buildFormDataIncludingDisabled(form);
       fd.set('is_draft', isDraftEl.value);
       fd.append('_method', 'PUT');
       for (const f of getSelectedFiles()) fd.append('attachments[]', f);
@@ -2506,19 +2551,20 @@
         loading(false);
 
         if (res.ok && data?.ok) {
-          await Swal.fire({
-            icon: 'success',
-            title: isDraft ? 'Draft saved' : 'Order saved',
-            text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
-          });
-          // optional refresh
-          window.location.reload();
+          if (!silent) {
+            await Swal.fire({
+              icon: 'success',
+              title: isDraft ? 'Draft saved' : 'Order saved',
+              text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
+            });
+            window.location.reload();
+          }
+          return true;     // <— allow caller to know it succeeded
         } else {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Save failed',
-            text: data?.message || `HTTP ${res.status} — please try again`
-          });
+          if (!silent) {
+            await Swal.fire({ icon:'error', title:'Save failed', text: data?.message || `HTTP ${res.status} — please try again` });
+          }
+          return false;
         }
       } catch (e) {
         console.error(e);
@@ -2532,75 +2578,71 @@
     }
 
     const OPTIONAL_NAME_WHITELIST = new Set([
-      'lamination', // adjust to your actual name/id
+      'lamination',
       'printer_id',
       'cutter_id',
       'delivery_installation_type',
-      'delivery_cost', // e.g., a single input
-      // if these are multiple inputs (e.g. delivery[cost]), use a data-attribute instead (see note below)
+      'delivery_cost'
     ]);
 
     function isOptional(el) {
-      // Respect explicit opt-outs
       if (el.hasAttribute('data-optional')) return true;
 
-      // Use full, lowercase name to match nested array fields safely
       const name = (el.getAttribute('name') || '').toLowerCase();
 
-      // Item row (optional): lamination, printer, cutter
+      // Whitelist by plain name
+      for (const k of OPTIONAL_NAME_WHITELIST) {
+        if (name.endsWith(`[${k}]`) || name === k) return true;
+      }
+
+      // Items: lamination / printer / cutter are optional
       if (name.includes('[items]') && (
-          name.includes('[lamination]') ||
-          name.includes('[printer]') ||
-          name.includes('[cutter]')
+        name.includes('[lamination]') ||
+        name.includes('[printer]') ||
+        name.includes('[cutter]')
       )) return true;
 
+      // Remarks: free text is optional
       if (name.includes('[remarks]') && (
-          name.includes('[remark]') ||
-          name.includes('[operation]')
+        name.includes('[remark]') ||
+        name.includes('[operation]')
       )) return true;
 
-      // Delivery row (optional): installation type, costing
+      // Deliveries: install type / outsource cost / location / datetime are optional
       if (name.includes('[deliveries]') && (
-          name.includes('[deliver_install_type]') ||
-          name.includes('[outsource_cost]') ||
-          name.includes('[location]') ||
-          name.includes('[datetime]')
+        name.includes('[deliver_install_type]') ||
+        name.includes('[outsource_cost]') ||
+        name.includes('[location]') ||
+        name.includes('[datetime]')
       )) return true;
 
-      // Everything else is required (do NOT treat location/date/time as optional)
       return false;
     }
 
     function requiredElements() {
-      // grab all required fields currently in the DOM
-      const nodes = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
-      // exclude the optional ones
-      return nodes.filter(el => !isOptional(el));
+      // all inputs/selects/textareas with "required" that are NOT optional
+      const all = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
+      return all.filter(el => !isOptional(el));
+    }
+
+    function markRequired() {
+      // your existing styling hook, keep if you had one:
+      requiredElements().forEach(el => el.classList.toggle('is-invalid', !el.checkValidity()));
     }
 
     function requiredOK() {
-      return requiredElements().every(el => {
-        // treat checkboxes/radios vs text/select
-        if (el.type === 'checkbox' || el.type === 'radio') {
-          // at least one of the group must be checked
-          const name = el.name;
-          const group = document.querySelectorAll(`[name="${CSS.escape(name)}"]`);
-          return Array.from(group).some(x => x.checked);
-        }
-        const v = (el.value || '').toString().trim();
-        return v.length > 0;
-      });
+      return requiredElements().every(el => el.checkValidity());
+    }
+
+    function formComplete() {
+      markRequired();
+      return requiredOK();
     }
 
     function selectedAttachmentCount() {
       const newOnes = (window.getSelectedFiles?.() || []).length;
       const existing = document.querySelectorAll('[data-file-row]').length;
       return newOnes + existing;
-    }
-
-    // mark & check required (use your existing logic or this)
-    function formComplete() {
-      return document.getElementById('order-form').checkValidity();
     }
 
     // Intercept Save & Submit
@@ -2647,7 +2689,15 @@
 
       getModal('#modal-choose-de-user').hide();
 
+      // NEW: Save current partial work as a Draft FIRST, silently
       loading(true);
+      const saved = await send(true, { silent: true });   // isDraft = true
+      if (!saved) { 
+        loading(false);
+        (window.Swal ? Swal.fire({icon:'error', title:'Save failed', text:'Could not save current progress before assigning.'}) : alert('Could not save draft.'));
+        return;
+      }
+
       try {
         const res = await fetch(@json(route('artist.orders.passToDataEntry', $order)), {
           method: 'POST',
@@ -2663,11 +2713,11 @@
         if (res.ok && data?.ok) {
           window.location.href = @json(route('artist.orders.show', $order));
         } else {
-          const msg = data?.message || `HTTP ${res.status}`;
-          (window.Swal ? Swal.fire({icon:'error', title:'Assign failed', text: msg}) : alert(msg));
+          // const msg = data?.message || `HTTP ${res.status}`;
+          // (window.Swal ? Swal.fire({icon:'error', title:'Assign failed', text: msg}) : alert(msg));
         }
       } catch {
-        (window.Swal ? Swal.fire({icon:'error', title:'Network error', text:'Could not assign to Data Entry.'}) : alert('Network error'));
+        // (window.Swal ? Swal.fire({icon:'error', title:'Network error', text:'Could not assign to Data Entry.'}) : alert('Network error'));
       } finally {
         loading(false);
       }
@@ -2725,44 +2775,78 @@
       return requiredOK();
     }
 
+    // Returns true if this element is inside the given root node
+    function inside(el, root) {
+      let p = el;
+      while (p) {
+        if (p === root) return true;
+        p = p.parentElement;
+      }
+      return false;
+    }
+
+    // Check one product block: all required fields valid, ≥1 item, ≥1 delivery
+    function productIsComplete(productRoot) {
+      // Required fields scoped to this product, excluding optional ones
+      const req = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'))
+        .filter(el => inside(el, productRoot) && !isOptional(el));
+
+      const reqOK = req.every(el => el.checkValidity());
+
+      // At least one Item row in this product
+      const hasItem = !!productRoot.querySelector('input[name*="[items]"][name$="[itemName]"], select[name*="[items]"][name$="[itemName]"]');
+
+      // At least one Delivery row in this product
+      const hasDelivery = !!productRoot.querySelector('input[name*="[deliveries]"][name$="[quantity]"], select[name*="[deliveries]"][name$="[quantity]"]');
+
+      return reqOK && hasItem && hasDelivery;
+    }
+
+    // Validate all products
+    function validateAllProducts() {
+      const products = Array.from(document.querySelectorAll('.accordion-collapse[id^="pCollapse"]'));
+      if (products.length === 0) return { allComplete: false, count: 0 };
+
+      let allComplete = true;
+      for (const root of products) {
+        const ok = productIsComplete(root);
+        if (!ok) { allComplete = false; break; }
+      }
+      return { allComplete, count: products.length };
+    }
+
     async function onSubmitClick(e) {
       e.preventDefault();
       e.stopPropagation();
 
       const hasAttach = selectedAttachmentCount() > 0;
-      const complete = formComplete();
+      const complete  = formComplete();
 
-      const hasAtLeastOneItem = !!document.querySelector('input[name^="products["][name*="[items]"][name$="[itemName]"]');
-
-      const hasAtLeastOneDelivery = !!document.querySelector('input[name^="products["][name*="[deliveries]"][name$="[quantity]"]');
+      const hasAtLeastOneItem =
+        !!document.querySelector('input[name^="products["][name*="[items]"][name$="[itemName]"]');
+      const hasAtLeastOneDelivery =
+        !!document.querySelector('input[name^="products["][name*="[deliveries]"][name$="[quantity]"]');
 
       const strictComplete = complete && hasAtLeastOneItem && hasAtLeastOneDelivery;
 
-      // i. complete + has attachment → OK modal
       if (strictComplete && hasAttach) {
         new bootstrap.Modal(document.getElementById('modal-submit-ok')).show();
         return;
       }
-      // ii. incomplete + has attachment → Incomplete modal (then choose DE)
       if (!strictComplete && hasAttach) {
         new bootstrap.Modal(document.getElementById('modal-submit-incomplete')).show();
         return;
       }
-      // iii. incomplete + NO attachment → error
-      if (!complete && !hasAttach) {
+      if (!hasAttach) {
         if (window.Swal) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Missing info',
-            text: 'Please complete the required fields or upload at least one attachment before submitting.'
-          });
+          Swal.fire({icon:'error', title:'Missing info', text:'Please add at least one attachment.'});
         } else {
-          alert('Please complete the required fields or upload at least one attachment before submitting.');
+          alert('Please add at least one attachment.');
         }
-        return;
       }
+  
       // (Optional) complete + NO attachment → block
-      if (complete && !hasAttach) {
+      if (formOK && !hasAttach) {
         if (window.Swal) {
           await Swal.fire({
             icon: 'error',
@@ -2840,21 +2924,21 @@
           if (res.ok && data?.ok) {
             window.location.href = @json(route('artist.orders.show', $order));
           } else {
-            const msg = data?.message || `HTTP ${res.status}`;
-            if (window.Swal) await Swal.fire({
-              icon: 'error',
-              title: 'Assign failed',
-              text: msg
-            });
-            else alert(msg);
+            // const msg = data?.message || `HTTP ${res.status}`;
+            // if (window.Swal) await Swal.fire({
+            //   icon: 'error',
+            //   title: 'Assign failed',
+            //   text: msg
+            // });
+            // else alert(msg);
           }
         } catch {
-          if (window.Swal) await Swal.fire({
-            icon: 'error',
-            title: 'Network error',
-            text: 'Could not assign to Data Entry.'
-          });
-          else alert('Network error');
+          // if (window.Swal) await Swal.fire({
+          //   icon: 'error',
+          //   title: 'Network error',
+          //   text: 'Could not assign to Data Entry.'
+          // });
+          // else alert('Network error');
         } finally {
           loading(false);
         }

@@ -281,7 +281,7 @@ class ArtistOrderController extends Controller
                     ->with('success', 'Order created and assigned.');
             }
 
-            return redirect()->route('artist.orders.shows', $order->id)
+            return redirect()->route('artist.orders.edit', $order->id)
                 ->with('success', 'Order created successfully.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->validator)->withInput();
