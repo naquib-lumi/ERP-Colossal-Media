@@ -1,4 +1,5 @@
-<table class="table align-middle">
+<table id="jobOrdersTable" class="table align-middle table-modern">
+
   <thead>
     <tr>
       <th>Order ID</th>
@@ -35,7 +36,7 @@
       <td class="text-truncate">{{ $row->orderTitle ?? '-' }}</td>
       <td class="text-truncate">{{ $row->companyName ?? '-' }}</td>
       <td>{{ $row->salesperson->name ?? '-' }}</td>
-      <td class="text-capitalize">
+      <td class="text-capitalize" data-status-code="{{ $status }}">
         @if($status === '-')
           -
         @else
