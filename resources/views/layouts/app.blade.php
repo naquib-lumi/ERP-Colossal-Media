@@ -173,8 +173,8 @@ html.layout-menu-hover .logo-text {
       <div data-i18n="Calendar">Calendar</div>
     </a>
   </li>
-                <li class="menu-item {{ request()->routeIs('installation.user') ? 'active' : '' }}">
-  <a href="{{ route('installation.user') }}" class="menu-link">
+                <li class="menu-item {{ request()->routeIs('installation.profile') ? 'active' : '' }}">
+  <a href="{{ route('installation.profile') }}" class="menu-link">
     <i class="menu-icon icon-base bx bx-user"></i>
     <div data-i18n="Profile">Profile</div>
   </a>

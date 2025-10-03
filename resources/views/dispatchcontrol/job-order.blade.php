@@ -1,210 +1,222 @@
 @extends('layouts.app')
 
 @section('content')
-<!-- Bootstrap Icons（放在这里就可以用） -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
-{{-- 尺寸&对齐微调（不改设计） --}}
-<style>
-  /* 统一工具条控件尺寸 */
-  .toolbar-controls .form-control,
-  .toolbar-controls .form-select { height:40px; font-size:14px; }
-  .toolbar-controls .form-select { min-width:170px; }
-  .toolbar-controls .btn { height:40px; padding:0 16px; }
+@php
+  // Safe defaults so the view never breaks
+  $stats  = $stats  ?? [];
+  $orders = $orders ?? collect();
 
-  /* Actions 按钮（32x32，圆角8px） */
-  .action-btn{
-    width:32px; height:32px; padding:0;
-    display:inline-flex; align-items:center; justify-content:center;
-    border:1px solid #D0D5DD; border-radius:8px; background:#fff; color:#475467;
-  }
-  .action-btn:hover{ background:#F2F4F7; color:#343a40; }
+  $typeStyles = [
+    'printing'     => 'bg-primary-subtle text-primary',
+    'furnishing'   => 'bg-warning-subtle text-warning',
+    'installation' => 'bg-info-subtle text-info',
+    'courier'      => 'bg-success-subtle text-success',
+    'self pickup'  => 'bg-secondary-subtle text-secondary',
+  ];
+  $statusStyles = [
+    'completed'   => 'bg-success text-white',
+    'in progress' => 'bg-warning-subtle text-warning',
+  ];
+
+  $totalResults = method_exists($orders, 'total') ? $orders->total() : $orders->count();
+  $hasResults   = $totalResults > 0;
+@endphp
+
+<style>
+  /* Layout polish */
+  .card-soft{border:1px solid #ECEFF3;border-radius:14px;box-shadow:0 4px 12px rgba(16,24,40,.06)}
+  .stat{display:flex;gap:12px;align-items:center;padding:18px;border-radius:14px;border:1px solid #ECEFF3;background:#fff}
+  .stat i{font-size:20px}
+  .stat .count{font-weight:800;font-size:18px;line-height:1}
+  .stat small{color:#667085}
+
+  /* Toolbar */
+  .toolbar{gap:10px}
+  .toolbar .form-control,.toolbar .form-select,.toolbar .btn{height:44px}
+  .toolbar .form-select{min-width:190px}
+  .toolbar .btn{white-space:nowrap}  /* prevent label wrapping like in your screenshot */
+  .btn-icon{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center}
+
+  /* Table */
+  .table thead th{font-size:12px;letter-spacing:.02em;font-weight:700;color:#475467;background:#F8FAFC}
+  .table tbody tr:hover{background:#FAFBFC}
+  .pill{display:inline-block;padding:.35rem .7rem;border-radius:999px;font-weight:600;font-size:.825rem}
+  .action-btn{width:32px;height:32px;padding:0;border:1px solid #D0D5DD;border-radius:8px;background:#fff;color:#475467;display:inline-flex;align-items:center;justify-content:center}
+  .action-btn:hover{background:#F2F4F7;color:#111827}
+
+  /* Empty state inside table */
+  .empty-wrap{padding:38px 12px;text-align:center}
+  .empty-icon{width:52px;height:52px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:#EEF2FF;color:#4F46E5;margin-bottom:12px}
+  .empty-title{font-weight:700;color:#111827}
+  .empty-text{color:#667085}
 </style>
 
-
 <div class="container-fluid py-4 px-4">
-    <h1 class="h4 fw-bold mb-4">Job Order Table</h1>
+  <h1 class="fw-bold mb-3" style="font-size:32px;letter-spacing:-.3px;">Job Order Table</h1>
 
-    <!-- Stats (保持不变) -->
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="d-flex align-items-center bg-white rounded shadow-sm p-3">
-                <div class="me-3 text-primary fs-4"><i class="bi bi-printer"></i></div>
-                <div>
-                    <div class="fw-bold">10</div>
-                    <small class="text-muted">Printing Overview</small>
-                </div>
-            </div>
+  {{-- Stats --}}
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="stat card-soft">
+        <i class="bi bi-printer text-primary"></i>
+        <div><div class="count">{{ number_format($stats['printing'] ?? 0) }}</div><small>Printing Overview</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="stat card-soft">
+        <i class="bi bi-brush text-warning"></i>
+        <div><div class="count">{{ number_format($stats['furnishing'] ?? 0) }}</div><small>Furnishing Overview</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="stat card-soft">
+        <i class="bi bi-truck text-info"></i>
+        <div><div class="count">{{ number_format($stats['delivery_needing_permit'] ?? 0) }}</div><small>Delivery Needing Permit</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="stat card-soft">
+        <i class="bi bi-wrench-adjustable text-dark"></i>
+        <div><div class="count">{{ number_format($stats['installation_needing_permit'] ?? 0) }}</div><small>Installation Needing Permit</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="stat card-soft">
+        <i class="bi bi-bag-check text-secondary"></i>
+        <div><div class="count">{{ number_format($stats['self_pickup'] ?? 0) }}</div><small>Self Pickup Overview</small></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="stat card-soft">
+        <i class="bi bi-bicycle text-success"></i>
+        <div><div class="count">{{ number_format($stats['courier'] ?? 0) }}</div><small>Courier Overview</small></div>
+      </div>
+    </div>
+  </div>
+
+  {{-- Toolbar --}}
+  <div class="card card-soft mb-3">
+    <div class="card-body d-flex flex-column flex-xl-row align-items-stretch toolbar">
+      <form class="w-100 d-flex flex-column flex-xl-row align-items-stretch gap-2" method="GET" action="{{ route('dispatchcontrol.job-order') }}">
+        <input type="text" name="q" value="{{ request('q') }}" class="form-control" placeholder="Search by Order ID or Job Title">
+        <select class="form-select" name="task_type">
+          @php $tt = strtolower(request('task_type','')); @endphp
+          <option value="">All Task Types</option>
+          <option value="printing"     @selected($tt==='printing')>Printing</option>
+          <option value="furnishing"   @selected($tt==='furnishing')>Furnishing</option>
+          <option value="installation" @selected($tt==='installation')>Installation</option>
+          <option value="self pickup"  @selected($tt==='self pickup')>Self Pickup</option>
+          <option value="courier"      @selected($tt==='courier')>Courier</option>
+        </select>
+
+        <select class="form-select" name="status">
+          @php $st = strtolower(request('status','')); @endphp
+          <option value="">All Statuses</option>
+          <option value="in progress" @selected($st==='in progress')>In Progress</option>
+          <option value="completed"   @selected($st==='completed')>Completed</option>
+        </select>
+
+        <div class="ms-xl-auto d-flex gap-2">
+          <a href="{{ route('dispatchcontrol.job-order') }}" class="btn btn-light border">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+          </a>
+          <button class="btn btn-dark">
+            <i class="bi bi-funnel me-1"></i>Apply Filter
+          </button>
+          <a
+            class="btn btn-outline-secondary @if(!$hasResults) disabled @endif"
+            @if($hasResults)
+              href="{{ route('dispatchcontrol.job-order', array_merge(request()->all(), ['export' => 1])) }}"
+            @endif
+            title="{{ $hasResults ? 'Export CSV' : 'No data to export' }}"
+          >
+            <i class="bi bi-download me-1"></i>Export CSV
+          </a>
         </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="d-flex align-items-center bg-white rounded shadow-sm p-3">
-                <div class="me-3 text-secondary fs-4"><i class="bi bi-lamp"></i></div>
-                <div>
-                    <div class="fw-bold">7</div>
-                    <small class="text-muted">Furnishing Overview</small>
+      </form>
+    </div>
+  </div>
+
+  {{-- Table --}}
+  <div class="card card-soft">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>PRODUCT ID</th>
+            <th>PRODUCT NAME</th>
+            <th>TASK TYPE</th>
+            <th>DEADLINE</th>
+            <th>STATUS</th>
+            <th>DELIVERY DATE</th>
+            <th>DELIVERY LOCATION</th>
+            <th class="text-end">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody class="small">
+        @forelse($orders as $o)
+          @php
+            $type   = strtolower($o->task_type ?? '');
+            $status = strtolower($o->status    ?? '');
+            $typeCls = $typeStyles[$type]     ?? 'bg-light text-muted';
+            $statCls = $statusStyles[$status] ?? 'bg-light text-muted';
+          @endphp
+          <tr>
+            <td class="fw-semibold">{{ $o->product_code ?? $o->product_id ?? '—' }}</td>
+            <td>{{ $o->product_name ?? '—' }}</td>
+            <td><span class="pill {{ $typeCls }}">{{ $o->task_type ? \Illuminate\Support\Str::title($o->task_type) : '—' }}</span></td>
+            <td>{{ $o->deadline ?? '—' }}</td>
+            <td><span class="pill {{ $statCls }}">{{ $o->status ? \Illuminate\Support\Str::title($o->status) : '—' }}</span></td>
+            <td>
+              @if(!empty($o->delivery_date))
+                {{ $o->delivery_date }}
+              @elseif(($o->status ?? '') && strtolower($o->status)==='in progress')
+                <i class="bi bi-exclamation-triangle text-warning"></i>
+              @else
+                —
+              @endif
+            </td>
+            <td>{{ $o->delivery_location ?? '—' }}</td>
+            <td class="text-end">
+              <a href="{{ $o->details_url ?? '#' }}" class="action-btn" title="View">
+                <i class="bi bi-eye"></i>
+              </a>
+            </td>
+          </tr>
+        @empty
+          <tr>
+            <td colspan="8">
+              <div class="empty-wrap">
+                <div class="empty-icon"><i class="bi bi-inboxes"></i></div>
+                <div class="empty-title mb-1">No job orders found.</div>
+                <div class="empty-text mb-2">
+                  Try adjusting your filters or clear them to see more results.
                 </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="d-flex align-items-center bg-white rounded shadow-sm p-3">
-                <div class="me-3 text-info fs-4"><i class="bi bi-truck"></i></div>
-                <div>
-                    <div class="fw-bold">12</div>
-                    <small class="text-muted">Delivery Needing Permit</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="d-flex align-items-center bg-white rounded shadow-sm p-3">
-                <div class="me-3 text-dark fs-4"><i class="bi bi-wrench"></i></div>
-                <div>
-                    <div class="fw-bold">5</div>
-                    <small class="text-muted">Installation Needing Permit</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="d-flex align-items-center bg-white rounded shadow-sm p-3">
-                <div class="me-3 text-muted fs-4"><i class="bi bi-bag"></i></div>
-                <div>
-                    <div class="fw-bold">6</div>
-                    <small class="text-muted">Self Pickup Overview</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="d-flex align-items-center bg-white rounded shadow-sm p-3">
-                <div class="me-3 text-success fs-4"><i class="bi bi-bicycle"></i></div>
-                <div>
-                    <div class="fw-bold">8</div>
-                    <small class="text-muted">Courier Overview</small>
-                </div>
-            </div>
-        </div>
+                <a href="{{ route('dispatchcontrol.job-order') }}" class="btn btn-light border">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters
+                </a>
+              </div>
+            </td>
+          </tr>
+        @endforelse
+        </tbody>
+      </table>
     </div>
 
-    <!-- Toolbar (仅加 .toolbar-controls 统一高度) -->
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 toolbar-controls">
-            <input type="text" class="form-control" placeholder="Search by Order ID or Job Title">
-            <div class="d-flex gap-2">
-                <select class="form-select">
-                    <option>All Task Types</option>
-                    <option>Printing</option>
-                    <option>Self Pickup</option>
-                    <option>Installation</option>
-                    <option>Courier</option>
-                    <option>Furnishing</option>
-                </select>
-                <select class="form-select">
-                    <option>All Statuses</option>
-                    <option>In Progress</option>
-                    <option>Completed</option>
-                </select>
-                <button class="btn btn-dark"><i class="bi bi-download me-1"></i> Export CSV</button>
-            </div>
-        </div>
+    <div class="d-flex justify-content-between align-items-center px-4 py-3 small text-muted">
+      <div>
+        @if(method_exists($orders,'total'))
+          Showing {{ $hasResults ? ($orders->firstItem().' to '.$orders->lastItem().' of '.$orders->total().' results') : '0 results' }}
+        @else
+          {{ $hasResults ? ($orders->count().' results') : '0 results' }}
+        @endif
+      </div>
+      <div>
+        @if(method_exists($orders,'links')) {{ $orders->onEachSide(1)->links('pagination::bootstrap-5') }} @endif
+      </div>
     </div>
-
-    <!-- Table -->
-    <div class="card border-0 shadow-sm">
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead class="table-light small text-muted">
-                    <tr>
-                        <th>PRODUCT ID</th>
-                        <th>PRODUCT NAME</th>
-                        <th>TASK TYPE</th>
-                        <th>DEADLINE</th>
-                        <th>STATUS</th>
-                        <th>DELIVERY DATE</th>
-                        <th>DELIVERY LOCATION</th>
-                        <th class="text-end">ACTIONS</th>
-                    </tr>
-                </thead>
-                <tbody class="small">
-                    <tr>
-                        <td>#ORD003-P1</td>
-                        <td>Business Cards</td>
-                        <td><span class="badge bg-primary-subtle text-primary">Printing</span></td>
-                        <td>2025-07-25</td>
-                        <td><span class="badge bg-warning-subtle text-warning">In Progress</span></td>
-                        <td><i class="bi bi-exclamation-triangle text-warning"></i></td>
-                        <td>Be confirm</td>
-                        <td class="text-end">
-                            <button class="action-btn me-1" title="View"><i class="bi bi-eye"></i></button>
-                            <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>#ORD003-P1</td>
-                        <td>Business Cards</td>
-                        <td><span class="badge bg-secondary-subtle text-secondary">Self Pickup</span></td>
-                        <td>2025-07-25</td>
-                        <td><span class="badge bg-warning-subtle text-warning">In Progress</span></td>
-                        <td>—</td>
-                        <td>Not required for pickup</td>
-                        <td class="text-end">
-                            <button class="action-btn me-1" title="View"><i class="bi bi-eye"></i></button>
-                            <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>#ORD005-P2</td>
-                        <td>Flyers A4 - Standard</td>
-                        <td><span class="badge bg-info-subtle text-info">Installation</span></td>
-                        <td>2025-07-27</td>
-                        <td><span class="badge bg-success">Completed</span></td>
-                        <td>2025-07-26</td>
-                        <td>123 Main St, City, State 12345</td>
-                        <td class="text-end">
-                            <button class="action-btn me-1" title="View"><i class="bi bi-eye"></i></button>
-                            <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>#ORD002-P1</td>
-                        <td>Banners</td>
-                        <td><span class="badge bg-dark-subtle text-dark">Courier</span></td>
-                        <td>2025-07-20</td>
-                        <td><span class="badge bg-success">Completed</span></td>
-                        <td>2025-07-20</td>
-                        <td>77 Highway View, Media Hub District, State 99999</td>
-                        <td class="text-end">
-                            <button class="action-btn me-1" title="View"><i class="bi bi-eye"></i></button>
-                            <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>#ORD006-P3</td>
-                        <td>Posters</td>
-                        <td><span class="badge bg-secondary-subtle text-secondary">Furnishing</span></td>
-                        <td>2025-07-30</td>
-                        <td><span class="badge bg-warning-subtle text-warning">In Progress</span></td>
-                        <td><i class="bi bi-exclamation-triangle text-warning"></i></td>
-                        <td>—</td>
-                        <td class="text-end">
-                            <button class="action-btn me-1" title="View"><i class="bi bi-eye"></i></button>
-                            <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination (原样保留) -->
-        <div class="d-flex justify-content-between align-items-center px-4 py-3 small text-muted">
-            <div>Showing 1 to 5 of 24 results</div>
-            <nav>
-                <ul class="pagination mb-0">
-                    <li class="page-item"><a class="page-link" href="#">Previous</a></li>
-                    <li class="page-item active"><span class="page-link">1</span></li>
-                    <li class="page-item"><a class="page-link" href="#">2</a></li>
-                    <li class="page-item"><a class="page-link" href="#">3</a></li>
-                    <li class="page-item"><a class="page-link" href="#">Next</a></li>
-                </ul>
-            </nav>
-        </div>
-    </div>
+  </div>
 </div>
 @endsection
