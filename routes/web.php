@@ -78,11 +78,11 @@ Route::get('/dashboard', function () {
                 return redirect()->route('admin.dashboard');
             case 'operations-printing':
                 return redirect()->route('printing.dashboard');
-            case 'operations-installation':
+            case 'operations-delivery-installation':
                 return redirect()->route('installation.dashboard');
-            case 'operations-delivery':
+            case 'operations-dispatch-control':
                 return redirect()->route('dispatchcontrol.dashboard');
-            case 'operations-manager':
+            case 'operations-furnishing':
                 return redirect()->route('furnishing.dashboard');
             case 'boss':
                 return redirect()->route('boss.dashboard');
@@ -265,7 +265,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
     });
 
     // Furnishing
-    Route::middleware(['web','auth','role:operations-manager'])->group(function () {
+    Route::middleware(['web','auth','role:operations-furnishing'])->group(function () {
         Route::get('/furnishing/dashboard', [FurnishingController::class, 'dashboard'])->name('furnishing.dashboard');
         Route::get('/furnishing/product-order', [FurnishingProductOrderController::class, 'productorder'])->name('furnishing.product-order');
         Route::get('/furnishing/history', [FurnishingHistoryController::class, 'index'])->name('furnishing.history');
@@ -275,7 +275,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
     });
 
     // Delivery and installation
-    Route::middleware(['web','auth','role:operations-installation'])->group(function () {
+    Route::middleware(['web','auth','role:operations-delivery-installation'])->group(function () {
         Route::get('/installation/dashboard', [InstallationController::class, 'dashboard'])->name('installation.dashboard');
         Route::get('/installation/product-order', [InstallationProductOrderController::class, 'productorder'])->name('installation.product-order');
     
@@ -288,7 +288,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
 
 
     // Dispatch Control
-    Route::middleware(['web','auth','role:operations-delivery'])->group(function () {
+    Route::middleware(['web','auth','role:operations-dispatch-control'])->group(function () {
         Route::get('/dispatchcontrol/dashboard', [DispatchControlController::class, 'dashboard'])->name('dispatchcontrol.dashboard');
         Route::get('/dispatchcontrol/product-order', [DispatchControlProductOrderController::class, 'productorder'])->name('dispatchcontrol.product-order');
         Route::get('/dispatchcontrol/history', [DispatchControlHistoryController::class, 'index'])->name('dispatchcontrol.history');
