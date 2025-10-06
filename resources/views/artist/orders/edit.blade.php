@@ -1251,6 +1251,29 @@
             </div>
           </div>
 
+          {{-- Head-artist only: Assign Artist --}}
+          @if(auth()->user()->role === 'head-artist')
+            <div class="card mt-4" id="assign-artist-card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Assign Artist</strong>
+                <button id="btn-assign-artist" type="button" class="btn btn-primary btn-sm">
+                  Re Assign Artist
+                </button>
+              </div>
+              <div class="card-body">
+                <label for="assignee_artist_id" class="form-label">Artist</label>
+                <select id="assignee_artist_id" class="form-select" style="width:100%">
+                  @if(!empty($order->artist_id) && !empty($order->artist))
+                    <option value="{{ $order->artist_id }}" selected>
+                      {{ $order->artist->name }} ({{ $order->artist->role }})
+                    </option>
+                  @endif
+                </select>
+                <div class="form-text">Optional — you can assign or change later.</div>
+              </div>
+            </div>
+          @endif
+
           <div id="form-errors" class="mt-3 text-red-600 text-sm"></div>
 
         </div>
@@ -3139,5 +3162,108 @@
 
 
   })();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const sel = document.getElementById('assignee_artist_id');
+    const btn = document.getElementById('btn-assign-artist');
+    if (!sel || !btn) return;
+
+    // --- Select init (uses Select2 if present), querying artists + head-artists
+    const searchUrl = @json(route('artist.orders.assignees.search')); // use the SAME endpoint you use in create.blade
+
+    function initPlainSelect() {
+      // Fallback: load once and populate <option>s
+      fetch(searchUrl + '?roles[]=artist&roles[]=head-artist', { headers: { 'Accept': 'application/json' } })
+        .then(r => r.json())
+        .then(list => {
+          // don't duplicate current selected option
+          const existing = new Set(Array.from(sel.options).map(o => String(o.value)));
+          list.forEach(u => {
+            if (!existing.has(String(u.id))) {
+              const opt = document.createElement('option');
+              opt.value = u.id;
+              opt.textContent = `${u.name} (${u.role})`;
+              sel.appendChild(opt);
+            }
+          });
+        }).catch(() => {});
+    }
+
+    if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
+      jQuery(sel).select2({
+        placeholder: 'Search artist...',
+        allowClear: true,
+        width: '100%',
+        minimumInputLength: 1,
+        ajax: {
+          url: @json(route('artist.orders.assignees.search')),
+          dataType: 'json',
+          delay: 250,
+          data: params => ({
+            q: params.term || '',
+            roles: ['artist','head-artist']
+          }),
+          processResults: (data) => {
+            const results = Array.isArray(data) ? data : (data.results || []);
+            // If your controller already returns {id, text}, just return as-is:
+            return { results };
+          }
+        }
+      });
+    } else {
+      // Fallback: load once and populate <option>s
+      fetch(@json(route('artist.orders.assignees.search')) + '?roles[]=artist&roles[]=head-artist', {
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(r => r.json())
+      .then(payload => {
+        const list = Array.isArray(payload) ? payload : (payload.results || []);
+        const existing = new Set(Array.from(sel.options).map(o => String(o.value)));
+        list.forEach(u => {
+          if (!existing.has(String(u.id))) {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.textContent = u.text ?? u.name ?? String(u.id);
+            sel.appendChild(opt);
+          }
+        });
+      })
+      .catch(() => {});
+    }
+
+    // --- Save assignment
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const userId = sel.value || null; // nullable (optional)
+
+      btn.disabled = true;
+      try {
+        const res = await fetch(@json(route('artist.orders.assign', $order)), {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': @json(csrf_token()),
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok) {
+          if (window.Swal) {
+            Swal.fire({ icon:'success', title:'Assignment saved', timer:1200, showConfirmButton:false });
+          }
+        } else {
+          const msg = data?.message || `HTTP ${res.status}`;
+          if (window.Swal) Swal.fire({ icon:'error', title:'Failed to save', text: msg });
+          else alert(msg);
+        }
+      } catch (err) {
+        if (window.Swal) Swal.fire({ icon:'error', title:'Network error', text:'Please try again.' });
+        else alert('Network error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
 </script>
 @endpush

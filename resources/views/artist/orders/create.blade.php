@@ -344,8 +344,16 @@
                             Select an artist to assign this job order.
                           </div>
 
-                          <label class="form-label">Artist</label>
-                          <select id="assignee_artist_id" name="assignee_artist_id" class="form-control" style="width:100%"></select>
+                          <label class="form-label">Artist <span class="text-danger">*</span></label>
+                          <select id="assignee_artist_id"
+                                  name="assignee_artist_id"
+                                  class="form-control"
+                                  style="width:100%"
+                                  required>
+                          </select>
+                          @error('assignee_artist_id')
+                            <div class="text-danger small mt-1">{{ $message }}</div>
+                          @enderror
                           <div class="form-text">Search by artist name or email.</div>
                         </div>
                       </div>

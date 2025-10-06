@@ -210,10 +210,21 @@ class ArtistOrderController extends Controller
             $order->status      = 0;
             
             // Head-artist assigning to a normal artist
-            if ($user->role === 'head-artist' && $request->filled('assignee_artist_id')) {
-                $order->artist_id   = (int) $request->input('assignee_artist_id');
-                $order->orderStatus = 'assigned';  
-                $order->pending     = 1;   
+            $assignee = null;
+            if (auth()->user()->hasRole('head-artist') && $request->filled('assignee_artist_id')) {
+                $assigneeId        = (int) $request->input('assignee_artist_id');
+                $order->artist_id  = $assigneeId;
+                $assignee          = \App\Models\User::find($assigneeId);
+
+                if ($assignee && $assignee->hasRole('head-artist')) {
+                    // Selected a head-artist → set to in_progress (your requirement)
+                    $order->orderStatus = 'in_progress';
+                    $order->pending     = 0;
+                } else {
+                    // Selected a normal artist → keep your previous behavior
+                    $order->orderStatus = 'assigned';
+                    $order->pending     = 1;
+                }
             }
 
             $order->save();
@@ -275,9 +286,16 @@ class ArtistOrderController extends Controller
                 }
             }
 
-            if (auth()->user()->role === 'head-artist') {
+            if (auth()->user()->hasRole('head-artist')) {
+                if ($assignee && $assignee->hasRole('head-artist')) {
+                    // Assigned to head-artist → go straight to edit
+                    return redirect()
+                        ->route('artist.orders.edit', $order->id)
+                        ->with('success', 'Order created and assigned.');
+                }
+                // Others unchanged → go back to list
                 return redirect()
-                    ->route('artist.orders')         
+                    ->route('artist.orders')
                     ->with('success', 'Order created and assigned.');
             }
 
@@ -297,8 +315,6 @@ class ArtistOrderController extends Controller
         $count = Order::whereDate('created_at', now()->toDateString())->count() + 1;
         return sprintf('JO-%s-%04d', $date, $count);
     }
-
-
 
     public function csvTemplate()
     {
@@ -338,7 +354,6 @@ class ArtistOrderController extends Controller
         fclose($output);
         exit;
     }
-
 
     public function edit($id)
     {
@@ -458,6 +473,7 @@ class ArtistOrderController extends Controller
 
         $artists = \App\Models\User::query()
             ->where('role', 'artist')
+            ->orWhere('role', 'head-artist')
             ->where(function ($w) use ($q) {
                 $w->where('name', 'like', "%{$q}%")
                 ->orWhere('email', 'like', "%{$q}%");
@@ -550,6 +566,23 @@ class ArtistOrderController extends Controller
         }
 
         // ... proceed to upsert rows ...
+    }
+
+    public function assign(Request $request, \App\Models\Order $order)
+    {
+        // Only head-artist can assign
+        if (auth()->user()->role !== 'head-artist') {
+            return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'user_id' => ['nullable','integer','exists:users,id'],
+        ]);
+
+        $order->artist_id = $validated['user_id'] ?? null; // allow unassign
+        $order->save();
+
+        return response()->json(['ok' => true, 'artist_id' => $order->artist_id]);
     }
 
 }
