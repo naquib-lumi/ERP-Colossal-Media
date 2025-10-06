@@ -217,6 +217,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
 
         // AJAX search for artists (head-artist assigning)
         Route::get('/artist/orders/assignees/search', [ArtistOrderController::class, 'searchArtists'])->name('artist.orders.assignees.search');
+        Route::post('/artist/orders/{order}/assign', [ArtistOrderController::class, 'assign'])->name('artist.orders.assign');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])

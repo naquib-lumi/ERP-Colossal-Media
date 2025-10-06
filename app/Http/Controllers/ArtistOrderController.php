@@ -316,8 +316,6 @@ class ArtistOrderController extends Controller
         return sprintf('JO-%s-%04d', $date, $count);
     }
 
-
-
     public function csvTemplate()
     {
         // CSV headers
@@ -356,7 +354,6 @@ class ArtistOrderController extends Controller
         fclose($output);
         exit;
     }
-
 
     public function edit($id)
     {
@@ -569,6 +566,23 @@ class ArtistOrderController extends Controller
         }
 
         // ... proceed to upsert rows ...
+    }
+
+    public function assign(Request $request, \App\Models\Order $order)
+    {
+        // Only head-artist can assign
+        if (auth()->user()->role !== 'head-artist') {
+            return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'user_id' => ['nullable','integer','exists:users,id'],
+        ]);
+
+        $order->artist_id = $validated['user_id'] ?? null; // allow unassign
+        $order->save();
+
+        return response()->json(['ok' => true, 'artist_id' => $order->artist_id]);
     }
 
 }
