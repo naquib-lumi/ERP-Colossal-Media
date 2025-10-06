@@ -479,7 +479,7 @@
     </div>
 
     <div class="text-end">
-        <a href="{{ route('artist.orders') }}" class="btn btn-secondary mt-6">Close</a>
+        <button type="button" onclick="history.back()" class="btn btn-secondary mt-6">Close</button>
     </div>
 </div>
 @endsection
