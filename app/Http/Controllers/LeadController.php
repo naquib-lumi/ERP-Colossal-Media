@@ -212,7 +212,7 @@ class LeadController extends Controller
                 $reminders = $lead->reminders()
                     ->whereIn('status', ['upcoming', 'completed'])
                     ->orderByRaw("FIELD(status, 'upcoming', 'completed')")
-                    ->orderBy('due_date', 'asc')
+                    ->orderBy('remind_at', 'asc')
                     ->take(5)
                     ->get();
 
@@ -222,7 +222,7 @@ class LeadController extends Controller
 
                 $html = '<ul class="list-unstyled">';
                 foreach ($reminders as $reminder) {
-                    $dueDate = $reminder->due_date;
+                    $dueDate = $reminder->remind_at;
                     $relativeTime = $dueDate->diffForHumans(); // e.g., "in 1 hour", "in 5 days", "2 days ago"
 
                     // Customize relative time for overdue
@@ -358,7 +358,7 @@ class LeadController extends Controller
         'attachments',
         'notes',
         'reminders' => function ($query) {
-            $query->orderBy('due_date', 'asc') // sort earliest first
+            $query->orderBy('remind_at', 'asc') // sort earliest first
                 ->take(10); // limit to 10
         },
         'orders'
@@ -387,14 +387,14 @@ class LeadController extends Controller
 
     $validated = $request->validate([
         'title' => 'required|string|max:255',
-        'due_date' => 'required|date',
+        'remind_at' => 'required|date',
         'status' => 'required|in:upcoming,overdue,completed',
         'recurrence_type' => 'nullable|in:none,daily,weekly,monthly',
         'recurrence_time' => 'nullable|date_format:H:i',
     ]);
 
     $validated['is_auto'] = false;
-    $validated['end_date'] = Carbon::parse($validated['due_date'])->addDays(3);
+    $validated['end_date'] = Carbon::parse($validated['remind_at'])->addDays(3);
     $validated['last_notify_time'] = null;
 
     try {
@@ -436,10 +436,12 @@ class LeadController extends Controller
 
     public function getAttachments($id)
     {
+
+           $user = Auth::user();
         $lead = Lead::with('attachments')->findOrFail($id);
-        if ($lead->salesperson_id !== Auth::id()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        if ($user->hasRole('salesperson') && $lead->salesperson_id !== $user->id) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
 
         $html = '<div class="table-responsive">';
         $html .= '<table class="table table-bordered table-hover">';
@@ -465,6 +467,7 @@ class LeadController extends Controller
     }
     public function addAttachment(Request $request, $id)
     {
+        $user = Auth::user();
         $lead = Lead::findOrFail($id);
     if ($user->hasRole('salesperson') && $lead->salesperson_id !== $user->id) {
         abort(403, 'Unauthorized');

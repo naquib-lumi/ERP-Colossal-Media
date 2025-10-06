@@ -20,6 +20,7 @@ use App\Http\Controllers\ProductOrderController;
 use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\LogisticOrderHistoryController;
 use App\Http\Controllers\PrintingHistoryController;
+use App\Http\Controllers\PrintingProfileController;
 
 use App\Http\Controllers\FurnishingController;
 use App\Http\Controllers\FurnishingHistoryController;
@@ -34,6 +35,7 @@ use App\Http\Controllers\DispatchControlController;
 use App\Http\Controllers\DispatchControlHistoryController;
 use App\Http\Controllers\DispatchControlProductOrderController;
 use App\Http\Controllers\DispatchControlProfileController;
+use App\Http\Controllers\DispatchControlJobOrderTableController;
 
 use App\Http\Controllers\DataEntryController;
 
@@ -106,7 +108,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:salesperson|head-salesperson')->group(function () {
 
-
+        Route::get('/notifications/reminders/{reminder}/complete', [ReminderController::class, 'completeFromNotification'])->name('reminders.complete.notification');
 
 Route::get('/sales/profile', [SalesController::class, 'ProfileShow'])->name('sales.profile.show');
 Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name('sales.profile.update');
@@ -256,7 +258,11 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
         Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
         Route::get('/printing/history', [PrintingHistoryController::class, 'index'])->name('printing.history');
-        Route::get('/printing/profile', [\App\Http\Controllers\PrintingProfileController::class, 'index'])->name('printing.profile');
+        Route::get('/printing/profile', [PrintingProfileController::class, 'index'])->name('printing.profile');
+        Route::put('/printing/profile', [PrintingProfileController::class, 'update'])->name('printing.profile.update'); 
+        Route::patch('/printing/jobs/{productId}/complete', [PrintingController::class, 'markPrinted'])->name('printing.jobs.complete');
+        Route::get('/printing/report/{productId}', [PrintingController::class, 'reportForm'])->name('printing.report');
+        Route::post('/printing/report/{productId}', [PrintingController::class, 'reportSubmit'])->name('printing.report.submit');
     });
 
     // Furnishing
@@ -265,25 +271,31 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/furnishing/product-order', [FurnishingProductOrderController::class, 'productorder'])->name('furnishing.product-order');
         Route::get('/furnishing/history', [FurnishingHistoryController::class, 'index'])->name('furnishing.history');
         Route::get('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'index'])->name('furnishing.profile');
+        Route::put('/printing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'update'])->name('furnishing.profile.update');
+        Route::patch('/furnishing/jobs/{productId}/complete', [FurnishingController::class, 'markComplete'])->name('furnishing.jobs.complete');
     });
 
     // Delivery and installation
     Route::middleware(['web','auth','role:operations-installation'])->group(function () {
         Route::get('/installation/dashboard', [InstallationController::class, 'dashboard'])->name('installation.dashboard');
         Route::get('/installation/product-order', [InstallationProductOrderController::class, 'productorder'])->name('installation.product-order');
+    
         Route::get('/installation/history', [InstallationHistoryController::class, 'index'])->name('installation.history');
-        Route::get('/installation/user', [InstallationProfileController::class, 'index'])->name('installation.user');
+        Route::get('/installation/profile', [InstallationProfileController::class, 'index'])->name('installation.profile');
+        Route::put('/installation/profile', [InstallationProfileController::class, 'update'])->name('installation.profile.update');
         Route::get('/installation/calendar', [\App\Http\Controllers\InstallationCalendarController::class, 'index'])->name('installation.calendar');
         Route::get('/installation/calendar/events', [\App\Http\Controllers\InstallationCalendarController::class, 'events'])->name('installation.calendar.events');
     });
+
 
     // Dispatch Control
     Route::middleware(['web','auth','role:operations-delivery'])->group(function () {
         Route::get('/dispatchcontrol/dashboard', [DispatchControlController::class, 'dashboard'])->name('dispatchcontrol.dashboard');
         Route::get('/dispatchcontrol/product-order', [DispatchControlProductOrderController::class, 'productorder'])->name('dispatchcontrol.product-order');
         Route::get('/dispatchcontrol/history', [DispatchControlHistoryController::class, 'index'])->name('dispatchcontrol.history');
-        Route::get('/dispatchcontrol/job-order', [DispatchControlController::class, 'jobOrder'])->name('dispatchcontrol.job-order');
-         Route::get('/dispatchcontrol/user', [DispatchControlProfileController::class, 'index'])->name('dispatchcontrol.user');
+        Route::get('/dispatchcontrol/job-order', [DispatchControlController::class, 'index'])->name('dispatchcontrol.job-order');
+        Route::get('/dispatchcontrol/user', [DispatchControlProfileController::class, 'index'])->name('dispatchcontrol.user');
+        Route::put('/dispatch/profile', [DispatchControlProfileController::class, 'update'])->name('dispatchcontrol.user.update');
     });
 
     Route::middleware('role:admin')->group(function () {

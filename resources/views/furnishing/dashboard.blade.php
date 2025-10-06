@@ -21,14 +21,23 @@
 .table thead th{background:#F8FAFC;color:#6B7280;font-weight:600;font-size:12px;letter-spacing:.2px;border-bottom:1px solid #EEF2F7;text-align:left;padding:14px 16px}
 .table td{color:#1F2937;padding:14px 16px;border-top:1px solid #F1F4F8;vertical-align:middle}
 .table tbody tr:hover{background:#FAFBFC}
-.table td:first-child{font-weight:600;color:#111827}
+.table td:first-child{font-weight:700;color:#111827}
+/* action col a bit narrower now that Report is gone */
+.col-actions{width:170px}
 
-/* ===== Action 按钮 ===== */
-.action-btn{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid #E3E8EF;border-radius:8px;background:#fff;color:#707780}
-.action-btn:hover{background:#F5F8FB;color:#111927;border-color:#D7DFE7}
-.action-btn + .action-btn{margin-left:6px}
+/* Action buttons – circular vibe like screenshot */
+.icon-pill{
+  width:34px;height:34px;border-radius:10px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid #E3E8EF;background:#fff;color:#475467;
+}
+.icon-pill + .icon-pill{margin-left:8px}
+.icon-pill:hover{background:#F4F6FA;color:#111827;border-color:#D7DFE7}
 
-/* ===== 轻量弹窗 ===== */
+/* Empty state */
+.empty{padding:28px;text-align:center;color:#667085}
+
+/* ===== Modal (matches your picture) ===== */
 .cx-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;z-index:1080}
 .cx-mask.show{display:grid;place-items:center}
 .cx-modal{width:560px;max-width:92vw;background:#fff;border:1px solid #E7EAF0;border-radius:14px;box-shadow:0 24px 80px rgba(2,6,23,.28);overflow:hidden}
@@ -37,9 +46,9 @@
 .cx-close{border:0;background:transparent;color:#94A3B8}
 .cx-close:hover{color:#6B7280}
 .cx-body{display:flex;gap:14px;align-items:flex-start;padding:18px}
+.cx-qicon{width:34px;height:34px;border-radius:10px;background:#F3F4F6;color:#6B7280;display:flex;align-items:center;justify-content:center}
 .cx-q{font-weight:600;color:#111827;margin-bottom:4px}
 .cx-help{color:#667085}
-.cx-qicon{width:34px;height:34px;border-radius:10px;background:#F3F4F6;color:#6B7280;display:flex;align-items:center;justify-content:center}
 .cx-footer{display:flex;justify-content:flex-end;gap:10px;padding:14px 16px;border-top:1px solid #EDF0F3;background:#FBFBFC}
 .cx-btn{border-radius:10px;padding:10px 18px;font-weight:700}
 .cx-btn-ghost{background:#EEF2F6;border:1px solid #E5E7EB;color:#0F172A}
@@ -47,49 +56,53 @@
 .cx-btn-dark{background:#111827;border:1px solid #111827;color:#fff}
 .cx-btn-dark:hover{background:#0B1220;border-color:#0B1220}
 
-/* Furnishing：Submission Date / Actions —— 稍微拉开一点 */
-.furnishing .table thead th:nth-child(5),
-.furnishing .table tbody td:nth-child(5){
-  width: 175px !important;      /* 原 150px → 175px */
-  white-space: nowrap;
-  padding-right: 12px !important; /* 原 6px → 12px，和 Actions 拉开一点 */
-}
+@media (max-width: 992px){ .kpi-grid{grid-template-columns:1fr} }
 
-.furnishing .table thead th:nth-child(6),
-.furnishing .table tbody td:nth-child(6){
-  width: 210px !important;        /* 原 200px → 210px，图标不拥挤 */
-  white-space: nowrap;
-  padding-left: 12px !important;  /* 原 10px → 12px */
-  text-align: left !important;
+/* === Pill Pager (keeps pager visible) === */
+.pill-pager .page-link{
+  border-radius:999px;
+  border:1px solid #E6E8F0;
+  background:#F6F7FB;
+  color:#667085;
+  padding:.45rem .9rem;
+  line-height:1;
 }
-
+.pill-pager .page-item + .page-item{ margin-left:.5rem; }
+.pill-pager .page-item.active .page-link{
+  background:#635bff; border-color:#635bff; color:#fff;
+}
+.pill-pager .page-item.disabled .page-link{
+  opacity:.6; cursor:not-allowed; background:#F6F7FB;
+}
 </style>
 
 <div class="container-fluid py-4 px-4">
   <div class="content-inner" style="max-width:1200px;margin:0 auto;">
     <h1 class="fw-bold" style="font-size:32px;letter-spacing:-.3px;">Dashboard Overview</h1>
 
-    <!-- KPI -->
+    {{-- KPIs --}}
     <div class="kpi-grid">
       <div class="kpi-card">
         <div>
           <div class="kpi-title mb-1">In Progress</div>
-          <div class="kpi-value">24</div>
+          <div class="kpi-value">{{ $inProgress }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
       <div class="kpi-card">
         <div>
           <div class="kpi-title mb-1">Completed</div>
-          <div class="kpi-value">156</div>
+          <div class="kpi-value">{{ $completed }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-check2"></i></div>
       </div>
     </div>
 
-    <!-- Furnishing Table -->
-    <section class="card table-card furnishing">
-      <div class="card-hd">Furnishing Jobs</div>
+    {{-- Furnishing Table --}}
+    <section class="card table-card">
+      <div class="card-hd d-flex align-items-center justify-content-between">
+        <span>Furnishing Jobs</span>
+      </div>
 
       <div class="table-wrapper">
         <table class="table align-middle mb-0">
@@ -100,52 +113,83 @@
               <th>SQ INCH</th>
               <th>DEADLINE</th>
               <th>SUBMISSION DATE</th>
-              <th>ACTIONS</th>
+              <th class="col-actions">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
-          @php
-            $rows = [
-              ['ORD005-P1','Jinwei 1 6x10','2500 sq in','2025-09-10','2025-09-08'],
-              ['ORD006-P1','AOL1 6x10','1800 sq in','2025-09-12','2025-09-09'],
-              ['ORD007-P1','AOL2 1000x700','3200 sq in','2025-09-18','2025-09-08'],
-              ['ORD014-P2','Router 1','1500 sq in','2025-09-20','2025-09-10'],
-              ['ORD015-P1','Laser 1 300W','2700 sq in','2025-09-14','2025-09-11'],
-              ['ORD007-P3','Laser 2 150W','4000 sq in','2025-09-22','2025-09-12'],
-              ['ORD006-P5','Laser 3 150W','2100 sq in','2025-09-15','2025-09-12'],
-              ['ORD006-P3','AOL1 6x10','3600 sq in','2025-09-25','2025-09-13'],
-              ['ORD018-P2','Paper cutter','2900 sq in','2025-09-19','2025-09-13'],
-              ['ORD020-P3','AOL1 6x10','3300 sq in','2025-09-28','2025-09-14'],
-            ];
-          @endphp
-
-          @foreach($rows as $r)
-            <tr>
-              <td>{{ $r[0] }}</td>
-              <td>{{ $r[1] }}</td>
-              <td>{{ $r[2] }}</td>
-              <td>{{ $r[3] }}</td>
-              <td>{{ $r[4] }}</td>
-              <td>
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-                <button class="action-btn js-furnish-done" data-id="{{ $r[0] }}" title="Mark as Furnished"><i class="bi bi-check2"></i></button>
-                <button class="action-btn" title="Issue"><i class="bi bi-exclamation-triangle"></i></button>
-                <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
+          @forelse($jobs as $row)
+            @php
+              $code = 'ORD' . ($row->OrderID ?? $row->ProductID) . '-P' . ($row->ProductID);
+              $deadline = $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—';
+              $submitted = $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—';
+            @endphp
+            <tr id="job-{{ $row->ProductID }}">
+              <td>{{ $code }}</td>
+              <td>—</td>
+              <td>0 sq in</td>
+              <td>{{ $deadline }}</td>
+              <td>{{ $submitted }}</td>
+              <td class="col-actions">
+                <button class="icon-pill" title="View"><i class="bi bi-eye"></i></button>
+                <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed"><i class="bi bi-check2"></i></button>
+                {{-- Removed the Report/Issue button here --}}
+                <button class="icon-pill" title="Edit"><i class="bi bi-pencil"></i></button>
               </td>
             </tr>
-          @endforeach
+          @empty
+            <tr><td colspan="6" class="empty">No furnishing jobs found.</td></tr>
+          @endforelse
           </tbody>
         </table>
       </div>
 
+      {{-- Pagination --}}
       <div class="card-ft">
         <nav class="d-flex justify-content-end">
-          <ul class="pagination mb-0">
-            <li class="page-item disabled"><span class="page-link">Previous</span></li>
-            <li class="page-item active"><span class="page-link">1</span></li>
-            <li class="page-item"><a class="page-link" href="#">2</a></li>
-            <li class="page-item"><a class="page-link" href="#">3</a></li>
-            <li class="page-item"><a class="page-link" href="#">Next</a></li>
+          <ul class="pagination pill-pager mb-0">
+            {{-- Previous --}}
+            @if ($jobs->onFirstPage())
+              <li class="page-item disabled"><span class="page-link">Previous</span></li>
+            @else
+              <li class="page-item"><a class="page-link" href="{{ $jobs->previousPageUrl() }}">Previous</a></li>
+            @endif
+
+            {{-- Compact page window with ellipses --}}
+            @php
+              $last    = max(1, $jobs->lastPage());
+              $current = $jobs->currentPage();
+              $from    = max(1, $current - 1);
+              $to      = min($last, $current + 1);
+            @endphp
+
+            @if ($from > 1)
+              <li class="page-item"><a class="page-link" href="{{ $jobs->url(1) }}">1</a></li>
+              @if ($from > 2)
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+              @endif
+            @endif
+
+            @for ($p = $from; $p <= $to; $p++)
+              @if ($p == $current)
+                <li class="page-item active"><span class="page-link">{{ $p }}</span></li>
+              @else
+                <li class="page-item"><a class="page-link" href="{{ $jobs->url($p) }}">{{ $p }}</a></li>
+              @endif
+            @endfor
+
+            @if ($to < $last)
+              @if ($to < $last - 1)
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+              @endif
+              <li class="page-item"><a class="page-link" href="{{ $jobs->url($last) }}">{{ $last }}</a></li>
+            @endif
+
+            {{-- Next --}}
+            @if ($jobs->hasMorePages())
+              <li class="page-item"><a class="page-link" href="{{ $jobs->nextPageUrl() }}">Next</a></li>
+            @else
+              <li class="page-item disabled"><span class="page-link">Next</span></li>
+            @endif
           </ul>
         </nav>
       </div>
@@ -153,42 +197,44 @@
   </div>
 </div>
 
-<!-- 确认弹窗（Furnishing -> Dispatch Control） -->
-<div id="popConfirmFurnish" class="cx-mask" aria-hidden="true">
-  <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="cxTitleFurnish">
+{{-- Confirm Modal --}}
+<div id="confirmModal" class="cx-mask" aria-hidden="true">
+  <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="cxTitle">
     <div class="cx-header">
-      <div id="cxTitleFurnish" class="cx-title">Confirmation</div>
+      <div id="cxTitle" class="cx-title">Confirmation</div>
       <button type="button" class="cx-close" data-close><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="cx-body">
       <div class="cx-qicon"><i class="bi bi-question-lg"></i></div>
       <div>
-        <div class="cx-q">Have you completed furnishing?</div>
-        <div class="cx-help">This action will save the job order and move it to the dispatch control phase.</div>
+        <div class="cx-q">Do you done the furnishing?</div>
+        <div class="cx-help">This action will save the job order and move it to the completed phase.</div>
       </div>
     </div>
     <div class="cx-footer">
       <button type="button" class="cx-btn cx-btn-ghost" data-close>No</button>
-      <button type="button" class="cx-btn cx-btn-dark" id="btnFurnishYes">Yes</button>
+      <button type="button" class="cx-btn cx-btn-dark" id="confirmYes">Yes</button>
     </div>
   </div>
 </div>
 
 <script>
 (() => {
-  const mask = document.getElementById('popConfirmFurnish');
+  const mask = document.getElementById('confirmModal');
+  const btnYes = document.getElementById('confirmYes');
   let currentId = null;
+  const csrf = '{{ csrf_token() }}';
 
-  // 打开弹窗
+  // open modal
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.js-furnish-done');
-    if (!btn) return;
-    currentId = btn.dataset.id || null;
+    const markBtn = e.target.closest('.js-mark');
+    if (!markBtn) return;
+    currentId = markBtn.dataset.id;
     mask.classList.add('show');
     mask.setAttribute('aria-hidden','false');
   });
 
-  // 关闭弹窗（遮罩或带 data-close 的按钮）
+  // close modal
   mask.addEventListener('click', (e) => {
     if (e.target === mask || e.target.hasAttribute('data-close')) {
       mask.classList.remove('show');
@@ -196,12 +242,32 @@
     }
   });
 
-  // 确认完成（提交到后端）
-  document.getElementById('btnFurnishYes').addEventListener('click', () => {
-    // TODO: 调用后端接口：把 currentId 从 Furnishing 移到 Dispatch Control
-    console.log('Marked as furnished:', currentId);
-    mask.classList.remove('show');
-    mask.setAttribute('aria-hidden','true');
+  // confirm action
+  btnYes.addEventListener('click', async () => {
+    if (!currentId) return;
+    btnYes.disabled = true;
+
+    try {
+      const res = await fetch("{{ route('furnishing.jobs.complete', ['productId' => '__ID__']) }}".replace('__ID__', currentId), {
+        method: 'PATCH',
+        headers: {
+          'X-CSRF-TOKEN': csrf,
+          'Accept': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const row = document.getElementById('job-'+currentId);
+        if (row) row.remove();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      btnYes.disabled = false;
+      mask.classList.remove('show');
+      mask.setAttribute('aria-hidden','true');
+      currentId = null;
+    }
   });
 })();
 </script>

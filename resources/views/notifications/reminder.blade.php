@@ -6,7 +6,7 @@
   You have a reminder for the following task:
 
   - **Title**: {{ $reminder->title }}
-  - **Due Date**: {{ $reminder->due_date->format('Y-m-d H:i') }}
+  - **Due Date**: {{ $reminder->remind_at->format('Y-m-d H:i') }}
   - **Lead ID**: {{ $reminder->lead_id }}
   - **Status**: {{ ucfirst($reminder->status) }}
 

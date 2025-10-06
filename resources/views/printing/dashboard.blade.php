@@ -21,24 +21,20 @@
 .table thead th{background:#F8FAFC;color:#6B7280;font-weight:600;font-size:12px;letter-spacing:.2px;border-bottom:1px solid #EEF2F7;text-align:left;padding:14px 16px}
 .table td{color:#1F2937;padding:14px 16px;border-top:1px solid #F1F4F8;vertical-align:middle}
 .table tbody tr:hover{background:#FAFBFC}
-.table td:first-child{font-weight:600;color:#111827}
+.table td:first-child{font-weight:700;color:#111827}
+.col-actions{width:210px}
+.empty{padding:28px;text-align:center;color:#667085}
 
-/* === 仅收紧 Submission Date 与 Actions 的距离 === */
-.table-wrapper .table thead th:nth-child(5),
-.table-wrapper .table tbody td:nth-child(5){
-  width:180px;white-space:nowrap;padding-right:6px;
+/* Action buttons (rounded “pill” icons) */
+.icon-pill{
+  width:34px;height:34px;border-radius:10px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid #E3E8EF;background:#fff;color:#475467;
 }
-.table-wrapper .table thead th:nth-child(6),
-.table-wrapper .table tbody td:nth-child(6){
-  width:140px;white-space:nowrap;padding-left:6px;text-align:left;
-}
+.icon-pill + .icon-pill{margin-left:8px}
+.icon-pill:hover{background:#F4F6FA;color:#111827;border-color:#D7DFE7}
 
-/* ===== Action 按钮 ===== */
-.action-btn{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid #E3E8EF;border-radius:8px;background:#fff;color:#707780}
-.action-btn:hover{background:#F5F8FB;color:#111927;border-color:#D7DFE7}
-.action-btn + .action-btn{margin-left:6px}
-
-/* ===== 轻量弹窗 ===== */
+/* ===== Modal (confirmation) ===== */
 .cx-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;z-index:1080}
 .cx-mask.show{display:grid;place-items:center}
 .cx-modal{width:560px;max-width:92vw;background:#fff;border:1px solid #E7EAF0;border-radius:14px;box-shadow:0 24px 80px rgba(2,6,23,.28);overflow:hidden}
@@ -47,9 +43,9 @@
 .cx-close{border:0;background:transparent;color:#94A3B8}
 .cx-close:hover{color:#6B7280}
 .cx-body{display:flex;gap:14px;align-items:flex-start;padding:18px}
+.cx-qicon{width:34px;height:34px;border-radius:10px;background:#F3F4F6;color:#6B7280;display:flex;align-items:center;justify-content:center}
 .cx-q{font-weight:600;color:#111827;margin-bottom:4px}
 .cx-help{color:#667085}
-.cx-qicon{width:34px;height:34px;border-radius:10px;background:#F3F4F6;color:#6B7280;display:flex;align-items:center;justify-content:center}
 .cx-footer{display:flex;justify-content:flex-end;gap:10px;padding:14px 16px;border-top:1px solid #EDF0F3;background:#FBFBFC}
 .cx-btn{border-radius:10px;padding:10px 18px;font-weight:700}
 .cx-btn-ghost{background:#EEF2F6;border:1px solid #E5E7EB;color:#0F172A}
@@ -57,42 +53,52 @@
 .cx-btn-dark{background:#111827;border:1px solid #111827;color:#fff}
 .cx-btn-dark:hover{background:#0B1220;border-color:#0B1220}
 
-/* 只加宽 Actions 列（第 6 列） */
-.table-wrapper .table thead th:nth-child(6),
-.table-wrapper .table tbody td:nth-child(6){
-  width: 190px;        /* 原来是 140px，按需可调 180–210 */
-  padding-left: 10px;  /* 略加留白，Submission Date 仍然贴近 */
+/* Pill-style pager (matches your UI) */
+.pill-pager .page-link{
+  border-radius:999px;border:1px solid #E6E8F0;background:#F6F7FB;
+  color:#667085;padding:.45rem .9rem;line-height:1;
 }
+.pill-pager .page-item + .page-item{margin-left:.5rem}
+.pill-pager .page-item.active .page-link{background:#635bff;border-color:#635bff;color:#fff}
+.pill-pager .page-item.disabled .page-link{opacity:.6;cursor:not-allowed;background:#F6F7FB}
 
-/*（可选）如果有 5~6 个图标，想更松一点就用 210px */
-
+@media (max-width: 992px){
+  .kpi-grid{grid-template-columns:1fr}
+}
 </style>
 
 <div class="container-fluid py-4 px-4">
   <div class="content-inner" style="max-width:1200px;margin:0 auto;">
-    <h1 class="fw-bold" style="font-size:32px;letter-spacing:-.3px;">Dashboard Overview</h1>
 
-    <!-- KPI -->
+    <h1 class="fw-bold mb-3" style="font-size:32px;letter-spacing:-.3px;">Dashboard Overview</h1>
+
+    @if (session('status'))
+      <div class="alert alert-success">{{ session('status') }}</div>
+    @endif
+
+    {{-- KPIs --}}
     <div class="kpi-grid">
       <div class="kpi-card">
         <div>
           <div class="kpi-title mb-1">In Progress</div>
-          <div class="kpi-value">24</div>
+          <div class="kpi-value" data-kpi="inprogress">{{ $inProgress }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
       <div class="kpi-card">
         <div>
           <div class="kpi-title mb-1">Completed</div>
-          <div class="kpi-value">156</div>
+          <div class="kpi-value" data-kpi="completed">{{ $completed }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-check2"></i></div>
       </div>
     </div>
 
-    <!-- Table -->
+    {{-- Printing Table --}}
     <section class="card table-card">
-      <div class="card-hd">Printing Jobs</div>
+      <div class="card-hd d-flex align-items-center justify-content-between">
+        <span>Printing Jobs</span>
+      </div>
 
       <div class="table-wrapper">
         <table class="table align-middle mb-0">
@@ -103,60 +109,106 @@
               <th>SQ INCH</th>
               <th>DEADLINE</th>
               <th>SUBMISSION DATE</th>
-              <th>ACTIONS</th>
+              <th class="col-actions">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
+          @forelse ($jobs as $row)
             @php
-            $rows = [
-              ['ORD005-P1','HT 1 RTR 3.2','2500 sq in','2025-09-10','2025-09-08'],
-              ['ORD006-P1','HT 2 HYB 3.2','1800 sq in','2025-09-12','2025-09-09'],
-              ['ORD007-P1','Latex 3.2','3200 sq in','2025-09-18','2025-09-08'],
-              ['ORD014-P2','Solvent 3.2','1500 sq in','2025-09-20','2025-09-10'],
-              ['ORD015-P1','L1 UV6C 1.8','2700 sq in','2025-09-14','2025-09-11'],
-              ['ORD007-P3','A1 UV4C 1.8','4000 sq in','2025-09-22','2025-09-12'],
-              ['ORD006-P5','YF4C 5ft','2100 sq in','2025-09-15','2025-09-12'],
-              ['ORD006-P3','Flatbed 3.2','3600 sq in','2025-09-25','2025-09-13'],
-              ['ORD018-P2','Flatbed A2 DTF','2900 sq in','2025-09-19','2025-09-13'],
-              ['ORD020-P3','Minolta DGFP','3300 sq in','2025-09-28','2025-09-14'],
-            ];
+              $code = 'ORD' . ($row->OrderID ?? $row->ProductID) . '-P' . $row->ProductID;
+              $deadline  = $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—';
+              $submitted = $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—';
+              $sq = is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0) . ' sq in' : '0 sq in';
             @endphp
-            @foreach($rows as $r)
-            <tr>
-              <td>{{ $r[0] }}</td>
-              <td>{{ $r[1] }}</td>
-              <td>{{ $r[2] }}</td>
-              <td>{{ $r[3] }}</td>
-              <td>{{ $r[4] }}</td>
-              <td>
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-                <button class="action-btn js-mark-done" data-id="{{ $r[0] }}" title="Mark as Printed"><i class="bi bi-check2"></i></button>
-                <button class="action-btn" title="Issue"><i class="bi bi-exclamation-triangle"></i></button>
-                <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
+            <tr id="job-{{ $row->ProductID }}">
+              <td>{{ $code }}</td>
+              <td>{{ $row->printer ?: '—' }}</td>
+              <td>{{ $sq }}</td>
+              <td>{{ $deadline }}</td>
+              <td>{{ $submitted }}</td>
+              <td class="text-nowrap">
+                {{-- View --}}
+                <a class="icon-pill" title="View"><i class="bi bi-eye"></i></a>
+
+                {{-- Marked → show confirm modal --}}
+                <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed">
+                  <i class="bi bi-check2"></i>
+                </button>
+
+                {{-- Report Issue page --}}
+                <a class="icon-pill" title="Report"
+                   href="{{ route('printing.report', ['productId' => $row->ProductID]) }}">
+                  <i class="bi bi-exclamation-triangle"></i>
+                </a>
+
+                {{-- Edit (placeholder) --}}
+                <a class="icon-pill" title="Edit"><i class="bi bi-pencil"></i></a>
               </td>
             </tr>
-            @endforeach
+          @empty
+            <tr><td colspan="6" class="empty">No printing jobs found.</td></tr>
+          @endforelse
           </tbody>
         </table>
       </div>
 
-      <div class="card-ft">
-        <nav class="d-flex justify-content-end">
-          <ul class="pagination mb-0">
-            <li class="page-item disabled"><span class="page-link">Previous</span></li>
-            <li class="page-item active"><span class="page-link">1</span></li>
-            <li class="page-item"><a class="page-link" href="#">2</a></li>
-            <li class="page-item"><a class="page-link" href="#">3</a></li>
-            <li class="page-item"><a class="page-link" href="#">Next</a></li>
-          </ul>
-        </nav>
-      </div>
+      {{-- Pagination (pill style) --}}
+      @if ($jobs instanceof \Illuminate\Pagination\LengthAwarePaginator)
+        <div class="card-ft">
+          <nav class="d-flex justify-content-end">
+            <ul class="pagination pill-pager mb-0">
+              {{-- Previous --}}
+              @if ($jobs->onFirstPage())
+                <li class="page-item disabled"><span class="page-link">Previous</span></li>
+              @else
+                <li class="page-item"><a class="page-link" href="{{ $jobs->previousPageUrl() }}">Previous</a></li>
+              @endif
+
+              @php
+                $last    = max(1, $jobs->lastPage());
+                $current = $jobs->currentPage();
+                $from    = max(1, $current - 1);
+                $to      = min($last, $current + 1);
+              @endphp
+
+              @if ($from > 1)
+                <li class="page-item"><a class="page-link" href="{{ $jobs->url(1) }}">1</a></li>
+                @if ($from > 2)
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                @endif
+              @endif
+
+              @for ($p = $from; $p <= $to; $p++)
+                @if ($p == $current)
+                  <li class="page-item active"><span class="page-link">{{ $p }}</span></li>
+                @else
+                  <li class="page-item"><a class="page-link" href="{{ $jobs->url($p) }}">{{ $p }}</a></li>
+                @endif
+              @endfor
+
+              @if ($to < $last)
+                @if ($to < $last - 1)
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                @endif
+                <li class="page-item"><a class="page-link" href="{{ $jobs->url($last) }}">{{ $last }}</a></li>
+              @endif
+
+              {{-- Next --}}
+              @if ($jobs->hasMorePages())
+                <li class="page-item"><a class="page-link" href="{{ $jobs->nextPageUrl() }}">Next</a></li>
+              @else
+                <li class="page-item disabled"><span class="page-link">Next</span></li>
+              @endif
+            </ul>
+          </nav>
+        </div>
+      @endif
     </section>
   </div>
 </div>
 
-<!-- 确认弹窗 -->
-<div id="popConfirm" class="cx-mask" aria-hidden="true">
+{{-- Confirmation Modal --}}
+<div id="printConfirm" class="cx-mask" aria-hidden="true">
   <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="cxTitle">
     <div class="cx-header">
       <div id="cxTitle" class="cx-title">Confirmation</div>
@@ -171,24 +223,28 @@
     </div>
     <div class="cx-footer">
       <button type="button" class="cx-btn cx-btn-ghost" data-close>No</button>
-      <button type="button" class="cx-btn cx-btn-dark" id="btnConfirmYes">Yes</button>
+      <button type="button" class="cx-btn cx-btn-dark" id="printConfirmYes">Yes</button>
     </div>
   </div>
 </div>
 
 <script>
 (() => {
-  const mask = document.getElementById('popConfirm');
+  const mask   = document.getElementById('printConfirm');
+  const yesBtn = document.getElementById('printConfirmYes');
   let currentId = null;
+  const csrf = '{{ csrf_token() }}';
 
+  // Open modal from “Marked”
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.js-mark-done');
+    const btn = e.target.closest('.js-mark');
     if (!btn) return;
-    currentId = btn.dataset.id || null;
+    currentId = btn.dataset.id;
     mask.classList.add('show');
     mask.setAttribute('aria-hidden','false');
   });
 
+  // Close modal
   mask.addEventListener('click', (e) => {
     if (e.target === mask || e.target.hasAttribute('data-close')) {
       mask.classList.remove('show');
@@ -196,11 +252,43 @@
     }
   });
 
-  document.getElementById('btnConfirmYes').addEventListener('click', () => {
-    // TODO: 后端标记 printed → furnishing（使用 currentId）
-    console.log('Marked as printed:', currentId);
-    mask.classList.remove('show');
-    mask.setAttribute('aria-hidden','true');
+  // Confirm → PATCH to mark complete, then update UI
+  yesBtn.addEventListener('click', async () => {
+    if (!currentId) return;
+    yesBtn.disabled = true;
+
+    try {
+      const url = "{{ route('printing.jobs.complete', ['productId' => '__ID__']) }}".replace('__ID__', currentId);
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        // remove row
+        const row = document.getElementById('job-'+currentId) ||
+                    document.querySelector(`button.js-mark[data-id="${currentId}"]`)?.closest('tr');
+        if (row) row.remove();
+
+        // best-effort KPI update
+        const bump = (sel, d) => {
+          const el = document.querySelector(sel);
+          if (!el) return;
+          const n  = parseInt((el.textContent || '').trim(), 10);
+          if (!isNaN(n)) el.textContent = Math.max(0, n + d);
+        };
+        bump('[data-kpi="inprogress"]', -1);
+        bump('[data-kpi="completed"]', +1);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      yesBtn.disabled = false;
+      mask.classList.remove('show');
+      mask.setAttribute('aria-hidden','true');
+      currentId = null;
+    }
   });
 })();
 </script>

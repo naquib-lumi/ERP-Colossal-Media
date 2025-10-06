@@ -4,201 +4,173 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
-  /* ===== 页面容器 ===== */
+  /* Page & cards */
   .page-wrap{max-width:1180px;margin:0 auto;}
-
-  /* ===== 卡片阴影（柔和） ===== */
-  .card.shadow-soft{box-shadow:0 3px 10px rgba(16,24,40,.06)}
-
-  /* ===== Toolbar 布局（已修正） ===== */
-  .toolbar{
-    display:flex; align-items:center; gap:12px; flex-wrap:wrap;   /* 自适应换行 */
-  }
-  .toolbar .grow{ flex: 1 1 360px; }         /* 搜索框最小 360px，能伸展 */
-  .toolbar .dates{ display:flex; align-items:center; gap:8px; }
-  .toolbar .actions{ display:flex; align-items:center; gap:8px; }
-
-  /* 统一控件高度与宽度 */
-  .toolbar .form-control,
-  .toolbar .btn,
-  .toolbar .btn-icon{ height:40px; }
-  .toolbar .btn-icon{
-    width:40px; padding:0; display:inline-flex; align-items:center; justify-content:center;
-  }
-  .toolbar .date-input{ width:140px; min-width:140px; }      /* 日期框不会被压扁 */
-  .toolbar .btn span{ white-space:nowrap; }                 /* 文本不折行 */
-  .toolbar .btn-apply{ min-width:130px; }                   /* 防止被截断 */
-  @media (min-width:992px){
-    .toolbar .actions{ margin-left:auto; }                  /* 大屏右对齐 */
-  }
-
-  /* ===== 表格样式 ===== */
-  .table thead th{font-size:12px;color:#475467;font-weight:700}
-  .table td{vertical-align:middle}
+  .card.shadow-soft{border:1px solid #ECEFF3;border-radius:14px;box-shadow:0 3px 10px rgba(16,24,40,.06)}
   .table > :not(caption) > * > *{padding:14px 16px}
 
-  /* ===== 小图标按钮（产品详情） ===== */
-  .icon-btn{
-    width:36px;height:36px;border:1px solid #E5E7EB;border-radius:10px;
-    display:inline-flex;align-items:center;justify-content:center;color:#475467;background:#fff
-  }
-  .icon-btn:hover{background:#F2F4F7;color:#344054}
+  /* Toolbar */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .toolbar .grow{flex:1 1 360px}
+  .toolbar .date{width:140px;min-width:140px}
+  .toolbar .btn-icon{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center}
 
-  /* ===== 分页圆角 ===== */
-  .pagination .page-link{border-radius:10px}
+  /* Pills / small buttons */
+  .pill{border-radius:999px;padding:.25rem .75rem;border:1px solid #E5E7EB;background:#fff;color:#111827;font-weight:600}
+  .pill:disabled{opacity:.55;cursor:not-allowed}
+
+  /* Icon-only buttons */
+  .icon-btn{width:36px;height:36px;border:1px solid #E5E7EB;border-radius:10px;background:#fff;color:#475467;display:inline-flex;align-items:center;justify-content:center}
+  .icon-btn:hover{background:#F2F4F7;color:#111827}
+
+  /* Pagination (pill style) */
+  .pager .page-link{border-radius:999px;border:1px solid #E5E7EB}
+  .pager .active > .page-link{background:#635bff;border-color:#635bff;color:#fff}
+
+  .table thead th{font-size:12px;color:#475467;font-weight:700;background:#F8FAFC}
+  .table tbody tr:hover{background:#FAFBFC}
 </style>
 
 <div class="container-fluid py-4 px-4">
   <div class="page-wrap">
+    <h1 class="fw-bold mb-3" style="font-size:28px;letter-spacing:-.2px;">Order History</h1>
 
-    <h1 class="h4 fw-bold mb-4">Order History</h1>
-
-    {{-- ===== Toolbar（整行布局，移动端自动换行） ===== --}}
-    <div class="card border-0 shadow-soft mb-3">
+    {{-- Toolbar --}}
+    <div class="card shadow-soft mb-3">
       <div class="card-body toolbar">
+        <form class="d-flex flex-wrap gap-2 w-100" method="GET" action="{{ route('dispatchcontrol.history') }}">
+          {{-- Search --}}
+          <input
+            type="text"
+            name="q"
+            value="{{ $q ?? '' }}"
+            class="form-control grow"
+            placeholder="Search by Order ID, Product ID, Item ID, or Job Title">
 
-        <!-- 搜索框（占据剩余宽度） -->
-        <input type="text" class="form-control grow" placeholder="Search by Order ID or Job Title">
-
-        <!-- 日期区间 -->
-        <div class="dates">
-          <input type="text" class="form-control date-input" placeholder="mm/dd/yyyy">
-          <span class="text-muted">to</span>
-          <input type="text" class="form-control date-input" placeholder="mm/dd/yyyy">
-          <button class="btn btn-light border btn-icon" title="Calendar">
+          {{-- Dates --}}
+          <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date" placeholder="mm/dd/yyyy">
+          <span class="text-muted d-flex align-items-center">to</span>
+          <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date" placeholder="mm/dd/yyyy">
+          <button type="button" class="btn btn-light border btn-icon" title="Calendar">
             <i class="bi bi-calendar2"></i>
           </button>
-        </div>
 
-        <!-- 动作（右对齐） -->
-        <div class="actions">
-          <button class="btn btn-light border" title="Reset">
-            <i class="bi bi-arrow-counterclockwise me-1"></i><span>Reset</span>
+          {{-- Reset / Apply --}}
+          <a href="{{ route('dispatchcontrol.history') }}" class="btn btn-light border">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+          </a>
+          <button class="btn btn-dark">
+            <i class="bi bi-funnel me-1"></i>Apply Filter
           </button>
-          <button class="btn btn-dark btn-apply">
-            <i class="bi bi-funnel me-1"></i><span>Apply Filter</span>
-          </button>
-        </div>
-
+        </form>
       </div>
     </div>
 
-    {{-- ===== Completed Orders 表格（无 Proof File 列） ===== --}}
-    <div class="card border-0 shadow-soft">
+    {{-- Table --}}
+    <div class="card shadow-soft">
       <div class="card-body">
-
         <div class="d-flex justify-content-between align-items-center mb-2 small text-muted">
           <div class="fw-semibold">Completed Orders</div>
-          <div>248 total results</div>
+          <div>{{ number_format($orders->total()) }} total results</div>
         </div>
 
         <div class="table-responsive">
           <table class="table align-middle">
-            <thead class="table-light">
-              <tr>
-                <th style="width:160px;">PRODUCT ID</th>
-                <th>PRODUCT NAME</th>
-                <th style="width:160px;">COMPLETED DATE</th>
-                <th>REMARKS</th>
-                <th style="width:140px;" class="text-center">PRODUCT DETAILS</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>ORD005-P1</td>
-                <td>Business Cards - Premium</td>
-                <td>Jan 15, 2025</td>
-                <td>Perfect quality</td>
-                <td class="text-center">
-                  <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td>ORD005-P2</td>
-                <td>Flyers A4 - Standard</td>
-                <td>Jan 14, 2025</td>
-                <td>–</td>
-                <td class="text-center">
-                  <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td>ORD006-P1</td>
-                <td>Brochure Tri-fold</td>
-                <td>Jan 13, 2025</td>
-                <td>Color correction applied</td>
-                <td class="text-center">
-                  <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td>ORD007-P1</td>
-                <td>Poster A2 - Glossy</td>
-                <td>Jan 12, 2025</td>
-                <td>Rush order completed</td>
-                <td class="text-center">
-                  <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td>ORD007-P2</td>
-                <td>Letterhead - Corporate</td>
-                <td>Jan 11, 2025</td>
-                <td>–</td>
-                <td class="text-center">
-                  <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td>ORD007-P5</td>
-                <td>Banner 3×6 feet</td>
-                <td>Jan 10, 2025</td>
-                <td>Weather resistant material</td>
-                <td class="text-center">
-                  <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td>ORD008-P1</td>
-                <td>Menu Cards - Restaurant</td>
-                <td>Jan 09, 2025</td>
-                <td>Laminated finish</td>
-                <td class="text-center">
-                  <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td>ORD008-P3</td>
-                <td>Stickers - Custom Shape</td>
-                <td>Jan 08, 2025</td>
-                <td>Die-cut precision</td>
-                <td class="text-center">
-                  <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
-                </td>
-              </tr>
-            </tbody>
+<thead>
+  <tr>
+    <th>PRODUCT ID</th>
+    <th>PRODUCT NAME</th>
+    <th>COMPLETED DATE</th>
+    <th>PROOF FILE</th>
+    <th>REMARKS</th>
+    <th>PRODUCT DETAILS</th>
+  </tr>
+</thead>
+<tbody>
+@forelse ($orders as $row)
+  <tr>
+    {{-- Use the formatted code --}}
+    <td class="fw-semibold">{{ $row->product_code }}</td>
+
+    <td>{{ $row->product_name }}</td>
+    <td>{{ $row->completed_date }}</td>
+
+    <td>
+      <button class="btn btn-sm btn-light border">
+        <i class="bi bi-eye me-1"></i>View
+      </button>
+    </td>
+
+    <td>{{ $row->remarks }}</td>
+
+    <td class="text-center">
+      <button class="btn btn-sm btn-light border" title="Details">
+        <i class="bi bi-eye"></i>
+      </button>
+    </td>
+  </tr>
+@empty
+  <tr><td colspan="6" class="text-center text-muted py-4">No records</td></tr>
+@endforelse
+</tbody>
           </table>
         </div>
 
-        {{-- ===== 分页 ===== --}}
-        <div class="d-flex justify-content-end mt-3">
-          <nav>
-            <ul class="pagination mb-0">
-              <li class="page-item"><a class="page-link" href="#"><i class="bi bi-chevron-left"></i></a></li>
-              <li class="page-item active"><span class="page-link">1</span></li>
-              <li class="page-item"><a class="page-link" href="#">2</a></li>
-              <li class="page-item"><a class="page-link" href="#">3</a></li>
-              <li class="page-item disabled"><span class="page-link">…</span></li>
-              <li class="page-item"><a class="page-link" href="#">31</a></li>
-              <li class="page-item"><a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a></li>
-            </ul>
-          </nav>
-        </div>
+        {{-- Pagination (pill style) --}}
+        @if ($orders->hasPages())
+          <div class="d-flex justify-content-end mt-3">
+            <nav>
+              <ul class="pagination pager mb-0">
+                {{-- Prev --}}
+                @if ($orders->onFirstPage())
+                  <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+                @else
+                  <li class="page-item"><a class="page-link" href="{{ $orders->previousPageUrl() }}"><i class="bi bi-chevron-left"></i></a></li>
+                @endif
 
-        <div class="small text-muted mt-2">Showing 1 to 8 of 248 results</div>
+                {{-- Pages --}}
+                @php
+                  $startPage = max(1, $orders->currentPage() - 1);
+                  $endPage   = min($orders->lastPage(), $orders->currentPage() + 1);
+                @endphp
+                @if ($startPage > 1)
+                  <li class="page-item"><a class="page-link" href="{{ $orders->url(1) }}">1</a></li>
+                  @if ($startPage > 2)
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                  @endif
+                @endif
+
+                @for ($p = $startPage; $p <= $endPage; $p++)
+                  @if ($p == $orders->currentPage())
+                    <li class="page-item active"><span class="page-link">{{ $p }}</span></li>
+                  @else
+                    <li class="page-item"><a class="page-link" href="{{ $orders->url($p) }}">{{ $p }}</a></li>
+                  @endif
+                @endfor
+
+                @if ($endPage < $orders->lastPage())
+                  @if ($endPage < $orders->lastPage() - 1)
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                  @endif
+                  <li class="page-item"><a class="page-link" href="{{ $orders->url($orders->lastPage()) }}">{{ $orders->lastPage() }}</a></li>
+                @endif
+
+                {{-- Next --}}
+                @if ($orders->hasMorePages())
+                  <li class="page-item"><a class="page-link" href="{{ $orders->nextPageUrl() }}"><i class="bi bi-chevron-right"></i></a></li>
+                @else
+                  <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+                @endif
+              </ul>
+            </nav>
+          </div>
+
+          <div class="small text-muted mt-2">
+            Showing {{ $orders->firstItem() }} to {{ $orders->lastItem() }} of {{ $orders->total() }} results
+          </div>
+        @endif
       </div>
     </div>
-
   </div>
 </div>
 @endsection

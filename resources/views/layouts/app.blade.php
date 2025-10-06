@@ -198,17 +198,18 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li>
               <li class="menu-item {{ request()->routeIs('installation.calendar') ? 'active' : '' }}">
-                  <a href="{{ route('installation.calendar') }}" class="menu-link">
-                    <i class="menu-icon icon-base bx bx-calendar"></i>
-                    <div data-i18n="Calendar">Calendar</div>
-                  </a>
-                </li>
-                              <li class="menu-item {{ request()->routeIs('installation.user') ? 'active' : '' }}">
-                <a href="{{ route('installation.user') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="Profile">Profile</div>
-                </a>
-              </li>
+    <a href="{{ route('installation.calendar') }}" class="menu-link">
+      <i class="menu-icon icon-base bx bx-calendar"></i>
+      <div data-i18n="Calendar">Calendar</div>
+    </a>
+  </li>
+                <li class="menu-item {{ request()->routeIs('installation.profile') ? 'active' : '' }}">
+  <a href="{{ route('installation.profile') }}" class="menu-link">
+    <i class="menu-icon icon-base bx bx-user"></i>
+    <div data-i18n="Profile">Profile</div>
+  </a>
+</li>
+
 
               <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
                 <a href="{{ route('installation.history') }}" class="menu-link">

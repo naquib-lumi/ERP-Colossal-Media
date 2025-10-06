@@ -19,4 +19,10 @@ class Helpers
         $receiver->notify(new \App\Notifications\GenericNotification($message, $url, $via));
     }
 
+
+      public static function notifyReminder($receiver, $message, $url, $via = ['database'])
+    {
+        $receiver->notify(new \App\Notifications\ReminderNotification($message, $url, $via));
+    }
+
 }
