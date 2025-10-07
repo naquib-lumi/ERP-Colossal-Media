@@ -124,8 +124,9 @@
                     // If you have a details route, drop it here:
                     $detailsUrl = $row->details_url ?? '#';
                   @endphp
-                  <a href="{{ $detailsUrl }}" class="icon-btn" title="Product details">
-                    <i class="bi bi-eye"></i>
+                  <a href="{{ route('installation.order.show', ['productId' => $row->ProductID]) }}"
+                    class="icon-btn" title="View details">
+                    <i class="bi bi-eye"></i> {{-- or your existing eye icon --}}
                   </a>
                 </td>
               </tr>

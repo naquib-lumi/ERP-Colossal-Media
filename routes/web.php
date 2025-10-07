@@ -281,6 +281,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/installation/product-order', [InstallationProductOrderController::class, 'productorder'])->name('installation.product-order');
     
         Route::get('/installation/history', [InstallationHistoryController::class, 'index'])->name('installation.history');
+        Route::get('/installation/orders/{productId}', [InstallationHistoryController::class, 'show'])->name('installation.order.show');
         Route::get('/installation/profile', [InstallationProfileController::class, 'index'])->name('installation.profile');
         Route::put('/installation/profile', [InstallationProfileController::class, 'update'])->name('installation.profile.update');
         Route::get('/installation/calendar', [\App\Http\Controllers\InstallationCalendarController::class, 'index'])->name('installation.calendar');
