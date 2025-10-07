@@ -7,10 +7,6 @@ use Illuminate\Support\Facades\DB;
 
 class FurnishingController extends Controller
 {
-    /**
-     * Furnishing Dashboard
-     * 仅显示 Furnishing 阶段 且 in_progress 的任务
-     */
     public function dashboard(Request $request)
     {
         $jobs = DB::table('products as p')
@@ -27,54 +23,43 @@ class FurnishingController extends Controller
                 'o.deadline',
                 'pi.ItemID',
                 DB::raw('IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0) as sq_inch'),
-                DB::raw("COALESCE(s.cutter, '-') as cutter"),
-                DB::raw("CONCAT('ORD', COALESCE(o.id, p.OrderID), '-P', p.ProductID) as product_code"),
+                DB::raw('COALESCE(s.cutter, "-") as cutter'),
+                DB::raw("CONCAT('ORD-', IFNULL(o.order_number, o.id), '-', 'P', p.ProductID) as product_code"),
             ])
-            ->where('p.taskType', 'furnishing')
             ->where('p.status', 'in_progress')
-            ->orderBy('o.id', 'asc')
-            ->orderBy('p.ProductID', 'asc')
-            ->orderBy('pi.ItemID', 'asc')
+            ->where('p.taskType', 'furnishing')
+            ->orderBy('o.id')
+            ->orderBy('p.ProductID')
             ->paginate(10);
 
         $inProgress = DB::table('products')
-            ->where('taskType', 'furnishing')
             ->where('status', 'in_progress')
+            ->where('taskType', 'furnishing')
             ->count();
 
         $completed = DB::table('products')
-            ->where('taskType', 'furnishing')
             ->where('status', 'completed')
+            ->where('taskType', 'furnishing')
             ->count();
 
         return view('furnishing.dashboard', compact('jobs', 'inProgress', 'completed'));
     }
 
-    /**
-     * 标记完成（推荐走 PATCH；Blade 里已带 CSRF）
-     * 仅更新 status=completed，taskType 保持 furnishing
-     */
-    public function markCompleted(Request $request, $productId)
+    // Dashboard 勾确认：把该产品置为 completed（保持 taskType=furnishing）
+    public function markComplete($product)
     {
         try {
-            $affected = DB::table('products')
-                ->where('ProductID', $productId)
+            DB::table('products')
+                ->where('ProductID', $product)
                 ->update([
                     'status'     => 'completed',
+                    'taskType'   => 'furnishing',
                     'updated_at' => now(),
                 ]);
 
-            return response()->json(['ok' => $affected > 0, 'affected' => $affected]);
+            return response()->json(['ok' => true]);
         } catch (\Throwable $e) {
             return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
         }
-    }
-
-    /**
-     * 兼容旧调用名：某些地方还在调用 markComplete()
-     */
-    public function markComplete(Request $request, $productId)
-    {
-        return $this->markCompleted($request, $productId);
     }
 }
