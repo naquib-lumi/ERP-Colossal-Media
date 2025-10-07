@@ -30,29 +30,31 @@ class InstallationHistoryController extends Controller
                 'fp.completedAt as completed_date',   // ✅ Completed Date comes from progress table
             ]);
 
-        // Text search (order no, product name, ProductID)
         if ($q !== '') {
-            $query->where(function ($w) use ($q) {
+            $qLower = mb_strtolower($q);
+            $query->where(function ($w) use ($q, $qLower) {
+                // product name / remarks
                 $w->where('p.productName', 'like', "%{$q}%")
-                    ->orWhere('o.order_number', 'like', "%{$q}%")
-                    ->orWhere('p.ProductID', 'like', "%{$q}%");
+                ->orWhere('p.materialRemark', 'like', "%{$q}%")
+                // completed date text search (yyyy-mm-dd or part of it)
+                ->orWhereRaw('DATE(fp.completedAt) LIKE ?', ["%{$qLower}%"])
+                // order number too (often useful)
+                ->orWhere('o.order_number', 'like', "%{$q}%");
             });
         }
 
-        // Date filters (Completed Date = fp.completedAt)
+        // Date range (Completed Date = fp.completedAt)
         if ($start !== '') {
             try {
                 $startDate = Carbon::createFromFormat('m/d/Y', $start)->startOfDay();
                 $query->where('fp.completedAt', '>=', $startDate);
-            } catch (\Throwable $e) {
-            }
+            } catch (\Throwable $e) {}
         }
         if ($end !== '') {
             try {
                 $endDate = Carbon::createFromFormat('m/d/Y', $end)->endOfDay();
                 $query->where('fp.completedAt', '<=', $endDate);
-            } catch (\Throwable $e) {
-            }
+            } catch (\Throwable $e) {}
         }
 
         $orders = $query
