@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function () {
       initialView: 'dayGridMonth',
       direction,
       plugins: [dayGridPlugin, interactionPlugin, listPlugin, timegridPlugin],
-      headerToolbar: { start: 'prev,next, title', end: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth' },
+      headerToolbar: { start: 'prev,next, title', end: 'dayGridMonth' },
       height: 'auto',
       dayMaxEvents: 2,
       editable: false,
