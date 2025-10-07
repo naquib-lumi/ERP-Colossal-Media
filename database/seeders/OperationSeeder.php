@@ -21,21 +21,21 @@ class OperationSeeder extends Seeder
             'name' => 'Furnishing A',
             'email' => 'furnishing@colossal360.com.my',
             'password' => Hash::make('password123'),
-            'role' => 'operations-manager',
+            'role' => 'operations-furnishing',
         ]);
 
         User::create([
             'name' => 'Dispatch Control A',
             'email' => 'dispatch-control@colossal360.com.my',
             'password' => Hash::make('password123'),
-            'role' => 'operations-delivery',
+            'role' => 'operations-dispatch-control',
         ]);
 
         User::create([
             'name' => 'Delivery Installation A',
             'email' => 'delivery-installation@colossal360.com.my',
             'password' => Hash::make('password123'),
-            'role' => 'operations-installation',
+            'role' => 'operations-delivery-installation',
         ]);
     }
 }

@@ -69,12 +69,9 @@
             placeholder="Search by Order ID or Job Title">
 
           <div class="dates">
-            <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input" placeholder="mm/dd/yyyy">
+            <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off" inputmode="numeric">
             <span class="text-muted">to</span>
-            <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date-input" placeholder="mm/dd/yyyy">
-            <button type="button" class="btn btn-light border btn-icon" title="Calendar">
-              <i class="bi bi-calendar2"></i>
-            </button>
+            <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off" inputmode="numeric">
           </div>
 
           <div class="actions">
@@ -120,13 +117,12 @@
             <tbody>
               @forelse($orders as $row)
                 @php
-                  $code = ($row->order_number ?: ('ORD'.($row->order_id ?? $row->ProductID))) . '-P' . ($row->ItemID ?? $row->ProductID);
                   $prodName = $row->product_name ?? '—';
                   $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
                   $remarks = $row->materialRemark ?: '–';
                 @endphp
                 <tr>
-                  <td class="fw-semibold">{{ $code }}</td>
+                  <td class="fw-semibold">{{ $row->product_code }}</td>  
                   <td><span class="truncate" title="{{ $prodName }}">{{ $prodName }}</span></td>
                   <td>{{ $completed }}</td>
                   <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
@@ -198,4 +194,65 @@
 
   </div>
 </div>
+
+@push('scripts')
+<script>
+(() => {
+  const ymdToUs = v => /^\d{4}-\d{2}-\d{2}$/.test(v) ? (v.slice(5,7) + '/' + v.slice(8,10) + '/' + v.slice(0,4)) : v;
+  const usToYmd = v => {
+    const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return v;
+    const [,mm,dd,yy] = m;
+    return `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+  };
+
+  function openNativePicker(textInput){
+    const rect = textInput.getBoundingClientRect();
+
+    // create a hidden date input *positioned under the field*
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.style.position = 'fixed';
+    dateInput.style.left = `${rect.left}px`;
+    dateInput.style.top  = `${rect.bottom + 4}px`; // a little gap under the field
+    dateInput.style.opacity = 0;
+    dateInput.style.pointerEvents = 'none';
+    dateInput.style.zIndex = 2147483647; // on top, just in case
+    dateInput.style.height = `${rect.height}px`;
+    dateInput.style.width  = `${rect.width}px`;
+
+    // preload value
+    const ymd = usToYmd((textInput.value || '').trim());
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) dateInput.value = ymd;
+
+    document.body.appendChild(dateInput);
+
+    // show picker
+    (dateInput.showPicker ? dateInput.showPicker() : dateInput.focus());
+
+    const cleanup = () => document.body.contains(dateInput) && document.body.removeChild(dateInput);
+
+    dateInput.addEventListener('change', () => {
+      if (dateInput.value) textInput.value = ymdToUs(dateInput.value);
+      textInput.dispatchEvent(new Event('change'));
+      cleanup();
+    }, { once:true });
+
+    dateInput.addEventListener('blur', cleanup, { once:true });
+  }
+
+  // attach to both date fields
+  document.querySelectorAll('.js-date').forEach(inp => {
+    inp.addEventListener('change', () => { inp.value = ymdToUs(inp.value.trim()); });
+    inp.addEventListener('focus', () => openNativePicker(inp));
+    inp.addEventListener('click', () => openNativePicker(inp));
+  });
+
+  // keep position correct on resize/scroll if picker is open:
+  // (most browsers lock the picker; this is a no-op but harmless)
+  window.addEventListener('scroll', () => {/* no-op */}, { passive:true });
+  window.addEventListener('resize', () => {/* no-op */});
+})();
+</script>
+@endpush
 @endsection

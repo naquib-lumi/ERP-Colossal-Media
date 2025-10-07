@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Hash;
 
 class PrintingProfileController extends Controller
 {
@@ -16,11 +16,11 @@ class PrintingProfileController extends Controller
         return view('printing.profile', compact('user'));
     }
 
-    // PUT /dispatch/profile  (save changes)
     public function update(Request $request)
     {
         $user = Auth::user();
 
+        // 1) 基本资料校验
         $validated = $request->validate([
             'name'           => ['required', 'string', 'max:255'],
             'email'          => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
