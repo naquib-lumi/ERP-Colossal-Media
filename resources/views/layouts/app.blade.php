@@ -190,7 +190,7 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li>
             @endif
-            @if (in_array(auth()->user()->role, ['operations-installation']))
+            @if (in_array(auth()->user()->role, ['operations-delivery-installation']))
               <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
                 <a href="{{ route('installation.history') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-history"></i>
@@ -224,7 +224,7 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li> -->
             @endif
-            @if (in_array(auth()->user()->role, ['operations-delivery']))
+            @if (in_array(auth()->user()->role, ['operations-dispatch-control']))
               <li class="menu-item {{ request()->routeIs('dispatchcontrol.job-order') ? 'active' : '' }}">
                 <a href="{{ route('dispatchcontrol.job-order') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-file"></i>
