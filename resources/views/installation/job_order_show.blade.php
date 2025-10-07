@@ -80,16 +80,16 @@
   .actionbar .action-pre,
   .actionbar .action-post,
   .actionbar .action-edit{display:none !important;width:100%;}
-  .actionbar .action-pre{display:block !important;}                    /* 初始 */
-  .is-accepted .actionbar .action-pre{display:none !important;}        /* 已接受显示 post */
+  .actionbar .action-pre{display:block !important;}
+  .is-accepted .actionbar .action-pre{display:none !important;}
   .is-accepted .actionbar .action-post{display:block !important;}
   .is-editing .actionbar .action-pre,
-  .is-editing .actionbar .action-post{display:none !important;}        /* 编辑只显示 edit */
+  .is-editing .actionbar .action-post{display:none !important;}
   .is-editing .actionbar .action-edit{display:block !important;}
   .actionbar .toolbar{width:100%;display:flex;justify-content:flex-end;gap:.75rem}
 
   /* ===== Modal（自定义，不使用 Bootstrap JS） ===== */
-  body.modal-open { overflow: hidden !important; }   /* 打开弹窗时锁滚动 */
+  body.modal-open { overflow: hidden !important; }
   .modal-mask{position:fixed;inset:0;background:rgba(2,6,23,.60);display:none !important;z-index:1050}
   .modal-mask.show{display:block !important;}
   .modal-wrap{position:fixed !important;inset:0 !important;display:grid !important;place-items:center !important;padding:24px !important}
@@ -121,15 +121,58 @@
 
 <div class="container-fluid py-4 px-4">
   <div class="page-wrap" id="pageRoot">
-    @php $assignee = $assignee ?? 'Data Keyin'; @endphp
+    @php
+      // Order code
+      $orderCode = $orderCode ?? ($header->order_number ?: ('ORD-'.$header->order_id));
+
+      // Assigned By — prefer artist name, then head artist name; if both missing, fallback to ID, else "—"
+      if (!empty($header->artist_name)) {
+          $assignedLabel = $header->artist_name;
+      } elseif (!empty($header->head_artist_name)) {
+          $assignedLabel = $header->head_artist_name;
+      } elseif (!empty($header->artist_id)) {
+          $assignedLabel = 'Artist ID: '.$header->artist_id;
+      } elseif (!empty($header->salesperson_id)) {
+          $assignedLabel = 'Head Artist ID: '.$header->salesperson_id;
+      } else {
+          $assignedLabel = '—';
+      }
+
+      // Use same label in top-right chip
+      $assignee = $assignedLabel;
+
+      // Dates
+      try { $received = $header->order_created_at ? \Carbon\Carbon::parse($header->order_created_at)->format('Y-m-d') : '—'; } catch (\Throwable $e) { $received = '—'; }
+      try { $deadline = $header->deadline ? \Carbon\Carbon::parse($header->deadline)->format('Y-m-d') : '—'; } catch (\Throwable $e) { $deadline = '—'; }
+
+      // Design Confirmation
+      $designConfirm = is_null($header->approval) ? '—' : ($header->approval ? 'Yes' : 'No');
+
+      $jobTitle = $header->orderTitle ?: $header->productName;
+      $orderNo  = $header->order_number ?: ('#'.$header->order_id);
+      $received = $header->order_created_at ?? null;
+      $deadline = $header->deadline ?? null;
+      $approved = isset($header->approval) ? (bool)$header->approval : null; // if you add 'orders.approval' in controller
+      
+      $chips = collect($remarks ?? [])->map(function($r){
+        $op = $r->operation ? ucfirst(str_replace('_',' ', $r->operation)) : 'General';
+        $txt = trim((string)$r->remark);
+        return $op.($txt ? ': '.$txt : '');
+      })->filter()->values();
+    @endphp
+
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
         <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
-        <h1 class="h4 fw-bold mb-0">Project Task — <span class="text-muted">ORD005-P2</span></h1>
+        <h1 class="h4 fw-bold mb-0">Project Task — <span class="text-muted">{{ $orderCode  }}</span></h1>
       </div>
-      <span class="assignee-chip">{{ $assignee }}</span>
+      <span class="assignee-chip">{{ $assignee  }}</span>
     </div>
     <div class="text-muted mb-3">Delivery & Installation</div>
+
+    @php
+      
+    @endphp
 
     {{-- Job Information --}}
     <div class="card soft mb-4">
@@ -138,207 +181,230 @@
         <div class="row g-4">
           <div class="col-12 col-lg-6">
             <dl class="dl">
-              <dt>Product ID</dt><dd>ORD005-P1</dd>
-              <dt>Job Order ID</dt><dd>#ORD-2025-003</dd>
-              <dt>Job Title</dt><dd>Corporate Business Card Design</dd>
-              <dt>Company Name</dt><dd>TechCorp Solutions Ltd</dd>
+              <dt>Job Order ID</dt><dd>{{ $orderCode }}</dd>
+              <dt>Job Title</dt><dd>{{ $jobTitle ?: '—' }}</dd>
+              <dt>Company Name</dt><dd>{{ $header->companyName ?: '—' }}</dd>
             </dl>
           </div>
           <div class="col-12 col-lg-6">
             <dl class="dl">
-              <dt>Assigned By</dt><dd>Artist A</dd>
-              <dt>Received Date</dt><dd>2025-07-15</dd>
-              <dt>Deadline</dt><dd><span class="muted">2025-07-25</span></dd>
-              <dt>Design Confirmation</dt><dd><span class="badge-yes">Yes</span></dd>
+              <dt>Assigned By</dt><dd>{{ $assignedLabel }}</dd>
+              <dt>Received Date</dt><dd>{{ $received }}</dd>
+              <dt>Deadline</dt><dd><span class="muted">{{ $deadline }}</span></dd>
+              <dt>Design Confirmation</dt><dd>{{ $designConfirm }}</dd>
             </dl>
           </div>
         </div>
 
-        <div class="mt-3">
-          <div class="section-hd" style="margin-bottom:8px"><i class="bi bi-chat-square-text"></i> Product Remarks</div>
-          <div class="chips">
-            <span class="chip">Delivery: Self Pickup must be on time before 10:30 AM</span>
-            <span class="chip">Printing: Ensure color consistency with company brand palette</span>
-            <span class="chip">Printing: Pack each batch separately (English vs. Chinese cards)</span>
+        @if(count($chips))
+          <div class="mt-3">
+            <div class="section-hd" style="margin-bottom:8px"><i class="bi bi-chat-square-text"></i> Product Remarks</div>
+            <div class="chips">
+              @foreach($chips as $c)
+                <span class="chip">{{ $c }}</span>
+              @endforeach
+            </div>
           </div>
-        </div>
+        @endif
       </div>
     </div>
 
-    {{-- Product Details（只读） --}}
+    {{-- Product Details --}}
     <div class="card soft mb-4">
       <div class="card-body">
-        {{-- Product 1 --}}
-        <div class="subcard mb-3">
-          <div class="subcard-head">
-            <div class="left">
-              <i class="bi bi-box"></i>
-              <div>
-                <div class="subcard-title">Product 1 — Poster A2 · Glossy</div>
-                <p class="subcard-desc">ID: ORD003-P1 · Qty: 1000 · Material: 260gsm Art Card</p>
-              </div>
-            </div>
-            <div class="right">
-              <button class="btn-toggle-icon" data-toggle="subcard" data-target="p1-body"><i class="bi bi-chevron-down"></i></button>
-            </div>
-          </div>
-          <div class="subcard-body" id="p1-body">
-            <div class="table-responsive">
-              <table class="table table-products align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th class="col-item">ITEM</th><th class="col-qty">QUANTITY</th><th class="col-size">SIZE</th><th class="col-bleed">BLEED</th>
-                    <th class="col-material">MATERIAL</th><th class="col-centre">PRIME CENTRE</th><th class="col-lam">LAMINATION</th>
-                    <th class="col-printer">PRINTER</th><th class="col-cutter">CUTTER</th><th class="col-assemble">ASSEMBLE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Standard Business Card (ENG)</td><td>500</td><td>9 × 5.4 cm</td><td>0.3 cm</td><td>Art Card</td>
-                    <td><span class="badge-yes">Yes</span></td><td>Matt UV Lamination</td><td>Handtop Roll2Roll</td><td>Ruijie Flatbed Router</td><td><span class="badge-yes">Yes</span></td>
-                  </tr>
-                  <tr>
-                    <td>Standard Business Card (CN)</td><td>500</td><td>9 × 5.4 cm</td><td>0.3 cm</td><td>Art Card</td>
-                    <td><span class="badge-yes">Yes</span></td><td>Matt UV Lamination</td><td>Handtop Roll2Roll</td><td>Ruijie Flatbed Router</td><td><span class="badge-yes">Yes</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
 
-        {{-- Product 2 --}}
-        <div class="subcard">
-          <div class="subcard-head">
-            <div class="left">
-              <i class="bi bi-box"></i>
-              <div>
-                <div class="subcard-title">Product 2 — Business Card (Alternate Design)</div>
-                <p class="subcard-desc">ID: ORD005-P2 · Qty: 1000 · Material: 300gsm Linen Card</p>
+        @forelse($products as $prod)
+          @php
+            $code = $orderCode.'-P'.str_pad($prod->ProductID,4,'0',STR_PAD_LEFT);
+            $prodItems = ($itemsByProd[$prod->ProductID] ?? collect());
+            $totalQty  = $prodItems->sum('quantity');
+            $material  = $prod->materialRemark ?: '—';
+          @endphp
+
+          <div class="subcard mb-3">
+            <div class="subcard-head">
+              <div class="left">
+                <i class="bi bi-box"></i>
+                <div>
+                  <div class="subcard-title">{{ $prod->productName ?: 'Product' }}</div>
+                  <p class="subcard-desc">ID: {{ $code }} · Qty: {{ $totalQty }} · Material: {{ $material }}</p>
+                </div>
+              </div>
+              <div class="right">
+                <button class="btn-toggle-icon" data-toggle="subcard" data-target="p-{{ $prod->ProductID }}"><i class="bi bi-chevron-down"></i></button>
               </div>
             </div>
-            <div class="right">
-              <button class="btn-toggle-icon" data-toggle="subcard" data-target="p2-body"><i class="bi bi-chevron-down"></i></button>
+
+            <div class="subcard-body" id="p-{{ $prod->ProductID }}">
+              <div class="table-responsive">
+                <table class="table table-products align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th class="col-item">ITEM</th>
+                      <th class="col-qty">QUANTITY</th>
+                      <th class="col-size">SIZE</th>
+                      <th class="col-bleed">BLEED</th>
+                      <th class="col-material">MATERIAL</th>
+                      <th class="col-centre">PRIME CENTRE</th>
+                      <th class="col-lam">LAMINATION</th>
+                      <th class="col-printer">PRINTER</th>
+                      <th class="col-cutter">CUTTER</th>
+                      <th class="col-assemble">ASSEMBLE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @forelse($prodItems as $it)
+                      @php
+                        $w   = is_numeric($it->sizeWidth)  ? (float)$it->sizeWidth  : null;
+                        $h   = is_numeric($it->sizeHeight) ? (float)$it->sizeHeight : null;
+                        $su  = $it->sizeUnit ?: '';
+                        $size = ($w||$h) ? (rtrim(rtrim(number_format($w,2),'0'),'.').' × '.rtrim(rtrim(number_format($h,2),'0'),'.').' '.($su ?: '')) : '—';
+
+                        $bt=$it->bleedTop; $bb=$it->bleedBottom; $bl=$it->bleedLeft; $br=$it->bleedRight; $bu=$it->bleedUnit ?: $su;
+                        $hasBleed = $bt!==null || $bb!==null || $bl!==null || $br!==null;
+                        $bleed = $hasBleed ? implode('/', [
+                            rtrim(rtrim(number_format((float)$bt,2),'0'),'.'),
+                            rtrim(rtrim(number_format((float)$bb,2),'0'),'.'),
+                            rtrim(rtrim(number_format((float)$bl,2),'0'),'.'),
+                            rtrim(rtrim(number_format((float)$br,2),'0'),'.'),
+                          ]).' '.trim($bu) : '—';
+
+                        // material json
+                        $matText = '—';
+                        try {
+                          if ($it->material) {
+                            $m = is_string($it->material) ? json_decode($it->material, true) : $it->material;
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($m)) {
+                              $matText = implode(', ', array_filter([$m['name'] ?? null, $m['gsm'] ?? null, $m['color'] ?? null])) ?: '—';
+                            } else {
+                              $matText = (string)$it->material;
+                            }
+                          }
+                        } catch (\Throwable $e) {
+                          $matText = (string)$it->material ?: '—';
+                        }
+
+                        $prime = isset($it->prime_centre) ? (bool)$it->prime_centre : null;
+                        $lam   = $it->lamination ?: '—';
+                        $printer = $it->printer ?: '—';
+                        $cutter  = $it->cutter  ?: '—';
+                        $assemble = isset($it->assemble) ? (bool)$it->assemble : null;
+                      @endphp
+                      <tr>
+                        <td>{{ $it->itemName ?: ('Item '.$it->ItemID) }}</td>
+                        <td>{{ $it->quantity ?? '—' }}</td>
+                        <td>{{ $size }}</td>
+                        <td>{{ $bleed }}</td>
+                        <td>{{ $matText }}</td>
+                        <td>
+                          @if($prime === null) — @else
+                            <span class="{{ $prime ? 'badge-yes' : 'badge-no' }}">{{ $prime ? 'Yes' : 'No' }}</span>
+                          @endif
+                        </td>
+                        <td>{{ $lam }}</td>
+                        <td>{{ $printer }}</td>
+                        <td>{{ $cutter }}</td>
+                        <td>
+                          @if($assemble === null) — @else
+                            <span class="{{ $assemble ? 'badge-yes' : 'badge-no' }}">{{ $assemble ? 'Yes' : 'No' }}</span>
+                          @endif
+                        </td>
+                      </tr>
+                    @empty
+                      <tr><td colspan="10" class="text-muted text-center">No items found for this product.</td></tr>
+                    @endforelse
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div class="subcard-body" id="p2-body">
-            <div class="table-responsive">
-              <table class="table table-products align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th class="col-item">ITEM</th><th class="col-qty">QUANTITY</th><th class="col-size">SIZE</th><th class="col-bleed">BLEED</th>
-                    <th class="col-material">MATERIAL</th><th class="col-centre">PRIME CENTRE</th><th class="col-lam">LAMINATION</th>
-                    <th class="col-printer">PRINTER</th><th class="col-cutter">CUTTER</th><th class="col-assemble">ASSEMBLE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td class="nowrap">Business&nbsp;Card&nbsp;(ALT)</td><td>1000</td><td>9 × 5.4 cm</td><td>0.3 cm</td><td>Linen Card</td>
-                    <td><span class="badge-yes">Yes</span></td><td>Gloss Lamination</td><td>HP Indigo 7800</td><td>Graphtec Cutter</td><td><span class="badge-no">No</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+
+        @empty
+          <div class="text-muted">No installation products found for this order.</div>
+        @endforelse
 
       </div>
     </div>
 
-    {{-- Delivery Breakdown --}}
-    <div class="card dlv-card mb-4">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start mb-2">
-          <div class="dlv-hd"><i class="bi bi-truck"></i> Delivery Breakdown</div>
-          <div class="dlv-sub">Total: 1000 · Delivered: 500 · Remaining: 500</div>
-        </div>
-        <div class="dlv-product">
-          <div class="dlv-product-title">Product 1</div>
-          <div class="dlv-list">
-            <div class="dlv-item">
-              <div class="dlv-icon"><i class="bi bi-geo-alt"></i></div>
-              <div class="dlv-main">
-                <div class="dlv-head"><span class="badge-method badge-delivery"><i class="bi bi-truck"></i> Delivery & Installation</span></div>
-                <div class="dlv-fields">
-                  <div class="field"><div class="label">Quantity</div><div class="value value-strong">500</div></div>
-                  <div class="field"><div class="label">Address</div><div class="value">TechCorp HQ, KL</div></div>
-                  <div class="field"><div class="label">Delivery Date &amp; Time</div><div class="value">2025-07-25 10:00 AM</div></div>
-                  <div class="field"><div class="label">Install</div><div class="value">Outsource</div></div>
-                  <div class="field"><div class="label">Cost</div><div class="value">RM50</div></div>
+    {{-- Delivery Breakdown (仅当提供 $deliveries 时显示) --}}
+    @if(!empty($deliveries) && is_array($deliveries))
+      <div class="card dlv-card mb-4">
+        <div class="card-body">
+          @php
+            $total = array_sum(array_column($deliveries,'quantity'));
+            $deliv = array_sum(array_map(fn($d)=>($d['delivered']??0), $deliveries));
+            $remain = max(0, $total - $deliv);
+          @endphp
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="dlv-hd"><i class="bi bi-truck"></i> Delivery Breakdown</div>
+            <div class="dlv-sub">Total: {{ $total }} · Delivered: {{ $deliv }} · Remaining: {{ $remain }}</div>
+          </div>
+
+          @foreach($deliveries as $di => $d)
+            <div class="dlv-product">
+              <div class="dlv-product-title">{{ $d['title'] ?? ('Batch '.($di+1)) }}</div>
+              <div class="dlv-list">
+                <div class="dlv-item">
+                  <div class="dlv-icon"><i class="bi {{ $d['icon'] ?? 'bi-geo-alt' }}"></i></div>
+                  <div class="dlv-main">
+                    @php
+                      $method = strtolower($d['method'] ?? 'delivery');
+                      $badgeClass = $method === 'courier' ? 'badge-courier' : ($method === 'pickup' ? 'badge-pickup' : 'badge-delivery');
+                      $badgeIcon  = $method === 'courier' ? 'bi-box-arrow-up-right' : ($method === 'pickup' ? 'bi-bag-check' : 'bi-truck');
+                    @endphp
+                    <div class="dlv-head"><span class="badge-method {{ $badgeClass }}"><i class="bi {{ $badgeIcon }}"></i> {{ ucfirst($method) }}</span></div>
+                    <div class="dlv-fields">
+                      <div class="field"><div class="label">Quantity</div><div class="value value-strong">{{ $d['quantity'] ?? '—' }}</div></div>
+                      <div class="field"><div class="label">Address</div><div class="value">{{ $d['address'] ?? '—' }}</div></div>
+                      <div class="field"><div class="label">Delivery Date &amp; Time</div><div class="value">{{ $d['datetime'] ?? '—' }}</div></div>
+                      @if(isset($d['install']))
+                        <div class="field"><div class="label">Install</div><div class="value">{{ $d['install'] }}</div></div>
+                      @endif
+                      @if(isset($d['cost']))
+                        <div class="field"><div class="label">Cost</div><div class="value">{{ $d['cost'] }}</div></div>
+                      @endif
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="dlv-item">
-              <div class="dlv-icon"><i class="bi bi-box-seam"></i></div>
-              <div class="dlv-main">
-                <div class="dlv-head"><span class="badge-method badge-courier"><i class="bi bi-box-arrow-up-right"></i> Courier</span></div>
-                <div class="dlv-fields">
-                  <div class="field"><div class="label">Quantity</div><div class="value value-strong">500</div></div>
-                  <div class="field"><div class="label">Address</div><div class="value">TechCorp Penang Branch</div></div>
-                  <div class="field"><div class="label">Delivery Date &amp; Time</div><div class="value">2025-07-26 02:00 PM</div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+          @endforeach
 
-        <div class="dlv-product">
-          <div class="dlv-product-title">Product 2</div>
-          <div class="dlv-list">
-            <div class="dlv-item">
-              <div class="dlv-icon"><i class="bi bi-person-check"></i></div>
-              <div class="dlv-main">
-                <div class="dlv-head"><span class="badge-method badge-pickup"><i class="bi bi-bag-check"></i> Self Pickup</span></div>
-                <div class="dlv-fields">
-                  <div class="field"><div class="label">Quantity</div><div class="value value-strong">1000</div></div>
-                  <div class="field"><div class="label">Address</div><div class="value">Not required for pickup</div></div>
-                  <div class="field"><div class="label">Delivery Date &amp; Time</div><div class="value">2025-07-25 10:00 AM</div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    {{-- Add Remarks（仅编辑态显示） --}}
-    <div class="card soft mb-4 edit-only">
-      <div class="card-body">
-        <div class="section-hd"><i class="bi bi-chat-dots"></i> Add Remarks</div>
-        <div id="remarks-list" class="d-flex flex-column gap-2">
-          <div class="remark-row d-flex align-items-center gap-2">
-            <select class="form-select form-select-sm remark-cat" style="max-width:160px">
-              <option>Installation</option><option>Printing</option><option>Packing</option><option>General</option>
-            </select>
-            <input class="form-control form-control-sm remark-text" placeholder="Add your remark..." />
-            <button type="button" class="btn btn-link text-muted p-0 remove-remark" title="Remove"><i class="bi bi-trash"></i></button>
-          </div>
-        </div>
-        <div class="mt-2">
-          <button id="btn-add-remark" type="button" class="btn btn-dark btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Remark</button>
         </div>
       </div>
-    </div>
+    @endif
 
     {{-- Attachments --}}
     <div class="card soft mb-4">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="section-hd mb-0"><i class="bi bi-paperclip"></i> Attachments</div>
-          @php $uploader = $uploader ?? 'Artist A'; @endphp
+          @php $uploader = $uploader ?? ($header->artist_name ?? null); @endphp
           @if($uploader)<span class="uploader-chip ms-auto">{{ $uploader }}</span>@endif
         </div>
-        @php
-          $files = $attachments ?? [
-            ['name' => 'requirements.pdf', 'size' => '1.2 MB', 'url' => '#'],
-            ['name' => 'logo.png',        'size' => '856 KB', 'url' => '#'],
-            ['name' => 'design-specs.pdf','size' => '2.4 MB', 'url' => '#'],
-          ];
-        @endphp
+
+        {{-- Proof file from Order (if available) --}}
+        @if(!empty($proofUrl))
+          <div class="file-row">
+            <div class="file-meta">
+              <i class="bi bi-file-earmark"></i>
+              <div>
+                <div class="file-name">Order Attachment</div>
+                <div class="file-size"></div>
+              </div>
+            </div>
+            <a class="btn btn-light border btn-sm" target="_blank" href="{{ $proofUrl }}"><i class="bi bi-eye me-1"></i>View</a>
+          </div>
+        @endif
+
+        {{-- Additional attachments array (optional) --}}
+        @php $files = $attachments ?? []; @endphp
         @foreach($files as $f)
           @php
-            $n = strtolower($f['name'] ?? '');
+            $name = $f['name'] ?? 'file';
+            $url  = $f['url']  ?? '#';
+            $size = $f['size'] ?? '';
+            $n = strtolower($name);
             $icon = (str_ends_with($n, '.pdf') ? 'file-earmark-pdf'
                    : (preg_match('/\.(png|jpe?g|gif|svg)$/', $n) ? 'file-earmark-image' : 'file-earmark'));
           @endphp
@@ -346,41 +412,42 @@
             <div class="file-meta">
               <i class="bi bi-{{ $icon }}"></i>
               <div>
-                <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
-                <div class="file-size">{{ $f['size'] ?? '' }}</div>
+                <div class="file-name">{{ $name }}</div>
+                <div class="file-size">{{ $size }}</div>
               </div>
             </div>
-            <a class="btn btn-light border btn-sm" href="{{ $f['url'] ?? '#' }}"><i class="bi bi-download me-1"></i>Download</a>
+            <a class="btn btn-light border btn-sm" href="{{ $url }}" target="_blank"><i class="bi bi-download me-1"></i>Download</a>
           </div>
         @endforeach
       </div>
     </div>
 
-    {{-- Permit --}}
-    <div class="card soft mb-4">
-      <div class="card-body">
-        <div class="section-hd"><i class="bi bi-file-earmark-lock"></i> Permit</div>
-        @php $permit = $permit ?? ['name'=>'Permit.pdf','size'=>'1.2 MB','url'=>'#']; @endphp
-        <div class="file-row">
-          <div class="file-meta">
-            <i class="bi bi-file-earmark-pdf"></i>
-            <div>
-              <div class="file-name">{{ $permit['name'] }}</div>
-              <div class="file-size">{{ $permit['size'] }}</div>
+    {{-- Permit (optional) --}}
+    @if(!empty($permit) && is_array($permit))
+      <div class="card soft mb-4">
+        <div class="card-body">
+          <div class="section-hd"><i class="bi bi-file-earmark-lock"></i> Permit</div>
+          <div class="file-row">
+            <div class="file-meta">
+              <i class="bi bi-file-earmark-pdf"></i>
+              <div>
+                <div class="file-name">{{ $permit['name'] ?? 'Permit.pdf' }}</div>
+                <div class="file-size">{{ $permit['size'] ?? '' }}</div>
+              </div>
             </div>
+            <a class="btn btn-light border btn-sm" href="{{ $permit['url'] ?? '#' }}" target="_blank"><i class="bi bi-download me-1"></i>Download</a>
           </div>
-          <a class="btn btn-light border btn-sm" href="{{ $permit['url'] }}"><i class="bi bi-download me-1"></i>Download</a>
         </div>
       </div>
-    </div>
+    @endif
 
     {{-- ===== 底部 Actionbar（三段式） ===== --}}
     <div class="actionbar">
       <!-- 初始：Accept / Reject / Back -->
       <div class="action-pre">
         <div class="toolbar">
-          <button type="button" id="btnAccept" class="btn btn-dark"><i class="bi bi-check2 me-1"></i>Accept</button>
-          <button type="button" id="btnReject" class="btn btn-outline-danger"><i class="bi bi-x-lg me-1"></i>Reject</button>
+          <!-- <button type="button" id="btnAccept" class="btn btn-dark"><i class="bi bi-check2 me-1"></i>Accept</button>
+          <button type="button" id="btnReject" class="btn btn-outline-danger"><i class="bi bi-x-lg me-1"></i>Reject</button> -->
           <a href="javascript:history.back()" class="btn btn-light border">Back</a>
         </div>
       </div>
@@ -462,24 +529,19 @@ function _closeModalCore(id){
   const el=document.getElementById(id);
   if(el){ el.classList.remove('show'); el.setAttribute('aria-hidden','true'); }
 }
-
-// 包一层，顺便切换 body 滚动锁
 window.openModal=function(id){
   document.body.classList.add('modal-open');
   _openModalCore(id);
 };
 window.closeModal=function(id){
   _closeModalCore(id);
-  // 若无任何弹窗开启，移除锁
   if(!document.querySelector('.modal-mask.show')) document.body.classList.remove('modal-open');
 };
-
 /* 点击遮罩区域关闭 */
 ['modalAccept','modalReject'].forEach(mid=>{
   const mask=document.getElementById(mid);
   mask && mask.addEventListener('click',(e)=>{ if(e.target===mask) closeModal(mid); });
 });
-
 /* Esc 关闭 */
 document.addEventListener('keydown',(e)=>{
   if(e.key==='Escape'){
@@ -490,39 +552,28 @@ document.addEventListener('keydown',(e)=>{
   }
 });
 
-/* ===== 三段式逻辑 + 绑定 ===== */
+/* ===== 三段式逻辑 + 绑定（演示：仅切换样式，无后台） ===== */
 const root=document.getElementById('pageRoot');
-
 document.getElementById('btnAccept')?.addEventListener('click',()=>openModal('modalAccept'));
 document.getElementById('btnReject')?.addEventListener('click',()=>openModal('modalReject'));
-
 document.getElementById('confirmAccept')?.addEventListener('click',()=>{
-  // TODO: 调后端“接受任务”
-  root.classList.add('is-accepted');
-  root.classList.remove('is-editing');
-  closeModal('modalAccept');
+  root.classList.add('is-accepted'); root.classList.remove('is-editing'); closeModal('modalAccept');
 });
-
 document.getElementById('confirmReject')?.addEventListener('click',()=>{
   const reason=(document.getElementById('rejectReason')?.value||'').trim();
-  // TODO: 调后端“拒绝任务”，提交 {reason}
-  closeModal('modalReject');
-  console.log('Rejected with reason:', reason);
+  closeModal('modalReject'); console.log('Rejected with reason:', reason);
 });
-
-/* 编辑开关（仅备注块） */
 document.getElementById('btnEdit')?.addEventListener('click',()=>root.classList.add('is-editing'));
 document.getElementById('btnCancel')?.addEventListener('click',()=>root.classList.remove('is-editing'));
 document.getElementById('btnSave')?.addEventListener('click',()=>{
-  // TODO: 保存备注
-  root.classList.remove('is-editing');
-  root.classList.add('is-accepted');
+  root.classList.remove('is-editing'); root.classList.add('is-accepted');
 });
 
-/* Add Remarks 动态行 */
+/* Add Remarks 动态行（仅编辑态显示） */
 (function(){
   const list=document.getElementById('remarks-list');
   const btn=document.getElementById('btn-add-remark');
+  if(!list||!btn) return;
   function row(){
     const d=document.createElement('div');
     d.className='remark-row d-flex align-items-center gap-2';

@@ -18,5 +18,6 @@ class DatabaseSeeder extends Seeder
         $this->call(ProductTaskTypeSeeder::class);
         $this->call(OperationSeeder::class);
         $this->call(DataEntrySeeder::class);
+        $this->call(FulfillmentProgressSeeder::class);
     }
 }
