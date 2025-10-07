@@ -96,9 +96,18 @@
             </thead>
             <tbody>
             @forelse ($orders as $row)
+            @php
+              // Build code like: #ORD-2025-011-P0001
+              $orderPart = $row->order_number ?: ('ORD-'.$row->order_id);
+              $code = '#'.$orderPart.'-P'.str_pad($row->ProductID, 4, '0', STR_PAD_LEFT);
+
+              $prodName = $row->product_name ?? '—';
+              $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
+              $remarks = $row->remarks ?: '–';
+            @endphp
               <tr>
                 {{-- formatted code like #ORD-12-P0001 --}}
-                <td class="fw-semibold">{{ $row->product_code }}</td>
+                <td class="fw-semibold">{{ $code  }}</td>
                 <td>{{ $row->product_name }}</td>
                 <td>{{ $row->completed_date }}</td>
 
