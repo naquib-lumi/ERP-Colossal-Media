@@ -170,7 +170,7 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li>
             @endif
-            @if (in_array(auth()->user()->role, ['operations-manager']))
+            @if (in_array(auth()->user()->role, ['operations-furnishing']))
               <li class="menu-item {{ request()->routeIs('furnishing.history') ? 'active' : '' }}">
                 <a href="{{ route('furnishing.history') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-history"></i>
