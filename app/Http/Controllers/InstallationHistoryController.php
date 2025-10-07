@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
 class InstallationHistoryController extends Controller
@@ -158,6 +159,72 @@ class InstallationHistoryController extends Controller
         } catch (\Throwable $e) {
         }
 
+        // ---- Delivery breakdowns ------------------------------------------------
+    $rawBreaks = DB::table('delivery_breakdowns')
+        ->where('ProductID', $productId)
+        ->orderBy('date')
+        ->orderBy('time')
+        ->get();
+
+    // helper to normalize the 'method' -> one of: courier | pickup | delivery | delivery_installation | installation
+    $normalizeMethod = function (?string $m): string {
+        $m = strtolower(trim((string)$m));
+        if ($m === '' || $m === 'null') return 'delivery';
+        if (Str::contains($m, 'courier')) return 'courier';
+        if (in_array($m, ['self pickup','self_pickup','pickup'])) return 'pickup';
+        if ($m === 'delivery_installation' || Str::contains($m, 'delivery and installation')) return 'delivery_installation';
+        if ($m === 'installation') return 'installation';
+        return 'delivery';
+    };
+
+    $iconFor = function (string $m): string {
+        return match ($m) {
+            'courier'               => 'bi-box-seam',
+            'pickup'                => 'bi-person-check',
+            'delivery_installation',
+            'installation',
+            'delivery'              => 'bi-truck',
+            default                 => 'bi-geo-alt',
+        };
+    };
+
+    $deliveries = [];
+    foreach ($rawBreaks as $i => $b) {
+        $method = $normalizeMethod($b->method ?? '');
+        $date   = $b->date ? Carbon::parse($b->date) : null;
+        $time   = $b->time ? Carbon::parse($b->time) : null;
+
+        $datetime = '—';
+        if ($date && $time) {
+            $datetime = $date->format('Y-m-d') . ' ' . $time->format('H:i');
+        } elseif ($date) {
+            $datetime = $date->format('Y-m-d');
+        }
+
+        // presentable install value if any
+        $installTxt = null;
+        if (!empty($b->deliver_install_type)) {
+            $installTxt = match (strtolower($b->deliver_install_type)) {
+                'outsource' => 'Outsource',
+                'both'      => 'Both',
+                'inhouse', 'in-house' => 'In-house',
+                default     => ucfirst((string)$b->deliver_install_type),
+            };
+        }
+
+        $deliveries[] = [
+            'title'     => 'Delivery #' . ($i + 1),
+            'icon'      => $iconFor($method),
+            'method'    => $method,                         // used for the badge style in your blade
+            'quantity'  => (int)($b->quantity ?? 0),
+            'delivered' => (int)($b->quantity ?? 0),        // if you later track actual delivered, replace here
+            'address'   => $b->location ?: '—',
+            'datetime'  => $datetime,
+            'install'   => $installTxt,                     // only shown if not null
+            'cost'      => isset($b->outsource_cost) ? ('RM' . number_format((float)$b->outsource_cost, 2)) : null,
+        ];
+    }
+
         return view('installation.job_order_show', [
             'header'      => $header,
             'orderCode'   => $orderCode,
@@ -165,6 +232,7 @@ class InstallationHistoryController extends Controller
             'products'    => $products,
             'itemsByProd' => $items,    // Collection keyed by ProductID
             'proofUrl'    => $proofUrl,
+            'deliveries' => $deliveries,
         ]);
     }
 }

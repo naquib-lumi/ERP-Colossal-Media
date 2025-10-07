@@ -321,20 +321,15 @@
             $currentStage = $r['current_stage'] ?? null; // from products.taskType
             $currentStatus = $r['current_status'] ?? null; // from products.status
 
-            // Stage exists if it has a progress row OR it’s the current product stage (to draw the in-progress gray dot)
             $hasStage = function(string $s) use ($r, $currentStage) {
             return isset($r['stages'][$s]) || $currentStage === $s;
             };
 
-            // Stages we will render
             $visible = array_values(array_filter($STAGES, $hasStage));
 
-            // Start of green: first visible stage (handles cases where printing is missing → start at furnishing)
             $first = $visible[0] ?? null;
             $start = $first ? $POS[$first] : 0;
 
-            // Determine where the green line ends
-            // 1) stop at first rejected stage, if any
             $rej = null;
             foreach ($visible as $s) {
             if (($r['stages'][$s]['status'] ?? null) === 'rejected') { $rej = $s; break; }
@@ -342,7 +337,6 @@
             if ($rej) {
             $end = $POS[$rej];
             } else {
-            // 2) else run to last completed stage; in-progress stage does NOT extend the green bar
             $lastCompleted = null;
             foreach ($visible as $s) {
             if (($r['stages'][$s]['status'] ?? null) === 'completed') { $lastCompleted = $s; }
@@ -352,13 +346,10 @@
             : $start;
             }
 
-            // Dot class helper — also honor product's current in_progress stage
             $dotClass = function(array $row, string $stage) use ($DOT, $currentStage, $currentStatus) {
-            // If this stage is the product's current in-progress stage, force a gray dot
             if ($stage === $currentStage && $currentStatus === 'in_progress') {
             return 'dot '.$DOT[$stage].' gray';
             }
-            // If stage doesn't exist at all and it's not the current in-progress stage, skip
             if (!isset($row['stages'][$stage]) && $stage !== $currentStage) return null;
 
             $s = $row['stages'][$stage]['status'] ?? null;

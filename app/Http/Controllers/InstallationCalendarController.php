@@ -9,115 +9,69 @@ use Illuminate\Support\Carbon;
 
 class InstallationCalendarController extends Controller
 {
-    // GET /artist/calendar
     public function index()
     {
-        return view('installation.calendar', [
-            'artistId' => Auth::id(), // used by JS
-        ]);
+        return view('installation.calendar');
     }
 
-    // GET /artist/calendar/events
     public function events(Request $request)
-{
-    $start = \Carbon\Carbon::parse($request->query('start', now()->startOfMonth()));
-    $end   = \Carbon\Carbon::parse($request->query('end',   now()->endOfMonth()));
+    {
+        // Normalize range coming from FullCalendar
+        $startDate = \Carbon\Carbon::parse($request->query('start', now()->startOfMonth()))->startOfDay();
+        $endDate   = \Carbon\Carbon::parse($request->query('end', now()->endOfMonth()))->endOfDay();
 
-    // ---- MEETINGS: return ANY that overlap the requested range ----
-    $meetings = DB::table('meetings')
-        ->leftJoin('users', 'users.id', '=', 'meetings.user_id') // << add name
-        ->select([
-            'meetings.id',
-            'meetings.title',
-            'meetings.start_time','meetings.end_time',
-            'meetings.new_start_time','meetings.new_end_time',
-            'meetings.status','meetings.type','meetings.url','meetings.location',
-            'meetings.note','meetings.lead_id','meetings.user_id',
-            'users.name as artist_name', // << new
-        ])
-        ->where(function ($q) use ($start, $end) {
-            $q->where(function($qq) use ($start,$end){
-                $qq->whereNotNull('start_time')
-                    ->where(function($qqq) use ($start,$end){
-                        $qqq->whereBetween('start_time',[$start,$end])
-                            ->orWhereBetween('end_time',[$start,$end])
-                            ->orWhere(function($q4) use ($start,$end){
-                                $q4->where('start_time','<=',$start)
-                                ->where('end_time','>=',$start);
-                            });
-                    });
-            })
-            ->orWhere(function($qq) use ($start,$end){
-                $qq->whereNotNull('new_start_time')
-                    ->where(function($qqq) use ($start,$end){
-                        $qqq->whereBetween('new_start_time',[$start,$end])
-                            ->orWhereBetween('new_end_time',[$start,$end])
-                            ->orWhere(function($q4) use ($start,$end){
-                                $q4->where('new_start_time','<=',$start)
-                                ->where('new_end_time','>=',$start);
-                            });
-                    });
-            });
-        })
-        ->get();
+        $rows = DB::table('products as p')
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            // artist is defined on the ORDER → get the user's name from there
+            ->leftJoin('users as u', 'u.id', '=', 'o.artist_id')
+            ->select([
+                'p.ProductID',
+                'p.OrderID',
+                'p.productName',
+                'p.taskType',
+                'p.status',
+                'p.updated_at',
+                'o.order_number',
+                'o.companyName as company_name',
+                'u.name as artist_name',     // ← artist from orders table
+            ])
+            ->whereRaw("LOWER(TRIM(p.taskType)) = 'installation'")
+            ->whereBetween(DB::raw('DATE(p.updated_at)'), [$startDate->toDateString(), $endDate->toDateString()])
+            ->orderBy('p.updated_at')
+            ->get();
 
-    // ---- REMINDERS: any due_date in range (table has no user_id) ----
-    $reminders = DB::table('reminders')->select([
-        'id','title','due_date','status','recurrence_type','recurrence_time','end_date','lead_id',
-    ])->whereBetween('due_date', [$start, $end])->get();
+        $events = $rows->map(function ($r) {
+            $orderCode = $r->order_number ?: ('ORD-' . str_pad((string)($r->OrderID ?? 0), 3, '0', STR_PAD_LEFT));
+            $productCode = sprintf('%s-P%04d', $orderCode, (int)$r->ProductID);
 
-    // Map to FullCalendar events
-    $events = [];
+            $status = strtolower((string)$r->status);
+            $palette = [
+                'completed'   => ['#22c55e', '#22c55e', '#ffffff'],
+                'rejected'    => ['#ef4444', '#ef4444', '#ffffff'],
+                'in_progress' => ['#3b82f6', '#3b82f6', '#ffffff'],
+            ];
+            [$bg, $border, $text] = $palette[$status] ?? ['#3b82f6', '#3b82f6', '#ffffff'];
 
-    $statusColors = [
-        'scheduled' => ['bg' => '#4e73df', 'text' => '#fff'],
-        'postponed' => ['bg' => '#f6c23e', 'text' => '#fff'],
-        'canceled'  => ['bg' => '#000a0b', 'text' => '#fff'],
-    ];
+            return [
+                'id'              => $r->ProductID,
+                'title'           => $productCode,
+                'start'           => \Carbon\Carbon::parse($r->updated_at)->toIso8601String(),
+                'allDay'          => true,
+                'backgroundColor' => $bg,
+                'borderColor'     => $border,
+                'textColor'       => $text,
+                'extendedProps'   => [
+                    'type'          => 'installation',
+                    'status'        => $status,
+                    'product_name'  => $r->productName,
+                    'product_code'  => $productCode,
+                    'company_name'  => $r->company_name,
+                    'artist_name'   => $r->artist_name,    // ← pass to modal
+                    'product_id'    => $r->ProductID,
+                ],
+            ];
+        })->values();
 
-    foreach ($meetings as $m) {
-        $startAt = $m->new_start_time ? \Carbon\Carbon::parse($m->new_start_time) : \Carbon\Carbon::parse($m->start_time);
-        $endAt   = $m->new_end_time   ? \Carbon\Carbon::parse($m->new_end_time)   : ($m->end_time ? \Carbon\Carbon::parse($m->end_time) : (clone $startAt)->addMinutes(60));
-
-        $colors = $statusColors[$m->status] ?? ['bg' => '#6c757d', 'text' => '#fff'];
-
-        $events[] = [
-            'id'    => "meeting-{$m->id}",
-            'title' => $m->title ?? 'Meeting',
-            'start' => $startAt->toIso8601String(),
-            'end'   => $endAt->toIso8601String(),
-            'allDay'=> false,
-            'backgroundColor' => $colors['bg'],
-            'borderColor'     => $colors['bg'],
-            'textColor'       => $colors['text'],
-            'extendedProps' => [
-                'type'        => 'meeting',
-                'status'      => $m->status,
-                'meeting_type'=> $m->type,
-                'url'         => $m->url,
-                'location'    => $m->location,
-                'note'        => $m->note,
-                'lead_id'     => $m->lead_id,
-                'artist_id'   => $m->user_id,
-                'artist_name' => $m->artist_name, // << use this in the dropdown
-            ],
-            'backgroundColor' => $colors['bg'],  // from your status map
-            'borderColor'     => $colors['bg'],
-            'textColor'       => $colors['text'],
-        ];
+        return response()->json($events);
     }
-
-    return response()->json($events);
-}
-
-
-    // All mutate endpoints disabled in view-only:
-    public function storeReminder(Request $r){ abort(403,'View-only calendar'); }
-    public function updateReminder(Request $r,$id){ abort(403,'View-only calendar'); }
-    public function completeReminder(Request $r,$id){ abort(403,'View-only calendar'); }
-    public function destroyReminder($id){ abort(403,'View-only calendar'); }
-    public function storeMeeting(Request $r){ abort(403,'View-only calendar'); }
-    public function updateMeeting(Request $r,$id){ abort(403,'View-only calendar'); }
-    public function updateMeetingStatus(Request $r,$id){ abort(403,'View-only calendar'); }
-    public function destroyMeeting($id){ abort(403,'View-only calendar'); }
 }
