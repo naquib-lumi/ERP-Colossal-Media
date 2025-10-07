@@ -446,8 +446,8 @@
       <!-- 初始：Accept / Reject / Back -->
       <div class="action-pre">
         <div class="toolbar">
-          <button type="button" id="btnAccept" class="btn btn-dark"><i class="bi bi-check2 me-1"></i>Accept</button>
-          <button type="button" id="btnReject" class="btn btn-outline-danger"><i class="bi bi-x-lg me-1"></i>Reject</button>
+          <!-- <button type="button" id="btnAccept" class="btn btn-dark"><i class="bi bi-check2 me-1"></i>Accept</button>
+          <button type="button" id="btnReject" class="btn btn-outline-danger"><i class="bi bi-x-lg me-1"></i>Reject</button> -->
           <a href="javascript:history.back()" class="btn btn-light border">Back</a>
         </div>
       </div>
