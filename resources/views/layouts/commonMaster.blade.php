@@ -234,6 +234,11 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
 @endif
 
+@if (Request::is('installation/*') || Request::is('installation/calendar') || Request::is('calendar/*'))
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
+@endif
+
 @if (Request::is('data-entry/*'))
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet"
@@ -287,6 +292,12 @@
         <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/chartjs/chartjs.js') }}"></script>
         <script src="{{ asset('assets/js/artist-app-calendar.js') }}"></script>
+        <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
+        <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
+    @endif
+
+    @if (Request::is('installation/*') || Request::is('installation/calendar') || Request::is('calendar/*') )
+        <script src="{{ asset('assets/js/installation-app-calendar.js') }}"></script>
         <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
         <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
     @endif

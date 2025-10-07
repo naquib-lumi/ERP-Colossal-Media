@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Artist Calendar')
+@section('title', 'Delivery & Installation Calendar')
 
 @section('content')
 <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -178,5 +178,5 @@
 
 @push('scripts')
 {{-- This will be injected by @stack('scripts') in commonMaster.blade.php --}}
-<script src="{{ asset('assets/js/artist-app-calendar.js') }}"></script>
+<script src="{{ asset('assets/js/installation-app-calendar.js') }}"></script>
 @endpush

@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const endStr   = inputEnd?.value   ? (inputEnd.value   + 'T23:59:59') : info.endStr;
 
       $.ajax({
-        url: '/artist/calendar/events',
+        url: '/installation/calendar/events',
         type: 'GET',
         data: { start: startStr, end: endStr },
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },

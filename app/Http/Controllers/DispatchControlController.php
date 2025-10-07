@@ -7,6 +7,30 @@ use Illuminate\Support\Facades\DB;
 
 class DispatchControlController extends Controller
 {
+    public function dashboard(Request $request)
+    {
+        // Mapping for filter dropdown & pills
+        $statuses = [
+            'all'         => 'All Status',
+            'in_progress' => 'In Progress',
+            'completed'   => 'Completed',
+            'pending'     => 'Pending',
+            'issue'       => 'Issue',
+        ];
+
+        $search = trim((string) $request->query('q', ''));
+        $status = $request->query('status', 'all');
+
+        
+
+        return view('installation.dashboard', [
+            'statuses' => $statuses,
+            'search'   => $search,
+            'status'   => $status,
+        ]);
+    }
+
+
     public function index(Request $request)
     {
         $q        = trim((string) $request->get('q', ''));
