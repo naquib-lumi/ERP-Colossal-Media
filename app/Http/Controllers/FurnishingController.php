@@ -7,59 +7,59 @@ use Illuminate\Support\Facades\DB;
 
 class FurnishingController extends Controller
 {
-    /**
-     * Dashboard list + KPI
-     */
     public function dashboard(Request $request)
     {
-        // KPIs
-        $inProgress = DB::table('products')
-            ->whereRaw('LOWER(COALESCE(taskType,"")) = "furnishing"')
-            ->whereRaw('LOWER(COALESCE(status,"")) = "in_progress"')
-            ->count();
-
-        $completed  = DB::table('products')
-            ->whereRaw('LOWER(COALESCE(taskType,"")) = "furnishing"')
-            ->whereRaw('LOWER(COALESCE(status,"")) = "completed"')
-            ->count();
-
-        // Data table (join orders only if present)
         $jobs = DB::table('products as p')
-            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
+            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+            ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
             ->select([
                 'p.ProductID',
-                'p.OrderID',
-                'p.productName',
                 'p.updated_at as submission_date',
                 'p.status',
                 'p.taskType',
-                DB::raw('o.deadline as deadline'),
+                'o.id as order_id',
+                'o.order_number',
+                'o.deadline',
+                'pi.ItemID',
+                DB::raw('IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0) as sq_inch'),
+                DB::raw('COALESCE(s.cutter, "-") as cutter'),
+                DB::raw("CONCAT('ORD-', IFNULL(o.order_number, o.id), '-', 'P', p.ProductID) as product_code"),
             ])
-            ->whereRaw('LOWER(COALESCE(p.taskType,"")) = "furnishing"')
-            ->whereRaw('LOWER(COALESCE(p.status,"")) = "in_progress"')
-            ->orderByDesc('p.updated_at')
-            ->paginate(10)
-            ->withQueryString();
+            ->where('p.status', 'in_progress')
+            ->where('p.taskType', 'furnishing')
+            ->orderBy('o.id')
+            ->orderBy('p.ProductID')
+            ->paginate(10);
 
-        return view('furnishing.dashboard', compact('inProgress','completed','jobs'));
+        $inProgress = DB::table('products')
+            ->where('status', 'in_progress')
+            ->where('taskType', 'furnishing')
+            ->count();
+
+        $completed = DB::table('products')
+            ->where('status', 'completed')
+            ->where('taskType', 'furnishing')
+            ->count();
+
+        return view('furnishing.dashboard', compact('jobs', 'inProgress', 'completed'));
     }
 
-    /**
-     * Mark a single furnishing job completed
-     */
-    public function markComplete($productId, Request $request)
+    // Dashboard 勾确认：把该产品置为 completed（保持 taskType=furnishing）
+    public function markComplete($product)
     {
-        $updated = DB::table('products')
-            ->where('ProductID', $productId)
-            ->update([
-                'status'     => 'completed',
-                'updated_at' => now(),
-            ]);
+        try {
+            DB::table('products')
+                ->where('ProductID', $product)
+                ->update([
+                    'status'     => 'completed',
+                    'taskType'   => 'furnishing',
+                    'updated_at' => now(),
+                ]);
 
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => (bool)$updated]);
+            return response()->json(['ok' => true]);
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
         }
-
-        return back()->with('status', $updated ? 'Marked as completed.' : 'Nothing updated.');
     }
 }

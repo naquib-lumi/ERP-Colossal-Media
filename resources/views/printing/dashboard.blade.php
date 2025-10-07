@@ -53,7 +53,7 @@
 .cx-btn-dark{background:#111827;border:1px solid #111827;color:#fff}
 .cx-btn-dark:hover{background:#0B1220;border-color:#0B1220}
 
-/* Pill-style pager (matches your UI) */
+/* Pill-style pager */
 .pill-pager .page-link{
   border-radius:999px;border:1px solid #E6E8F0;background:#F6F7FB;
   color:#667085;padding:.45rem .9rem;line-height:1;
@@ -62,9 +62,7 @@
 .pill-pager .page-item.active .page-link{background:#635bff;border-color:#635bff;color:#fff}
 .pill-pager .page-item.disabled .page-link{opacity:.6;cursor:not-allowed;background:#F6F7FB}
 
-@media (max-width: 992px){
-  .kpi-grid{grid-template-columns:1fr}
-}
+@media (max-width: 992px){ .kpi-grid{grid-template-columns:1fr} }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -115,33 +113,28 @@
           <tbody>
           @forelse ($jobs as $row)
             @php
-              $code = 'ORD' . ($row->OrderID ?? $row->ProductID) . '-P' . $row->ProductID;
               $deadline  = $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—';
               $submitted = $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—';
               $sq = is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0) . ' sq in' : '0 sq in';
             @endphp
             <tr id="job-{{ $row->ProductID }}">
-              <td>{{ $row->product_code  }}</td>
-              <td>{{ $row->printer ?: '—' }}</td>
+              <td>{{ $row->product_code ?? ('ORD'.($row->order_id ?? $row->ProductID).'-P'.$row->ProductID) }}</td>
+              <td>{{ ($row->printer ?? '-') === '-' ? '—' : $row->printer }}</td>
               <td>{{ $sq }}</td>
               <td>{{ $deadline }}</td>
               <td>{{ $submitted }}</td>
               <td class="text-nowrap">
-                {{-- View --}}
                 <a class="icon-pill" title="View"><i class="bi bi-eye"></i></a>
 
-                {{-- Marked → show confirm modal --}}
                 <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed">
                   <i class="bi bi-check2"></i>
                 </button>
 
-                {{-- Report Issue page --}}
                 <a class="icon-pill" title="Report"
                    href="{{ route('printing.report', ['productId' => $row->ProductID]) }}">
                   <i class="bi bi-exclamation-triangle"></i>
                 </a>
 
-                {{-- Edit (placeholder) --}}
                 <a class="icon-pill" title="Edit"><i class="bi bi-pencil"></i></a>
               </td>
             </tr>
@@ -235,7 +228,7 @@
   let currentId = null;
   const csrf = '{{ csrf_token() }}';
 
-  // Open modal from “Marked”
+  // Open modal
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-mark');
     if (!btn) return;
@@ -266,16 +259,14 @@
       const data = await res.json();
 
       if (data.ok) {
-        // remove row
         const row = document.getElementById('job-'+currentId) ||
                     document.querySelector(`button.js-mark[data-id="${currentId}"]`)?.closest('tr');
         if (row) row.remove();
 
-        // best-effort KPI update
         const bump = (sel, d) => {
           const el = document.querySelector(sel);
           if (!el) return;
-          const n  = parseInt((el.textContent || '').trim(), 10);
+          const n = parseInt((el.textContent || '').trim(), 10);
           if (!isNaN(n)) el.textContent = Math.max(0, n + d);
         };
         bump('[data-kpi="inprogress"]', -1);

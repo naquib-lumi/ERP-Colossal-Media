@@ -7,6 +7,13 @@ use Illuminate\Support\Facades\DB;
 
 class PrintingController extends Controller
 {
+    /**
+     * Printing dashboard
+     * - Shows only Printing jobs that are still IN PROGRESS
+     * - KPIs:
+     *   * In Progress  -> status=in_progress & taskType=printing
+     *   * Completed    -> status=completed  (regardless of downstream taskType)
+     */
     public function dashboard(Request $request)
     {
         $jobs = DB::table('products as p')
@@ -24,58 +31,69 @@ class PrintingController extends Controller
                 'pi.ItemID',
                 DB::raw('IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0) as sq_inch'),
                 DB::raw('COALESCE(s.printer, "-") as printer'),
-                // ✅ Add properly formatted Product Code here
+                // Human-friendly product code for display (keep if you render it)
                 DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
             ])
-            ->where('p.status', 'in_progress')   // only in-progress
-            ->where('p.taskType', 'printing')    // only printing
+            ->where('p.status', 'in_progress')       // list shows only in-progress
+            ->where('p.taskType', 'printing')        // only printing stage
             ->orderBy('o.id', 'asc')
             ->orderBy('p.ProductID', 'asc')
             ->orderBy('pi.ItemID', 'asc')
             ->paginate(10);
 
+        // KPI: In-Progress (Printing)
         $inProgress = DB::table('products')
             ->where('status', 'in_progress')
             ->where('taskType', 'printing')
             ->count();
 
+        // KPI: Completed (persists even after the job moves to Furnishing)
         $completed = DB::table('products')
             ->where('status', 'completed')
-            ->where('taskType', 'printing')
             ->count();
 
         return view('printing.dashboard', compact('jobs', 'inProgress', 'completed'));
     }
 
+    /**
+     * Confirm a job is printed:
+     * - Mark as completed
+     * - Move to the next stage (furnishing)
+     */
     public function markPrinted($productId)
     {
         try {
-            // Move the item out of Printing to Furnishing (keep in_progress for next phase)
             DB::table('products')
                 ->where('ProductID', $productId)
                 ->update([
-                    'taskType'   => 'furnishing',
-                    'status'     => DB::raw("IF(status='in_progress','in_progress',status)"),
+                    'status'     => 'completed',   // counts for KPI even after move
+                    'taskType'   => 'furnishing',  // handoff to next team
                     'updated_at' => now(),
                 ]);
 
             return response()->json(['ok' => true]);
         } catch (\Throwable $e) {
-            return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
+            return response()->json([
+                'ok'      => false,
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
 
+    /**
+     * Report issue form (Printing)
+     */
     public function reportForm($productId)
     {
-        // Pull minimal info to show a neat order code
+        // Minimal info to show a neat order code
         $row = DB::table('products as p')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID') // optional, in case you want ItemID later
+            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID') // optional, if you need ItemID later
             ->select('p.ProductID', 'p.OrderID', 'o.order_number')
             ->where('p.ProductID', $productId)
             ->first();
 
-        // ★ changed: prefer order_number if available (cleaner code on the form)
+        // Prefer order_number if present; else fallback
         if ($row) {
             $orderCode = $row->order_number
                 ? $row->order_number
@@ -90,37 +108,41 @@ class PrintingController extends Controller
         ]);
     }
 
+    /**
+     * Submit a Printing issue report.
+     * Writes to your existing `report_redo` table.
+     */
     public function reportSubmit(Request $request, $productId)
-{
-    // Accept both "other_reason" and "reason_other" from different blades
-    $data = $request->validate([
-        'reason'         => ['required', 'string'],
-        'other_reason'   => ['nullable', 'string'],
-        'reason_other'   => ['nullable', 'string'],
-        'notes'          => ['nullable', 'string'], // kept; table doesn't have it, we just ignore it
-    ]);
+    {
+        // Accept both field names from different blades (other_reason / reason_other)
+        $data = $request->validate([
+            'reason'        => ['required', 'string'],
+            'other_reason'  => ['nullable', 'string'],
+            'reason_other'  => ['nullable', 'string'],
+            'notes'         => ['nullable', 'string'], // not stored in report_redo, but OK to receive
+        ]);
 
-    $otherText = $data['other_reason'] ?? $data['reason_other'] ?? null;
+        $otherText = $data['other_reason'] ?? $data['reason_other'] ?? null;
 
-    $reason = strtolower($data['reason']) === 'others'
-        ? ($otherText ?: 'Others')
-        : $data['reason'];
+        $reason = strtolower($data['reason']) === 'others'
+            ? ($otherText ?: 'Others')
+            : $data['reason'];
 
-    // Get the OrderID that belongs to this ProductID
-    $orderId = DB::table('products')
-        ->where('ProductID', $productId)
-        ->value('OrderID');
+        // Resolve OrderID from ProductID
+        $orderId = DB::table('products')
+            ->where('ProductID', $productId)
+            ->value('OrderID');
 
-    // Insert into your existing table "report_redo"
-    DB::table('report_redo')->insert([
-        'OrderID'   => $orderId ?? 0,   // or make this required if you prefer
-        'reason'    => $reason,
-        'created_at'=> now(),
-        'updated_at'=> now(),
-    ]);
+        // Store in your existing table
+        DB::table('report_redo')->insert([
+            'OrderID'   => $orderId ?? 0,
+            'reason'    => $reason,
+            'created_at'=> now(),
+            'updated_at'=> now(),
+        ]);
 
-    return redirect()->route('printing.dashboard')
-        ->with('status', 'Report submitted.');
-}
-
+        return redirect()
+            ->route('printing.dashboard')
+            ->with('status', 'Report submitted.');
+    }
 }
