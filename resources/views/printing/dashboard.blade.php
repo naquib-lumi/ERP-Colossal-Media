@@ -121,7 +121,7 @@
               $sq = is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0) . ' sq in' : '0 sq in';
             @endphp
             <tr id="job-{{ $row->ProductID }}">
-              <td>{{ $code }}</td>
+              <td>{{ $row->product_code  }}</td>
               <td>{{ $row->printer ?: '—' }}</td>
               <td>{{ $sq }}</td>
               <td>{{ $deadline }}</td>

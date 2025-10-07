@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 class DispatchControlController extends Controller
 {
-    public function index(Request $request)
+    public function dashboard(Request $request)
     {
         $q        = trim((string) $request->get('q', ''));
         $taskType = strtolower((string) $request->get('task_type', ''));

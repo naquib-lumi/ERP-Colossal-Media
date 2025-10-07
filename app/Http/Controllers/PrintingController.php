@@ -24,10 +24,14 @@ class PrintingController extends Controller
                 'pi.ItemID',
                 DB::raw('IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0) as sq_inch'),
                 DB::raw('COALESCE(s.printer, "-") as printer'),
+                // ✅ Add properly formatted Product Code here
+                DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
             ])
-            ->where('p.status', 'in_progress')       // only in-progress
-            ->where('p.taskType', 'printing')        // only printing
-            ->orderByDesc('p.updated_at')
+            ->where('p.status', 'in_progress')   // only in-progress
+            ->where('p.taskType', 'printing')    // only printing
+            ->orderBy('o.id', 'asc')
+            ->orderBy('p.ProductID', 'asc')
+            ->orderBy('pi.ItemID', 'asc')
             ->paginate(10);
 
         $inProgress = DB::table('products')
