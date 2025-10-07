@@ -30,6 +30,8 @@ class InstallationController extends Controller
                 'p.ProductID',
                 'p.productName',
                 'p.OrderID',
+                'p.taskType as current_stage',   // <-- new
+                'p.status   as current_status',  // <-- new
                 'o.order_number',
                 'o.orderDate',
                 'o.deadline',
@@ -48,16 +50,22 @@ class InstallationController extends Controller
             $pid = $r->ProductID;
             if (!isset($byProduct[$pid])) {
                 $byProduct[$pid] = [
-                    'ProductID'    => $pid,
-                    'productName'  => $r->productName,
-                    'OrderID'      => $r->OrderID,
-                    'order_number' => $r->order_number,
-                    'orderDate'    => $r->orderDate,
-                    'deadline'     => $r->deadline,
-                    'stages'       => [],
+                    'ProductID'       => $pid,
+                    'productName'     => $r->productName,
+                    'OrderID'         => $r->OrderID,
+                    'order_number'    => $r->order_number,
+                    'orderDate'       => $r->orderDate,
+                    'deadline'        => $r->deadline,
+                    'stages'          => [],
+                    // expose current stage/status from products table
+                    'current_stage'   => $r->current_stage ? strtolower($r->current_stage) : null,
+                    'current_status'  => $r->current_status ? strtolower($r->current_status) : null,
                 ];
             }
-            if (!$r->stage) continue;
+
+            if (!$r->stage) {
+                continue;
+            }
 
             $k    = strtolower(trim($r->stage)); // printing|furnishing|delivery|installation
             $rank = $r->completedAt ?? $r->acceptedAt ?? $r->fp_created_at;
@@ -87,19 +95,22 @@ class InstallationController extends Controller
                     $lastCompleted = $i;
                     continue;
                 }
-                // pending/missing
+                // pending/missing → stop at last completed
                 return $lastCompleted >= 0 ? $positions[$lastCompleted] : 0;
             }
             return 100; // all done
         };
 
         $inProgress = 0;
-        $completed = 0;
+        $completed  = 0;
         $list = [];
         foreach ($byProduct as $p) {
-            $p['product_code'] = '#' . ($p['order_number'] ?: ('ORD-' . $p['OrderID'])) . '-P' . str_pad((string)$p['ProductID'], 4, '0', STR_PAD_LEFT);
-            $p['progress']     = $progressWidth($p);
+            $p['product_code'] = ($p['order_number'] ?: ('ORD-' . $p['OrderID']))
+                . '-P' . str_pad((string)$p['ProductID'], 4, '0', STR_PAD_LEFT);
 
+            $p['progress'] = $progressWidth($p);
+
+            // KPI: keep your previous rule (installation completed => completed)
             $instStatus = $p['stages']['installation']['status'] ?? null;
             if ($instStatus === 'completed') $completed++;
             else $inProgress++;
@@ -121,7 +132,7 @@ class InstallationController extends Controller
         usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
 
         // 6) Paginate manually (10 per page)
-        $perPage = 1000;
+        $perPage = 10000; // <-- was 1000
         $page    = max(1, (int)$request->query('page', 1));
         $total   = count($list);
         $items   = array_slice($list, ($page - 1) * $perPage, $perPage);
@@ -140,7 +151,7 @@ class InstallationController extends Controller
             'status'     => $status,
             'inProgress' => $inProgress,
             'completed'  => $completed,
-            'rows'       => $rowsPaginated, // <-- paginator
+            'rows'       => $rowsPaginated,
         ]);
     }
 }
