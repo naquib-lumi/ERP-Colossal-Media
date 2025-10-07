@@ -256,6 +256,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         // Route::get('/printing/productorder', [ProductOrderController::class, 'productorder'])->name('printing.productorder');
         Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
         Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
+        Route::match(['patch','post'], '/jobs/{productId}/complete', [PrintingController::class, 'markPrinted'])->name('printing.jobs.complete');
         Route::get('/printing/history', [PrintingHistoryController::class, 'index'])->name('printing.history');
         Route::get('/printing/profile', [\App\Http\Controllers\PrintingProfileController::class, 'index'])->name('printing.profile');
         Route::put('/printing/profile', [\App\Http\Controllers\PrintingProfileController::class, 'update'])->name('printing.profile.update');
@@ -267,6 +268,8 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
     // Furnishing
     Route::middleware(['web','auth','role:operations-furnishing'])->group(function () {
         Route::get('/furnishing/dashboard', [FurnishingController::class, 'dashboard'])->name('furnishing.dashboard');
+        Route::patch('/furnishing/jobs/{productId}/complete', [FurnishingController::class, 'markCompleted'])->name('furnishing.jobs.complete');
+Route::post('/furnishing/jobs/{productId}/complete',  [FurnishingController::class, 'markCompleted'])->name('furnishing.jobs.complete.post');
         Route::get('/furnishing/product-order', [FurnishingProductOrderController::class, 'productorder'])->name('furnishing.product-order');
         Route::get('/furnishing/history', [FurnishingHistoryController::class, 'index'])->name('furnishing.history');
         Route::get('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'index'])->name('furnishing.profile');

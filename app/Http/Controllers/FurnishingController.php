@@ -8,58 +8,73 @@ use Illuminate\Support\Facades\DB;
 class FurnishingController extends Controller
 {
     /**
-     * Dashboard list + KPI
+     * Furnishing Dashboard
+     * 仅显示 Furnishing 阶段 且 in_progress 的任务
      */
     public function dashboard(Request $request)
     {
-        // KPIs
-        $inProgress = DB::table('products')
-            ->whereRaw('LOWER(COALESCE(taskType,"")) = "furnishing"')
-            ->whereRaw('LOWER(COALESCE(status,"")) = "in_progress"')
-            ->count();
-
-        $completed  = DB::table('products')
-            ->whereRaw('LOWER(COALESCE(taskType,"")) = "furnishing"')
-            ->whereRaw('LOWER(COALESCE(status,"")) = "completed"')
-            ->count();
-
-        // Data table (join orders only if present)
         $jobs = DB::table('products as p')
-            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
+            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+            ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
             ->select([
                 'p.ProductID',
-                'p.OrderID',
-                'p.productName',
                 'p.updated_at as submission_date',
                 'p.status',
                 'p.taskType',
-                DB::raw('o.deadline as deadline'),
+                'o.id as order_id',
+                'o.order_number',
+                'o.deadline',
+                'pi.ItemID',
+                DB::raw('IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0) as sq_inch'),
+                DB::raw("COALESCE(s.cutter, '-') as cutter"),
+                DB::raw("CONCAT('ORD', COALESCE(o.id, p.OrderID), '-P', p.ProductID) as product_code"),
             ])
-            ->whereRaw('LOWER(COALESCE(p.taskType,"")) = "furnishing"')
-            ->whereRaw('LOWER(COALESCE(p.status,"")) = "in_progress"')
-            ->orderByDesc('p.updated_at')
-            ->paginate(10)
-            ->withQueryString();
+            ->where('p.taskType', 'furnishing')
+            ->where('p.status', 'in_progress')
+            ->orderBy('o.id', 'asc')
+            ->orderBy('p.ProductID', 'asc')
+            ->orderBy('pi.ItemID', 'asc')
+            ->paginate(10);
 
-        return view('furnishing.dashboard', compact('inProgress','completed','jobs'));
+        $inProgress = DB::table('products')
+            ->where('taskType', 'furnishing')
+            ->where('status', 'in_progress')
+            ->count();
+
+        $completed = DB::table('products')
+            ->where('taskType', 'furnishing')
+            ->where('status', 'completed')
+            ->count();
+
+        return view('furnishing.dashboard', compact('jobs', 'inProgress', 'completed'));
     }
 
     /**
-     * Mark a single furnishing job completed
+     * 标记完成（推荐走 PATCH；Blade 里已带 CSRF）
+     * 仅更新 status=completed，taskType 保持 furnishing
      */
-    public function markComplete($productId, Request $request)
+    public function markCompleted(Request $request, $productId)
     {
-        $updated = DB::table('products')
-            ->where('ProductID', $productId)
-            ->update([
-                'status'     => 'completed',
-                'updated_at' => now(),
-            ]);
+        try {
+            $affected = DB::table('products')
+                ->where('ProductID', $productId)
+                ->update([
+                    'status'     => 'completed',
+                    'updated_at' => now(),
+                ]);
 
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => (bool)$updated]);
+            return response()->json(['ok' => $affected > 0, 'affected' => $affected]);
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
         }
+    }
 
-        return back()->with('status', $updated ? 'Marked as completed.' : 'Nothing updated.');
+    /**
+     * 兼容旧调用名：某些地方还在调用 markComplete()
+     */
+    public function markComplete(Request $request, $productId)
+    {
+        return $this->markCompleted($request, $productId);
     }
 }

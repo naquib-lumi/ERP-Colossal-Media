@@ -22,10 +22,10 @@
 .table td{color:#1F2937;padding:14px 16px;border-top:1px solid #F1F4F8;vertical-align:middle}
 .table tbody tr:hover{background:#FAFBFC}
 .table td:first-child{font-weight:700;color:#111827}
-/* action col a bit narrower now that Report is gone */
-.col-actions{width:170px}
+.col-actions{width:210px}
+.empty{padding:28px;text-align:center;color:#667085}
 
-/* Action buttons – circular vibe like screenshot */
+/* Action buttons – 圆角小图标 */
 .icon-pill{
   width:34px;height:34px;border-radius:10px;
   display:inline-flex;align-items:center;justify-content:center;
@@ -34,10 +34,7 @@
 .icon-pill + .icon-pill{margin-left:8px}
 .icon-pill:hover{background:#F4F6FA;color:#111827;border-color:#D7DFE7}
 
-/* Empty state */
-.empty{padding:28px;text-align:center;color:#667085}
-
-/* ===== Modal (matches your picture) ===== */
+/* ===== Modal (confirmation) ===== */
 .cx-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;z-index:1080}
 .cx-mask.show{display:grid;place-items:center}
 .cx-modal{width:560px;max-width:92vw;background:#fff;border:1px solid #E7EAF0;border-radius:14px;box-shadow:0 24px 80px rgba(2,6,23,.28);overflow:hidden}
@@ -56,43 +53,40 @@
 .cx-btn-dark{background:#111827;border:1px solid #111827;color:#fff}
 .cx-btn-dark:hover{background:#0B1220;border-color:#0B1220}
 
-@media (max-width: 992px){ .kpi-grid{grid-template-columns:1fr} }
-
-/* === Pill Pager (keeps pager visible) === */
+/* Pager */
 .pill-pager .page-link{
-  border-radius:999px;
-  border:1px solid #E6E8F0;
-  background:#F6F7FB;
-  color:#667085;
-  padding:.45rem .9rem;
-  line-height:1;
+  border-radius:999px;border:1px solid #E6E8F0;background:#F6F7FB;
+  color:#667085;padding:.45rem .9rem;line-height:1;
 }
-.pill-pager .page-item + .page-item{ margin-left:.5rem; }
-.pill-pager .page-item.active .page-link{
-  background:#635bff; border-color:#635bff; color:#fff;
-}
-.pill-pager .page-item.disabled .page-link{
-  opacity:.6; cursor:not-allowed; background:#F6F7FB;
-}
+.pill-pager .page-item + .page-item{margin-left:.5rem}
+.pill-pager .page-item.active .page-link{background:#635bff;border-color:#635bff;color:#fff}
+.pill-pager .page-item.disabled .page-link{opacity:.6;cursor:not-allowed;background:#F6F7FB}
+
+@media (max-width: 992px){ .kpi-grid{grid-template-columns:1fr} }
 </style>
 
 <div class="container-fluid py-4 px-4">
   <div class="content-inner" style="max-width:1200px;margin:0 auto;">
-    <h1 class="fw-bold" style="font-size:32px;letter-spacing:-.3px;">Dashboard Overview</h1>
+
+    <h1 class="fw-bold mb-3" style="font-size:32px;letter-spacing:-.3px;">Dashboard Overview</h1>
+
+    @if (session('status'))
+      <div class="alert alert-success">{{ session('status') }}</div>
+    @endif
 
     {{-- KPIs --}}
     <div class="kpi-grid">
       <div class="kpi-card">
         <div>
           <div class="kpi-title mb-1">In Progress</div>
-          <div class="kpi-value">{{ $inProgress }}</div>
+          <div class="kpi-value" data-kpi="inprogress">{{ $inProgress }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
       <div class="kpi-card">
         <div>
           <div class="kpi-title mb-1">Completed</div>
-          <div class="kpi-value">{{ $completed }}</div>
+          <div class="kpi-value" data-kpi="completed">{{ $completed }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-check2"></i></div>
       </div>
@@ -117,23 +111,27 @@
             </tr>
           </thead>
           <tbody>
-          @forelse($jobs as $row)
+          @forelse ($jobs as $row)
             @php
-              $code = 'ORD' . ($row->OrderID ?? $row->ProductID) . '-P' . ($row->ProductID);
-              $deadline = $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—';
+              $deadline  = $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—';
               $submitted = $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—';
+              $sq = is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0) . ' sq in' : '0 sq in';
             @endphp
             <tr id="job-{{ $row->ProductID }}">
-              <td>{{ $code }}</td>
-              <td>—</td>
-              <td>0 sq in</td>
+              <td>{{ $row->product_code }}</td>
+              <td>{{ $row->cutter ?: '—' }}</td>
+              <td>{{ $sq }}</td>
               <td>{{ $deadline }}</td>
               <td>{{ $submitted }}</td>
-              <td class="col-actions">
-                <button class="icon-pill" title="View"><i class="bi bi-eye"></i></button>
-                <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed"><i class="bi bi-check2"></i></button>
-                {{-- Removed the Report/Issue button here --}}
-                <button class="icon-pill" title="Edit"><i class="bi bi-pencil"></i></button>
+              <td class="text-nowrap">
+                {{-- 仅 View / Mark / Edit （无 Report） --}}
+                <a class="icon-pill" title="View"><i class="bi bi-eye"></i></a>
+
+                <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed">
+                  <i class="bi bi-check2"></i>
+                </button>
+
+                <a class="icon-pill" title="Edit"><i class="bi bi-pencil"></i></a>
               </td>
             </tr>
           @empty
@@ -143,62 +141,63 @@
         </table>
       </div>
 
-      {{-- Pagination --}}
-      <div class="card-ft">
-        <nav class="d-flex justify-content-end">
-          <ul class="pagination pill-pager mb-0">
-            {{-- Previous --}}
-            @if ($jobs->onFirstPage())
-              <li class="page-item disabled"><span class="page-link">Previous</span></li>
-            @else
-              <li class="page-item"><a class="page-link" href="{{ $jobs->previousPageUrl() }}">Previous</a></li>
-            @endif
-
-            {{-- Compact page window with ellipses --}}
-            @php
-              $last    = max(1, $jobs->lastPage());
-              $current = $jobs->currentPage();
-              $from    = max(1, $current - 1);
-              $to      = min($last, $current + 1);
-            @endphp
-
-            @if ($from > 1)
-              <li class="page-item"><a class="page-link" href="{{ $jobs->url(1) }}">1</a></li>
-              @if ($from > 2)
-                <li class="page-item disabled"><span class="page-link">…</span></li>
-              @endif
-            @endif
-
-            @for ($p = $from; $p <= $to; $p++)
-              @if ($p == $current)
-                <li class="page-item active"><span class="page-link">{{ $p }}</span></li>
+      {{-- Pagination (pill style) --}}
+      @if ($jobs instanceof \Illuminate\Pagination\LengthAwarePaginator)
+        <div class="card-ft">
+          <nav class="d-flex justify-content-end">
+            <ul class="pagination pill-pager mb-0">
+              {{-- Previous --}}
+              @if ($jobs->onFirstPage())
+                <li class="page-item disabled"><span class="page-link">Previous</span></li>
               @else
-                <li class="page-item"><a class="page-link" href="{{ $jobs->url($p) }}">{{ $p }}</a></li>
+                <li class="page-item"><a class="page-link" href="{{ $jobs->previousPageUrl() }}">Previous</a></li>
               @endif
-            @endfor
 
-            @if ($to < $last)
-              @if ($to < $last - 1)
-                <li class="page-item disabled"><span class="page-link">…</span></li>
+              @php
+                $last    = max(1, $jobs->lastPage());
+                $current = $jobs->currentPage();
+                $from    = max(1, $current - 1);
+                $to      = min($last, $current + 1);
+              @endphp
+
+              @if ($from > 1)
+                <li class="page-item"><a class="page-link" href="{{ $jobs->url(1) }}">1</a></li>
+                @if ($from > 2)
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                @endif
               @endif
-              <li class="page-item"><a class="page-link" href="{{ $jobs->url($last) }}">{{ $last }}</a></li>
-            @endif
 
-            {{-- Next --}}
-            @if ($jobs->hasMorePages())
-              <li class="page-item"><a class="page-link" href="{{ $jobs->nextPageUrl() }}">Next</a></li>
-            @else
-              <li class="page-item disabled"><span class="page-link">Next</span></li>
-            @endif
-          </ul>
-        </nav>
-      </div>
+              @for ($p = $from; $p <= $to; $p++)
+                @if ($p == $current)
+                  <li class="page-item active"><span class="page-link">{{ $p }}</span></li>
+                @else
+                  <li class="page-item"><a class="page-link" href="{{ $jobs->url($p) }}">{{ $p }}</a></li>
+                @endif
+              @endfor
+
+              @if ($to < $last)
+                @if ($to < $last - 1)
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                @endif
+                <li class="page-item"><a class="page-link" href="{{ $jobs->url($last) }}">{{ $last }}</a></li>
+              @endif
+
+              {{-- Next --}}
+              @if ($jobs->hasMorePages())
+                <li class="page-item"><a class="page-link" href="{{ $jobs->nextPageUrl() }}">Next</a></li>
+              @else
+                <li class="page-item disabled"><span class="page-link">Next</span></li>
+              @endif
+            </ul>
+          </nav>
+        </div>
+      @endif
     </section>
   </div>
 </div>
 
-{{-- Confirm Modal --}}
-<div id="confirmModal" class="cx-mask" aria-hidden="true">
+{{-- Confirmation Modal --}}
+<div id="furnishConfirm" class="cx-mask" aria-hidden="true">
   <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="cxTitle">
     <div class="cx-header">
       <div id="cxTitle" class="cx-title">Confirmation</div>
@@ -208,28 +207,31 @@
       <div class="cx-qicon"><i class="bi bi-question-lg"></i></div>
       <div>
         <div class="cx-q">Do you done the furnishing?</div>
-        <div class="cx-help">This action will save the job order and move it to the completed phase.</div>
+        <div class="cx-help">This action will mark the job as completed.</div>
       </div>
     </div>
     <div class="cx-footer">
       <button type="button" class="cx-btn cx-btn-ghost" data-close>No</button>
-      <button type="button" class="cx-btn cx-btn-dark" id="confirmYes">Yes</button>
+      <button type="button" class="cx-btn cx-btn-dark" id="furnishConfirmYes">Yes</button>
     </div>
   </div>
 </div>
 
 <script>
 (() => {
-  const mask = document.getElementById('confirmModal');
-  const btnYes = document.getElementById('confirmYes');
+  const mask   = document.getElementById('furnishConfirm');
+  const yesBtn = document.getElementById('furnishConfirmYes');
   let currentId = null;
   const csrf = '{{ csrf_token() }}';
 
+  const urlPatch = "{{ route('furnishing.jobs.complete', ['productId' => '__ID__']) }}";
+  const urlPost  = "{{ route('furnishing.jobs.complete.post', ['productId' => '__ID__']) }}";
+
   // open modal
   document.addEventListener('click', (e) => {
-    const markBtn = e.target.closest('.js-mark');
-    if (!markBtn) return;
-    currentId = markBtn.dataset.id;
+    const btn = e.target.closest('.js-mark');
+    if (!btn) return;
+    currentId = btn.dataset.id;
     mask.classList.add('show');
     mask.setAttribute('aria-hidden','false');
   });
@@ -242,28 +244,51 @@
     }
   });
 
-  // confirm action
-  btnYes.addEventListener('click', async () => {
+  // confirm -> PATCH, fallback POST
+  async function complete(id){
+    // try PATCH first
+    try{
+      const res = await fetch(urlPatch.replace('__ID__', id), {
+        method: 'PATCH',
+        headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
+      });
+      if(!res.ok) throw new Error('patch failed');
+      return await res.json();
+    }catch(_){
+      // fallback POST
+      const res2 = await fetch(urlPost.replace('__ID__', id), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
+      });
+      return await res2.json();
+    }
+  }
+
+  yesBtn.addEventListener('click', async () => {
     if (!currentId) return;
-    btnYes.disabled = true;
+    yesBtn.disabled = true;
 
     try {
-      const res = await fetch("{{ route('furnishing.jobs.complete', ['productId' => '__ID__']) }}".replace('__ID__', currentId), {
-        method: 'PATCH',
-        headers: {
-          'X-CSRF-TOKEN': csrf,
-          'Accept': 'application/json'
-        }
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const row = document.getElementById('job-'+currentId);
+      const data = await complete(currentId);
+      if (data && data.ok){
+        const row = document.getElementById('job-'+currentId) ||
+                    document.querySelector(`button.js-mark[data-id="${currentId}"]`)?.closest('tr');
         if (row) row.remove();
+
+        // update KPI
+        const bump = (sel, d) => {
+          const el = document.querySelector(sel);
+          if (!el) return;
+          const n  = parseInt((el.textContent || '').trim(), 10);
+          if (!isNaN(n)) el.textContent = Math.max(0, n + d);
+        };
+        bump('[data-kpi="inprogress"]', -1);
+        bump('[data-kpi="completed"]', +1);
       }
     } catch (err) {
-      console.error(err);
+      alert(err?.message || 'Error');
     } finally {
-      btnYes.disabled = false;
+      yesBtn.disabled = false;
       mask.classList.remove('show');
       mask.setAttribute('aria-hidden','true');
       currentId = null;
