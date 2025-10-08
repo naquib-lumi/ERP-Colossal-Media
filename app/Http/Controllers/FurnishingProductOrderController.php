@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Order;
 
 class FurnishingProductOrderController extends Controller
 {
@@ -96,6 +97,8 @@ class FurnishingProductOrderController extends Controller
                 'o.deadline',
                 'o.artist_id',
                 'o.orderAttachment',
+                'o.status as orderStatus',
+                'o.accepted',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
             ])
             ->first();
@@ -118,7 +121,11 @@ class FurnishingProductOrderController extends Controller
             'order_title'  => $headerRow->orderTitle,
             'companyName'  => $headerRow->companyName,
             'artist_name'  => $headerRow->artist_name,
+            'orderStatus'   => $headerRow->orderStatus,
+            'accepted'      => $headerRow->accepted,
         ];
+
+        $canEdit = ((int)($headerRow->accepted ?? 0) === 1) && (strtolower((string)($headerRow->orderStatus ?? '')) !== 'rejected');
 
         $dates = [
             'order_date' => $headerRow->orderDate,
@@ -176,6 +183,7 @@ class FurnishingProductOrderController extends Controller
                     : (!is_null($r->finishing) && (int)$r->finishing === 1);
 
                 return [
+                    'item_id'          => (int)$r->ItemID,
                     'name'       => $r->itemName,
                     'qty'        => $r->quantity,
                     'size'       => $size,
@@ -331,9 +339,8 @@ class FurnishingProductOrderController extends Controller
             'permit'         => $permit,
             'attachments'    => $attachments,
             'product_header' => $productHeader,
-
-            // NEW: all products for the same order
             'blocks'         => $blocks,
+            'canEdit' => $canEdit,
         ]);
     }
 
@@ -368,4 +375,157 @@ class FurnishingProductOrderController extends Controller
             ];
         });
     }
+
+    public function accept(\Illuminate\Http\Request $request, int $product)
+    {
+        // 1) Find the order that owns this product
+        $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
+        if (!$orderId) {
+            abort(404, 'Product not found.');
+        }
+
+        // 2) Mark the order as accepted
+        DB::table('orders')
+            ->where('id', $orderId)
+            ->update([
+                'accepted'   => 1,          // nullable column is fine
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('ok', 'Order accepted.');
+    }
+
+    public function reject(\Illuminate\Http\Request $request, int $product)
+    {
+        $data = $request->validate([
+            'reason' => 'required|string|max:2000',
+        ]);
+
+        // 1) Find the order from this product
+        $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
+        if (!$orderId) {
+            abort(404, 'Product not found.');
+        }
+
+        DB::transaction(function () use ($orderId, $data) {
+            // 2) Mark order rejected and clear accepted flag
+            DB::table('orders')
+                ->where('id', $orderId)
+                ->update([
+                    'orderStatus' => 'rejected',
+                    'accepted'    => null,
+                    'updated_at'  => now(),
+                ]);
+
+            // 3) Mark all products under this order as rejected
+            DB::table('products')
+                ->where('OrderID', $orderId)
+                ->update([
+                    'status'     => 'rejected',
+                    'updated_at' => now(),
+                ]);
+
+            // 4) Save reason
+            DB::table('report_redo')->insert([
+                'OrderID'    => $orderId,
+                'reason'     => $data['reason'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        return back()->with('ok', 'Order rejected.');
+    }
+
+    private function ensureCanEdit(int $orderId): void
+    {
+        $row = DB::table('orders')
+            ->select('accepted', 'orderStatus')
+            ->where('id', $orderId)
+            ->first();
+
+        $accepted = (int)($row->accepted ?? 0);
+        $rejected = strtolower((string)($row->orderStatus ?? '')) === 'rejected';
+
+        abort_unless($accepted === 1 && !$rejected, 403, 'Editing is locked for this order.');
+    }
+
+    public function save(Request $request, int $product)
+    {
+        // only allow save when the order has been accepted and not rejected
+        $order = DB::table('products')
+            ->join('orders', 'orders.id', '=', 'products.OrderID')
+            ->where('products.ProductID', $product)
+            ->select('orders.accepted', 'orders.orderStatus', 'products.ProductID')
+            ->first();
+
+        if (!$order || (int)($order->accepted ?? 0) !== 1 || strtolower((string)$order->orderStatus) === 'rejected') {
+            return back()->with('error', 'This job cannot be edited.');
+        }
+
+        $cutters = (array) $request->input('cutters', []);
+        $remarks = (array) $request->input('remarks', []);
+
+        DB::transaction(function () use ($product, $cutters, $remarks) {
+            // 1) Save cutters to specifications (by ItemID)
+            foreach ($cutters as $itemId => $cutter) {
+                $cutter = trim((string)$cutter);
+                if ($itemId === '' || $itemId === null) continue;
+
+                DB::table('specifications')->updateOrInsert(
+                    ['ItemID' => (int) $itemId],
+                    [
+                        'cutter'     => $cutter === '' ? null : $cutter,
+                        'updated_at' => now(),
+                        'created_at' => now(), // harmless if row already exists
+                    ]
+                );
+            }
+
+            // 2) Append new remarks (if any) to product_remarks
+            //    Only allow these 5 keys in DB: printing, furnishing, installation, courier, self_pickup
+            $allowedOps = ['printing','furnishing','installation','courier','self_pickup'];
+
+            foreach ($remarks as $row) {
+                $opRaw = strtolower(trim((string)($row['operation'] ?? '')));
+                $text  = trim((string)($row['remark'] ?? ''));
+
+                if ($text === '') {
+                    continue; // nothing to save
+                }
+
+                // Normalize a few common variants to our 5 keys
+                if (in_array($opRaw, ['installation','install','delivery_installation','delivery & installation'], true)) {
+                    $op = 'installation';
+                } elseif (in_array($opRaw, ['self_pickup','self pickup','pickup'], true)) {
+                    $op = 'self_pickup';
+                } elseif ($opRaw === 'courier') {
+                    $op = 'courier';
+                } elseif ($opRaw === 'printing') {
+                    $op = 'printing';
+                } elseif ($opRaw === 'furnishing') {
+                    $op = 'furnishing';
+                } else {
+                    // fallback if the UI somehow sends an unexpected value
+                    $op = 'furnishing';
+                }
+
+                // final guard to keep DB enum happy
+                if (!in_array($op, $allowedOps, true)) {
+                    $op = 'furnishing';
+                }
+
+                DB::table('product_remarks')->insert([
+                    'ProductID'  => $product,
+                    'operation'  => $op,   // exactly one of the 5 keys
+                    'remark'     => $text,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        });
+
+        return back()->with('ok', true);
+    }
+
 }

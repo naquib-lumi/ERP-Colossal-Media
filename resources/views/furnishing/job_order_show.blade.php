@@ -657,6 +657,20 @@
     border-color: #94A3B8;
     box-shadow: 0 0 0 3px rgba(148, 163, 184, .25)
   }
+
+  /* initial state: hide edit inputs */
+  .td-cutter .edit-input {
+    display: none;
+  }
+
+  /* when pageRoot has .is-editing, show inputs and hide view text */
+  #pageRoot.is-editing .td-cutter .edit-input {
+    display: block;
+  }
+
+  #pageRoot.is-editing .td-cutter .view-text {
+    display: none;
+  }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -665,6 +679,10 @@
     @php
     $assignee = $header->artist_name ?? '—';
     $uploader = $header->artist_name ?? '—';
+    @endphp
+    @php
+    // user can edit only when order is accepted=1 and not rejected
+    $canEdit = ((int)($header->accepted ?? 0) === 1) && strtolower((string)($header->orderStatus ?? '')) !== 'rejected';
     @endphp
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
@@ -748,7 +766,7 @@
             </div>
           </div>
 
-          <div class="subcard-body" id="p{{ $block['id'] }}-body">
+          <div class="subcard-body" id="p{{ $block['id'] }}-body" data-block-product="{{ $block['id'] }}">
             <div class="table-responsive">
               <table class="table table-products align-middle mb-0">
                 <thead class="table-light">
@@ -767,7 +785,7 @@
                 </thead>
                 <tbody>
                   @forelse($block['items'] as $it)
-                  <tr>
+                  <tr data-itemid="{{ $it['item_id'] }}">
                     <td>{{ $it['name'] ?? '—' }}</td>
                     <td>{{ $it['qty'] ?? '—' }}</td>
                     <td>{{ $it['size'] ?? '—' }}</td>
@@ -776,7 +794,25 @@
                     <td>{!! !empty($it['prime']) ? '<span class="badge-yes">Yes</span>' : '<span class="badge-no">No</span>' !!}</td>
                     <td>{{ $it['lamination'] ?? '—' }}</td>
                     <td>{{ $it['printer'] ?? '—' }}</td>
-                    <td>{{ $it['cutter'] ?? '—' }}</td>
+                    <td class="td-cutter">
+                      <span class="view-text">{{ $it['cutter'] ?? '—' }}</span>
+                      @if($canEdit)
+                      <select class="form-select form-select-sm edit-input" data-item-id="{{ $it['item_id'] }}">
+                        <option value="">—</option>
+                        <option>Jinwei 1 6x10</option>
+                        <option>AOL1 6x10</option>
+                        <option>AOL2 1000x700</option>
+                        <option>Router 1</option>
+                        <option>Laser 1 300W</option>
+                        <option>Laser 2 150W</option>
+                        <option>Laser 3 150W</option>
+                        <option>Paper cutter</option>
+                        @foreach(($cutterOptions ?? []) as $opt)
+                        <option value="{{ $opt }}" @selected(($it['cutter'] ?? '' )===$opt)>{{ $opt }}</option>
+                        @endforeach
+                      </select>
+                      @endif
+                    </td>
                     <td>{!! !empty($it['assemble']) ? '<span class="badge-yes">Yes</span>' : '<span class="badge-no">No</span>' !!}</td>
                   </tr>
                   @empty
@@ -789,6 +825,12 @@
             </div>
           </div>
         </div>
+        <form id="saveForm"
+          method="POST"
+          action="{{ route('furnishing.jobs.save', $header->ProductID) }}"
+          style="display:none">
+          @csrf
+        </form>
         {{-- Delivery Breakdown --}}
         @if(!empty($block['deliveries']))
         <div class="card dlv-card mb-4">
@@ -865,16 +907,26 @@
 
 
     {{-- Add Remarks（编辑态出现） --}}
+    @if($canEdit)
     <div class="card soft mb-4 edit-only">
       <div class="card-body">
         <div class="section-hd"><i class="bi bi-chat-dots"></i> Add Remarks</div>
         <div id="remarks-list" class="d-flex flex-column gap-2">
           <div class="remark-row d-flex align-items-center gap-2">
-            <select class="form-select form-select-sm remark-cat" style="max-width:160px">
-              <option>Installation</option>
-              <option>Printing</option>
-              <option>Packing</option>
-              <option>General</option>
+            @php
+              // keep this right above the select, or define it once earlier and reuse
+              $ops = [
+                'printing'     => 'Printing',
+                'furnishing'   => 'Furnishing',
+                'installation' => 'Delivery & Installation',
+                'courier'      => 'Courier',
+                'self_pickup'  => 'Self Pickup',
+              ];
+            @endphp
+            <select class="form-select form-select-sm remark-cat" style="max-width:180px">
+              @foreach($ops as $val => $label)
+                <option value="{{ $val }}">{{ $label }}</option>
+              @endforeach
             </select>
             <input class="form-control form-control-sm remark-text" placeholder="Add your remark..." />
             <button type="button" class="btn btn-link text-muted p-0 remove-remark" title="Remove"><i class="bi bi-trash"></i></button>
@@ -885,6 +937,7 @@
         </div>
       </div>
     </div>
+    @endif
 
     {{-- Attachments --}}
     <div class="card soft mb-4">
@@ -920,22 +973,32 @@
         @endforeach
       </div>
     </div>
+    <form id="acceptForm" method="POST" action="{{ route('furnishing.orders.accept', $header->ProductID) }}" style="display:none">
+      @csrf
+    </form>
 
+    <form id="rejectForm" method="POST" action="{{ route('furnishing.orders.reject', $header->ProductID) }}" style="display:none">
+      @csrf
+      <input type="hidden" name="reason" id="rejectReasonInput">
+    </form>
     {{-- ===== 底部 Actionbar（三段式） ===== --}}
     <div class="actionbar">
       <div class="action-pre">
         <div class="toolbar">
+          @if(strtolower((string)($header->orderStatus ?? '')) !== 'rejected' && (int)($header->accepted ?? 0) === 0)
           <button type="button" id="btnAccept" class="btn btn-accept"><i class="bi bi-check2"></i> Accept</button>
           <button type="button" id="btnReject" class="btn btn-reject"><i class="bi bi-x-lg"></i> Reject</button>
           <a href="javascript:history.back()" class="btn btn-back">Back</a>
+          @endif
+          @if($canEdit)
+          <div class="toolbar">
+            <button type="button" id="btnEdit" class="btn btn-back"><i class="bi bi-pencil"></i> Edit</button>
+            <a href="javascript:history.back()" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
+          </div>
+          @endif
         </div>
       </div>
-      <div class="action-post">
-        <div class="toolbar">
-          <button type="button" id="btnEdit" class="btn btn-back"><i class="bi bi-pencil"></i> Edit</button>
-          <a href="javascript:history.back()" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
-        </div>
-      </div>
+
       <div class="action-edit">
         <div class="toolbar">
           <button type="button" id="btnSave" class="btn btn-accept"><i class="bi bi-save2"></i> Save Task</button>
@@ -986,118 +1049,164 @@
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    // 折叠
-    document.querySelectorAll('[data-toggle="subcard"]').forEach(btn => {
-      const body = document.getElementById(btn.dataset.target);
-      btn.addEventListener('click', () => {
-        body?.classList.toggle('hidden');
-        btn.classList.toggle('open');
-      });
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---------- Collapsible product sections ---------- */
+  document.querySelectorAll('[data-toggle="subcard"]').forEach(btn => {
+    const body = document.getElementById(btn.dataset.target);
+    btn.addEventListener('click', () => {
+      body?.classList.toggle('hidden');
+      btn.classList.toggle('open');
     });
+  });
 
-    // ===== Modal 工具 =====
-    function openModal(id) {
-      document.getElementById(id)?.classList.add('show');
-    }
+  /* ---------- Modal helpers ---------- */
+  function openModal(id){ document.getElementById(id)?.classList.add('show'); }
+  function closeModal(id){ document.getElementById(id)?.classList.remove('show'); }
+  window.openModal  = openModal;
+  window.closeModal = closeModal;
 
-    function closeModal(id) {
-      document.getElementById(id)?.classList.remove('show');
-    }
-    window.openModal = openModal;
-    window.closeModal = closeModal;
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => closeModal(btn.getAttribute('data-close')));
+  });
+  ['modalAccept','modalReject'].forEach(mid => {
+    const mask = document.getElementById(mid);
+    mask?.addEventListener('click', e => { if (e.target === mask) closeModal(mid); });
+  });
 
-    // 关闭按钮
-    document.querySelectorAll('[data-close]').forEach(btn => {
-      btn.addEventListener('click', () => closeModal(btn.getAttribute('data-close')));
+  /* ---------- Accept / Reject ---------- */
+  document.getElementById('btnAccept')?.addEventListener('click', () => openModal('modalAccept'));
+  document.getElementById('btnReject')?.addEventListener('click', () => openModal('modalReject'));
+
+  document.getElementById('confirmAccept')?.addEventListener('click', () => {
+    document.getElementById('acceptForm')?.submit();
+  });
+
+  document.getElementById('confirmReject')?.addEventListener('click', () => {
+    const reason = (document.getElementById('rejectReason')?.value || '').trim();
+    if (!reason) { alert('Please provide a reason.'); return; }
+    document.getElementById('rejectReasonInput').value = reason;
+    document.getElementById('rejectForm')?.submit();
+  });
+
+  /* ---------- Edit mode helpers ---------- */
+  function syncCutterSelects() {
+    document.querySelectorAll('.td-cutter').forEach(td => {
+      const span = td.querySelector('.view-text');
+      const sel  = td.querySelector('.edit-input');
+      if (span && sel) {
+        [...sel.options].forEach(o => o.selected = (o.text.trim() === span.textContent.trim()));
+      }
     });
-    // 点击遮罩关闭
-    ['modalAccept', 'modalReject'].forEach(mid => {
-      const mask = document.getElementById(mid);
-      mask?.addEventListener('click', e => {
-        if (e.target === mask) closeModal(mid);
-      });
-    });
+  }
 
-    // ===== Helper：进入编辑时同步下拉选中项 =====
-    function syncCutterSelects() {
-      document.querySelectorAll('.td-cutter').forEach(td => {
-        const span = td.querySelector('.view-text');
-        const sel = td.querySelector('.edit-input');
-        if (span && sel) {
-          [...sel.options].forEach(o => o.selected = (o.text.trim() === span.textContent.trim()));
-        }
-      });
-    }
+  document.getElementById('btnEdit')?.addEventListener('click', () => {
+    document.getElementById('pageRoot')?.classList.add('is-editing');
+    syncCutterSelects();
+  });
 
-    // ===== 接受 / 拒绝 =====
-    document.getElementById('btnAccept')?.addEventListener('click', () => openModal('modalAccept'));
-    document.getElementById('btnReject')?.addEventListener('click', () => openModal('modalReject'));
+  document.getElementById('btnCancel')?.addEventListener('click', () => {
+    document.getElementById('pageRoot')?.classList.remove('is-editing');
+  });
 
-    document.getElementById('confirmAccept')?.addEventListener('click', () => {
-      const root = document.getElementById('pageRoot');
-      root?.classList.add('is-accepted');
-      root?.classList.remove('is-editing');
-      closeModal('modalAccept');
-    });
+  /* ---------- Add Remarks (client-side rows) ---------- */
+  (function initDynamicRemarks(){
+    const list = document.getElementById('remarks-list');
+    const btn  = document.getElementById('btn-add-remark');
+    if (!list || !btn) return;
 
-    document.getElementById('confirmReject')?.addEventListener('click', () => {
-      const reason = (document.getElementById('rejectReason')?.value || '').trim();
-      console.log('Rejected with reason:', reason);
-      closeModal('modalReject');
-      // history.back();
-    });
+    // Match backend $ops
+    const ops = {
+      'printing': 'Printing',
+      'furnishing': 'Furnishing',
+      'installation': 'Delivery & Installation',
+      'courier': 'Courier',
+      'self_pickup': 'Self Pickup'
+    };
 
-    // ===== 编辑流程 =====
-    document.getElementById('btnEdit')?.addEventListener('click', () => {
-      const root = document.getElementById('pageRoot');
-      root?.classList.add('is-editing');
-      syncCutterSelects(); // 进入编辑时，同步当前文本值到下拉
-    });
+    function makeRow(){
+      const d = document.createElement('div');
+      d.className = 'remark-row d-flex align-items-center gap-2';
 
-    document.getElementById('btnCancel')?.addEventListener('click', () => {
-      document.getElementById('pageRoot')?.classList.remove('is-editing');
-    });
+      // generate options dynamically
+      let options = '';
+      for (const [val, label] of Object.entries(ops)) {
+        options += `<option value="${val}">${label}</option>`;
+      }
 
-    document.getElementById('btnSave')?.addEventListener('click', () => {
-      // 保存 Cutter 选择：把下拉值回写到文字
-      document.querySelectorAll('.td-cutter').forEach(td => {
-        const span = td.querySelector('.view-text');
-        const sel = td.querySelector('.edit-input');
-        if (span && sel) {
-          span.textContent = sel.value;
-        }
-      });
-      // TODO: 这里提交后端保存数据（Ajax/表单）
-      const root = document.getElementById('pageRoot');
-      root?.classList.remove('is-editing');
-      root?.classList.add('is-accepted');
-    });
-
-    // ===== Add Remarks 动态行 =====
-    (function() {
-      const list = document.getElementById('remarks-list');
-      const btn = document.getElementById('btn-add-remark');
-
-      function row() {
-        const d = document.createElement('div');
-        d.className = 'remark-row d-flex align-items-center gap-2';
-        d.innerHTML = `<select class="form-select form-select-sm remark-cat" style="max-width:160px">
-          <option>Installation</option><option>Printing</option><option>Packing</option><option>General</option>
+      d.innerHTML = `
+        <select class="form-select form-select-sm remark-cat" style="max-width:180px">
+          ${options}
         </select>
         <input class="form-control form-control-sm remark-text" placeholder="Add your remark..." />
-        <button type="button" class="btn btn-link text-muted p-0 remove-remark" title="Remove"><i class="bi bi-trash"></i></button>`;
-        return d;
+        <button type="button" class="btn btn-link text-muted p-0 remove-remark" title="Remove">
+          <i class="bi bi-trash"></i>
+        </button>`;
+      return d;
+    }
+
+    btn.addEventListener('click', () => list.appendChild(makeRow()));
+    list.addEventListener('click', e => {
+      const rm = e.target.closest('.remove-remark');
+      if (!rm) return;
+      const row = rm.closest('.remark-row');
+      if (row && list.children.length > 1) row.remove();
+      else if (row) row.querySelector('.remark-text').value = '';
+    });
+  })();
+
+  /* ---------- SAVE TASK (hidden form submit) ---------- */
+  document.getElementById('btnSave')?.addEventListener('click', () => {
+    const productId = {{ (int)$header->ProductID }};
+    const form = document.getElementById('saveForm');
+
+    // 0) remove previously appended inputs BUT keep CSRF (_token)
+    Array.from(form.querySelectorAll('input[type="hidden"]'))
+      .forEach(inp => { if (inp.name !== '_token') inp.remove(); });
+
+    // 1) scope to the current product block
+    const block = document.querySelector(`[data-block-product='${productId}']`);
+    if (!block) { alert('No product block found to save.'); return; }
+
+    // 2) cutters => cutters[<ItemID>]
+    block.querySelectorAll('tr[data-itemid]').forEach(tr => {
+      const itemId = tr.getAttribute('data-itemid');
+      const sel    = tr.querySelector('.td-cutter .edit-input');
+      if (itemId && sel) {
+        const h = document.createElement('input');
+        h.type  = 'hidden';
+        h.name  = `cutters[${itemId}]`;
+        h.value = sel.value.trim();
+        form.appendChild(h);
       }
-      btn?.addEventListener('click', () => list.appendChild(row()));
-      list?.addEventListener('click', e => {
-        const r = e.target.closest('.remove-remark');
-        if (!r) return;
-        const line = r.closest('.remark-row');
-        if (line && list.children.length > 1) line.remove();
-        else if (line) line.querySelector('.remark-text').value = '';
-      });
-    })();
+    });
+
+    // 3) remarks => remarks[n][operation], remarks[n][remark]
+    const rows = document.querySelectorAll('#remarks-list .remark-row');
+    let i = 0;
+    rows.forEach(r => {
+      const op = (r.querySelector('.remark-cat')?.value || '').trim();
+      const tx = (r.querySelector('.remark-text')?.value || '').trim();
+      if (!tx) return;
+
+      const h1 = document.createElement('input');
+      h1.type  = 'hidden';
+      h1.name  = `remarks[${i}][operation]`;
+      h1.value = op;
+      form.appendChild(h1);
+
+      const h2 = document.createElement('input');
+      h2.type  = 'hidden';
+      h2.name  = `remarks[${i}][remark]`;
+      h2.value = tx;
+      form.appendChild(h2);
+
+      i++;
+    });
+
+    // 4) submit
+    form.submit();
   });
+});
 </script>
+
 @endsection
