@@ -81,4 +81,15 @@ class FurnishingHistoryController extends Controller
 
         return view('furnishing.history', compact('orders', 'q', 'start', 'end'));
     }
+
+    public function show($productId)
+    {
+        // Reuse the same data as FurnishingProductOrderController@show
+        $data = app(\App\Http\Controllers\FurnishingProductOrderController::class)->show($productId);
+
+        // If show() in the original controller returns a view,
+        // we can just re-render that but hide the actionbar using a flag.
+        return $data->with('isHistoryView', true);
+    }
+
 }

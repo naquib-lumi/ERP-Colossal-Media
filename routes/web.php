@@ -285,6 +285,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::post('/furnishing/job/{product}/accept', [\App\Http\Controllers\FurnishingProductOrderController::class, 'accept'])->name('furnishing.orders.accept');
         Route::post('/furnishing/job/{product}/reject', [\App\Http\Controllers\FurnishingProductOrderController::class, 'reject'])->name('furnishing.orders.reject');
         Route::post('/furnishing/job/{product}/save', [\App\Http\Controllers\FurnishingProductOrderController::class, 'save'])->name('furnishing.jobs.save');
+        Route::get('/furnishing/history/{product}', [FurnishingHistoryController::class, 'show'])->name('furnishing.history.show');
     });
 
     // Delivery and installation

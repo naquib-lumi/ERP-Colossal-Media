@@ -93,7 +93,10 @@
                   {{-- Use materialRemark from DB; fallback to dash --}}
                   <td>{{ $row->materialRemark ?? '–' }}</td>
                   <td class="text-center">
-                    <button class="icon-btn" title="View details"><i class="bi bi-eye"></i></button>
+                    <a href="{{ route('furnishing.history.show', $row->ProductID) }}" 
+                      class="icon-btn" title="View details">
+                      <i class="bi bi-eye"></i>
+                    </a>
                   </td>
                 </tr>
               @empty

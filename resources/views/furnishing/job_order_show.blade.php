@@ -985,32 +985,38 @@
     <div class="actionbar">
       <div class="action-pre">
         <div class="toolbar">
-          @if(strtolower((string)($header->orderStatus ?? '')) !== 'rejected' && (int)($header->accepted ?? 0) === 0)
-          <button type="button" id="btnAccept" class="btn btn-accept"><i class="bi bi-check2"></i> Accept</button>
-          <button type="button" id="btnReject" class="btn btn-reject"><i class="bi bi-x-lg"></i> Reject</button>
-          <a href="javascript:history.back()" class="btn btn-back">Back</a>
+          @if(empty($isHistoryView))
+            @if(strtolower((string)($header->orderStatus ?? '')) !== 'rejected' && (int)($header->accepted ?? 0) === 0)
+            <button type="button" id="btnAccept" class="btn btn-accept"><i class="bi bi-check2"></i> Accept</button>
+            <button type="button" id="btnReject" class="btn btn-reject"><i class="bi bi-x-lg"></i> Reject</button>
+            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            @endif
           @endif
-          @if($canEdit)
-          <div class="toolbar">
-            <button type="button" id="btnEdit" class="btn btn-back"><i class="bi bi-pencil"></i> Edit</button>
-            <a href="javascript:history.back()" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
-          </div>
+          @if(empty($isHistoryView))
+            @if($canEdit)
+            <div class="toolbar">
+              <button type="button" id="btnEdit" class="btn btn-back"><i class="bi bi-pencil"></i> Edit</button>
+              <a href="javascript:history.back()" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
+            </div>
+            @endif
           @endif
         </div>
       </div>
-
+      @if(empty($isHistoryView))
       <div class="action-edit">
         <div class="toolbar">
           <button type="button" id="btnSave" class="btn btn-accept"><i class="bi bi-save2"></i> Save Task</button>
           <button type="button" id="btnCancel" class="btn btn-back">Cancel</button>
         </div>
       </div>
+      @endif
     </div>
 
   </div>
 </div>
 
 <!-- ===== Accept 弹窗 ===== -->
+@if(empty($isHistoryView))
 <div id="modalAccept" class="cx-mask" aria-hidden="true">
   <div class="cx-wrap">
     <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="acceptTitle">
@@ -1047,6 +1053,7 @@
     </div>
   </div>
 </div>
+@endif
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
