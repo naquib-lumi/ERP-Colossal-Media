@@ -47,32 +47,39 @@ class FurnishingHistoryController extends Controller
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('p.productName', 'like', "%{$q}%")
-                  ->orWhere('o.order_number', 'like', "%{$q}%")
-                  ->orWhere('p.ProductID', 'like', "%{$q}%")
-                  ->orWhere(function ($w2) use ($q) {
-                      // search ItemID through subquery result by re-checking product_items
-                      $w2->whereIn('p.ProductID', function ($s) use ($q) {
-                          $s->from('product_items')
-                            ->select('ProductID')
-                            ->where('ItemID', 'like', "%{$q}%");
-                      });
-                  });
+                ->orWhere('p.materialRemark', 'like', "%{$q}%")
+                ->orWhere('o.order_number', 'like', "%{$q}%")
+                ->orWhere('p.ProductID', 'like', "%{$q}%");
             });
         }
 
-        // Date filters against fulfillment_progress.completedAt
-        if ($start !== '') {
+        // helper inside index() (or make it a private method in the controller)
+        $parseDate = function (?string $s) {
+            $s = trim((string)$s);
+            if ($s === '') return null;
+
             try {
-                $startDate = Carbon::createFromFormat('m/d/Y', $start)->startOfDay();
-                $query->whereDate('fp.completedAt', '>=', $startDate->toDateString());
-            } catch (\Throwable $e) { /* ignore */ }
+                // HTML date input gives YYYY-MM-DD
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
+                    return Carbon::createFromFormat('Y-m-d', $s);
+                }
+                // fallback to mm/dd/yyyy
+                return Carbon::createFromFormat('m/d/Y', $s);
+            } catch (\Throwable $e) {
+                return null;
+            }
+        };
+
+        $startDate = $parseDate($start);
+        $endDate   = $parseDate($end);
+
+        if ($startDate) {
+            $query->whereDate('fp.completedAt', '>=', $startDate->toDateString());
         }
-        if ($end !== '') {
-            try {
-                $endDate = Carbon::createFromFormat('m/d/Y', $end)->endOfDay();
-                $query->whereDate('fp.completedAt', '<=', $endDate->toDateString());
-            } catch (\Throwable $e) { /* ignore */ }
+        if ($endDate) {
+            $query->whereDate('fp.completedAt', '<=', $endDate->toDateString());
         }
+
 
         $orders = $query
             ->orderByDesc('fp.completedAt')
