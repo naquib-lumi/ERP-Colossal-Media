@@ -314,33 +314,50 @@
 
             @forelse ($rows as $r)
             @php
-            // stages that actually exist for this row
-            $visible = array_values(array_filter($STAGES, fn($s)=> isset($r['stages'][$s])));
-            // start at first present stage (handles “skip printing” → start at furnishing)
+            $STAGES = ['printing','furnishing','delivery','installation'];
+            $POS = ['printing'=>12.5,'furnishing'=>37.5,'delivery'=>62.5,'installation'=>87.5];
+            $DOT = ['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
+
+            $currentStage = $r['current_stage'] ?? null; // from products.taskType
+            $currentStatus = $r['current_status'] ?? null; // from products.status
+
+            $hasStage = function(string $s) use ($r, $currentStage) {
+            return isset($r['stages'][$s]) || $currentStage === $s;
+            };
+
+            $visible = array_values(array_filter($STAGES, $hasStage));
+
             $first = $visible[0] ?? null;
             $start = $first ? $POS[$first] : 0;
 
-            // determine end of the green segment
             $rej = null;
             foreach ($visible as $s) {
             if (($r['stages'][$s]['status'] ?? null) === 'rejected') { $rej = $s; break; }
             }
-
             if ($rej) {
-            $end = $POS[$rej]; // stop at rejected node
+            $end = $POS[$rej];
             } else {
             $lastCompleted = null;
             foreach ($visible as $s) {
             if (($r['stages'][$s]['status'] ?? null) === 'completed') { $lastCompleted = $s; }
             }
-            if ($lastCompleted) {
-            $end = ($lastCompleted === 'installation') ? 100 : $POS[$lastCompleted];
-            } else {
-            $end = $start; // nothing completed → no green segment
-            }
+            $end = $lastCompleted
+            ? ($lastCompleted === 'installation' ? 100 : $POS[$lastCompleted])
+            : $start;
             }
 
-            // dates
+            $dotClass = function(array $row, string $stage) use ($DOT, $currentStage, $currentStatus) {
+            if ($stage === $currentStage && $currentStatus === 'in_progress') {
+            return 'dot '.$DOT[$stage].' gray';
+            }
+            if (!isset($row['stages'][$stage]) && $stage !== $currentStage) return null;
+
+            $s = $row['stages'][$stage]['status'] ?? null;
+            if ($s === 'completed') return 'dot '.$DOT[$stage];
+            elseif ($s === 'rejected') return 'dot red '.$DOT[$stage];
+            else return 'dot gray '.$DOT[$stage]; // includes pending/unknown
+            };
+
             $dateIn = $r['orderDate'] ? \Carbon\Carbon::parse($r['orderDate'])->format('Y-m-d') : '—';
             $deadline = $r['deadline'] ? \Carbon\Carbon::parse($r['deadline'])->format('Y-m-d') : '—';
             @endphp
@@ -351,6 +368,7 @@
                 <div class="pipeline" style="--start:{{ $start }}%; --end:{{ $end }}%;">
                   <div class="track"></div>
                   <div class="fill"></div>
+
                   @php $d = $dotClass($r,'printing'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
                   @php $d = $dotClass($r,'furnishing'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
                   @php $d = $dotClass($r,'delivery'); @endphp @if($d)<span class="{{ $d }}"></span>@endif

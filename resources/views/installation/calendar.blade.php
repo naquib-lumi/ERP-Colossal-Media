@@ -87,28 +87,10 @@
 
       <hr class="mx-4 my-3" />
 
-      <div class="px-4 pb-2">
-        <h6 class="mb-2">Event Filters</h6>
-        <div class="form-check form-check-secondary mb-2 ms-2">
-          <input class="form-check-input select-all" type="checkbox" id="selectAll" data-value="all" checked />
-          <label class="form-check-label" for="selectAll">View All</label>
-        </div>
-        <div class="app-calendar-events-filter ms-1">
-          <div class="form-check form-check-primary mb-2">
-            <input class="form-check-input input-filter" type="checkbox" id="select-meeting" data-value="meeting" checked />
-            <label class="form-check-label" for="select-meeting">Meeting</label>
-          </div>
-          <div class="form-check form-check-warning mb-3">
-            <input class="form-check-input input-filter" type="checkbox" id="select-reminder" data-value="reminder" checked />
-            <label class="form-check-label" for="select-reminder">Reminder</label>
-          </div>
-        </div>
-        
-      </div>
+      
       <hr class="mx-4 my-3" />
-      {{-- Upcoming Meetings (left sidebar) --}}
       <div class="px-4 pb-2">
-        <h6>Upcoming Meetings</h6>
+        <h6>In Progress Delivery & Installations</h6>
         <div class="card card-body p-2" id="upcomingList">
           <div class="text-muted small">No upcoming items.</div>
         </div>
@@ -130,29 +112,12 @@
           <input type="date" class="form-control" id="filterEnd">
         </div>
 
-        <div class="input-group" style="min-width:230px;max-width:260px;">
-          <select class="form-select" id="filterSalesperson">
-            <option value="">Search Salesperson</option>
-          </select>
-        </div>
 
         <input type="text" class="form-control" id="searchClient" placeholder="Search by title / client" style="min-width:180px;max-width:240px;">
       </div>
 
       <div class="d-flex align-items-center gap-4 btn-toolbar justify-content-start" style="margin-bottom: 3rem;">
-      <div>
-        <ul class="list-unstyled d-flex flex-wrap gap-3 mb-0" style="margin-left:10px;">
-          <li class="d-flex align-items-center">
-            <span class="status-dot me-2" style="background-color:#4e73df;"></span> Scheduled
-          </li>
-          <li class="d-flex align-items-center">
-            <span class="status-dot me-2" style="background-color:#000a0b;"></span> Cancelled
-          </li>
-          <li class="d-flex align-items-center">
-            <span class="status-dot me-2" style="background-color:#f6c23e;"></span> Postponed
-          </li>
-        </ul>
-      </div>
+      
 
       <div class="d-flex align-items-center gap-2 ms-auto">
         <button type="button" class="btn btn-outline-secondary" id="btnToday">Today</button>
