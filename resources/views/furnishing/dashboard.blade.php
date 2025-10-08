@@ -326,37 +326,57 @@
               <th class="col-actions">ACTIONS</th>
             </tr>
           </thead>
-          <tbody>
-            @forelse($jobs as $row)
-            @php
-            $code = 'ORD' . ($row->OrderID ?? $row->ProductID) . '-P' . ($row->ProductID);
-            $deadline = $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—';
-            $submitted = $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—';
-            @endphp
-            <tr id="job-{{ $row->ProductID }}">
-              <td>{{ $code }}</td>
-              <td>—</td>
-              <td>0 sq in</td>
-              <td>{{ $deadline }}</td>
-              <td>{{ $submitted }}</td>
-              <td class="col-actions">
-                <a href="{{ route('furnishing.job.show', $row->ProductID) }}" class="icon-pill btn btn-light btn-sm">
-                  <i class="bi bi-eye"></i>
-                </a>
-                <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark as done">
-                  <i class="bi bi-check2"></i>
-                </button>
-                <button class="icon-pill" title="Edit">
-                  <i class="bi bi-pencil"></i>
-                </button>
-              </td>
-            </tr>
+            <tbody>
+            @forelse ($jobs as $j)
+              @php
+                $code = $j->order_number
+                  ? $j->order_number.'-P'.$j->ProductID
+                  : 'ORD'.$j->OrderID.'-P'.$j->ProductID;
+
+                $cutter = $j->cutter ?: '—';
+                $sqIn   = is_null($j->sq_in) ? 0 : $j->sq_in;
+                $accepted = (int)($j->accepted ?? 0) === 1;
+
+                $viewUrl  = route('furnishing.job.show', $j->ProductID);              // always available
+                $editUrl  = route('furnishing.job.show', [$j->ProductID, 'edit' => 1]); // same page; edit visible after accepted
+                $doneUrl  = route('furnishing.jobs.complete', $j->ProductID);         // PATCH
+              @endphp
+              <tr>
+                <td class="fw-semibold">{{ $code }}</td>
+                <td>{{ $cutter }}</td>
+                <td>{{ number_format($sqIn, 2) }} sq in</td>
+                <td>{{ $j->deadline ?: '—' }}</td>
+                <td>{{ \Carbon\Carbon::parse($j->submission_date)->format('Y-m-d') }}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    {{-- VIEW: always --}}
+                    <a class="icon-btn icon-pill" href="{{ $viewUrl }}" title="View">
+                      <i class="bi bi-eye"></i>
+                    </a>
+
+                    {{-- EDIT + CONFIRM: only when accepted = 1 --}}
+                    @if ($accepted)
+                      <a class="icon-btn icon-pill" href="{{ $editUrl }}" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+
+                      <form action="{{ $doneUrl }}" method="POST" onsubmit="return confirm('Mark this job as completed?')">
+                        @csrf
+                        @method('PATCH')
+                        <button type="submit" class="icon-btn icon-pill" title="Confirm complete">
+                          <i class="bi bi-check2"></i>
+                        </button>
+                      </form>
+                    @endif
+                  </div>
+                </td>
+              </tr>
             @empty
-            <tr>
-              <td colspan="6" class="empty">No furnishing jobs found.</td>
-            </tr>
+              <tr>
+                <td colspan="7" class="text-center text-muted">No jobs found.</td>
+              </tr>
             @endforelse
-          </tbody>
+            </tbody>
         </table>
       </div>
 
