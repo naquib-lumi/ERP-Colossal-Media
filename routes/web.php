@@ -251,20 +251,23 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::patch('/data-entry/orders/{order}/begin', [DataEntryController::class, 'begin'])->name('data-entry.orders.begin');
     });
 
-    // Printing
-    Route::middleware(['web','auth','role:operations-printing'])->group(function () {
-        Route::get('/printing/dashboard', [PrintingController::class, 'dashboard'])->name('printing.dashboard');
-        // Route::get('/printing/productorder', [ProductOrderController::class, 'productorder'])->name('printing.productorder');
-        Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
-        Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
-        Route::match(['patch','post'], '/jobs/{productId}/complete', [PrintingController::class, 'markPrinted'])->name('printing.jobs.complete');
-        Route::get('/printing/history', [PrintingHistoryController::class, 'index'])->name('printing.history');
-        Route::get('/printing/profile', [\App\Http\Controllers\PrintingProfileController::class, 'index'])->name('printing.profile');
-        Route::put('/printing/profile', [\App\Http\Controllers\PrintingProfileController::class, 'update'])->name('printing.profile.update');
-        Route::patch('/printing/jobs/{productId}/complete', [PrintingController::class, 'markPrinted'])->name('printing.jobs.complete');
-        Route::get('/printing/report/{productId}', [PrintingController::class, 'reportForm'])->name('printing.report');
-        Route::post('/printing/report/{productId}', [PrintingController::class, 'reportSubmit'])->name('printing.report.submit');
+        // Printing
+        Route::middleware(['web','auth','role:operations-printing'])->group(function () {
+            Route::prefix('printing')->name('printing.')->group(function () {
+            Route::get('/dashboard', [PrintingController::class, 'dashboard'])->name('dashboard');
+            Route::get('/jobs/{product}', [PrintingController::class, 'show'])->name('orders.show');
+            Route::patch('/jobs/{productId}/complete', [PrintingController::class, 'markPrinted'])->name('jobs.complete');
+            Route::get('/history', [PrintingHistoryController::class, 'index'])->name('history');
+            Route::get('/profile', [PrintingProfileController::class, 'index'])->name('profile');
+            Route::put('/profile', [PrintingProfileController::class, 'update'])->name('profile.update');
+            Route::get('/report/{productId}', [PrintingController::class, 'reportForm'])->name('report');
+            Route::post('/report/{productId}', [PrintingController::class, 'reportSubmit'])->name('report.submit');
+            Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
+            Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
+            Route::post('/update-printers', [PrintingController::class, 'updatePrinters'])->name('update.printers');
+        });
     });
+
 
     // Furnishing
     Route::middleware(['web','auth','role:operations-furnishing'])->group(function () {

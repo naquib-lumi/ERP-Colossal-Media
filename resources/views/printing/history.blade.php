@@ -5,7 +5,7 @@
 
 <style>
   /* Layout */
-  .page-wrap{max-width:1100px;margin:0 auto;}            /* <= tighter page width */
+  .page-wrap{max-width:1100px;margin:0 auto;}
   .card.shadow-soft{box-shadow:0 3px 10px rgba(16,24,40,.06)}
 
   /* Toolbar */
@@ -21,12 +21,12 @@
   @media (min-width:992px){.toolbar .actions{margin-left:auto}}
 
   /* Table */
-  .table.fixed{table-layout:fixed; width:100%;}
+  .table.fixed{table-layout:fixed;width:100%;}
   .table thead th{font-size:12px;color:#475467;font-weight:700}
   .table td{vertical-align:middle}
   .table>:not(caption)>*>*{padding:14px 16px}
 
-  /* Percent widths (balanced, no giant gaps) */
+  /* Percent widths */
   .col-id{width:14%}
   .col-name{width:32%}
   .col-date{width:16%}
@@ -40,7 +40,6 @@
     .col-name,.col-remarks{width:auto}
   }
 
-  /* Text handling */
   .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 
   /* Action icon */
@@ -57,7 +56,7 @@
   <div class="page-wrap">
     <h1 class="h4 fw-bold mb-4">Order History</h1>
 
-    {{-- Toolbar (GET filters) --}}
+    {{-- Toolbar --}}
     <div class="card border-0 shadow-soft mb-3">
       <form method="GET" action="{{ route('printing.history') }}">
         <div class="card-body toolbar">
@@ -69,9 +68,9 @@
             placeholder="Search by Order ID or Job Title">
 
           <div class="dates">
-            <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off" inputmode="numeric">
+            <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
             <span class="text-muted">to</span>
-            <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off" inputmode="numeric">
+            <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
           </div>
 
           <div class="actions">
@@ -122,7 +121,7 @@
                   $remarks = $row->materialRemark ?: '–';
                 @endphp
                 <tr>
-                  <td class="fw-semibold">{{ $row->product_code }}</td>  
+                  <td class="fw-semibold">{{ $row->product_code }}</td>
                   <td><span class="truncate" title="{{ $prodName }}">{{ $prodName }}</span></td>
                   <td>{{ $completed }}</td>
                   <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
@@ -141,7 +140,7 @@
           </table>
         </div>
 
-        {{-- Pagination with ellipses --}}
+        {{-- Pagination --}}
         @php
           $current = $orders->currentPage();
           $last    = $orders->lastPage();
@@ -198,60 +197,50 @@
 @push('scripts')
 <script>
 (() => {
-  const ymdToUs = v => /^\d{4}-\d{2}-\d{2}$/.test(v) ? (v.slice(5,7) + '/' + v.slice(8,10) + '/' + v.slice(0,4)) : v;
+  // mm/dd/yyyy ↔ yyyy-mm-dd 互转
+  const ymdToUs = v => /^\d{4}-\d{2}-\d{2}$/.test(v) ? (v.slice(5,7)+'/'+v.slice(8,10)+'/'+v.slice(0,4)) : v;
   const usToYmd = v => {
     const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!m) return v;
+    if (!m) return '';
     const [,mm,dd,yy] = m;
     return `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
   };
 
-  function openNativePicker(textInput){
-    const rect = textInput.getBoundingClientRect();
+  function attachNativeDate(input){
+    const rect = input.getBoundingClientRect();
+    input.style.width = rect.width + 'px';
 
-    // create a hidden date input *positioned under the field*
-    const dateInput = document.createElement('input');
-    dateInput.type = 'date';
-    dateInput.style.position = 'fixed';
-    dateInput.style.left = `${rect.left}px`;
-    dateInput.style.top  = `${rect.bottom + 4}px`; // a little gap under the field
-    dateInput.style.opacity = 0;
-    dateInput.style.pointerEvents = 'none';
-    dateInput.style.zIndex = 2147483647; // on top, just in case
-    dateInput.style.height = `${rect.height}px`;
-    dateInput.style.width  = `${rect.width}px`;
+    function openPicker(){
+      if (input.type !== 'date') {
+        const prev = input.value.trim();
+        const ymd = usToYmd(prev);
+        input.type = 'date';
+        if (ymd) input.value = ymd;
+        if (input.showPicker) input.showPicker();
+        else input.focus();
+      }
+    }
+    function closePicker(){
+      if (input.type === 'date') {
+        if (input.value) input.value = ymdToUs(input.value);
+        input.type = 'text';
+      }
+    }
 
-    // preload value
-    const ymd = usToYmd((textInput.value || '').trim());
-    if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) dateInput.value = ymd;
-
-    document.body.appendChild(dateInput);
-
-    // show picker
-    (dateInput.showPicker ? dateInput.showPicker() : dateInput.focus());
-
-    const cleanup = () => document.body.contains(dateInput) && document.body.removeChild(dateInput);
-
-    dateInput.addEventListener('change', () => {
-      if (dateInput.value) textInput.value = ymdToUs(dateInput.value);
-      textInput.dispatchEvent(new Event('change'));
-      cleanup();
-    }, { once:true });
-
-    dateInput.addEventListener('blur', cleanup, { once:true });
+    input.addEventListener('focus', openPicker);
+    input.addEventListener('click', openPicker);
+    input.addEventListener('change', () => {
+      if (input.type === 'date' && input.value) {
+        const us = ymdToUs(input.value);
+        input.type = 'text';
+        input.value = us;
+        input.dispatchEvent(new Event('change', {bubbles:true}));
+      }
+    });
+    input.addEventListener('blur', closePicker);
   }
 
-  // attach to both date fields
-  document.querySelectorAll('.js-date').forEach(inp => {
-    inp.addEventListener('change', () => { inp.value = ymdToUs(inp.value.trim()); });
-    inp.addEventListener('focus', () => openNativePicker(inp));
-    inp.addEventListener('click', () => openNativePicker(inp));
-  });
-
-  // keep position correct on resize/scroll if picker is open:
-  // (most browsers lock the picker; this is a no-op but harmless)
-  window.addEventListener('scroll', () => {/* no-op */}, { passive:true });
-  window.addEventListener('resize', () => {/* no-op */});
+  document.querySelectorAll('.js-date').forEach(attachNativeDate);
 })();
 </script>
 @endpush

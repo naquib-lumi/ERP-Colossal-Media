@@ -116,15 +116,19 @@
               $deadline  = $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—';
               $submitted = $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—';
               $sq = is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0) . ' sq in' : '0 sq in';
+              $code = $row->product_code ?? ('ORD'.($row->order_id ?? $row->ProductID).'-P'.$row->ProductID);
             @endphp
             <tr id="job-{{ $row->ProductID }}">
-              <td>{{ $row->product_code ?? ('ORD'.($row->order_id ?? $row->ProductID).'-P'.$row->ProductID) }}</td>
+              <td>{{ $code }}</td>
               <td>{{ ($row->printer ?? '-') === '-' ? '—' : $row->printer }}</td>
               <td>{{ $sq }}</td>
               <td>{{ $deadline }}</td>
               <td>{{ $submitted }}</td>
               <td class="text-nowrap">
-                <a class="icon-pill" title="View"><i class="bi bi-eye"></i></a>
+                {{-- ✅ View 按钮：跳转到 job_order_show.blade.php --}}
+                <a href="{{ route('printing.orders.show', $row->ProductID) }}" class="icon-pill" title="View">
+                  <i class="bi bi-eye"></i>
+                </a>
 
                 <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed">
                   <i class="bi bi-check2"></i>
