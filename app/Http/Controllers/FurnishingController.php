@@ -43,25 +43,26 @@ class FurnishingController extends Controller
                 DB::raw("MAX(COALESCE(NULLIF(TRIM(s.cutter), ''), '')) as cutter"),
                 DB::raw("
                     ROUND(
-                    SUM(
+                        SUM(
                         COALESCE(i.quantity,0) *
                         COALESCE(i.sizeWidth,0) *
                         COALESCE(i.sizeHeight,0) *
                         (
-                        CASE
+                            CASE
                             WHEN LOWER(COALESCE(i.sizeUnit,'')) IN ('in','inch','inches') THEN 1
-                            WHEN LOWER(COALESCE(i.sizeUnit,'')) = 'cm' THEN (1/2.54/2.54)
+                            WHEN LOWER(COALESCE(i.sizeUnit,'')) IN ('cm')                  THEN (1/2.54/2.54)
                             WHEN LOWER(COALESCE(i.sizeUnit,'')) IN ('mm','millimeter','millimetre') THEN (1/25.4/25.4)
+                            WHEN LOWER(COALESCE(i.sizeUnit,'')) IN ('ft','foot','feet')   THEN 144
                             ELSE 0
-                        END
+                            END
                         )
-                    )
+                        )
                     , 2) as sq_in
                 "),
                 DB::raw('COALESCE(o.accepted, 0) as accepted'),
             ])
             ->orderByDesc('submission_date')
-            ->paginate(10000);
+            ->paginate(10);
 
         return view('furnishing.dashboard', [
             'inProgress' => $inProgress,

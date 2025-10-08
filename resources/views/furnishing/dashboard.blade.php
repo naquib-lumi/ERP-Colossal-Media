@@ -349,12 +349,11 @@
                 <td>{{ \Carbon\Carbon::parse($j->submission_date)->format('Y-m-d') }}</td>
                 <td>
                   <div class="d-flex align-items-center gap-2">
-                    {{-- VIEW: always --}}
-                    <a class="icon-btn icon-pill" href="{{ $viewUrl }}" title="View">
-                      <i class="bi bi-eye"></i>
-                    </a>
-
-                    {{-- EDIT + CONFIRM: only when accepted = 1 --}}
+                    @if (!$accepted)
+                      <a class="icon-btn icon-pill" href="{{ $viewUrl }}" title="View">
+                        <i class="bi bi-eye"></i>
+                      </a>
+                    @endif
                     @if ($accepted)
                       <a class="icon-btn icon-pill" href="{{ $editUrl }}" title="Edit">
                         <i class="bi bi-pencil"></i>
