@@ -157,20 +157,16 @@
     background: #FCFCFD
   }
 
-  .col-item {
-    min-width: 200px
-  }
-
   .col-qty {
     width: 100px
   }
 
   .col-size {
-    width: 120px
+    width: 30rem
   }
 
   .col-bleed {
-    width: 110px
+    width: 20rem
   }
 
   .col-material {
@@ -178,7 +174,7 @@
   }
 
   .col-centre {
-    width: 110px
+    width: 80px
   }
 
   .col-lam {
@@ -194,7 +190,7 @@
   }
 
   .col-assemble {
-    width: 110px
+    width: 80px
   }
 
   .badge-yes,
@@ -686,8 +682,6 @@
         <div class="row g-4">
           <div class="col-12 col-lg-6">
             <dl class="dl">
-              <dt>Product ID</dt>
-              <dd>#{{ $header->ProductID }}</dd>
               <dt>Job Order ID</dt>
               <dd>{{ $header->order_number ?: '—' }}</dd>
               <dt>Job Title</dt>
@@ -727,6 +721,7 @@
       </div>
     </div>
 
+    @foreach($blocks as $block)
     <div class="card soft mb-4">
       <div class="card-body">
         <div class="subcard mb-3">
@@ -735,27 +730,30 @@
               <i class="bi bi-box"></i>
               <div>
                 <div class="fw-semibold" style="font-size:1rem;">
-                  Product @if(!empty($product_header['name'])) — {{ $product_header['name'] }} @endif
+                  Product @if(!empty($block['product_header']['name'])) — {{ $block['product_header']['name'] }} @endif
                 </div>
-
                 <div class="text-muted small">
-                  ID: {{ $product_header['code'] ?? '—' }}
-                  @if(isset($product_header['qty'])) · Qty: {{ number_format($product_header['qty']) }} @endif
-                  @if(!empty($product_header['material'])) · Material: {{ $product_header['material'] }} @endif
+                  ID: {{ $block['product_header']['code'] ?? '—' }}
+                  @if(isset($block['product_header']['qty'])) · Qty: {{ number_format($block['product_header']['qty']) }} @endif
+                  @if(!empty($block['product_header']['material'])) · Material: {{ $block['product_header']['material'] }} @endif
                 </div>
               </div>
             </div>
             <div class="right">
-              <button class="btn-toggle-icon" data-toggle="subcard" data-target="p1-body"><i class="bi bi-chevron-down"></i></button>
+              <button class="btn-toggle-icon"
+                data-toggle="subcard"
+                data-target="p{{ $block['id'] }}-body">
+                <i class="bi bi-chevron-down"></i>
+              </button>
             </div>
           </div>
 
-          <div class="subcard-body" id="p1-body">
+          <div class="subcard-body" id="p{{ $block['id'] }}-body">
             <div class="table-responsive">
               <table class="table table-products align-middle mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th class="col-item">ITEM</th>
+                    <th class="col-item" style="width: 12%">ITEM</th>
                     <th class="col-qty">QUANTITY</th>
                     <th class="col-size">SIZE</th>
                     <th class="col-bleed">BLEED</th>
@@ -768,33 +766,18 @@
                   </tr>
                 </thead>
                 <tbody>
-                  @forelse($items as $it)
+                  @forelse($block['items'] as $it)
                   <tr>
                     <td>{{ $it['name'] ?? '—' }}</td>
                     <td>{{ $it['qty'] ?? '—' }}</td>
                     <td>{{ $it['size'] ?? '—' }}</td>
                     <td>{{ $it['bleed'] ?? '—' }}</td>
                     <td>{{ $it['material'] ?? '—' }}</td>
-
-                    <td>
-                      @if(!empty($it['prime']))
-                      <span class="badge-yes">Yes</span>
-                      @else
-                      <span class="badge-no">No</span>
-                      @endif
-                    </td>
-
+                    <td>{!! !empty($it['prime']) ? '<span class="badge-yes">Yes</span>' : '<span class="badge-no">No</span>' !!}</td>
                     <td>{{ $it['lamination'] ?? '—' }}</td>
                     <td>{{ $it['printer'] ?? '—' }}</td>
                     <td>{{ $it['cutter'] ?? '—' }}</td>
-
-                    <td>
-                      @if(!empty($it['assemble']))
-                      <span class="badge-yes">Yes</span>
-                      @else
-                      <span class="badge-no">No</span>
-                      @endif
-                    </td>
+                    <td>{!! !empty($it['assemble']) ? '<span class="badge-yes">Yes</span>' : '<span class="badge-no">No</span>' !!}</td>
                   </tr>
                   @empty
                   <tr>
@@ -806,77 +789,79 @@
             </div>
           </div>
         </div>
-
-      </div>
-    </div>
-
-    {{-- Delivery Breakdown --}}
-    @if(!empty($deliveries))
-    <div class="card dlv-card mb-4">
-      <div class="card-body">
-        @php $tot = $totals ?? ['total'=>0,'delivered'=>0,'remaining'=>0]; @endphp
-        <div class="d-flex justify-content-between align-items-start mb-2">
-          <div class="dlv-hd"><i class="bi bi-truck"></i> Delivery Breakdown</div>
-          <div class="dlv-sub">
-            Total: {{ number_format($tot['total']) }}
-            · Delivered: {{ number_format($tot['delivered']) }}
-            · Remaining: {{ number_format($tot['remaining']) }}
-          </div>
-        </div>
-
-        <div class="dlv-product">
-          <div class="dlv-product-title">Product — {{ $product_header['name'] ?? 'Product' }}</div>
-
-          <div class="dlv-list">
-            @foreach ($deliveries as $d)
-            @php
-            $m = $d['method']; // courier | pickup | install
-            $badgeClass = $m === 'courier' ? 'badge-courier' : ($m === 'pickup' ? 'badge-pickup' : 'badge-delivery');
-            $badgeIcon = $d['icon'] ?? 'bi-truck';
-            @endphp
-            <div class="dlv-item">
-              <div class="dlv-icon"><i class="bi {{ $badgeIcon }}"></i></div>
-              <div class="dlv-main">
-                <div class="dlv-head">
-                  <span class="badge-method {{ $badgeClass }}">
-                    <i class="bi {{ $badgeIcon }}"></i> {{ $d['method_label'] }}
-                  </span>
-                </div>
-                <div class="dlv-fields">
-                  <div class="field">
-                    <div class="label">Quantity</div>
-                    <div class="value value-strong">{{ number_format($d['quantity']) }}</div>
-                  </div>
-                  <div class="field">
-                    <div class="label">Address</div>
-                    <div class="value">{{ $d['address'] ?: '—' }}</div>
-                  </div>
-                  <div class="field">
-                    <div class="label">Delivery Date &amp; Time</div>
-                    <div class="value">{{ $d['datetime'] ?: '—' }}</div>
-                  </div>
-                  @if(!empty($d['install']))
-                  <div class="field">
-                    <div class="label">Installation Type</div>
-                    <div class="value">{{ $d['install'] }}</div>
-                  </div>
-                  @endif
-                  @if(array_key_exists('cost',$d) && $d['cost'] !== null)
-                  <div class="field">
-                    <div class="label">Cost</div>
-                    <div class="value">{{ number_format($d['cost'], 2) }}</div>
-                  </div>
-                  @endif
-                </div>
+        {{-- Delivery Breakdown --}}
+        @if(!empty($block['deliveries']))
+        <div class="card dlv-card mb-4">
+          <div class="card-body">
+            @php $tot = $block['totals'] ?? ['total'=>0,'delivered'=>0,'remaining'=>0]; @endphp
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div class="dlv-hd"><i class="bi bi-truck"></i> Delivery Breakdown</div>
+              <div class="dlv-sub">
+                Total: {{ number_format($tot['total']) }}
+                · Delivered: {{ number_format($tot['delivered']) }}
+                · Remaining: {{ number_format($tot['remaining']) }}
               </div>
             </div>
-            @endforeach
+
+            <div class="dlv-product">
+              <div class="dlv-product-title">
+                Product — {{ $block['product_header']['name'] ?? 'Product' }}
+              </div>
+
+              <div class="dlv-list">
+                @foreach ($block['deliveries'] as $d)
+                @php
+                $m = $d['method']; // courier | pickup | install
+                $badgeClass = $m === 'courier' ? 'badge-courier' : ($m === 'pickup' ? 'badge-pickup' : 'badge-delivery');
+                $badgeIcon = $d['icon'] ?? 'bi-truck';
+                @endphp
+                <div class="dlv-item">
+                  <div class="dlv-icon"><i class="bi {{ $badgeIcon }}"></i></div>
+                  <div class="dlv-main">
+                    <div class="dlv-head">
+                      <span class="badge-method {{ $badgeClass }}">
+                        <i class="bi {{ $badgeIcon }}"></i> {{ $d['method_label'] }}
+                      </span>
+                    </div>
+                    <div class="dlv-fields">
+                      <div class="field">
+                        <div class="label">Quantity</div>
+                        <div class="value value-strong">{{ number_format($d['quantity']) }}</div>
+                      </div>
+                      <div class="field">
+                        <div class="label">Location</div>
+                        <div class="value">{{ ($d['location'] ?? '') !== '' ? $d['location'] : '—' }}</div>
+                      </div>
+                      <div class="field">
+                        <div class="label">Delivery Date &amp; Time</div>
+                        <div class="value">{{ $d['datetime'] ?: '—' }}</div>
+                      </div>
+                      @if(!empty($d['install']))
+                      <div class="field">
+                        <div class="label">Installation Type</div>
+                        <div class="value">{{ $d['install'] }}</div>
+                      </div>
+                      @endif
+                      @if(array_key_exists('cost',$d) && $d['cost'] !== null)
+                      <div class="field">
+                        <div class="label">Cost</div>
+                        <div class="value">{{ number_format($d['cost'], 2) }}</div>
+                      </div>
+                      @endif
+                    </div>
+                  </div>
+                </div>
+                @endforeach
+              </div>
+            </div>
+
           </div>
         </div>
-
+        @endif
       </div>
     </div>
-    @endif
+    @endforeach
+
 
 
     {{-- Add Remarks（编辑态出现） --}}

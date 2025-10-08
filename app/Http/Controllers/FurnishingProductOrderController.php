@@ -77,10 +77,10 @@ class FurnishingProductOrderController extends Controller
      */
     public function show(int $productId)
     {
-        // --- header: product + order + artist name ---
+        // --- 1) Load the selected product + order header ---
         $headerRow = DB::table('products as p')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-            ->leftJoin('users  as u', 'u.id', '=', 'o.artist_id')   // artist on order table
+            ->leftJoin('users  as u', 'u.id', '=', 'o.artist_id')
             ->where('p.ProductID', $productId)
             ->select([
                 'p.ProductID',
@@ -90,7 +90,7 @@ class FurnishingProductOrderController extends Controller
                 'p.totalQuantity',
                 'p.materialRemark',
                 'o.order_number',
-                'o.orderTitle',              // << we will show this as Job Title
+                'o.orderTitle',
                 'o.companyName',
                 'o.orderDate',
                 'o.deadline',
@@ -100,272 +100,243 @@ class FurnishingProductOrderController extends Controller
             ])
             ->first();
 
-        if (!$headerRow) {
-            abort(404);
-        }
+        if (!$headerRow) abort(404);
 
-        // Build product code like: #ORD-2025-003-P0110
-        $orderCode    = $headerRow->order_number ?: sprintf('ORD-%03d', (int) $headerRow->OrderID);
-        $productCode  = sprintf('%s-P%04d', $orderCode, (int) $productId);
+        // Helper to build a product code like #ORD-2025-003-P0110
+        $orderCodeFor = function ($orderId, $orderNumber) {
+            return $orderNumber ?: sprintf('ORD-%03d', (int)$orderId);
+        };
+        $orderCode   = $orderCodeFor($headerRow->OrderID, $headerRow->order_number);
+        $productCode = sprintf('%s-P%04d', $orderCode, (int)$productId);
 
-        // ---- Build a compact product header for the blade ----
-        $productHeader = [
-            'name'     => trim((string)($headerRow->productName ?? $headerRow->product_name_fallback ?? '')),
-            'code'     => $productCode,                                         // e.g. #ORD-2025-003-P0110
-            'qty'      => (int)($headerRow->totalQuantity ?? 0),                // products.totalQuantity
-            'material' => trim((string)($headerRow->materialRemark ?? '')),     // products.materialRemark
+        // Header object used by your current blade
+        $header = (object)[
+            'ProductID'    => $headerRow->ProductID,
+            'OrderID'      => $headerRow->OrderID,
+            'status'       => $headerRow->status,
+            'order_number' => $headerRow->order_number,
+            'order_title'  => $headerRow->orderTitle,
+            'companyName'  => $headerRow->companyName,
+            'artist_name'  => $headerRow->artist_name,
         ];
 
-        // pass it to the view
-        $data['product_header'] = $productHeader;
-
-        // Dates bucket (just for safe blade usage)
         $dates = [
             'order_date' => $headerRow->orderDate,
             'deadline'   => $headerRow->deadline,
         ];
 
-        // Normalize header object for the view
-        $header = (object) [
-            'ProductID'   => $headerRow->ProductID,
-            'OrderID'     => $headerRow->OrderID,
-            'status'      => $headerRow->status,
-            'order_number' => $headerRow->order_number,
-            'order_title' => $headerRow->orderTitle,     // <-- use this in blade
-            'companyName' => $headerRow->companyName,
-            'artist_name' => $headerRow->artist_name,
+        // ---- compact product header (for the selected product) ----
+        $productHeader = [
+            'name'     => trim((string)($headerRow->productName ?? '')),
+            'code'     => $productCode,
+            'qty'      => (int)($headerRow->totalQuantity ?? 0),
+            'material' => trim((string)($headerRow->materialRemark ?? '')),
         ];
 
-        // ----- Product remarks (chips) -----
-        // show all remarks for this product regardless of operation
-        $remarkRows = DB::table('product_remarks')
-            ->where('ProductID', $productId)
-            ->orderBy('created_at')
-            ->get();
+        // ===== Helpers we reuse for any ProductID =====
+        $fmt = fn($n) => $n === null ? null : rtrim(rtrim(number_format((float)$n, 2, '.', ''), '0'), '.');
 
-        $remarkLabels = $remarkRows->map(function ($row) {
-            // Map 'installation' → 'delivery & installation'
-            $operation = strtolower($row->operation ?? '');
-            $labelOperation = $operation === 'installation' ? 'delivery & installation' : $operation;
+        $buildItems = function (int $pid) use ($fmt) {
+            $raw = DB::table('product_items as i')
+                ->leftJoin('specifications as s', 's.ItemID', '=', 'i.ItemID')
+                ->where('i.ProductID', $pid)
+                ->orderBy('i.ItemID')
+                ->get();
 
-            // Combine operation and remark text
-            return trim($labelOperation ? "{$labelOperation}: {$row->remark}" : $row->remark);
-        })
-            ->filter(fn($v) => $v !== '')
-            ->unique()
-            ->values()
-            ->all();
-
-        // ----- Product items + specifications -----
-        $itemsRaw = DB::table('product_items as i')
-            ->leftJoin('specifications as s', 's.ItemID', '=', 'i.ItemID')
-            ->where('i.ProductID', $productId)
-            ->orderBy('i.ItemID')
-            ->get();
-
-        $items = $itemsRaw->map(function ($r) {
-            // Material can be JSON array in DB; render nicely if so
-            $material = $r->material;
-            if (is_string($material) && strlen($material)) {
-                $trim = ltrim($material);
-                if (isset($trim[0]) && ($trim[0] === '[' || $trim[0] === '{')) {
-                    $decoded = json_decode($material, true);
-                    if (json_last_error() === JSON_ERROR_NONE) {
-                        if (is_array($decoded)) {
-                            $material = implode(', ', array_filter($decoded, fn($v) => $v !== '' && $v !== null));
+            return $raw->map(function ($r) use ($fmt) {
+                // material: support json array or plain text
+                $material = $r->material;
+                if (is_string($material) && $material !== '') {
+                    $t = ltrim($material);
+                    if ($t !== '' && ($t[0] === '[' || $t[0] === '{')) {
+                        $d = json_decode($material, true);
+                        if (json_last_error() === JSON_ERROR_NONE && is_array($d)) {
+                            $material = implode(', ', array_filter($d, fn($v) => $v !== '' && $v !== null));
                         }
                     }
                 }
-            }
 
-            // Size (W × H unit)
-            $fmt = fn($n) => $n === null ? null : rtrim(rtrim(number_format((float)$n, 2, '.', ''), '0'), '.');
-            $size = null;
-            if ($r->sizeWidth !== null || $r->sizeHeight !== null) {
-                $w = $fmt($r->sizeWidth);
-                $h = $fmt($r->sizeHeight);
-                $size = trim(($w ?: '0') . ' × ' . ($h ?: '0') . ' ' . (string)($r->sizeUnit ?? ''));
-            }
+                $size = null;
+                if ($r->sizeWidth !== null || $r->sizeHeight !== null) {
+                    $size = ($fmt($r->sizeWidth) ?: '0') . ' × ' . ($fmt($r->sizeHeight) ?: '0') . ' ' . (string)($r->sizeUnit ?? '');
+                }
 
-            // Bleed (top / right / bottom / left unit)
-            $bleed = null;
-            if ($r->bleedTop !== null || $r->bleedRight !== null || $r->bleedBottom !== null || $r->bleedLeft !== null) {
-                $parts = [
-                    $fmt($r->bleedTop)    ?? '0',
-                    $fmt($r->bleedRight)  ?? '0',
-                    $fmt($r->bleedBottom) ?? '0',
-                    $fmt($r->bleedLeft)   ?? '0',
+                $bleed = null;
+                if ($r->bleedTop !== null || $r->bleedRight !== null || $r->bleedBottom !== null || $r->bleedLeft !== null) {
+                    $bleed = implode(' / ', [
+                        $fmt($r->bleedTop)    ?? '0',
+                        $fmt($r->bleedRight)  ?? '0',
+                        $fmt($r->bleedBottom) ?? '0',
+                        $fmt($r->bleedLeft)   ?? '0',
+                    ]) . ' ' . (string)($r->bleedUnit ?? '');
+                }
+
+                $prime    = (int)($r->prime_centre ?? 0) === 1;
+                $assemble = is_string($r->finishing) ? strtolower($r->finishing) === 'yes'
+                    : (!is_null($r->finishing) && (int)$r->finishing === 1);
+
+                return [
+                    'name'       => $r->itemName,
+                    'qty'        => $r->quantity,
+                    'size'       => $size,
+                    'bleed'      => $bleed,
+                    'material'   => $material,
+                    'prime'      => $prime,
+                    'lamination' => $r->lamination,
+                    'printer'    => $r->printer,
+                    'cutter'     => $r->cutter,
+                    'assemble'   => $assemble,
                 ];
-                $bleed = implode(' / ', $parts) . ' ' . (string)($r->bleedUnit ?? '');
-            }
+            })->values()->all();
+        };
 
-            // Flags
-            $prime = (int)($r->prime_centre ?? 0) === 1;
-            $assemble = false;
-            // product_items.finishing can be yes/no or null in your schema; treat "yes" or 1 as true
-            if (is_string($r->finishing)) {
-                $assemble = strtolower($r->finishing) === 'yes';
-            } elseif (!is_null($r->finishing)) {
-                $assemble = (int)$r->finishing === 1;
-            }
-
-            return [
-                'name'         => $r->itemName,
-                'qty'          => $r->quantity,
-                'size'         => $size,
-                'bleed'        => $bleed,
-                'material'     => $material,
-                'prime'        => $prime,
-                'lamination'   => $r->lamination,
-                'printer'      => $r->printer,
-                'cutter'       => $r->cutter,
-                'assemble'     => $assemble,
-            ];
-        })->values();
-
-        // --- Delivery breakdowns ---
-        $rows = DB::table('delivery_breakdowns')
-            ->where('ProductID', $productId)
-            ->select([
-                'method',
-                'deliver_install_type',
-                'outsource_cost',
-                'quantity',
-                'date',
-                'time',
-                'location',
-            ])
-            ->orderBy('BreakdownID')
-            ->get();
-
-        // Canonicalize method to: pickup | courier | install
-        $canon = function (?string $raw): array {
+        $canonMethod = function (?string $raw): array {
             $m = strtolower(trim((string)$raw));
-
-            if (str_contains($m, 'courier')) {
-                return ['key' => 'courier', 'label' => 'Courier', 'icon' => 'bi-box-arrow-up-right'];
-            }
-
-            if (str_contains($m, 'self') || str_contains($m, 'pickup')) {
+            if (str_contains($m, 'courier'))  return ['key' => 'courier', 'label' => 'Courier', 'icon' => 'bi-box-arrow-up-right'];
+            if (str_contains($m, 'self') || str_contains($m, 'pickup'))
                 return ['key' => 'pickup', 'label' => 'Self Pickup', 'icon' => 'bi-bag-check'];
-            }
-
-            // treat anything else as Delivery & Installation
             return ['key' => 'install', 'label' => 'Delivery & Installation', 'icon' => 'bi-truck'];
         };
 
-        // Map rows for Blade
-        $deliveries = $rows->map(function ($d) use ($canon) {
-            $m = $canon($d->method);
+        $buildDeliveriesAndTotals = function (int $pid, int $productQty) use ($canonMethod) {
+            $rows = DB::table('delivery_breakdowns')
+                ->where('ProductID', $pid)
+                ->select(['method', 'deliver_install_type', 'outsource_cost', 'quantity', 'date', 'time', 'location'])
+                ->orderBy('BreakdownID')
+                ->get();
 
-            // date & time -> single display string
-            $dateTime = null;
-            if ($d->date) {
-                $dt = $d->time
-                    ? \Carbon\Carbon::parse($d->date . ' ' . $d->time)
-                    : \Carbon\Carbon::parse($d->date);
-                $dateTime = $d->time ? $dt->format('Y-m-d H:i') : $dt->format('Y-m-d');
-            }
+            $deliveries = $rows->map(function ($d) use ($canonMethod) {
+                $m = $canonMethod($d->method);
 
-            return [
-                'method'       => $m['key'],            // courier | pickup | install
-                'method_label' => $m['label'],          // Courier | Self Pickup | Delivery & Installation
-                'icon'         => $m['icon'],
-
-                'quantity'     => (int) ($d->quantity ?? 0),
-                'address'      => (string) ($d->location ?? ''),
-                'datetime'     => $dateTime,
-                'install'      => $d->deliver_install_type,                       // outsource / both / null
-                'cost'         => $d->outsource_cost !== null ? (float) $d->outsource_cost : null,
-            ];
-        });
-
-        // Total quantity is what was ordered on the product itself
-        $productQty = (int) ($headerRow->totalQuantity ?? 0);
-
-        // Delivered is simply the sum of quantities in delivery_breakdowns for this ProductID
-        $deliveredQty = (int) $rows->sum(function ($r) {
-            return (int) ($r->quantity ?? 0);
-        });
-
-        // Remaining = Total - Delivered (never negative)
-        $remainingQty = max(0, $productQty - $deliveredQty);
-
-        // Pass to the blade
-        $totals = [
-            'total'     => $productQty,
-            'delivered' => $deliveredQty,
-            'remaining' => $remainingQty,
-        ];
-
-        $data['deliveries'] = $deliveries->values()->all();
-        $data['totals']     = $totals;
-
-
-        // Who to show in the chips
-        $assignee = $header->artist_name ?: '—';
-        $uploader = $assignee;
-
-        // Permit & attachments (dummy for now – keep your existing logic or wire real files)
-        $permit = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
-        $attachments = [];
-            $raw = (string)($headerRow->orderAttachment ?? '');
-
-            if ($raw !== '') {
-                $paths = [];
-
-                // JSON array?
-                $decoded = json_decode($raw, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $paths = array_values(array_filter($decoded));
-                } else {
-                    // comma / whitespace separated
-                    $paths = preg_split('/[\s,]+/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+                $dateTime = null;
+                if ($d->date) {
+                    $dt = $d->time
+                        ? \Carbon\Carbon::parse($d->date . ' ' . $d->time)
+                        : \Carbon\Carbon::parse($d->date);
+                    $dateTime = $d->time ? $dt->format('Y-m-d H:i') : $dt->format('Y-m-d');
                 }
 
-                foreach ($paths as $p) {
-                    $p = ltrim($p, '/');
+                return [
+                    'method'       => $m['key'],
+                    'method_label' => $m['label'],
+                    'icon'         => $m['icon'],
+                    'quantity'     => (int)($d->quantity ?? 0),
+                    'location'      => (string)($d->location ?? ''),
+                    'datetime'     => $dateTime,
+                    'install'      => $d->deliver_install_type,
+                    'cost'         => $d->outsource_cost !== null ? (float)$d->outsource_cost : null,
+                ];
+            })->values()->all();
 
-                    // Build a URL: prefer public disk, otherwise fall back to asset()
-                    if (Str::startsWith($p, ['http://', 'https://'])) {
-                        $url = $p;
-                    } elseif (Storage::disk('public')->exists($p)) {
-                        $url = Storage::url($p);              // e.g. /storage/...
-                    } elseif (Storage::exists($p)) {
-                        $url = Storage::url($p);
-                    } else {
-                        $url = asset($p);                     // last resort
-                    }
-
-                    $attachments[] = [
-                        'name' => basename($p),
-                        'size' => '',                         // size unknown (optional)
-                        'url'  => $url,
-                    ];
-                }
-            }
-
-        return view('furnishing.job_order_show', [
-            'product_code'  => $productCode,
-            'header'        => $header,           
-            'dates'         => $dates,            
-            'remarkLabels'  => $remarkLabels,     
-            'items'         => $items,            
-            'deliveries'    => $deliveries->toArray(),      
-            'totals'        => [
+            $deliveredQty = (int)$rows->sum(fn($r) => (int)($r->quantity ?? 0));
+            $totals = [
                 'total'     => $productQty,
                 'delivered' => $deliveredQty,
-                'remaining' => $remainingQty,
-            ],
-            'assignee'      => $assignee,
-            'uploader'      => $uploader,
-            'permit'        => $permit,
-            'attachments'   => $attachments,
+                'remaining' => max(0, $productQty - $deliveredQty),
+            ];
+
+            return [$deliveries, $totals];
+        };
+
+        // ===== 2) Data for the SELECTED product (keeps your current blade working) =====
+        $items = $buildItems($productId);
+        [$deliveries, $totals] = $buildDeliveriesAndTotals($productId, (int)($headerRow->totalQuantity ?? 0));
+
+        // Product remarks for the selected product
+        $remarkRows = DB::table('product_remarks')
+            ->where('ProductID', $productId)
+            ->orderBy('created_at')->get();
+
+        $remarkLabels = $remarkRows->map(function ($row) {
+            $op = strtolower($row->operation ?? '');
+            $label = $op === 'installation' ? 'delivery & installation' : $op;
+            return trim($label ? "{$label}: {$row->remark}" : $row->remark);
+        })->filter()->unique()->values()->all();
+
+        // Attachments (from orders.orderAttachment)
+        $attachments = [];
+        $rawAtt = (string)($headerRow->orderAttachment ?? '');
+        if ($rawAtt !== '') {
+            $paths = [];
+            $decoded = json_decode($rawAtt, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $paths = array_values(array_filter($decoded));
+            } else {
+                $paths = preg_split('/[\s,]+/', $rawAtt, -1, PREG_SPLIT_NO_EMPTY);
+            }
+            foreach ($paths as $p) {
+                $p = ltrim($p, '/');
+                if (Str::startsWith($p, ['http://', 'https://'])) {
+                    $url = $p;
+                } elseif (Storage::disk('public')->exists($p)) {
+                    $url = Storage::url($p);
+                } elseif (Storage::exists($p)) {
+                    $url = Storage::url($p);
+                } else {
+                    $url = asset($p);
+                }
+                $attachments[] = ['name' => basename($p), 'size' => '', 'url' => $url];
+            }
+        }
+
+        // ===== 3) Build ALL product blocks for the same order (to show multiple products) =====
+        $productIds = DB::table('products')
+            ->where('OrderID', $headerRow->OrderID)
+            ->orderBy('ProductID')
+            ->pluck('ProductID');
+
+        $blocks = [];
+        foreach ($productIds as $pid) {
+            $p = DB::table('products')->where('ProductID', $pid)->first();
+            if (!$p) continue;
+
+            $code = sprintf('%s-P%04d', $orderCodeFor($headerRow->OrderID, $headerRow->order_number), (int)$pid);
+
+            $ph = [
+                'name'     => (string)($p->productName ?? ''),
+                'code'     => $code,
+                'qty'      => (int)($p->totalQuantity ?? 0),
+                'material' => (string)($p->materialRemark ?? ''),
+            ];
+            $its = $buildItems((int)$pid);
+            [$dels, $tots] = $buildDeliveriesAndTotals((int)$pid, (int)($p->totalQuantity ?? 0));
+            $hasDeliveries = !empty($dels);
+
+            $blocks[] = [
+                'id'             => (int)$pid,
+                'product_header' => $ph,
+                'items'          => $its,
+                'deliveries'     => $dels,
+                'totals'         => $tots,
+                'has_deliveries' => $hasDeliveries,
+            ];
+        }
+
+        // Who to show in chips
+        $assignee = $header->artist_name ?: '—';
+        $uploader = $assignee;
+        $permit   = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
+
+        return view('furnishing.job_order_show', [
+            // current single-product variables (unchanged)
+            'product_code'   => $productCode,
+            'header'         => $header,
+            'dates'          => $dates,
+            'remarkLabels'   => $remarkLabels,
+            'items'          => $items,
+            'deliveries'     => $deliveries,
+            'totals'         => $totals,
+            'assignee'       => $assignee,
+            'uploader'       => $uploader,
+            'permit'         => $permit,
+            'attachments'    => $attachments,
             'product_header' => $productHeader,
-            'attachments'   => $attachments,  
-            'uploader'      => $uploader,
+
+            // NEW: all products for the same order
+            'blocks'         => $blocks,
         ]);
     }
+
 
     /**
      * 生成假订单集合
