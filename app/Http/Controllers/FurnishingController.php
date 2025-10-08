@@ -61,6 +61,7 @@ class FurnishingController extends Controller
                 "),
                 DB::raw('COALESCE(o.accepted, 0) as accepted'),
             ])
+            ->where('o.status', '=', 'in_progress')
             ->orderByDesc('submission_date')
             ->paginate(10);
 

@@ -376,66 +376,91 @@ class FurnishingProductOrderController extends Controller
         });
     }
 
-    public function accept(\Illuminate\Http\Request $request, int $product)
-    {
-        // 1) Find the order that owns this product
-        $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
-        if (!$orderId) {
-            abort(404, 'Product not found.');
-        }
+public function accept(\Illuminate\Http\Request $request, int $product)
+{
+    // 1) Product → order
+    $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
+    if (!$orderId) abort(404, 'Product not found.');
+
+    DB::transaction(function () use ($orderId, $product) {
 
         // 2) Mark the order as accepted
         DB::table('orders')
             ->where('id', $orderId)
             ->update([
-                'accepted'   => 1,          // nullable column is fine
+                'accepted'   => 1,
                 'updated_at' => now(),
             ]);
 
-        return back()->with('ok', 'Order accepted.');
-    }
+        // 3) Upsert furnishing progress row: acceptedAt + in_progress
+        DB::table('fulfillment_progress')->updateOrInsert(
+            ['ProductID' => $product, 'stage' => 'furnishing'],
+            [
+                'acceptedAt' => now(),
+                'status'     => 'in_progress',   // keep underscore style to match the rest of your app
+                'updated_at' => now(),
+                // created_at only used when inserting:
+                'created_at' => now(),
+            ]
+        );
+    });
 
-    public function reject(\Illuminate\Http\Request $request, int $product)
-    {
-        $data = $request->validate([
-            'reason' => 'required|string|max:2000',
+    return back()->with('ok', 'Order accepted.');
+}
+
+public function reject(\Illuminate\Http\Request $request, int $product)
+{
+    $data = $request->validate([
+        'reason' => 'required|string|max:2000',
+    ]);
+
+    // product → order
+    $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
+    if (!$orderId) abort(404, 'Product not found.');
+
+    DB::transaction(function () use ($orderId, $product, $data) {
+
+        // 1) Order -> rejected, clear accepted
+        DB::table('orders')
+            ->where('id', $orderId)
+            ->update([
+                'orderStatus' => 'rejected',
+                'accepted'    => null,
+                'updated_at'  => now(),
+            ]);
+
+        // 2) All products in this order -> rejected
+        DB::table('products')
+            ->where('OrderID', $orderId)
+            ->update([
+                'status'     => 'rejected',
+                'updated_at' => now(),
+            ]);
+
+        // 3) Reason
+        DB::table('report_redo')->insert([
+            'OrderID'    => $orderId,
+            'reason'     => $data['reason'],
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
-        // 1) Find the order from this product
-        $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
-        if (!$orderId) {
-            abort(404, 'Product not found.');
-        }
-
-        DB::transaction(function () use ($orderId, $data) {
-            // 2) Mark order rejected and clear accepted flag
-            DB::table('orders')
-                ->where('id', $orderId)
-                ->update([
-                    'orderStatus' => 'rejected',
-                    'accepted'    => null,
-                    'updated_at'  => now(),
-                ]);
-
-            // 3) Mark all products under this order as rejected
-            DB::table('products')
-                ->where('OrderID', $orderId)
-                ->update([
-                    'status'     => 'rejected',
-                    'updated_at' => now(),
-                ]);
-
-            // 4) Save reason
-            DB::table('report_redo')->insert([
-                'OrderID'    => $orderId,
-                'reason'     => $data['reason'],
-                'created_at' => now(),
+        // 4) Progress row for *this* product at furnishing -> rejected
+        DB::table('fulfillment_progress')->updateOrInsert(
+            ['ProductID' => $product, 'stage' => 'furnishing'],
+            [
+                'status'     => 'rejected',
+                // keep acceptedAt/completedAt untouched; just reflect rejection
                 'updated_at' => now(),
-            ]);
-        });
+                'created_at' => now(),
+            ]
+        );
+    });
 
-        return back()->with('ok', 'Order rejected.');
-    }
+    return redirect()
+        ->route('furnishing.dashboard')
+        ->with('ok', 'Order rejected.');
+}
 
     private function ensureCanEdit(int $orderId): void
     {
