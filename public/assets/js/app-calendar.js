@@ -498,77 +498,77 @@ ${extraInfo}
 
     let reminderSubmitting = false;
     const reminderForm = document.getElementById('reminderForm');
-    if (reminderForm) {
-      $(reminderForm).off('submit').on('submit', function(e) {
-        e.preventDefault();
-        if (reminderSubmitting) return;
-        reminderSubmitting = true;
-        const submitBtn = this.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        const formData = new FormData(this);
-        console.log('Reminder FormData:');
-        for (let [key, value] of formData.entries()) {
-          console.log(key, value);
-        }
-        if (formData.get('recurrence_time') === '') {
-          formData.delete('recurrence_time');
-        }
-        const isUpdate = this.querySelector('button[type="submit"]').classList.contains('btn-update-event');
-        const url = isUpdate ? '/calendar/reminders/' + formData.get('id') : '/calendar/reminders';
-        let method = isUpdate ? 'POST' : 'POST';
-        if (isUpdate) {
-          formData.append('_method', 'PUT');
-        }
-
-        if (!formData.get('lead_id') || !formData.get('title') || !formData.get('remind_at')) {
-      alert('Please fill in all required fields: Lead, Title, and Remind Time & Date.');
-          reminderSubmitting = false;
-          submitBtn.disabled = false;
-          return;
-        }
-
-        $.ajax({
-          url: url,
-          type: method,
-          data: formData,
-          processData: false,
-          contentType: false,
-          headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-          },
-          success: function(data) {
-            if (data.success) {
-              calendar.refetchEvents();
-              bsReminderSidebar.hide();
-              reminderForm.reset();
-              submitBtn.classList.remove('btn-update-event');
-              submitBtn.innerHTML = 'Add';
-              reminderForm.querySelector('.offcanvas-title').innerHTML = 'Add Reminder';
-              $(reminderForm.querySelector('[name="lead_id"]')).val(null).trigger('change');
-            } else {
-              alert('Error: ' + data.message);
-            }
-          },
-          error: function(xhr) {
-            console.error('Error adding/updating reminder:', xhr.status, xhr.responseText);
-            if (xhr.status === 422) {
-              const errors = xhr.responseJSON.errors;
-              let errorMsg = 'Validation errors:\n';
-              for (let key in errors) {
-                errorMsg += `${key}: ${errors[key].join(', ')}\n`;
-              }
-              alert(errorMsg);
-            } else {
-              alert('Failed to add/update reminder');
-            }
-          },
-          complete: function() {
-            submitBtn.disabled = false;
-            reminderSubmitting = false;
-          }
-        });
-      });
+  if (reminderForm) {
+  $(reminderForm).off('submit').on('submit', function(e) {
+    e.preventDefault();
+    if (reminderSubmitting) return;
+    reminderSubmitting = true;
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    const form = this;
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      reminderSubmitting = false;
+      submitBtn.disabled = false;
+      return;
     }
+    const formData = new FormData(this);
+    console.log('Reminder FormData:');
+    for (let [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
+    if (formData.get('recurrence_time') === '') {
+      formData.delete('recurrence_time');
+    }
+    const isUpdate = this.querySelector('button[type="submit"]').classList.contains('btn-update-event');
+    const url = isUpdate ? '/calendar/reminders/' + formData.get('id') : '/calendar/reminders';
+    let method = isUpdate ? 'POST' : 'POST';
+    if (isUpdate) {
+      formData.append('_method', 'PUT');
+    }
+
+    $.ajax({
+      url: url,
+      type: method,
+      data: formData,
+      processData: false,
+      contentType: false,
+      headers: {
+        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(data) {
+        if (data.success) {
+          calendar.refetchEvents();
+          bsReminderSidebar.hide();
+          reminderForm.reset();
+          submitBtn.classList.remove('btn-update-event');
+          submitBtn.innerHTML = 'Add';
+          reminderForm.querySelector('.offcanvas-title').innerHTML = 'Add Reminder';
+          $(reminderForm.querySelector('[name="lead_id"]')).val(null).trigger('change');
+        } else {
+          alert('Error: ' + data.message);
+        }
+      },
+      error: function(xhr) {
+        console.error('Error adding/updating reminder:', xhr.status, xhr.responseText);
+        if (xhr.status === 422) {
+          const errors = xhr.responseJSON.errors;
+          let errorMsg = 'Validation errors:\n';
+          for (let key in errors) {
+            errorMsg += `${key}: ${errors[key].join(', ')}\n`;
+          }
+          alert(errorMsg);
+        } else {
+          alert('Failed to add/update reminder');
+        }
+      },
+      complete: function() {
+        submitBtn.disabled = false;
+        reminderSubmitting = false;
+      }
+    });
+  });
+}
 
     let meetingSubmitting = false;
     const meetingForm = document.getElementById('meetingForm');

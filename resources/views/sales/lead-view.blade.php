@@ -76,50 +76,76 @@
                                 </div>
                             </div>
                             
-                            <div class="card mb-4 border-light shadow-sm">
-                                <div class="card-body p-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h6 class="card-title">Files</h6>
-                                        <button class="btn btn-dark btn-sm" id="addFileBtn">Add File</button>
-                                    </div>
-                                    <form action="{{ route('leads.add.attachment', ['id' => $lead->id]) }}" method="POST" enctype="multipart/form-data" id="addFileForm" style="display: none;">
-                                        @csrf
-                                        <div class="mb-3">
-                                            <input type="file" class="form-control" name="attachments[]" multiple accept=".pdf,.doc,.jpg,.png">
-                                        </div>
-                                        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
-                                    </form>
-                                    <table class="table table-bordered table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>Uploaded By</th>
-                                                <th>Date</th>
-                                                <th>File Size</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($lead->attachments as $attachment)
-                                                <tr>
-                                                    <td>{{ basename($attachment->file_location) }}</td>
-                                                    <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
-                                                    <td>{{ $attachment->created_at->format('Y-m-d') }}</td>
-                                                    <td>{{ round($attachment->file_size / 1024) }} KB</td>
-                                                    <td><a href="{{ asset('storage/' . $attachment->file_location) }}" class="btn btn-sm btn-dark" download><i class="bx bx-download"></i></a></td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                       <div class="card mb-4 border-light shadow-sm">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="card-title">Files</h6>
+                                    <button class="btn btn-dark btn-sm" id="addFileBtn">Add File</button>
                                 </div>
+                                <form action="{{ route('leads.add.attachment', ['id' => $lead->id]) }}" method="POST" enctype="multipart/form-data" id="addFileForm" style="display: none;">
+                                    @csrf
+                                    <div class="mb-3">
+                                        <input type="file" class="form-control" name="attachments[]" multiple accept=".pdf,.doc,.jpg,.png">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+                                </form>
+                                <table class="table table-bordered table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Uploaded By</th>
+                                            <th>Date</th>
+                                            <th>File Size</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="attachmentsTableBody">
+                                        @foreach ($lead->attachments as $attachment)
+                                            <tr>
+                                                <td>{{ basename($attachment->file_location) }}</td>
+                                                <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
+                                                <td>{{ $attachment->created_at->format('Y-m-d') }}</td>
+                                                <td>{{ round($attachment->file_size / 1024) }} KB</td>
+                                                <td>
+                                                    <a href="{{ asset('storage/' . $attachment->file_location) }}" class="btn btn-sm btn-dark me-1" download><i class="bx bx-download"></i></a>
+                                                    <a href="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}" class="btn btn-sm btn-danger delete-attachment"><i class="bx bx-trash"></i></a>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
                             </div>
+                        </div>
 
                             <script>
-                                $(document).ready(function() {
-                                    $('#addFileBtn').on('click', function() {
-                                        $('#addFileForm').slideToggle();
-                                    });
+                            $(document).ready(function() {
+                                $('#addFileBtn').on('click', function() {
+                                    $('#addFileForm').slideToggle();
                                 });
+
+                                $('#attachmentsTableBody').on('click', '.delete-attachment', function(e) {
+                                    e.preventDefault();
+                                    if (confirm('Are you sure you want to delete this attachment?')) {
+                                        let url = $(this).attr('href');
+                                        $.ajax({
+                                            url: url,
+                                            type: 'DELETE',
+                                            data: {
+                                                _token: '{{ csrf_token() }}',
+                                            },
+                                            success: function(response) {
+                                                $(e.target).closest('tr').remove();
+                                                if ($('#attachmentsTableBody tr').length === 0) {
+                                                    $('#attachmentsTableBody').html('<tr><td colspan="5" class="text-center text-muted">No attachments</td></tr>');
+                                                }
+                                            },
+                                            error: function(xhr) {
+                                                alert('Error deleting attachment: ' + xhr.responseText);
+                                            }
+                                        });
+                                    }
+                                });
+                            });
                             </script>
                             <div class="card mb-4 border-light shadow-sm">
                                 <div class="card-body p-3">
@@ -132,6 +158,9 @@
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             <div>
                                                 <strong>{{ $reminder->title }}</strong><br>
+                                                @if($reminder->description)
+                                                <small class="text-muted">{{ $reminder->description }}</small><br>
+                                                @endif
                                                 <small class="text-muted">Due: {{ $reminder->remind_at instanceof \Carbon\Carbon ? $reminder->remind_at->format('Y-m-d H:i') : $reminder->remind_at }}</small>
                                             </div>
                                             <span class="badge bg-{{ $reminder->status == 'overdue' ? 'danger' : ($reminder->status == 'upcoming' ? 'warning' : 'success') }} rounded-pill">
@@ -341,56 +370,39 @@
     </div>
 
     <!-- Reminder Modal -->
-    <div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="reminderModalLabel">Add Custom Reminder</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="reminderForm">
-                        @csrf
-                        <input type="hidden" name="status" id="reminderStatus" value="upcoming">
-                        <div class="mb-3">
-                            <label for="reminderTitle" class="form-label">Title</label>
-                            <input type="text" class="form-control" id="reminderTitle" name="title" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="reminderDueDate" class="form-label">Due Date & Time</label>
-                            <input type="datetime-local" class="form-control" id="reminderDueDate" name="due_date" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="recurrenceType" class="form-label">Recurrence Type</label>
-                            <select class="form-select" id="recurrenceType" name="recurrence_type">
-                                <option value="none">None</option>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="recurrenceTime" class="form-label">Recurrence Time</label>
-                            <input type="time" 
-                                id="recurrenceTime" 
-                                name="recurrence_time" 
-                                class="form-control"
-                                value="{{ now()->format('H:i') }}">
-
-                        </div>
-                        <!-- <div class="mb-3">
-                            <label for="endDate" class="form-label">Recurrence End Date</label>
-                            <input type="date" class="form-control" id="endDate" name="end_date">
-                        </div> -->
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="saveReminderBtn">Save Reminder</button>
-                </div>
+   <div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="reminderModalLabel">Add Custom Reminder</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="reminderForm">
+                    @csrf
+                    <input type="hidden" name="lead_id" id="reminderLeadId" value="{{ $lead->id ?? '' }}">
+                    <input type="hidden" name="status" value="upcoming">
+                    <div class="mb-3">
+                        <label class="form-label" for="reminderTitle">Title</label>
+                        <input type="text" class="form-control" id="reminderTitle" name="title" placeholder="Reminder Title" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="reminderRemindAt">Remind Time & Date</label>
+                        <input type="datetime-local" class="form-control" id="reminderRemindAt" name="remind_at" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="reminderDescription">Description</label>
+                        <textarea class="form-control" id="reminderDescription" name="description" placeholder="Reminder Description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveReminderBtn">Add</button>
             </div>
         </div>
     </div>
+</div>
 
     <script>
         $(document).ready(function() {
@@ -419,40 +431,36 @@
             });
 
             // Add Reminder with event delegation
-            $(document).on('click', '#saveReminderBtn', function(e) {
-                e.preventDefault();
-                console.log('Save Reminder button clicked');
+$(document).on('click', '#saveReminderBtn', function(e) {
+    e.preventDefault();
+    console.log('Save Reminder button clicked');
 
-                let formData = {
-                    title: $('#reminderTitle').val(),
-                    due_date: $('#reminderDueDate').val(),
-                    status: $('#reminderStatus').val(),
-                    recurrence_type: $('#recurrenceType').val(),
-                    recurrence_time: $('#recurrenceTime').val(),
-                    end_date: $('#endDate').val(),
-                    _token: '{{ csrf_token() }}'
-                };
+    let formData = {
+        lead_id: $('#reminderLeadId').val(),
+        title: $('#reminderTitle').val(),
+        description: $('#reminderDescription').val(),
+        remind_at: $('#reminderRemindAt').val(),
+           _token: '{{ csrf_token() }}',
+    };
 
-                console.log('Form data:', formData);
+    console.log('Form data:', formData);
 
-                $.ajax({
-                    url: '{{ route('leads.add.reminder', ['id' => $lead->id]) }}',
-                    type: 'POST',
-                    data: formData,
-                    success: function(response) {
-                        console.log('Reminder saved:', response);
-                        $('#reminderModal').modal('hide');
-                        $('#reminderForm')[0].reset();
-                        $('#reminderStatus').val('upcoming');
-                        $('#recurrenceType').val('none');
-                        location.reload(); // Refresh to show new reminder
-                    },
-                    error: function(xhr) {
-                        console.error('Reminder save error:', xhr.responseText);
-                        alert('Error adding reminder: ' + xhr.responseText);
-                    }
-                });
-            });
+    $.ajax({
+        url: '{{ route('calendar.reminders.store') }}',
+        type: 'POST',
+        data: formData,
+        success: function(response) {
+            console.log('Reminder saved:', response);
+            $('#reminderModal').modal('hide');
+            $('#reminderForm')[0].reset();
+            location.reload();
+        },
+        error: function(xhr) {
+            console.error('Reminder save error:', xhr.responseText);
+            alert('Error adding reminder: ' + xhr.responseText);
+        }
+    });
+});
 
             // Add Note
             $('#sendNoteBtn').on('click', function() {

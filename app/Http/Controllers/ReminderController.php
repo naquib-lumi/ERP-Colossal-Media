@@ -11,49 +11,50 @@ use Illuminate\Support\Facades\Log;
 
 class ReminderController extends Controller
 {
- public function store(Request $request)
-{
-    $user = Auth::user();
-    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-        return response()->json(['error' => 'Unauthorized'], 403);
+    public function store(Request $request)
+    {
+        $user = Auth::user();
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'lead_id' => 'required|exists:leads,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'remind_at' => 'required|date',
+        ]);
+
+        $lead = Lead::findOrFail($validated['lead_id']);
+        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated['salesperson_id'] = $user->id;
+        $validated['created_by'] = $user->id;
+        $validated['is_auto'] = false;
+        $validated['status'] = 'upcoming';
+
+        try {
+            $reminder = Reminder::create($validated);
+            Log::info("Reminder ID {$reminder->id} created for lead ID {$validated['lead_id']}");
+            return response()->json(['success' => true, 'reminder' => $reminder]);
+        } catch (\Exception $e) {
+            Log::error("Error creating reminder: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to create reminder'], 500);
+        }
     }
 
-    $validated = $request->validate([
-        'lead_id' => 'required|exists:leads,id',
-        'title' => 'required|string|max:255',
-        'remind_at' => 'required|date',
-    ]);
+    public function completeFromNotification(Reminder $reminder)
+    {
+        if (Auth::id() !== $reminder->created_by) {
+            abort(403);
+        }
 
-    $lead = Lead::findOrFail($validated['lead_id']);
-    if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
-        return response()->json(['error' => 'Unauthorized'], 403);
+        $reminder->update(['status' => 'completed']);
+
+        return redirect("/leads/{$reminder->lead_id}")->with('success', 'Reminder completed.');
     }
-
-    $validated['salesperson_id'] = $user->id;
-    $validated['created_by'] = $user->id;
-    $validated['is_auto'] = false;
-    $validated['status'] = 'upcoming';
-
-    try {
-        $reminder = Reminder::create($validated);
-        Log::info("Reminder ID {$reminder->id} created for lead ID {$validated['lead_id']}");
-        return response()->json(['success' => true, 'reminder' => $reminder]);
-    } catch (\Exception $e) {
-        Log::error("Error creating reminder: " . $e->getMessage());
-        return response()->json(['error' => 'Failed to create reminder'], 500);
-    }
-}
-
-public function completeFromNotification(Reminder $reminder)
-{
-    if (Auth::id() !== $reminder->created_by) {
-        abort(403);
-    }
-
-    $reminder->update(['status' => 'completed']);
-
-    return redirect("/leads/{$reminder->lead_id}")->with('success', 'Reminder completed.');
-}
 
     public function update(Request $request, $id)
     {
@@ -70,6 +71,7 @@ public function completeFromNotification(Reminder $reminder)
         $validated = $request->validate([
             'lead_id' => 'required|exists:leads,id',
             'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
             'remind_at' => 'required|date',
         ]);
 

@@ -98,175 +98,168 @@ class LeadController extends Controller
 
 
     public function getLeads(Request $request)
-    {
-        \Log::info('getLeads called for user: ' . Auth::user()->email);
-        $user = Auth::user();
+{
+    \Log::info('getLeads called for user: ' . Auth::user()->email);
+    $user = Auth::user();
 
-        if (!$user || !($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+    if (!$user || !($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
 
-        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
-        $leads = Lead::with('user', 'attachments', 'reminders')->orderBy('created_at', 'desc');
+    $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
+    $leads = Lead::with('user', 'attachments', 'reminders', 'notes')->orderBy('created_at', 'desc');
 
-        if ($user->hasRole('salesperson')) {
-            $leads = $leads->where('salesperson_id', $user->id);
-        }
+    if ($user->hasRole('salesperson')) {
+        $leads = $leads->where('salesperson_id', $user->id);
+    }
 
-        if ($request->has('search') && $request->input('search')['value']) {
-            $search = $request->input('search')['value'];
-            $leads->where(function ($query) use ($search) {
-                $query->where('company_name', 'like', "%{$search}%")
-                    ->orWhere('name', 'like', "%{$search}%")
-                    ->orWhere('id', 'like', "%{$search}%");
-            });
-        }
+    if ($request->has('search') && $request->input('search')['value']) {
+        $search = $request->input('search')['value'];
+        $leads->where(function ($query) use ($search) {
+            $query->where('company_name', 'like', "%{$search}%")
+                ->orWhere('name', 'like', "%{$search}%")
+                ->orWhere('id', 'like', "%{$search}%");
+        });
+    }
 
-        if ($request->has('status') && $request->input('status')) {
-            $leads->where('status', $request->input('status'));
-        }
+    if ($request->has('status') && $request->input('status')) {
+        $leads->where('status', $request->input('status'));
+    }
 
-        if ($request->has('from_date') && $request->input('from_date')) {
-            $leads->whereDate('created_at', '>=', $request->input('from_date'));
-        }
+    if ($request->has('from_date') && $request->input('from_date')) {
+        $leads->whereDate('created_at', '>=', $request->input('from_date'));
+    }
 
-        if ($request->has('to_date') && $request->input('to_date')) {
-            $leads->whereDate('created_at', '<=', $request->input('to_date'));
-        }
+    if ($request->has('to_date') && $request->input('to_date')) {
+        $leads->whereDate('created_at', '<=', $request->input('to_date'));
+    }
 
-        if ($user->hasRole('head-salesperson') && $request->has('salesperson_id') && $request->input('salesperson_id')) {
-            $leads->where('salesperson_id', $request->input('salesperson_id'));
-        }
+    if ($user->hasRole('head-salesperson') && $request->has('salesperson_id') && $request->input('salesperson_id')) {
+        $leads->where('salesperson_id', $request->input('salesperson_id'));
+    }
 
+    return DataTables::of($leads)
+        ->addColumn('lead_data', function ($lead) use ($user) {
+            $dropdown = '<select class="form-select form-select-sm status-dropdown" data-id="' . $lead->id . '" style="white-space: nowrap; width: auto;">';
+            $dropdown .= '<option value="accept" ' . ($lead->status == 'accept' ? 'selected' : '') . '>Accept</option>';
+            $dropdown .= '<option value="reject" ' . ($lead->status == 'reject' ? 'selected' : '') . '>Reject</option>';
+            $dropdown .= '<option value="followup" ' . ($lead->status == 'followup' ? 'selected' : '') . '>Followup</option>';
+            $dropdown .= '<option value="new" ' . ($lead->status == 'new' ? 'selected' : '') . '>New</option>';
+            $dropdown .= '</select><br>';
 
+            $opportunityDropdown = '<select class="form-select form-select-sm opportunity-dropdown" data-id="' . $lead->id . '" style="white-space: nowrap; width: auto;">';
+            $opportunityDropdown .= '<option value="50/50" ' . ($lead->opportunity == '50/50' ? 'selected' : '') . '>50/50</option>';
+            $opportunityDropdown .= '<option value="High Chance" ' . ($lead->opportunity == 'High Chance' ? 'selected' : '') . '>High Chance</option>';
+            $opportunityDropdown .= '<option value="Low Chance" ' . ($lead->opportunity == 'Low Chance' ? 'selected' : '') . '>Low Chance</option>';
+            $opportunityDropdown .= '<option value="None" ' . ($lead->opportunity == 'None' ? 'selected' : '') . '>None</option>';
+            $opportunityDropdown .= '</select>';
 
-        return DataTables::of($leads)
-            ->addColumn('lead_data', function ($lead) use ($user) {
-                $dropdown = '<select class="form-select form-select-sm status-dropdown" data-id="' . $lead->id . '">';
-                $dropdown .= '<option value="accept" ' . ($lead->status == 'accept' ? 'selected' : '') . '>Accept</option>';
-                $dropdown .= '<option value="reject" ' . ($lead->status == 'reject' ? 'selected' : '') . '>Reject</option>';
-                $dropdown .= '<option value="followup" ' . ($lead->status == 'followup' ? 'selected' : '') . '>Followup</option>';
-                $dropdown .= '<option value="new" ' . ($lead->status == 'new' ? 'selected' : '') . '>New</option>';
-                $dropdown .= '</select><br>';
+            return '<div class="lead-data-cell" style="white-space: nowrap;">' .
+                '<span class="lead-id">' . $lead->id . '</span><br>' .
+                $dropdown .
+                $opportunityDropdown .
+                '</div>';
+        })
+        ->addColumn('company_details', function ($lead) {
+            $attachmentButton = '';
+            if ($lead->attachments->isNotEmpty()) {
+                $attachmentButton =
+                    '<div class="d-flex align-items-center text-secondary mb-1">
+                        <i class="bx bx-paperclip me-2"></i>
+                        <button class="btn btn-link p-0 m-0 view-attachments" data-id="' . $lead->id . '">View Attachments</button>
+                    </div>';
+            }
 
-                $opportunityDropdown = '<select class="form-select form-select-sm opportunity-dropdown" data-id="' . $lead->id . '">';
-                $opportunityDropdown .= '<option value="50/50" ' . ($lead->opportunity == '50/50' ? 'selected' : '') . '>50/50</option>';
-                $opportunityDropdown .= '<option value="High Chance" ' . ($lead->opportunity == 'High Chance' ? 'selected' : '') . '>High Chance</option>';
-                $opportunityDropdown .= '<option value="Low Chance" ' . ($lead->opportunity == 'Low Chance' ? 'selected' : '') . '>Low Chance</option>';
-                $opportunityDropdown .= '<option value="None" ' . ($lead->opportunity == 'None' ? 'selected' : '') . '>None</option>';
-                $opportunityDropdown .= '</select>';
-
-                return '<div class="lead-data-cell">' .
-                    '<span class="lead-id">' . $lead->id . '</span><br>' .
-                    $dropdown .
-                    $opportunityDropdown .
-                    '</div>';
-            })
-            ->addColumn('company_details', function ($lead) {
-                $attachmentButton = '';
-                if ($lead->attachments->isNotEmpty()) {
-                    $attachmentButton =
-                        '<div class="d-flex align-items-center text-secondary mb-1">
-                            <i class="bx bx-paperclip me-2"></i>
-                            <button class="btn btn-link p-0 m-0 view-attachments" data-id="' . $lead->id . '">View Attachments</button>
-                        </div>';
-                }
-
-                return '<div class="company-details-cell text-secondary">' .
-                    '<div class="d-flex align-items-center mb-1">
-                           <i class="bx bxs-building me-2"></i>' . $lead->company_name . '
-                       </div>' .
-                    '<div class="d-flex align-items-center mb-1">
-                           <i class="bx bxs-phone me-2"></i>' . ($lead->company_phone ?? 'N/A') . '
-                       </div>' .
-                    '<div class="d-flex align-items-center mb-1">
-                           <i class="bx bx-globe me-2"></i>' . ($lead->website ?? 'N/A') . '
-                       </div>' .
-                    $attachmentButton .
-                    '</div>';
-            })
+            return '<div class="company-details-cell text-secondary">' .
+                '<div class="d-flex align-items-center mb-1">
+                       <i class="bx bxs-building me-2"></i>' . $lead->company_name . '
+                   </div>' .
+                '<div class="d-flex align-items-center mb-1">
+                       <i class="bx bxs-phone me-2"></i>' . ($lead->company_phone ?? 'N/A') . '
+                   </div>' .
+                '<div class="d-flex align-items-center mb-1">
+                       <i class="bx bx-globe me-2"></i>' . ($lead->website ?? 'N/A') . '
+                   </div>' .
+                $attachmentButton .
+                '</div>';
+        })
             ->addColumn('lead_details', function ($lead) {
-                return '<div class="lead-details-cell">' .
-                    $lead->name . '<br>' .
-                    $lead->phone . '<br>' .
-                    $lead->email . '<br>' .
-                    ($lead->remark ?? 'No remark') .
-                    '</div>';
-            })
-            ->addColumn('assigned_salesperson', function ($lead) use ($user, $salespeople) {
-                if ($user->hasRole('head-salesperson')) {
-                    $assignDropdown = '<select class="form-select form-select-sm assign-dropdown" data-id="' . $lead->id . '">';
-                    $assignDropdown .= '<option value="">Select Salesperson</option>';
-                    foreach ($salespeople as $salesperson) {
-                        $selected = $lead->salesperson_id == $salesperson->id ? 'selected' : '';
-                        $assignDropdown .= '<option value="' . $salesperson->id . '" ' . $selected . '>' . $salesperson->name . '</option>';
-                    }
-                    $assignDropdown .= '</select>';
-                    return '<div class="assigned-salesperson-cell">' . ($lead->user->name ?? 'Not Assigned') . '<br>' . $assignDropdown . '</div>';
+                $latestNote = trim($lead->notes->last()->content ?? '');
+                $html = '<div class="lead-details-cell">' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . $lead->name . '</div>' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bx-envelope me-2"></i>' . ($lead->email ?? 'N/A') . '</div>';
+                if ($latestNote) {
+                    $html .= '<div class="d-flex align-items-center mb-1"><i class="bx bx-note me-2"></i>' . $latestNote . '</div>';
                 }
-                $assignValue = $user->name;
-                $assignInput = '<input type="text" class="form-control form-control-sm" value="' . $assignValue . '" readonly>';
-                return '<div class="assigned-salesperson-cell">' . ($lead->user->name ?? 'Not Assigned') .  '</div>';
-            })
-            ->addColumn('reminder', function ($lead) {
-                $reminders = $lead->reminders()
-                    ->whereIn('status', ['upcoming', 'completed'])
-                    ->orderByRaw("FIELD(status, 'upcoming', 'completed')")
-                    ->orderBy('remind_at', 'asc')
-                    ->take(5)
-                    ->get();
-
-                if ($reminders->isEmpty()) {
-                    return '<span class="text-muted">No Reminders</span>';
-                }
-
-                $html = '<ul class="list-unstyled">';
-                foreach ($reminders as $reminder) {
-                    $dueDate = $reminder->remind_at;
-                    $relativeTime = $dueDate->diffForHumans(); // e.g., "in 1 hour", "in 5 days", "2 days ago"
-
-                    // Customize relative time for overdue
-                    if ($dueDate->isPast() && $reminder->status != 'completed') {
-                        $reminder->status = 'overdue';
-                        $reminder->save();
-                        $relativeTime = 'Overdue (' . $dueDate->format('Y-m-d H:i') . ')';
-                    } elseif ($reminder->status == 'completed') {
-                        $relativeTime = 'Completed (' . $dueDate->format('Y-m-d H:i') . ')';
-                    }
-
-                    // Determine color class
-                    $colorClass = '';
-                    if ($reminder->status == 'completed') {
-                        $colorClass = 'text-secondary text-decoration-line-through'; // Gray and strikethrough for completed
-                    } elseif ($dueDate->isPast()) {
-                        $colorClass = 'text-danger'; // Red for overdue
-                    } elseif ($dueDate->diffInHours() <= 24) {
-                        $colorClass = 'text-warning'; // Yellow/orange for soon (within 24 hours)
-                    } else {
-                        $colorClass = 'text-success'; // Green for future
-                    }
-
-                    $html .= '<li>';
-                    if ($reminder->status == 'upcoming') {
-                        $html .= '<a href="#" class="confirm-reminder ' . $colorClass . '" data-id="' . $lead->id . '" data-reminder-id="' . $reminder->id . '" data-title="' . htmlspecialchars($reminder->title) . '">' . htmlspecialchars($reminder->title) . ' (' . $relativeTime . ')</a>';
-                    } else {
-                        $html .= '<span class="' . $colorClass . '">' . htmlspecialchars($reminder->title) . ' (' . $relativeTime . ')</span>';
-                    }
-                    $html .= '</li>';
-                }
-                $html .= '</ul>';
-
+                $html .= '</div>';
                 return $html;
             })
-            ->addColumn('actions', function ($lead) {
-                return '<div class="actions-cell d-flex gap-2">' .
-                    '<a href="' . route('leads.edit', $lead->id) . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
-                    '<a href="' . route('leads.show', $lead->id) . '" class="btn" title="View"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>' .
-                    '</div>';
-            })
-            ->rawColumns(['lead_data', 'company_details', 'lead_details', 'assigned_salesperson', 'reminder', 'actions'])
-            ->toJson();
+        ->addColumn('assigned_salesperson', function ($lead) use ($user, $salespeople) {
+            if ($user->hasRole('head-salesperson')) {
+                $assignDropdown = '<select class="form-select form-select-sm assign-dropdown" data-id="' . $lead->id . '">';
+                $assignDropdown .= '<option value="">Select Salesperson</option>';
+                foreach ($salespeople as $salesperson) {
+                    $selected = $lead->salesperson_id == $salesperson->id ? 'selected' : '';
+                    $assignDropdown .= '<option value="' . $salesperson->id . '" ' . $selected . '>' . $salesperson->name . '</option>';
+                }
+                $assignDropdown .= '</select>';
+                return '<div class="assigned-salesperson-cell">' . ($lead->user->name ?? 'Not Assigned') . '<br>' . $assignDropdown . '</div>';
+            }
+            $assignValue = $user->name;
+            $assignInput = '<input type="text" class="form-control form-control-sm" value="' . $assignValue . '" readonly>';
+            return '<div class="assigned-salesperson-cell">' . ($lead->user->name ?? 'Not Assigned') .  '</div>';
+        })
+        ->addColumn('reminder', function ($lead) {
+    $reminders = $lead->reminders()
+        ->where('status', '!=', 'completed')
+        ->orderByRaw("FIELD(status, 'upcoming', 'overdue')")
+        ->orderBy('remind_at', 'asc')
+        ->take(5)
+        ->get();
+
+    if ($reminders->isEmpty()) {
+        return '<span class="text-muted">No Reminders</span>';
     }
+
+    $html = '<ul class="list-unstyled">';
+    foreach ($reminders as $reminder) {
+        $dueDate = $reminder->remind_at;
+
+        if ($dueDate->isPast() && $reminder->status == 'upcoming') {
+            $reminder->status = 'overdue';
+            $reminder->save();
+            $relativeTime = 'Overdue (' . $dueDate->format('Y-m-d H:i') . ')';
+        } else {
+            $relativeTime = $dueDate->diffForHumans();
+        }
+
+        $colorClass = '';
+        if ($reminder->status == 'overdue') {
+            $colorClass = 'text-danger';
+        } elseif ($dueDate->diffInHours() <= 24) {
+            $colorClass = 'text-warning';
+        } else {
+            $colorClass = 'text-success';
+        }
+
+        $html .= '<li>';
+        $html .= '<a href="#" class="confirm-reminder ' . $colorClass . '" data-id="' . $lead->id . '" data-reminder-id="' . $reminder->id . '" data-title="' . htmlspecialchars($reminder->title) . '">' . htmlspecialchars($reminder->title) . ' (' . $relativeTime . ')</a>';
+        $html .= '</li>';
+    }
+    $html .= '</ul>';
+
+    return $html;
+})
+        ->addColumn('actions', function ($lead) {
+            return '<div class="actions-cell d-flex gap-2">' .
+                '<a href="' . route('leads.edit', $lead->id) . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
+                '<a href="' . route('leads.show', $lead->id) . '" class="btn" title="View"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>' .
+                '</div>';
+        })
+        ->rawColumns(['lead_data', 'company_details', 'lead_details', 'assigned_salesperson', 'reminder', 'actions'])
+        ->toJson();
+}
 
     public function confirmReminderStatus(Request $request, $id, $reminderId)
     {
@@ -392,7 +385,7 @@ class LeadController extends Controller
         'recurrence_type' => 'nullable|in:none,daily,weekly,monthly',
         'recurrence_time' => 'nullable|date_format:H:i',
     ]);
-
+   return response()->json($validated, 403);
     $validated['is_auto'] = false;
     $validated['end_date'] = Carbon::parse($validated['remind_at'])->addDays(3);
     $validated['last_notify_time'] = null;

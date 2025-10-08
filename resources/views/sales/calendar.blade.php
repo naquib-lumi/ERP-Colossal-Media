@@ -62,30 +62,34 @@
         <h5 class="offcanvas-title" id="addReminderSidebarLabel">Add Reminder</h5>
         <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
-    <div class="offcanvas-body">
-        <form class="pt-0" id="reminderForm">
-            @csrf
-            <input type="hidden" name="id">
-            <div class="mb-3">
-                <label class="form-label" for="reminderLeadId">Lead</label>
-                <select class="form-select select2" id="reminderLeadId" name="lead_id" required>
-                    <option value="">Search for a lead</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="reminderTitle">Title</label>
-                <input type="text" class="form-control" id="reminderTitle" name="title" placeholder="Reminder Title" required />
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="reminderRemindAt">Remind Time & Date</label>
-                <input type="datetime-local" class="form-control" id="reminderRemindAt" name="remind_at" required />
-            </div>
-            <div class="d-flex mt-4 gap-2">
-                <button type="submit" class="btn btn-primary btn-add-reminder me-2">Add</button>
-                <button type="reset" class="btn btn-label-secondary btn-cancel" data-bs-dismiss="offcanvas">Cancel</button>
-            </div>
-        </form>
-    </div>
+   <div class="offcanvas-body">
+    <form class="pt-0" id="reminderForm" novalidate>
+        @csrf
+        <input type="hidden" name="id">
+        <div class="mb-3">
+            <label class="form-label" for="reminderLeadId">Lead</label>
+            <select class="form-select select2" id="reminderLeadId" name="lead_id" required>
+                <option value="">Search for a lead</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="reminderTitle">Title</label>
+            <input type="text" class="form-control" id="reminderTitle" name="title" placeholder="Reminder Title" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="reminderRemindAt">Remind Time & Date</label>
+            <input type="datetime-local" class="form-control" id="reminderRemindAt" name="remind_at" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="reminderDescription">Description</label>
+            <textarea class="form-control" id="reminderDescription" name="description" placeholder="Reminder Description" rows="3"></textarea>
+        </div>
+        <div class="d-flex mt-4 gap-2">
+            <button type="submit" class="btn btn-primary btn-add-reminder me-2">Add</button>
+            <button type="reset" class="btn btn-label-secondary btn-cancel" data-bs-dismiss="offcanvas">Cancel</button>
+        </div>
+    </form>
+</div>
 </div>
 
             <!-- Meeting Offcanvas -->
