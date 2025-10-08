@@ -281,14 +281,76 @@
       </div>
     </div>
 
-    {{-- Delivery Breakdown（略，与之前一致） --}}
+    {{-- Delivery Breakdown（完整） --}}
+    @php
+      // 若后端未传，做兜底，避免整块消失
+      $deliveries = $deliveries ?? [
+        ['product' => 'Product 1', 'method' => 'delivery', 'qty' => 500,  'address'=>'TechCorp HQ, KL',        'datetime'=>'2025-07-25 10:00 AM', 'install'=>'Outsource', 'cost'=>'RM50'],
+        ['product' => 'Product 1', 'method' => 'courier',  'qty' => 500,  'address'=>'TechCorp Penang Branch', 'datetime'=>'2025-07-26 02:00 PM'],
+        ['product' => 'Product 2', 'method' => 'pickup',   'qty' => 1000, 'address'=>null,                     'datetime'=>'2025-07-25 10:00 AM'],
+      ];
+      $deliveredQty = $deliveredQty ?? 500;
+      $totalQty     = collect($deliveries)->sum('qty');
+      $remainQty    = max(0, $totalQty - $deliveredQty);
+      $badgeMap = [
+        'delivery' => ['cls'=>'badge-delivery','icon'=>'bi-truck','text'=>'Delivery & Installation'],
+        'courier'  => ['cls'=>'badge-courier','icon'=>'bi-box-arrow-up-right','text'=>'Courier'],
+        'pickup'   => ['cls'=>'badge-pickup','icon'=>'bi-bag-check','text'=>'Self Pickup'],
+      ];
+    @endphp
+
     <div class="card dlv-card mb-4">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start mb-2">
           <div class="dlv-hd"><i class="bi bi-truck"></i> Delivery Breakdown</div>
-          <div class="dlv-sub">Total: 1000 · Delivered: 500 · Remaining: 500</div>
+          <div class="dlv-sub">Total: {{ $totalQty }} · Delivered: {{ $deliveredQty }} · Remaining: {{ $remainQty }}</div>
         </div>
-        <!-- 省略：与你现有相同 -->
+
+        @foreach(collect($deliveries)->groupBy('product') as $prod => $rows)
+          <div class="dlv-product">
+            <div class="dlv-product-title">{{ $prod }}</div>
+            <div class="dlv-list">
+              @foreach($rows as $r)
+                @php $b = $badgeMap[$r['method']] ?? $badgeMap['delivery']; @endphp
+                <div class="dlv-item">
+                  <div class="dlv-icon">
+                    <i class="bi {{ $r['method']==='courier' ? 'bi-box-seam' : ($r['method']==='pickup' ? 'bi-person-check' : 'bi-geo-alt') }}"></i>
+                  </div>
+                  <div class="dlv-main">
+                    <div class="dlv-head">
+                      <span class="badge-method {{ $b['cls'] }}"><i class="bi {{ $b['icon'] }}"></i> {{ $b['text'] }}</span>
+                    </div>
+                    <div class="dlv-fields">
+                      <div class="field">
+                        <div class="label">Quantity</div>
+                        <div class="value value-strong">{{ $r['qty'] }}</div>
+                      </div>
+                      <div class="field">
+                        <div class="label">Address</div>
+                        <div class="value">{{ $r['address'] ?: 'Not required for pickup' }}</div>
+                      </div>
+                      <div class="field">
+                        <div class="label">Delivery Date &amp; Time</div>
+                        <div class="value">{{ $r['datetime'] }}</div>
+                      </div>
+
+                      @if(($r['method'] ?? null) === 'delivery')
+                        <div class="field">
+                          <div class="label">Install</div>
+                          <div class="value">{{ $r['install'] ?? '—' }}</div>
+                        </div>
+                        <div class="field">
+                          <div class="label">Cost</div>
+                          <div class="value">{{ $r['cost'] ?? '—' }}</div>
+                        </div>
+                      @endif
+                    </div>
+                  </div>
+                </div>
+              @endforeach
+            </div>
+          </div>
+        @endforeach
       </div>
     </div>
 
@@ -439,7 +501,7 @@
     btn.addEventListener('click',()=>{ body?.classList.toggle('hidden'); btn.classList.toggle('open'); });
   });
 
-  /* Modal 工具（与 Furnishing 同） */
+  /* Modal */
   function openModal(id){ document.getElementById(id)?.classList.add('show'); }
   function closeModal(id){ document.getElementById(id)?.classList.remove('show'); }
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=> closeModal(b.getAttribute('data-close'))));
@@ -475,7 +537,7 @@
       if(span && sel){ span.textContent = sel.value; }
     });
 
-    // 2) 组装 payload：[{line:1, printer:"..."}, ...]
+    // 2) 组装 payload
     const printers = [...document.querySelectorAll('.td-printer')].map(td=>{
       const sel = td.querySelector('.edit-input');
       return { line: td.dataset.line || null, printer: sel ? sel.value : null };
