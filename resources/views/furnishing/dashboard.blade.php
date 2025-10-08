@@ -295,14 +295,14 @@
       <div class="kpi-card">
         <div>
           <div class="kpi-title mb-1">In Progress</div>
-          <div class="kpi-value">{{ $inProgress }}</div>
+          <div class="kpi-value" id="kpiInProgress">{{ $inProgress }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
       <div class="kpi-card">
         <div>
           <div class="kpi-title mb-1">Completed</div>
-          <div class="kpi-value">{{ $completed }}</div>
+          <div class="kpi-value" id="kpiCompleted">{{ $completed }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-check2"></i></div>
       </div>
@@ -326,7 +326,7 @@
               <th class="col-actions">ACTIONS</th>
             </tr>
           </thead>
-            <tbody>
+            <tbody id="jobsTbody">
             @forelse ($jobs as $j)
               @php
                 $code = $j->order_number
@@ -341,7 +341,7 @@
                 $editUrl  = route('furnishing.job.show', [$j->ProductID, 'edit' => 1]); // same page; edit visible after accepted
                 $doneUrl  = route('furnishing.jobs.complete', $j->ProductID);         // PATCH
               @endphp
-              <tr>
+              <tr id="job-{{ $j->ProductID }}">
                 <td class="fw-semibold">{{ $code }}</td>
                 <td>{{ $cutter }}</td>
                 <td>{{ number_format($sqIn, 2) }} sq in</td>
@@ -355,17 +355,16 @@
                       </a>
                     @endif
                     @if ($accepted)
-                      <a class="icon-btn icon-pill" href="{{ $editUrl }}" title="Edit">
+                      <a class="icon-btn icon-pill" href="{{ $viewUrl }}" title="Edit">
                         <i class="bi bi-pencil"></i>
                       </a>
 
-                      <form action="{{ $doneUrl }}" method="POST" onsubmit="return confirm('Mark this job as completed?')">
-                        @csrf
-                        @method('PATCH')
-                        <button type="submit" class="icon-btn icon-pill" title="Confirm complete">
-                          <i class="bi bi-check2"></i>
-                        </button>
-                      </form>
+                      <button type="button"
+                              class="icon-btn icon-pill js-mark"
+                              data-id="{{ $j->ProductID }}"
+                              title="Confirm complete">
+                        <i class="bi bi-check2"></i>
+                      </button>
                     @endif
                   </div>
                 </td>
@@ -456,7 +455,7 @@
 
 <script>
   (() => {
-    const mask = document.getElementById('confirmModal');
+    const mask   = document.getElementById('confirmModal');
     const btnYes = document.getElementById('confirmYes');
     let currentId = null;
     const csrf = '{{ csrf_token() }}';
@@ -478,26 +477,56 @@
       }
     });
 
-    // confirm action
+    function toInt(el) {
+      if (!el) return 0;
+      const n = parseInt((el.textContent || '0').replace(/[^\d-]/g, ''), 10);
+      return isNaN(n) ? 0 : n;
+    }
+
     btnYes.addEventListener('click', async () => {
       if (!currentId) return;
+
       btnYes.disabled = true;
 
       try {
-        const res = await fetch("{{ route('furnishing.jobs.complete', ['productId' => '__ID__']) }}".replace('__ID__', currentId), {
+        const url = "{{ route('furnishing.jobs.complete', ['productId' => '__ID__']) }}"
+                      .replace('__ID__', currentId);
+
+        const res = await fetch(url, {
           method: 'PATCH',
-          headers: {
-            'X-CSRF-TOKEN': csrf,
-            'Accept': 'application/json'
-          }
+          headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
         });
+
         const data = await res.json();
-        if (data.ok) {
+
+        if (data && data.ok) {
+          // 1) remove the row immediately
           const row = document.getElementById('job-' + currentId);
           if (row) row.remove();
+
+          // 2) update empty state if needed
+          const tbody = document.getElementById('jobsTbody');
+          if (tbody && !tbody.querySelector('tr')) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No jobs found.</td></tr>';
+          }
+
+          // 3) live-update KPI numbers
+          const inProgEl = document.getElementById('kpiInProgress');
+          const compEl   = document.getElementById('kpiCompleted');
+
+          if (inProgEl) {
+            const v = Math.max(0, toInt(inProgEl) - 1);
+            inProgEl.textContent = v;
+          }
+          if (compEl) {
+            compEl.textContent = toInt(compEl) + 1;
+          }
+        } else {
+          alert((data && data.message) || 'Failed to mark complete.');
         }
       } catch (err) {
         console.error(err);
+        alert('Failed to mark complete.');
       } finally {
         btnYes.disabled = false;
         mask.classList.remove('show');

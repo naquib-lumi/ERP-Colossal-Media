@@ -75,17 +75,52 @@ class FurnishingController extends Controller
     public function markComplete($product)
     {
         try {
-            DB::table('products')
-                ->where('ProductID', $product)
-                ->update([
-                    'status'     => 'completed',
-                    'taskType'   => 'furnishing',
-                    'updated_at' => now(),
-                ]);
+            DB::transaction(function () use ($product) {
+                // 1) move the product forward to delivery phase
+                DB::table('products')
+                    ->where('ProductID', $product)
+                    ->update([
+                        'status'     => 'in_progress',
+                        'taskType'   => 'delivery',
+                        'updated_at' => now(),
+                    ]);
+
+                // 2) mark furnishing stage as completed in fulfillment_progress
+                $now = now();
+
+                $exists = DB::table('fulfillment_progress')
+                    ->where('ProductID', $product)
+                    ->where('stage', 'furnishing')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($exists) {
+                    DB::table('fulfillment_progress')
+                        ->where('ProgressID', $exists->ProgressID)
+                        ->update([
+                            'completedAt' => $now,
+                            'status'      => 'completed',
+                            'updated_at'  => $now,
+                        ]);
+                } else {
+                    DB::table('fulfillment_progress')->insert([
+                        'ProductID'   => $product,
+                        'stage'       => 'furnishing',
+                        'acceptedAt'  => null,
+                        'completedAt' => $now,
+                        'status'      => 'completed',
+                        'created_at'  => $now,
+                        'updated_at'  => $now,
+                    ]);
+                }
+            });
 
             return response()->json(['ok' => true]);
         } catch (\Throwable $e) {
-            return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
+            return response()->json([
+                'ok' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 }

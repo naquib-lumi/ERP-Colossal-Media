@@ -14,7 +14,7 @@ class FurnishingHistoryController extends Controller
         $start = trim($request->get('start', ''));  // mm/dd/yyyy
         $end   = trim($request->get('end', ''));    // mm/dd/yyyy
 
-        $perPage = 8;
+        $perPage = 10;
 
         // Base: fulfillment_progress (completed) + product + order
         $query = DB::table('fulfillment_progress as fp')
@@ -28,20 +28,12 @@ class FurnishingHistoryController extends Controller
                 'o.id as order_id',
                 'o.order_number',
             ])
-            // ✅ Only the furnishing stage
-            ->where('fp.stage', '=', 'furnishing')
-            // ✅ And only completed rows
+            // only furnishing stage that is completed
+            ->where('fp.stage', 'furnishing')
             ->where(function ($w) {
                 $w->where('fp.status', 'completed')
                 ->orWhereNotNull('fp.completedAt');
             });
-
-        // keep this subquery (ItemID) and all your search/date/pagination logic
-        $query->selectSub(function ($sub) {
-            $sub->from('product_items')
-                ->selectRaw('MIN(ItemID)')
-                ->whereColumn('ProductID', 'p.ProductID');
-        }, 'ItemID');
 
         // Text search (by product name, order no, product id, item id)
         if ($q !== '') {
