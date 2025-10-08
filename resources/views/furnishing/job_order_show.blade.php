@@ -1084,8 +1084,13 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('confirmReject')?.addEventListener('click', () => {
     const reason = (document.getElementById('rejectReason')?.value || '').trim();
     if (!reason) { alert('Please provide a reason.'); return; }
+
     document.getElementById('rejectReasonInput').value = reason;
     document.getElementById('rejectForm')?.submit();
+
+    // instantly hide the Accept/Reject buttons before reload
+    document.getElementById('btnAccept')?.classList.add('d-none');
+    document.getElementById('btnReject')?.classList.add('d-none');
   });
 
   /* ---------- Edit mode helpers ---------- */

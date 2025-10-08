@@ -83,7 +83,13 @@
                     -P{{ $row->ItemID ?? $row->ProductID }}
                   </td>
                   <td>{{ $row->product_name }}</td>
-                  <td>{{ \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') }}</td>
+                  <td>
+                    @if(!empty($row->completed_date))
+                      {{ \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') }}
+                    @else
+                      -
+                    @endif
+                  </td>
                   {{-- Use materialRemark from DB; fallback to dash --}}
                   <td>{{ $row->materialRemark ?? '–' }}</td>
                   <td class="text-center">

@@ -16,49 +16,66 @@ class FurnishingHistoryController extends Controller
 
         $perPage = 8;
 
-        $query = DB::table('products as p')
+        // Base: fulfillment_progress (completed) + product + order
+        $query = DB::table('fulfillment_progress as fp')
+            ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-            ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
             ->select([
                 'p.ProductID',
                 'p.productName as product_name',
-                // 'p.productRemark',    // <-- REMOVE (column doesn't exist)
                 'p.materialRemark',
-                'p.updated_at as completed_date',
+                DB::raw('fp.completedAt as completed_date'),
                 'o.id as order_id',
                 'o.order_number',
-                'pi.ItemID',
             ])
-            // only completed furnishing
-            ->whereRaw('LOWER(p.taskType) = ?', ['furnishing'])
-            ->where('p.status', 'completed');
+            // ✅ Only the furnishing stage
+            ->where('fp.stage', '=', 'furnishing')
+            // ✅ And only completed rows
+            ->where(function ($w) {
+                $w->where('fp.status', 'completed')
+                ->orWhereNotNull('fp.completedAt');
+            });
 
-        // Text search (product id, order no, name)
+        // keep this subquery (ItemID) and all your search/date/pagination logic
+        $query->selectSub(function ($sub) {
+            $sub->from('product_items')
+                ->selectRaw('MIN(ItemID)')
+                ->whereColumn('ProductID', 'p.ProductID');
+        }, 'ItemID');
+
+        // Text search (by product name, order no, product id, item id)
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('p.productName', 'like', "%{$q}%")
                   ->orWhere('o.order_number', 'like', "%{$q}%")
                   ->orWhere('p.ProductID', 'like', "%{$q}%")
-                  ->orWhere('pi.ItemID', 'like', "%{$q}%");
+                  ->orWhere(function ($w2) use ($q) {
+                      // search ItemID through subquery result by re-checking product_items
+                      $w2->whereIn('p.ProductID', function ($s) use ($q) {
+                          $s->from('product_items')
+                            ->select('ProductID')
+                            ->where('ItemID', 'like', "%{$q}%");
+                      });
+                  });
             });
         }
 
-        // Date filters (Completed Date = products.updated_at)
+        // Date filters against fulfillment_progress.completedAt
         if ($start !== '') {
             try {
                 $startDate = Carbon::createFromFormat('m/d/Y', $start)->startOfDay();
-                $query->whereDate('p.updated_at', '>=', $startDate->toDateString());
-            } catch (\Throwable $e) { /* ignore bad date */ }
+                $query->whereDate('fp.completedAt', '>=', $startDate->toDateString());
+            } catch (\Throwable $e) { /* ignore */ }
         }
         if ($end !== '') {
             try {
                 $endDate = Carbon::createFromFormat('m/d/Y', $end)->endOfDay();
-                $query->whereDate('p.updated_at', '<=', $endDate->toDateString());
-            } catch (\Throwable $e) { /* ignore bad date */ }
+                $query->whereDate('fp.completedAt', '<=', $endDate->toDateString());
+            } catch (\Throwable $e) { /* ignore */ }
         }
 
         $orders = $query
-            ->orderByDesc('p.updated_at')
+            ->orderByDesc('fp.completedAt')
             ->paginate($perPage)
             ->appends($request->query());
 
