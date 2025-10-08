@@ -277,6 +277,11 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/furnishing/history', [FurnishingHistoryController::class, 'index'])->name('furnishing.history');
         Route::get('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'index'])->name('furnishing.profile');
         Route::put('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'update'])->name('furnishing.profile.update');
+        Route::patch('/furnishing/jobs/{productId}/complete', [FurnishingController::class, 'markComplete'])->name('furnishing.jobs.complete');
+        Route::get('/furnishing/job/{product}', [\App\Http\Controllers\FurnishingProductOrderController::class, 'show'])->name('furnishing.job.show');
+        Route::post('/furnishing/job/{product}/accept', [\App\Http\Controllers\FurnishingProductOrderController::class, 'accept'])->name('furnishing.orders.accept');
+        Route::post('/furnishing/job/{product}/reject', [\App\Http\Controllers\FurnishingProductOrderController::class, 'reject'])->name('furnishing.orders.reject');
+        Route::post('/furnishing/job/{product}/save', [\App\Http\Controllers\FurnishingProductOrderController::class, 'save'])->name('furnishing.jobs.save');
     });
 
     // Delivery and installation
