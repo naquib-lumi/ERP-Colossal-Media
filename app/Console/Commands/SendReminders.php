@@ -36,7 +36,7 @@ class SendReminders extends Command
                     continue;
                 }
 
-                Helpers::notify($reminder->creator, $reminder->title, url('/leads/' . $reminder->lead_id), ['database', 'mail']);
+                Helpers::notify($reminder->creator, $reminder->title, url('/leads/' . $reminder->lead_id.'/view'), ['database', 'mail']);
 
                 $reminder->update(['last_notify_time' => $now]);
                 $this->info("Notification sent for Reminder ID: {$reminder->id}");

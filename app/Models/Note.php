@@ -9,17 +9,15 @@ class Note extends Model
 {
     use HasFactory;
 
- protected $fillable = [
-    'lead_id',
-    'content',
-    'date',
-    'tags',
-    'user_id',
-];
+    protected $fillable = [
+        'lead_id',
+        'content',
+        'date',
+        'user_id',
+    ];
 
     protected $casts = [
-        'tags' => 'array',
-           'date'=> 'datetime'
+        'date' => 'datetime'
     ];
 
     public function lead()
@@ -30,5 +28,10 @@ class Note extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(NoteAttachment::class);
     }
 }

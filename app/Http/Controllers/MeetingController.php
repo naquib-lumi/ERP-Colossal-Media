@@ -11,6 +11,16 @@ use Carbon\Carbon;
 
 class MeetingController extends Controller
 {
+
+    public function show($id)
+{
+    $meeting = Meeting::with('lead')->findOrFail($id);
+    if ($meeting->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+    return response()->json($meeting);
+}
+
     public function storeFromLead(Request $request, $leadId)
     {
         $validated = $request->validate([
@@ -62,16 +72,9 @@ class MeetingController extends Controller
 
     public function updateStatus(Request $request, $id)
     {
+        $validated = $request->validate(['status' => 'required|in:scheduled,canceled,postponed']);
         $meeting = Meeting::findOrFail($id);
-        $user = Auth::user();
-        if ($meeting->user_id != $user->id && !$user->hasRole('head-salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-        $validated = $request->validate([
-            'status' => 'required|in:scheduled,completed,cancelled,missed',
-        ]);
-        $meeting->status = $validated['status'];
-        $meeting->save();
+        $meeting->update(['status' => $validated['status']]);
         return response()->json(['success' => true]);
     }
 

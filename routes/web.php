@@ -157,6 +157,8 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/leads/{id}/view', [LeadController::class, 'show'])->name('leads.show');
         Route::post('/leads/{id}/add-reminder', [LeadController::class, 'addReminder'])->name('leads.add.reminder');
         Route::post('/leads/{id}/add-note', [LeadController::class, 'addNote'])->name('leads.add.note');
+        Route::delete('/leads/{id}/notes/{note}', [LeadController::class, 'deleteNote'])->name('leads.notes.delete');
+        Route::delete('/leads/{id}/notes/{note}/attachments/{attachment}', [LeadController::class, 'deleteNoteAttachment'])->name('leads.note.attachments.delete');
         Route::post('/leads/{id}/update-salesperson', [LeadController::class, 'updateSalesperson'])->name('leads.update.salesperson');
         Route::delete('/api/leads/{id}', [LeadController::class, 'destroy'])->name('leads.destroy');
         Route::get('/sales/add-lead', [LeadController::class, 'create'])->name('leads.create');
@@ -165,6 +167,9 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/meetings', [MeetingController::class, 'index'])->name('meetings.index');
         Route::delete('/calendar/reminders/{id}', [ReminderController::class, 'destroy']);
         Route::delete('/calendar/meetings/{id}', [MeetingController::class, 'destroy']);
+
+        Route::get('/meetings/{id}', [MeetingController::class, 'show'])->name('meetings.show');  // Add for edit fetch
+Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])->name('meetings.update.status');
     });
 
     Route::get('/test-route', function () {

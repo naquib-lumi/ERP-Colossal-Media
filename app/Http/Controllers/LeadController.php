@@ -6,12 +6,16 @@ use Illuminate\Support\Facades\Log;
 
 use App\Models\User;
 use App\Models\Lead;
+use App\Models\Note;
 use App\Models\LeadAttachment;
 use App\Models\Reminder;
+use App\Models\NoteAttachment;
 use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+
 use Carbon\Carbon;
 
 class LeadController extends Controller
@@ -347,14 +351,10 @@ class LeadController extends Controller
     $user = Auth::user();
 
     $lead = Lead::with([
-        'user',
-        'attachments',
-        'notes',
-        'reminders' => function ($query) {
-            $query->orderBy('remind_at', 'asc') // sort earliest first
-                ->take(10); // limit to 10
-        },
-        'orders'
+        'user', 'attachments', 'notes.attachments',
+        'reminders' => fn($q) => $q->orderBy('remind_at')->take(10),
+        'orders',
+        'meetings' => fn($q) => $q->orderBy('start_time')  // Add this
     ])->findOrFail($id);
 
     // Allow head-salesperson to see all, but restrict normal salesperson
@@ -402,13 +402,11 @@ class LeadController extends Controller
 }
 
 
-    public function addNote(Request $request, $id)
+public function addNote(Request $request, $id)
 {
     $user = Auth::user();
     $lead = Lead::findOrFail($id);
 
-    // Salesperson can only add notes to their own leads
-    // Head-salesperson can add notes to all leads
     if ($user->hasRole('salesperson') && $lead->salesperson_id !== $user->id) {
         return response()->json(['error' => 'Unauthorized'], 403);
     }
@@ -416,14 +414,61 @@ class LeadController extends Controller
     $validated = $request->validate([
         'content' => 'required|string',
         'date' => 'nullable|date',
-        'tags' => 'nullable|array',
     ]);
 
     $validated['user_id'] = $user->id;
-
     $note = $lead->notes()->create($validated);
 
-    return response()->json(['success' => true, 'note' => $note]);
+    if ($request->hasFile('attachments')) {
+        foreach ($request->file('attachments') as $file) {
+            $shortName = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('notes/' . $note->id, $shortName, 'public');
+            NoteAttachment::create([
+                'note_id' => $note->id,
+                'user_id' => $user->id,
+                'file_size' => $file->getSize(),
+                'file_location' => $path,
+                'file_extension' => $file->getClientOriginalExtension(),
+            ]);
+        }
+    }
+    
+    return response()->json(['success' => true, 'note' => $note->load('attachments')]);
+}
+
+public function deleteNote($id, $noteId)
+{
+    $lead = Lead::findOrFail($id);
+    $this->authorizeLeadAccess($lead);
+    
+    $note = Note::findOrFail($noteId);
+    $user = Auth::user();
+    
+    if ($user->hasRole('salesperson') && $note->user_id !== $user->id) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+    
+    // Delete attachments
+    foreach ($note->attachments as $attachment) {
+        \Storage::disk('public')->delete($attachment->file_location);
+        $attachment->delete();
+    }
+    
+    $note->delete();
+    
+    return response()->json(['success' => true]);
+}
+
+public function deleteNoteAttachment($id, $noteId, $attachmentId)
+{
+    $lead = Lead::findOrFail($id);
+    $this->authorizeLeadAccess($lead);
+
+    $attachment = NoteAttachment::where('note_id', $noteId)->findOrFail($attachmentId);
+    \Storage::disk('public')->delete($attachment->file_location);
+    $attachment->delete();
+
+    return response()->json(['success' => true]);
 }
 
 
