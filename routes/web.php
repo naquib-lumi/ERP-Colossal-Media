@@ -299,10 +299,16 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
     // Delivery and installation
     Route::middleware(['web','auth','role:operations-delivery-installation'])->group(function () {
         Route::get('/installation/dashboard', [InstallationController::class, 'dashboard'])->name('installation.dashboard');
-        Route::get('/installation/product-order', [InstallationProductOrderController::class, 'productorder'])->name('installation.product-order');
-    
+        // Route::get('/installation/product-order', [InstallationProductOrderController::class, 'productorder'])->name('installation.product-order');
+        
+        Route::get('/installation/job/{product}', [\App\Http\Controllers\InstallationProductOrderController::class, 'show'])->name('installation.job.show');
+        Route::post('/installation/job/{product}/accept', [\App\Http\Controllers\InstallationProductOrderController::class, 'accept'])->name('installation.orders.accept');
+        Route::post('/installation/job/{product}/reject', [\App\Http\Controllers\InstallationProductOrderController::class, 'reject'])->name('installation.orders.reject');
+        Route::post('/installation/job/{product}/save', [\App\Http\Controllers\InstallationProductOrderController::class, 'save'])->name('installation.jobs.save');
+
         Route::get('/installation/history', [InstallationHistoryController::class, 'index'])->name('installation.history');
-        Route::get('/installation/orders/{productId}', [InstallationHistoryController::class, 'show'])->name('installation.order.show');
+        Route::get('/installation/history/{product}', [InstallationHistoryController::class, 'show'])->name('installation.history.show');
+        
         Route::get('/installation/profile', [InstallationProfileController::class, 'index'])->name('installation.profile');
         Route::put('/installation/profile', [InstallationProfileController::class, 'update'])->name('installation.profile.update');
         Route::get('/installation/calendar', [\App\Http\Controllers\InstallationCalendarController::class, 'index'])->name('installation.calendar');

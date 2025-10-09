@@ -313,82 +313,90 @@
             @endphp
 
             @forelse ($rows as $r)
-            @php
-            $STAGES = ['printing','furnishing','delivery','installation'];
-            $POS = ['printing'=>12.5,'furnishing'=>37.5,'delivery'=>62.5,'installation'=>87.5];
-            $DOT = ['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
+              @php
+                $STAGES = ['printing','furnishing','delivery','installation'];
+                $POS = ['printing'=>12.5,'furnishing'=>37.5,'delivery'=>62.5,'installation'=>87.5];
+                $DOT = ['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
 
-            $currentStage = $r['current_stage'] ?? null; // from products.taskType
-            $currentStatus = $r['current_status'] ?? null; // from products.status
+                $currentStage = $r['current_stage'] ?? null; // from products.taskType
+                $currentStatus = $r['current_status'] ?? null; // from products.status
 
-            $hasStage = function(string $s) use ($r, $currentStage) {
-            return isset($r['stages'][$s]) || $currentStage === $s;
-            };
+                $hasStage = function(string $s) use ($r, $currentStage) {
+                return isset($r['stages'][$s]) || $currentStage === $s;
+                };
 
-            $visible = array_values(array_filter($STAGES, $hasStage));
+                $visible = array_values(array_filter($STAGES, $hasStage));
 
-            $first = $visible[0] ?? null;
-            $start = $first ? $POS[$first] : 0;
+                $first = $visible[0] ?? null;
+                $start = $first ? $POS[$first] : 0;
 
-            $rej = null;
-            foreach ($visible as $s) {
-            if (($r['stages'][$s]['status'] ?? null) === 'rejected') { $rej = $s; break; }
-            }
-            if ($rej) {
-            $end = $POS[$rej];
-            } else {
-            $lastCompleted = null;
-            foreach ($visible as $s) {
-            if (($r['stages'][$s]['status'] ?? null) === 'completed') { $lastCompleted = $s; }
-            }
-            $end = $lastCompleted
-            ? ($lastCompleted === 'installation' ? 100 : $POS[$lastCompleted])
-            : $start;
-            }
+                $rej = null;
+                foreach ($visible as $s) {
+                if (($r['stages'][$s]['status'] ?? null) === 'rejected') { $rej = $s; break; }
+                }
+                if ($rej) {
+                $end = $POS[$rej];
+                } else {
+                $lastCompleted = null;
+                foreach ($visible as $s) {
+                if (($r['stages'][$s]['status'] ?? null) === 'completed') { $lastCompleted = $s; }
+                }
+                $end = $lastCompleted
+                ? ($lastCompleted === 'installation' ? 100 : $POS[$lastCompleted])
+                : $start;
+                }
 
-            $dotClass = function(array $row, string $stage) use ($DOT, $currentStage, $currentStatus) {
-            if ($stage === $currentStage && $currentStatus === 'in_progress') {
-            return 'dot '.$DOT[$stage].' gray';
-            }
-            if (!isset($row['stages'][$stage]) && $stage !== $currentStage) return null;
+                $dotClass = function(array $row, string $stage) use ($DOT, $currentStage, $currentStatus) {
+                if ($stage === $currentStage && $currentStatus === 'in_progress') {
+                return 'dot '.$DOT[$stage].' gray';
+                }
+                if (!isset($row['stages'][$stage]) && $stage !== $currentStage) return null;
 
-            $s = $row['stages'][$stage]['status'] ?? null;
-            if ($s === 'completed') return 'dot '.$DOT[$stage];
-            elseif ($s === 'rejected') return 'dot red '.$DOT[$stage];
-            else return 'dot gray '.$DOT[$stage]; // includes pending/unknown
-            };
+                $s = $row['stages'][$stage]['status'] ?? null;
+                if ($s === 'completed') return 'dot '.$DOT[$stage];
+                elseif ($s === 'rejected') return 'dot red '.$DOT[$stage];
+                else return 'dot gray '.$DOT[$stage]; // includes pending/unknown
+                };
 
-            $dateIn = $r['orderDate'] ? \Carbon\Carbon::parse($r['orderDate'])->format('Y-m-d') : '—';
-            $deadline = $r['deadline'] ? \Carbon\Carbon::parse($r['deadline'])->format('Y-m-d') : '—';
-            @endphp
+                $dateIn = $r['orderDate'] ? \Carbon\Carbon::parse($r['orderDate'])->format('Y-m-d') : '—';
+                $deadline = $r['deadline'] ? \Carbon\Carbon::parse($r['deadline'])->format('Y-m-d') : '—';
 
-            <tr>
-              <td>{{ $r['product_code'] }}</td>
-              <td colspan="4">
-                <div class="pipeline" style="--start:{{ $start }}%; --end:{{ $end }}%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
+                $accepted = (int)($r['accepted'] ?? 0) === 1;
 
-                  @php $d = $dotClass($r,'printing'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
-                  @php $d = $dotClass($r,'furnishing'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
-                  @php $d = $dotClass($r,'delivery'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
-                  @php $d = $dotClass($r,'installation'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
-                </div>
-              </td>
-              <td>{{ $dateIn }}</td>
-              <td>{{ $deadline }}</td>
-              <td class="text-center">
-                <div class="d-inline-flex gap-1">
-                  <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-                  <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                  <button class="action-btn" title="Done"><i class="bi bi-check2"></i></button>
-                </div>
-              </td>
-            </tr>
+                
+              @endphp
+
+              <tr id="job-{{ $r['ProductID'] }}">
+                <td>{{ $r['product_code'] }}</td>
+                <td colspan="4">
+                  <div class="pipeline" style="--start:{{ $start }}%; --end:{{ $end }}%;">
+                    <div class="track"></div>
+                    <div class="fill"></div>
+
+                    @php $d = $dotClass($r,'printing'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
+                    @php $d = $dotClass($r,'furnishing'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
+                    @php $d = $dotClass($r,'delivery'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
+                    @php $d = $dotClass($r,'installation'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
+                  </div>
+                </td>
+                <td>{{ $dateIn }}</td>
+                <td>{{ $deadline }}</td>
+                <td class="text-center">
+                  <div class="d-inline-flex gap-1">
+                    @if (!$accepted)
+                    <a href="{{ route('installation.job.show', $r['ProductID']) }}" class="action-btn" title="View"><i class="bi bi-eye"></i></a>
+                    @endif
+                    @if ($accepted)
+                    <a href="{{ route('installation.job.show', $r['ProductID']) }}" class="action-btn" title="Edit"><i class="bi bi-pencil"></i></a>
+                    <a class="action-btn" title="Done"><i class="bi bi-check2"></i></a>
+                    @endif
+                  </div>
+                </td>
+              </tr>
             @empty
-            <tr>
-              <td colspan="8" class="text-center text-muted py-4">No data.</td>
-            </tr>
+              <tr>
+                <td colspan="8" class="text-center text-muted py-4">No data.</td>
+              </tr>
             @endforelse
           </tbody>
 
