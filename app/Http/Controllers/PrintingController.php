@@ -15,44 +15,52 @@ class PrintingController extends Controller
      *   * Completed    -> status=completed  (regardless of downstream taskType)
      */
     public function dashboard(Request $request)
-    {
-        $jobs = DB::table('products as p')
-            ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
-            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
-            ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
-            ->select([
-                'p.ProductID',
-                'p.updated_at as submission_date',
-                'p.status',
-                'p.taskType',
-                'o.id as order_id',
-                'o.order_number',
-                'o.deadline',
-                'pi.ItemID',
-                DB::raw('IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0) as sq_inch'),
-                DB::raw('COALESCE(s.printer, "-") as printer'),
-                DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
-            ])
-            ->where('p.status', 'in_progress')
-            ->where('p.taskType', 'printing')
-            ->orderBy('o.id', 'asc')
-            ->orderBy('p.ProductID', 'asc')
-            ->orderBy('pi.ItemID', 'asc')
-            ->paginate(10);
+{
+    $jobs = DB::table('products as p')
+        ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
+        ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+        ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
+        ->where('p.status', 'in_progress')
+        ->where('p.taskType', 'printing')
+        ->groupBy('p.ProductID', 'p.updated_at', 'p.status', 'p.taskType', 'o.id', 'o.order_number', 'o.deadline', 'o.accepted')
+        ->select([
+            'p.ProductID',
+            'p.updated_at as submission_date',
+            'p.status',
+            'p.taskType',
+            'o.id as order_id',
+            'o.order_number',
+            'o.deadline',
 
-        // KPI: In-Progress (Printing)
-        $inProgress = DB::table('products')
-            ->where('status', 'in_progress')
-            ->where('taskType', 'printing')
-            ->count();
+            // total sq inch across all items for this product
+            DB::raw('SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0)) as sq_inch'),
 
-        // KPI: Completed (persists even after the job moves to Furnishing)
-        $completed = DB::table('products')
-            ->where('status', 'completed')
-            ->count();
+            // pick one non-empty printer across items; fallback to "—"
+            DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
 
-        return view('printing.dashboard', compact('jobs', 'inProgress', 'completed'));
-    }
+            // nice code e.g. #ORD-35-P0040
+            DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
+
+            DB::raw('COALESCE(o.accepted, 0) as accepted'),
+        ])
+        ->orderBy('o.id')
+        ->orderBy('p.ProductID')
+        ->paginate(10);
+
+    // KPI: In-Progress (Printing)
+    $inProgress = DB::table('products')
+        ->where('status', 'in_progress')
+        ->where('taskType', 'printing')
+        ->count();
+
+    // KPI: Completed at printing stage
+    $completed = DB::table('fulfillment_progress')
+        ->where('stage', 'printing')
+        ->where('status', 'completed')
+        ->count();
+
+    return view('printing.dashboard', compact('jobs', 'inProgress', 'completed'));
+}
 
     /**
      * Show a single Printing Job Order detail page
@@ -214,22 +222,54 @@ class PrintingController extends Controller
      * - Mark as completed
      * - Move to the next stage (furnishing)
      */
-    public function markPrinted($productId)
+    public function markPrinted($product)
     {
         try {
-            DB::table('products')
-                ->where('ProductID', $productId)
-                ->update([
-                    'status'     => 'completed',   // counts for KPI even after move
-                    'taskType'   => 'furnishing',  // handoff to next team
-                    'updated_at' => now(),
-                ]);
+            DB::transaction(function () use ($product) {
+                // 1) move the product forward to delivery phase
+                DB::table('products')
+                    ->where('ProductID', $product)
+                    ->update([
+                        'status'     => 'in_progress',
+                        'taskType'   => 'furnishing',
+                        'updated_at' => now(),
+                    ]);
+
+                // 2) mark furnishing stage as completed in fulfillment_progress
+                $now = now();
+
+                $exists = DB::table('fulfillment_progress')
+                    ->where('ProductID', $product)
+                    ->where('stage', 'printing')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($exists) {
+                    DB::table('fulfillment_progress')
+                        ->where('ProgressID', $exists->ProgressID)
+                        ->update([
+                            'completedAt' => $now,
+                            'status'      => 'completed',
+                            'updated_at'  => $now,
+                        ]);
+                } else {
+                    DB::table('fulfillment_progress')->insert([
+                        'ProductID'   => $product,
+                        'stage'       => 'printing',
+                        'acceptedAt'  => null,
+                        'completedAt' => $now,
+                        'status'      => 'completed',
+                        'created_at'  => $now,
+                        'updated_at'  => $now,
+                    ]);
+                }
+            });
 
             return response()->json(['ok' => true]);
         } catch (\Throwable $e) {
             return response()->json([
-                'ok'      => false,
-                'message' => $e->getMessage(),
+                'ok' => false,
+                'message' => $e->getMessage()
             ], 500);
         }
     }
