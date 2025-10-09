@@ -21,6 +21,10 @@ use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\LogisticOrderHistoryController;
 use App\Http\Controllers\PrintingHistoryController;
 use App\Http\Controllers\PrintingProfileController;
+// web.php 顶部
+use App\Http\Controllers\PrintingProductOrderController; // ← 没有子命名空间时用这行
+
+
 
 use App\Http\Controllers\FurnishingController;
 use App\Http\Controllers\FurnishingHistoryController;
@@ -251,11 +255,14 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::patch('/data-entry/orders/{order}/begin', [DataEntryController::class, 'begin'])->name('data-entry.orders.begin');
     });
 
-        // Printing
+    // Printing
         Route::middleware(['web','auth','role:operations-printing'])->group(function () {
             Route::prefix('printing')->name('printing.')->group(function () {
             Route::get('/dashboard', [PrintingController::class, 'dashboard'])->name('dashboard');
-            Route::get('/jobs/{product}', [PrintingController::class, 'show'])->name('orders.show');
+            Route::get('/jobs/{product}', [PrintingProductOrderController::class, 'show'])->name('orders.show');
+            Route::post('/jobs/{product}/accept', [PrintingProductOrderController::class, 'accept'])->name('orders.accept');
+            Route::post('/jobs/{product}/reject', [PrintingProductOrderController::class, 'reject'])->name('orders.reject');
+            Route::post('/job/{product}/save', [PrintingProductOrderController::class, 'save'])->name('jobs.save');
             Route::patch('/jobs/{productId}/complete', [PrintingController::class, 'markPrinted'])->name('jobs.complete');
             Route::get('/history', [PrintingHistoryController::class, 'index'])->name('history');
             Route::get('/profile', [PrintingProfileController::class, 'index'])->name('profile');
@@ -265,9 +272,10 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
             Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
             Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
             Route::post('/update-printers', [PrintingController::class, 'updatePrinters'])->name('update.printers');
+            Route::get('/history/{product}', [FurnishingHistoryController::class, 'show'])->name('history.show');
+
         });
     });
-
 
     // Furnishing
     Route::middleware(['web','auth','role:operations-furnishing'])->group(function () {

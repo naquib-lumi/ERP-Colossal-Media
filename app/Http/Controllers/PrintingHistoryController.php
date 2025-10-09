@@ -20,20 +20,23 @@ class PrintingHistoryController extends Controller
         $startYmd = $this->toYmd($start);
         $endYmd   = $this->toYmd($end);
 
-        $base = DB::table('products as p')
+        $base = DB::table('fulfillment_progress as fp')
+            ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-            ->where('p.status', 'completed')
             ->select([
                 'p.ProductID',
-                'p.OrderID',
+                'p.productName as product_name',
+                'p.materialRemark',
+                DB::raw('fp.completedAt as completed_date'),
+                'o.id as order_id',
                 'o.order_number',
-                // ✅ 别名按你的 blade：completed_date
-                'p.updated_at as completed_date',
-                DB::raw('COALESCE(p.productName, CONCAT("Product #", p.ProductID)) as product_name'),
-                // 备注先给空串占位，避免不存在列报错
-                DB::raw('"" as materialRemark'),
-                DB::raw('CONCAT("ORD", o.id, "-P", LPAD(p.ProductID, 4, "0")) as product_code'),
-            ]);
+            ])
+            // only furnishing stage that is completed
+            ->where('fp.stage', 'printing')
+            ->where(function ($w) {
+                $w->where('fp.status', 'completed')
+                ->orWhereNotNull('fp.completedAt');
+            });
 
         // 搜索（Order No / ProductID / 名称）
         if ($q !== '') {
@@ -91,5 +94,15 @@ class PrintingHistoryController extends Controller
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    public function show($productId)
+    {
+        // Reuse the same data as FurnishingProductOrderController@show
+        $data = app(\App\Http\Controllers\PrintingProductOrderController::class)->show($productId);
+
+        // If show() in the original controller returns a view,
+        // we can just re-render that but hide the actionbar using a flag.
+        return $data->with('isHistoryView', true);
     }
 }

@@ -121,12 +121,12 @@
                   $remarks = $row->materialRemark ?: '–';
                 @endphp
                 <tr>
-                  <td class="fw-semibold">{{ $row->product_code }}</td>
+                  <td class="fw-semibold">{{ $row->order_number ?: ('ORD'.($row->order_id ?? $row->ProductID)) }}-P{{ $row->ItemID ?? $row->ProductID }}</td>
                   <td><span class="truncate" title="{{ $prodName }}">{{ $prodName }}</span></td>
                   <td>{{ $completed }}</td>
                   <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
                   <td class="text-center">
-                    <a href="{{ $row->details_url ?? 'javascript:void(0)' }}" class="icon-btn" title="View details">
+                    <a href="{{ route('printing.history.show', $row->ProductID) }}" class="icon-btn" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
                   </td>
