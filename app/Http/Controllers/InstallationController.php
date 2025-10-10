@@ -40,6 +40,7 @@ class InstallationController extends Controller
                 'fp.acceptedAt',
                 'fp.completedAt',
                 'fp.created_at as fp_created_at',
+                DB::raw('COALESCE(p.accepted, 0) as accepted'),
             ])
             ->orderBy('p.ProductID')
             ->get();
@@ -60,6 +61,7 @@ class InstallationController extends Controller
                     // expose current stage/status from products table
                     'current_stage'   => $r->current_stage ? strtolower($r->current_stage) : null,
                     'current_status'  => $r->current_status ? strtolower($r->current_status) : null,
+                    'accepted'       => (int)($r->accepted ?? 0),
                 ];
             }
 
@@ -132,7 +134,7 @@ class InstallationController extends Controller
         usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
 
         // 6) Paginate manually (10 per page)
-        $perPage = 10000; // <-- was 1000
+        $perPage = 1000; // <-- was 1000
         $page    = max(1, (int)$request->query('page', 1));
         $total   = count($list);
         $items   = array_slice($list, ($page - 1) * $perPage, $perPage);
