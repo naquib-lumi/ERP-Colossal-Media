@@ -272,7 +272,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
             Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
             Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
             Route::post('/update-printers', [PrintingController::class, 'updatePrinters'])->name('update.printers');
-            Route::get('/history/{product}', [FurnishingHistoryController::class, 'show'])->name('history.show');
+            Route::get('/history/{product}', [PrintingHistoryController::class, 'show'])->name('history.show');
 
         });
     });
@@ -308,11 +308,14 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
 
         Route::get('/installation/history', [InstallationHistoryController::class, 'index'])->name('installation.history');
         Route::get('/installation/history/{product}', [InstallationHistoryController::class, 'show'])->name('installation.history.show');
+        Route::get('/installation/history/{product}/proofs', [\App\Http\Controllers\InstallationHistoryController::class, 'proofs'])->name('installation.history.proofs');
         
         Route::get('/installation/profile', [InstallationProfileController::class, 'index'])->name('installation.profile');
         Route::put('/installation/profile', [InstallationProfileController::class, 'update'])->name('installation.profile.update');
         Route::get('/installation/calendar', [\App\Http\Controllers\InstallationCalendarController::class, 'index'])->name('installation.calendar');
         Route::get('/installation/calendar/events', [\App\Http\Controllers\InstallationCalendarController::class, 'events'])->name('installation.calendar.events');
+
+        Route::patch('/installation/jobs/{product}/complete', [InstallationController::class, 'completeWithProof'])->name('installation.jobs.complete');
     });
 
 

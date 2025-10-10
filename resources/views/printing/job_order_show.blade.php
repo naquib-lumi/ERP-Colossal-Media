@@ -983,24 +983,67 @@
       @csrf
       <input type="hidden" name="reason" id="rejectReasonInput">
     </form>
+      
+    @php
+      $roleToStage = ['operations-printing' => 'printing'];
+      $role        = auth()->user()->role ?? '';
+      $myStage     = $roleToStage[$role] ?? null;
+
+      $prodStage   = strtolower((string)($header->taskType ?? ''));
+      $isPrinting  = $prodStage === 'printing';
+
+      $isRejected  = isset($header->accepted) && (int)$header->accepted === 0;
+      $isAccepted  = isset($header->accepted) && (int)$header->accepted === 1;
+      $isPending   = !isset($header->accepted) || $header->accepted === null;
+
+      // Only show Accept/Reject when product is printing AND pending AND role matches
+      $canSeeDecision = empty($isHistoryView) && $isPrinting
+        && ($myStage === $prodStage)
+        && strtolower((string)($header->orderStatus ?? '')) !== 'rejected'
+        && $isPending;
+
+      // Optional: allow edit after accepted & stage matches
+      $canEditThisStage = empty($isHistoryView) && $isPrinting && $isAccepted && ($myStage === $prodStage) && ($canEdit ?? false);
+
+      // current product name for rejection message
+      $currentProductName = $header->productName ?? DB::table('products')
+          ->where('ProductID', (int)request()->route('product'))
+          ->value('productName');
+    @endphp
+
     {{-- ===== 底部 Actionbar（三段式） ===== --}}
     <div class="actionbar">
       <div class="action-pre">
         <div class="toolbar">
-          @if(empty($isHistoryView))
-            @if(strtolower((string)($header->orderStatus ?? '')) !== 'rejected' && (int)($header->accepted ?? 0) === 0)
-            <button type="button" id="btnAccept" class="btn btn-accept"><i class="bi bi-check2"></i> Accept</button>
-            <button type="button" id="btnReject" class="btn btn-reject"><i class="bi bi-x-lg"></i> Reject</button>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
-            @endif
-          @endif
-          @if(empty($isHistoryView))
-            @if($canEdit)
-            <div class="toolbar">
-              <button type="button" id="btnEdit" class="btn btn-back"><i class="bi bi-pencil"></i> Edit</button>
-              <a href="javascript:history.back()" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
+          {{-- Rejected message --}}
+          @if ($isRejected)
+            <div class="alert alert-danger mb-2" style="font-weight:500;">
+              This product <strong>{{ $currentProductName ?? 'Unnamed Product' }}</strong> has been rejected.
             </div>
-            @endif
+            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+          @endif
+
+          {{-- Printing-only: Accept / Reject --}}
+          @if ($canSeeDecision)
+            <button type="button" id="btnAccept" class="btn btn-accept">
+              <i class="bi bi-check2"></i> Accept
+            </button>
+            <button type="button" id="btnReject" class="btn btn-reject">
+              <i class="bi bi-x-lg"></i> Reject
+            </button>
+            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+          @endif
+
+          {{-- After accepted (printing), optional Edit --}}
+          @if ($canEditThisStage)
+            <div class="toolbar">
+              <button type="button" id="btnEdit" class="btn btn-back">
+                <i class="bi bi-pencil"></i> Edit
+              </button>
+              <a href="javascript:history.back()" class="btn btn-accept">
+                <i class="bi bi-arrow-left"></i> Back
+              </a>
+            </div>
           @endif
         </div>
       </div>

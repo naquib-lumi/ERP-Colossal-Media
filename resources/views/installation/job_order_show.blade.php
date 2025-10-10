@@ -980,16 +980,19 @@
 
       $myStage   = $roleToStage[$role] ?? null;
       $prodStage = strtolower((string)($header->taskType ?? ''));
+      $allowDeliveryOverride = ($prodStage === 'delivery');
       $canSeeDecision = empty($isHistoryView)
-        && ($myStage === $prodStage)
+        && ( ($myStage === $prodStage) || $allowDeliveryOverride )
         && strtolower((string)($header->orderStatus ?? '')) !== 'rejected'
         && (int)($header->accepted ?? 0) === 0;
 
-      $canEditThisStage = empty($isHistoryView) && $canEdit && ($myStage === $prodStage);
+      $canEditThisStage = empty($isHistoryView) && $canEdit && ( ($myStage === $prodStage) || $allowDeliveryOverride );
 
       $isRejected = isset($header->accepted) && (int)$header->accepted === 0;
       $isAccepted = isset($header->accepted) && (int)$header->accepted === 1;
       $isPending  = !isset($header->accepted) || $header->accepted === null;
+
+      $isCompleted = strtolower((string)($header->status ?? '')) === 'completed';
 
       use Illuminate\Support\Facades\DB;
       use Illuminate\Support\Facades\Request;
@@ -1000,7 +1003,7 @@
       // Fetch product name directly from DB (ensures correct product)
       $productName = DB::table('products')->where('ProductID', $productId)->value('productName');
     @endphp
-
+    
     {{-- ===== 底部 Actionbar（三段式） ===== --}}
     <div class="actionbar">
       <div class="action-pre">
@@ -1022,7 +1025,7 @@
             <a href="javascript:history.back()" class="btn btn-back">Back</a>
           @endif
 
-          @if ($isAccepted && $canEditThisStage)
+          @if ($isAccepted && $canEditThisStage && !$isCompleted)
             <div class="toolbar">
               <button type="button" id="btnEdit" class="btn btn-back">
                 <i class="bi bi-pencil"></i> Edit

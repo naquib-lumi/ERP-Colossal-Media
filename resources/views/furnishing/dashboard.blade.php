@@ -334,12 +334,15 @@
                   : 'ORD'.$j->OrderID.'-P'.$j->ProductID;
 
                 $cutter = $j->cutter ?: '—';
-                $sqIn   = is_null($j->sq_in) ? 0 : $j->sq_in;
+                $sqIn   = is_null($j->sq_inch) ? 0 : $j->sq_inch;
                 $accepted = (int)($j->accepted ?? 0) === 1;
 
                 $viewUrl  = route('furnishing.job.show', $j->ProductID);              // always available
                 $editUrl  = route('furnishing.job.show', [$j->ProductID, 'edit' => 1]); // same page; edit visible after accepted
                 $doneUrl  = route('furnishing.jobs.complete', $j->ProductID);         // PATCH
+
+                $isFurnishing = strtolower((string)($j->taskType ?? '')) === 'furnishing';
+                $accepted = (int)($j->accepted ?? 0) === 1;
               @endphp
               <tr id="job-{{ $j->ProductID }}">
                 <td class="fw-semibold">{{ $code }}</td>
@@ -349,22 +352,18 @@
                 <td>{{ \Carbon\Carbon::parse($j->submission_date)->format('Y-m-d') }}</td>
                 <td>
                   <div class="d-flex align-items-center gap-2">
-                    @if (!$accepted)
+                    @if (!$accepted || !$isFurnishing)
                       <a class="icon-btn icon-pill" href="{{ $viewUrl }}" title="View">
                         <i class="bi bi-eye"></i>
                       </a>
                     @endif
-                    @if ($accepted)
-                      <a class="icon-btn icon-pill" href="{{ $viewUrl }}" title="Edit">
-                        <i class="bi bi-pencil"></i>
-                      </a>
-
-                      <button type="button"
-                              class="icon-btn icon-pill js-mark"
-                              data-id="{{ $j->ProductID }}"
-                              title="Confirm complete">
+                    @if ($isFurnishing && $accepted)
+                      <button class="icon-pill js-mark" data-id="{{ $j->ProductID }}" title="Mark Completed">
                         <i class="bi bi-check2"></i>
                       </button>
+                      <a href="{{ route('furnishing.orders.show', $j->ProductID) }}" class="icon-pill" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                      </a>
                     @endif
                   </div>
                 </td>

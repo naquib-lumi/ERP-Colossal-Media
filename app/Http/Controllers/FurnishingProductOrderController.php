@@ -13,6 +13,23 @@ use App\Models\Order;
 
 class FurnishingProductOrderController extends Controller
 {
+    private function stageForRole(\App\Models\User $user): ?string
+    {
+        return [
+            'operations-furnishing' => 'furnishing',
+        ][$user->role] ?? null;
+    }
+
+    private function assertRoleMatchesProductStage(int $productId): void
+    {
+        $row = DB::table('products')->select('taskType')->where('ProductID', $productId)->first();
+        abort_unless($row, 404, 'Product not found.');
+
+        $productStage = strtolower((string)($row->taskType ?? ''));
+        $roleStage    = $this->stageForRole(request()->user());
+        abort_unless($productStage === $roleStage, 403, 'Not allowed to act on this stage.');
+    }
+
     /**
      * Product Order 列表 / Dashboard（使用 Dummy Data）
      */
@@ -87,7 +104,9 @@ class FurnishingProductOrderController extends Controller
                 'p.ProductID',
                 'p.OrderID',
                 'p.status',
+                'p.taskType',
                 'p.productName as productName',
+                'p.accepted',
                 'p.totalQuantity',
                 'p.materialRemark',
                 'o.order_number',
@@ -98,7 +117,7 @@ class FurnishingProductOrderController extends Controller
                 'o.artist_id',
                 'o.orderAttachment',
                 'o.status as orderStatus',
-                'o.accepted',
+                'p.accepted',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
             ])
             ->first();
@@ -117,6 +136,9 @@ class FurnishingProductOrderController extends Controller
             'ProductID'    => $headerRow->ProductID,
             'OrderID'      => $headerRow->OrderID,
             'status'       => $headerRow->status,
+            'taskType'     => $headerRow->taskType,
+            'productName'  => $headerRow->productName, 
+            'accepted'     => $headerRow->accepted,
             'order_number' => $headerRow->order_number,
             'order_title'  => $headerRow->orderTitle,
             'companyName'  => $headerRow->companyName,
@@ -344,123 +366,85 @@ class FurnishingProductOrderController extends Controller
         ]);
     }
 
-
-    /**
-     * 生成假订单集合
-     */
-    private function makeDummyOrders(int $count = 30): Collection
+    public function accept(Request $request, int $product)
     {
-        $products  = ['Business Cards Premium', 'Flyers A5', 'Poster A3', 'Stickers', 'Brochure Tri-Fold'];
-        $customers = ['ACME Inc.', 'Globex', 'Soylent', 'Initech', 'Umbrella', 'Wayne Corp', 'Stark Industries'];
-        $statusKeys = ['pending', 'processing', 'completed', 'cancelled', 'refunded', 'issue'];
+        $this->assertRoleMatchesProductStage($product);
 
-        return collect(range(1, $count))->map(function ($i) use ($products, $customers, $statusKeys) {
-            $created  = Carbon::now()->subDays(rand(0, 60))->subMinutes(rand(0, 1440));
-            $deadline = (clone $created)->addDays(rand(2, 14))->setTime(rand(9, 18), [0, 15, 30, 45][rand(0, 3)]);
+        $stage = 'furnishing';
+        $now   = now();
 
-            return [
-                'id'            => $i,
-                'order_no'      => sprintf('#ORD-%04d', $i),
-                'product_name'  => $products[array_rand($products)],
-                'customer_name' => $customers[array_rand($customers)],
-                'status'        => $statusKeys[array_rand($statusKeys)],
-                'quantity'      => rand(50, 2000),
-                'unit_price'    => rand(5, 50),               // 假单价
-                'total'         => rand(120, 5000),           // 假总价
-                'created_at'    => $created,
-                'deadline_at'   => $deadline,
-                // 供 UI 细节展示的额外字段
-                'assigned_to'   => ['Artist A', 'Artist B', 'Artist C'][array_rand(['a', 'b', 'c'])],
-                'printer'       => ['Handtop Hybrid', 'Epson UV', 'Roland VersaUV'][array_rand(['a', 'b', 'c'])],
-            ];
+        DB::transaction(function () use ($product, $stage, $now) {
+            // 1) mark THIS product accepted
+            DB::table('products')
+                ->where('ProductID', $product)
+                ->update(['accepted' => 1, 'updated_at' => $now]);
+
+            // 2) upsert furnishing progress (don’t overwrite acceptedAt)
+            DB::table('fulfillment_progress')->upsert(
+                [[
+                    'ProductID'  => (int)$product,
+                    'stage'      => $stage,
+                    'acceptedAt' => $now,          // insert only
+                    'status'     => 'in_progress',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]],
+                ['ProductID', 'stage'],
+                ['status', 'updated_at']
+            );
         });
+
+        return back()->with('ok', 'Product accepted for furnishing.');
     }
 
-public function accept(\Illuminate\Http\Request $request, int $product)
-{
-    // 1) Product → order
-    $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
-    if (!$orderId) abort(404, 'Product not found.');
+    public function reject(Request $request, int $product)
+    {
+        $this->assertRoleMatchesProductStage($product);
 
-    DB::transaction(function () use ($orderId, $product) {
-
-        // 2) Mark the order as accepted
-        DB::table('orders')
-            ->where('id', $orderId)
-            ->update([
-                'accepted'   => 1,
-                'updated_at' => now(),
-            ]);
-
-        // 3) Upsert furnishing progress row: acceptedAt + in_progress
-        DB::table('fulfillment_progress')->updateOrInsert(
-            ['ProductID' => $product, 'stage' => 'furnishing'],
-            [
-                'acceptedAt' => now(),
-                'status'     => 'in_progress',   // keep underscore style to match the rest of your app
-                'updated_at' => now(),
-                // created_at only used when inserting:
-                'created_at' => now(),
-            ]
-        );
-    });
-
-    return back()->with('ok', 'Order accepted.');
-}
-
-public function reject(\Illuminate\Http\Request $request, int $product)
-{
-    $data = $request->validate([
-        'reason' => 'required|string|max:2000',
-    ]);
-
-    // product → order
-    $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
-    if (!$orderId) abort(404, 'Product not found.');
-
-    DB::transaction(function () use ($orderId, $product, $data) {
-
-        // 1) Order -> rejected, clear accepted
-        DB::table('orders')
-            ->where('id', $orderId)
-            ->update([
-                'orderStatus' => 'rejected',
-                'accepted'    => null,
-                'updated_at'  => now(),
-            ]);
-
-        // 2) All products in this order -> rejected
-        DB::table('products')
-            ->where('OrderID', $orderId)
-            ->update([
-                'status'     => 'rejected',
-                'updated_at' => now(),
-            ]);
-
-        // 3) Reason
-        DB::table('report_redo')->insert([
-            'OrderID'    => $orderId,
-            'reason'     => $data['reason'],
-            'created_at' => now(),
-            'updated_at' => now(),
+        $data = $request->validate([
+            'reason' => 'required|string|max:2000',
         ]);
 
-        // 4) Progress row for *this* product at furnishing -> rejected
-        DB::table('fulfillment_progress')->updateOrInsert(
-            ['ProductID' => $product, 'stage' => 'furnishing'],
-            [
-                'status'     => 'rejected',
-                // keep acceptedAt/completedAt untouched; just reflect rejection
-                'updated_at' => now(),
-                'created_at' => now(),
-            ]
-        );
-    });
+        $stage   = 'furnishing';
+        $now     = now();
+        $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
+        abort_if(!$orderId, 404, 'Product not found.');
 
-    return redirect()
-        ->route('furnishing.dashboard')
-        ->with('ok', 'Order rejected.');
-}
+        DB::transaction(function () use ($product, $orderId, $stage, $now, $data) {
+            // 1) product flags
+            DB::table('products')
+                ->where('ProductID', $product)
+                ->update(['accepted' => 0, 'status' => 'rejected', 'updated_at' => $now]);
+
+            // 2) order becomes rejected
+            DB::table('orders')
+                ->where('id', $orderId)
+                ->update(['orderStatus' => 'rejected', 'updated_at' => $now]);
+
+            // 3) (optional) store reason
+            DB::table('report_redo')->insert([
+                'OrderID'    => $orderId,
+                'reason'     => $data['reason'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            // 4) progress row for THIS product at furnishing -> rejected
+            DB::table('fulfillment_progress')->upsert(
+                [[
+                    'ProductID'  => (int)$product,
+                    'stage'      => $stage,
+                    'status'     => 'rejected',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]],
+                ['ProductID', 'stage'],
+                ['status', 'updated_at']
+            );
+        });
+
+        return back()->with('ok', 'Product rejected and order marked rejected.');
+    }
 
     private function ensureCanEdit(int $orderId): void
     {
@@ -481,7 +465,7 @@ public function reject(\Illuminate\Http\Request $request, int $product)
         $order = DB::table('products')
             ->join('orders', 'orders.id', '=', 'products.OrderID')
             ->where('products.ProductID', $product)
-            ->select('orders.accepted', 'orders.orderStatus', 'products.ProductID')
+            ->select('products.accepted', 'orders.orderStatus', 'products.ProductID')
             ->first();
 
         if (!$order || (int)($order->accepted ?? 0) !== 1 || strtolower((string)$order->orderStatus) === 'rejected') {

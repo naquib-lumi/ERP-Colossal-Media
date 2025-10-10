@@ -125,6 +125,39 @@
       display: none;
     }
   }
+
+  /* make the overlay actually pop */
+  .cx-mask { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1050; }
+  .cx-mask.show { display:block; }
+  .cx-wrap { display:flex; min-height:100%; align-items:center; justify-content:center; padding:24px; }
+  .cx-modal.cx-lightbox { width:min(1100px, 96vw); max-height:92vh; overflow:hidden; display:flex; flex-direction:column; }
+
+  .cx-header { display:flex; align-items:center; gap:.5rem; border-bottom:1px solid #eee; padding:.75rem 1rem; }
+  .cx-title { font-weight:700; }
+  .cx-close { margin-left:auto; background:transparent; border:0; cursor:pointer; }
+
+  .cx-body { padding:12px 16px; display:flex; flex-direction:column; gap:12px; }
+
+  .lb-main { position:relative; background:#0f1115; border-radius:14px; overflow:hidden; display:flex; align-items:center; justify-content:center; min-height:420px; }
+  #lbImage { max-width:100%; max-height:70vh; object-fit:contain; display:block; }
+
+  .lb-nav { position:absolute; top:50%; transform:translateY(-50%); border:0; width:44px; height:44px; border-radius:50%;
+            background:rgba(255,255,255,.9); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .lb-prev { left:10px; } .lb-next { right:10px; }
+  .lb-nav:hover { background:#fff; }
+
+  .lb-caption { text-align:center; color:#6b7280; font-size:.9rem; padding:4px; min-height:22px; }
+
+  .lb-strip { display:flex; gap:10px; overflow:auto; padding:8px; border-top:1px solid #eee; }
+  .lb-thumb { flex:0 0 auto; width:110px; height:80px; border-radius:10px; overflow:hidden; border:2px solid transparent; cursor:pointer; background:#f3f4f6; }
+  .lb-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .lb-thumb.active { border-color:#16a34a; }
+
+  /* footer buttons */
+  .cx-footer { padding:10px 16px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:8px; }
+  .cx-footer .btn.btn-back {
+    background:#f3f4f6; border:1px solid #e5e7eb; color:#374151; font-weight:600; border-radius:10px; min-width:120px; padding:10px 14px;
+  }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -221,15 +254,14 @@
 
                 {{-- === PROOF FILE (pill “View” exactly like your screenshot) === --}}
                 <td>
-                  @if(!empty($row->proof_url))
-                  <a href="{{ $row->proof_url }}" target="_blank" class="pill d-inline-flex align-items-center gap-2" title="View proof">
-                    <i class="bi bi-eye"></i><span>View</span>
-                  </a>
-                  @else
-                  <button class="pill d-inline-flex align-items-center gap-2" title="No proof file" disabled>
-                    <i class="bi bi-eye"></i><span>View</span>
+                  <button
+                    type="button"
+                    class="btn btn-light border btn-sm js-view-proofs"
+                    data-product="{{ $row->ProductID ?? $row['ProductID'] }}"
+                    data-url="{{ route('installation.history.proofs', ['product' => $row->ProductID ?? $row['ProductID']]) }}"
+                  >
+                    <i class="bi bi-eye me-1"></i> View
                   </button>
-                  @endif
                 </td>
                 {{-- === /PROOF FILE === --}}
 
@@ -310,6 +342,40 @@
     </div>
   </div>
 </div>
+
+{{-- Proof viewer modal --}}
+<div id="proofModal" class="cx-mask" aria-hidden="true">
+  <div class="cx-wrap">
+    <div class="cx-modal cx-lightbox" role="dialog" aria-modal="true" aria-labelledby="proofTitle">
+      <div class="cx-header">
+        <i class="bi bi-images text-success"></i>
+        <div id="proofTitle" class="cx-title">Installation Proof</div>
+        <button type="button" class="cx-close" data-close="proofModal"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="cx-body">
+        <div class="lb-main">
+          <button class="lb-nav lb-prev" type="button" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+          <img id="lbImage" alt="Proof" />
+          <button class="lb-nav lb-next" type="button" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
+        </div>
+
+        <div id="lbCaption" class="lb-caption">—</div>
+
+        <div id="lbStrip" class="lb-strip">
+          <!-- thumbnails injected here -->
+        </div>
+
+        <div id="lbEmpty" class="text-muted text-center py-4" style="display:none;">No files found.</div>
+      </div>
+
+      <div class="cx-footer">
+        <button type="button" class="btn btn-back" data-close="proofModal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @push('scripts')
 <script>
   (function() {
@@ -345,6 +411,106 @@
       }
     });
   })();
+
+  document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('proofModal');
+  const img   = document.getElementById('lbImage');
+  const cap   = document.getElementById('lbCaption');
+  const strip = document.getElementById('lbStrip');
+  const empty = document.getElementById('lbEmpty');
+  const prev  = modal.querySelector('.lb-prev');
+  const next  = modal.querySelector('.lb-next');
+
+  let files = [];   // [{url,name}, ...]
+  let idx   = 0;    // current index
+  let keyBound = false;
+
+  function openModal() {
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    document.documentElement.style.overflow = 'hidden';
+    if (!keyBound) {
+      keyBound = true;
+      window.addEventListener('keydown', onKey);
+    }
+  }
+  function closeModal() {
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+    document.documentElement.style.overflow = '';
+    if (keyBound) {
+      keyBound = false;
+      window.removeEventListener('keydown', onKey);
+    }
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'ArrowRight') go(+1);
+  }
+
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  modal.querySelectorAll('[data-close="proofModal"]').forEach(b => b.addEventListener('click', closeModal));
+  prev.addEventListener('click', () => go(-1));
+  next.addEventListener('click', () => go(+1));
+
+  function renderThumbs(active = 0) {
+    strip.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    files.forEach((f, i) => {
+      const d = document.createElement('div');
+      d.className = 'lb-thumb' + (i === active ? ' active' : '');
+      d.innerHTML = `<img src="${f.url}" alt="${(f.name || 'proof').replace(/"/g,'&quot;')}">`;
+      d.addEventListener('click', () => show(i));
+      frag.appendChild(d);
+    });
+    strip.appendChild(frag);
+  }
+
+  function show(i) {
+    if (!files.length) return;
+    if (i < 0) i = files.length - 1;
+    if (i >= files.length) i = 0;
+    idx = i;
+    img.src = files[idx].url;
+    cap.textContent = files[idx].name || '';
+    renderThumbs(idx);
+  }
+
+  function go(delta) { show(idx + delta); }
+
+  async function loadProofs(url) {
+    img.src = ''; cap.textContent = ''; strip.innerHTML = '';
+    empty.style.display = 'none';
+    files = []; idx = 0;
+
+    try {
+      const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      files = json?.files || [];
+      if (!files.length) {
+        empty.style.display = 'block';
+        return;
+      }
+      show(0);
+    } catch (err) {
+      console.error(err);
+      empty.style.display = 'block';
+      empty.textContent = 'Unable to load proofs.';
+    }
+  }
+
+  // Event delegation for all "View" buttons (works with pagination)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.js-view-proofs');
+    if (!btn) return;
+    const url = btn.getAttribute('data-url');
+    if (!url) return;
+    openModal();
+    loadProofs(url);
+  });
+});
 </script>
 @endpush
 @endsection

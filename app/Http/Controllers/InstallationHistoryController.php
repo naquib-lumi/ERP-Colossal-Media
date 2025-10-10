@@ -75,4 +75,25 @@ class InstallationHistoryController extends Controller
         // we can just re-render that but hide the actionbar using a flag.
         return $data->with('isHistoryView', true);
     }
+
+    public function proofs(Request $request, int $product)
+    {
+        $rows = DB::table('installation_proofs')
+            ->where('ProductID', $product)
+            ->orderByDesc('id')
+            ->get(['id','ProductID','OrderID','file_path','original_name','mime','size','created_at']);
+
+        $files = $rows->map(function ($r) {
+            return [
+                'id'   => (int)$r->id,
+                'name' => $r->original_name ?: basename($r->file_path),
+                'url'  => Storage::disk('public')->url($r->file_path),
+                'mime' => $r->mime,
+                'size' => (int)$r->size,
+            ];
+        });
+
+        return response()->json(['ok' => true, 'files' => $files]);
+    }
+
 }

@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\ProductTask;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class InstallationController extends Controller
 {
@@ -30,8 +32,8 @@ class InstallationController extends Controller
                 'p.ProductID',
                 'p.productName',
                 'p.OrderID',
-                'p.taskType as current_stage',   // <-- new
-                'p.status   as current_status',  // <-- new
+                'p.taskType as current_stage',
+                'p.status   as current_status',
                 'o.order_number',
                 'o.orderDate',
                 'o.deadline',
@@ -50,6 +52,10 @@ class InstallationController extends Controller
         foreach ($rows as $r) {
             $pid = $r->ProductID;
             if (!isset($byProduct[$pid])) {
+                // null-safe lowercasing for current stage/status
+                $curStage  = $r->current_stage ?? null;
+                $curStatus = $r->current_status ?? null;
+
                 $byProduct[$pid] = [
                     'ProductID'       => $pid,
                     'productName'     => $r->productName,
@@ -58,10 +64,9 @@ class InstallationController extends Controller
                     'orderDate'       => $r->orderDate,
                     'deadline'        => $r->deadline,
                     'stages'          => [],
-                    // expose current stage/status from products table
-                    'current_stage'   => $r->current_stage ? strtolower($r->current_stage) : null,
-                    'current_status'  => $r->current_status ? strtolower($r->current_status) : null,
-                    'accepted'       => (int)($r->accepted ?? 0),
+                    'current_stage'   => $curStage  ? strtolower($curStage)  : null,
+                    'current_status'  => $curStatus ? strtolower($curStatus) : null,
+                    'accepted'        => (int)($r->accepted ?? 0),
                 ];
             }
 
@@ -75,7 +80,7 @@ class InstallationController extends Controller
 
             if (!$cur || $rank > $cur) {
                 $byProduct[$pid]['stages'][$k] = [
-                    'status' => strtolower((string)$r->stage_status), // completed|rejected
+                    'status' => strtolower((string)$r->stage_status), // completed|rejected|in_progress|null
                     'done'   => $r->completedAt,
                     '_rank'  => $rank,
                 ];
@@ -112,8 +117,11 @@ class InstallationController extends Controller
 
             $p['progress'] = $progressWidth($p);
 
-            // KPI: keep your previous rule (installation completed => completed)
+            // installation completed flag for UI
             $instStatus = $p['stages']['installation']['status'] ?? null;
+            $p['installation_completed'] = $instStatus === 'completed' ? 1 : 0;
+
+            // KPI: (installation completed => completed)
             if ($instStatus === 'completed') $completed++;
             else $inProgress++;
 
@@ -155,5 +163,85 @@ class InstallationController extends Controller
             'completed'  => $completed,
             'rows'       => $rowsPaginated,
         ]);
+    }
+
+    public function completeWithProof(Request $request, int $product)
+    {
+        // Validate at least one image
+        $validated = $request->validate([
+            'photos'   => 'required|array|min:1',
+            'photos.*' => 'file|image|max:12288', // 12MB each
+        ]);
+
+        // Resolve order id *without* changing products.status
+        $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
+        abort_if(!$orderId, 404, 'Product not found.');
+
+        $userId = (int)($request->user()->id ?? 0);
+        $now    = now();
+
+        DB::transaction(function () use ($validated, $product, $orderId, $userId, $now) {
+
+            // 1) Store images
+            $records = [];
+            foreach ($validated['photos'] as $file) {
+                $dir  = "installation_proofs/{$product}";
+                $name = Str::uuid()->toString().'.'.$file->getClientOriginalExtension();
+                $path = $file->storeAs($dir, $name, 'public');  // storage/app/public/...
+
+                $records[] = [
+                    'ProductID'     => $product,
+                    'OrderID'       => $orderId,
+                    'file_path'     => $path,
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime'          => $file->getClientMimeType(),
+                    'size'          => $file->getSize(),
+                    'uploaded_by'   => $userId ?: null,
+                    'created_at'    => $now,
+                    'updated_at'    => $now,
+                ];
+            }
+
+            if (!empty($records)) {
+                DB::table('installation_proofs')->insert($records);
+            }
+
+            // 2) Mark INSTALLATION stage completed in fulfillment_progress
+            $existing = DB::table('fulfillment_progress')
+                ->where('ProductID', $product)
+                ->where('stage', 'installation')
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                DB::table('fulfillment_progress')
+                    ->where('ProgressID', $existing->ProgressID)
+                    ->update([
+                        'completedAt' => $now,
+                        'status'      => 'completed',
+                        'updated_at'  => $now,
+                    ]);
+            } else {
+                DB::table('fulfillment_progress')->insert([
+                    'ProductID'   => $product,
+                    'stage'       => 'installation',
+                    'acceptedAt'  => null,
+                    'completedAt' => $now,
+                    'status'      => 'completed',
+                    'created_at'  => $now,
+                    'updated_at'  => $now,
+                ]);
+            }
+
+            DB::table('products')
+                ->where('ProductID', $product)
+                ->update([
+                    'status'     => 'completed',
+                    'updated_at' => $now,
+            ]);
+
+        });
+
+        return back()->with('ok', 'Installation marked completed with photo proof.');
     }
 }
