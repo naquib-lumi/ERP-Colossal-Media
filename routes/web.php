@@ -299,7 +299,6 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
     // Delivery and installation
     Route::middleware(['web','auth','role:operations-delivery-installation'])->group(function () {
         Route::get('/installation/dashboard', [InstallationController::class, 'dashboard'])->name('installation.dashboard');
-        // Route::get('/installation/product-order', [InstallationProductOrderController::class, 'productorder'])->name('installation.product-order');
         
         Route::get('/installation/job/{product}', [\App\Http\Controllers\InstallationProductOrderController::class, 'show'])->name('installation.job.show');
         Route::post('/installation/job/{product}/accept', [\App\Http\Controllers\InstallationProductOrderController::class, 'accept'])->name('installation.orders.accept');
@@ -323,10 +322,21 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
     Route::middleware(['web','auth','role:operations-dispatch-control'])->group(function () {
         Route::get('/dispatchcontrol/dashboard', [DispatchControlController::class, 'dashboard'])->name('dispatchcontrol.dashboard');
         Route::get('/dispatchcontrol/product-order', [DispatchControlProductOrderController::class, 'productorder'])->name('dispatchcontrol.product-order');
+
+        Route::get('/dispatchcontrol/job/{product}', [DispatchControlProductOrderController::class, 'show'])->name('dispatchcontrol.job.show');
+        Route::post('/dispatchcontrol/job/{product}/accept', [DispatchControlProductOrderController::class, 'accept'])->name('dispatchcontrol.orders.accept');
+        Route::post('/dispatchcontrol/job/{product}/reject', [DispatchControlProductOrderController::class, 'reject'])->name('dispatchcontrol.orders.reject');
+        Route::post('/dispatchcontrol/job/{product}/save', [DispatchControlProductOrderController::class, 'save'])->name('dispatchcontrol.jobs.save');
+
         Route::get('/dispatchcontrol/history', [DispatchControlHistoryController::class, 'index'])->name('dispatchcontrol.history');
+        Route::get('/installation/history/{product}', [DispatchControlHistoryController::class, 'show'])->name('dispatchcontrol.history.show');
+        Route::get('/dispatchcontrol/history/{product}/proofs', [DispatchControlHistoryController::class, 'proofs'])->name('dispatchcontrol.history.proofs');
+
         Route::get('/dispatchcontrol/job-order', [DispatchControlController::class, 'index'])->name('dispatchcontrol.job-order');
         Route::get('/dispatchcontrol/user', [DispatchControlProfileController::class, 'index'])->name('dispatchcontrol.user');
-        Route::put('/dispatch/profile', [DispatchControlProfileController::class, 'update'])->name('dispatchcontrol.user.update');
+        Route::put('/dispatchcontrol/profile', [DispatchControlProfileController::class, 'update'])->name('dispatchcontrol.user.update');
+
+        Route::patch('/dispatchcontrol/jobs/{product}/complete', [DispatchControlController::class, 'completeWithProof'])->name('dispatchcontrol.jobs.complete');
     });
 
     Route::middleware('role:admin')->group(function () {
