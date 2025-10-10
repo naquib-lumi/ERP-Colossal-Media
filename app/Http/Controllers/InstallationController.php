@@ -142,7 +142,7 @@ class InstallationController extends Controller
         usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
 
         // 6) Paginate manually (10 per page)
-        $perPage = 1000; // <-- was 1000
+        $perPage = 10; // <-- was 1000
         $page    = max(1, (int)$request->query('page', 1));
         $total   = count($list);
         $items   = array_slice($list, ($page - 1) * $perPage, $perPage);
