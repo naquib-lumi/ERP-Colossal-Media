@@ -19,11 +19,12 @@ class Lead extends Model
         'remark',
     ];
 
-    public function user()
-    {
-        return $this->belongsTo(User::class, 'salesperson_id')
-            ->where('role', 'salesperson');
-    }
+ public function user()
+{
+    return $this->belongsTo(User::class, 'salesperson_id')
+        ->whereIn('role', ['salesperson', 'head-salesperson']);
+}
+
 
     public function attachments()
     {

@@ -130,7 +130,7 @@ class ReminderController extends Controller
 
     public function updateStatus(Request $request, $id)
     {
-        $validated = $request->validate(['status' => 'required|in:upcoming,completed']);
+        $validated = $request->validate(['status' => 'required|in:overdue,completed']);
         $reminder = Reminder::findOrFail($id);
         $reminder->update(['status' => $validated['status']]);
         return response()->json(['success' => true]);

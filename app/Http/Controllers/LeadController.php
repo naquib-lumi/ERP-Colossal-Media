@@ -148,6 +148,7 @@ class LeadController extends Controller
             $dropdown .= '<option value="accept" ' . ($lead->status == 'accept' ? 'selected' : '') . '>Accept</option>';
             $dropdown .= '<option value="reject" ' . ($lead->status == 'reject' ? 'selected' : '') . '>Reject</option>';
             $dropdown .= '<option value="followup" ' . ($lead->status == 'followup' ? 'selected' : '') . '>Followup</option>';
+            $dropdown .= '<<option value="meeting" ' . ($lead->status == 'meeting' ? 'selected' : '') . '>Meeting</option>';
             $dropdown .= '<option value="new" ' . ($lead->status == 'new' ? 'selected' : '') . '>New</option>';
             $dropdown .= '</select><br>';
 
@@ -607,7 +608,7 @@ protected function authorizeLeadAccess(Lead $lead)
     }
 
     $request->validate([
-        'status' => 'required|in:accept,reject,followup,new'
+        'status' => 'required|in:accept,reject,followup,new,meeting'
     ]);
 
     $lead->update(['status' => $request->input('status')]);
@@ -675,7 +676,7 @@ public function destroy($id)
         'phone' => 'required|string|max:20',
         'email' => 'required|email|max:255',
         'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
-        'status' => 'required|in:accept,reject,followup,new',
+        'status' => 'required|in:accept,reject,followup,new,meeting',
         'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
         'remark' => 'nullable|string',
         'attachments' => 'nullable|array|max:10',

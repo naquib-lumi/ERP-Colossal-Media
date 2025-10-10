@@ -11,7 +11,7 @@
         <div class="card-datatable table-responsive p-3">
             <div class="row mb-3 mx-0">
                 <div class="col-md-4">
-                    <input type="text" class="form-control" id="globalSearch" placeholder="Search by company, lead, or order ID...">
+                    <input type="text" class="form-control" id="globalSearch" placeholder="Search by company, lead name">
                 </div>
                 <div class="col-md-4">
                     <select class="form-control" id="statusFilter">

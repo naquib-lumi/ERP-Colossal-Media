@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -32,7 +31,7 @@ class OrderController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $orders = Order::with('lead', 'salesperson', 'products', 'originalOrder')->orderBy('created_at', 'desc');
+        $orders = Order::with('lead', 'salesperson', 'products')->orderBy('created_at', 'desc');
 
         if (!$user->hasRole('head-salesperson')) {
             $orders->where('salesperson_id', $user->id);
@@ -58,17 +57,8 @@ class OrderController extends Controller
             });
         }
 
-        $orders->whereNotExists(function ($query) {
-            $query->select(DB::raw(1))
-                ->from('orders as child')
-                ->whereColumn('child.redo', 'orders.id');
-        });
-
         return DataTables::of($orders)
             ->addColumn('order_id', function ($order) {
-                if ($order->originalOrder) {
-                    return $order->originalOrder->order_number . 'R';
-                }
                 return $order->order_number ?? $order->id;
             })
             ->addColumn('order_name', function ($order) {
