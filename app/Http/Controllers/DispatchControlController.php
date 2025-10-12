@@ -142,7 +142,7 @@ class DispatchControlController extends Controller
         usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
 
         // 6) Paginate manually (10 per page)
-        $perPage = 1000; // <-- was 1000
+        $perPage = 10; // <-- was 1000
         $page    = max(1, (int)$request->query('page', 1));
         $total   = count($list);
         $items   = array_slice($list, ($page - 1) * $perPage, $perPage);
@@ -279,6 +279,7 @@ class DispatchControlController extends Controller
                 'p.productName as product_name',
                 'p.taskType as task_type',
                 'p.status',
+                DB::raw('COALESCE(p.accepted, 0) as accepted'),
                 DB::raw("DATE_FORMAT(p.updated_at, '%Y-%m-%d') as deadline"),
                 DB::raw("DATE_FORMAT(db.date, '%Y-%m-%d') as delivery_date"),
                 'db.location as delivery_location',
@@ -299,9 +300,33 @@ class DispatchControlController extends Controller
             ->when($status !== '', function ($qb) use ($status) {
                 $qb->where(DB::raw('LOWER(p.status)'), $status);
             })
-            ->orderByDesc('p.updated_at')
+            ->orderByRaw('db.date IS NULL, db.date ASC, COALESCE(db.time, "23:59:59") ASC')
             ->paginate(10)
             ->appends($request->query());
+
+        $orders->getCollection()->transform(function ($r) {
+            // Link to the detailed job page
+            $r->details_url = route('dispatchcontrol.job.show', (int)$r->product_id);
+
+            // When to show the "edit" icon from the list:
+            // - this stage is "delivery" (dispatch control)
+            // - product is not completed/rejected yet
+            // - product has been accepted (your show page already re-checks permissions)
+            $stage   = strtolower((string)($r->task_type ?? ''));
+            $status  = strtolower((string)($r->status ?? ''));
+            $accepted = (int)($r->accepted ?? 0);
+
+            $r->can_edit =
+                ($stage === 'delivery') &&
+                ($status !== 'completed') &&
+                ($status !== 'rejected') &&
+                ($accepted === 1);
+
+            // Optional: open the page in edit mode via ?edit=1
+            $r->edit_url = $r->details_url.'?edit=1';
+
+            return $r;
+        });
 
         // Optional CSV export when ?export=1 and there are results
         if ($request->boolean('export') && $orders->total() > 0) {
@@ -309,7 +334,7 @@ class DispatchControlController extends Controller
                 return [
                     'Product ID'        => $r->product_code,
                     'Product Name'      => $r->product_name,
-                    'Task Type'         => $r->task_type,
+                    'Task Type'         => $this->mapTaskLabel($r->task_type), 
                     'Deadline'          => $r->deadline,
                     'Status'            => $r->status,
                     'Delivery Date'     => $r->delivery_date,
@@ -341,6 +366,15 @@ class DispatchControlController extends Controller
         return (int) DB::table('products')
             ->where(DB::raw('LOWER(taskType)'), strtolower($type))
             ->count();
+    }
+
+    private function mapTaskLabel(?string $raw): string
+    {
+        return match (strtolower((string)$raw)) {
+            'delivery'     => 'Dispatch Control',
+            'installation' => 'Delivery & Installation',
+            default        => \Illuminate\Support\Str::title((string)$raw),
+        };
     }
 
 }
