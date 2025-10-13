@@ -4,112 +4,102 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class PrintingController extends Controller
 {
     public function dashboard(Request $request)
-{
-    // ---- filters
-    $printer   = trim((string) $request->get('printer', ''));
-    $sqMin     = $request->get('sqmin');
-    $sqMax     = $request->get('sqmax');
-    $dlStart   = $request->get('deadline_start');
-    $dlEnd     = $request->get('deadline_end');
-    $sbStart   = $request->get('submitted_start'); // DATE on p.updated_at
-    $sbEnd     = $request->get('submitted_end');
+    {
+        // --- read raw inputs
+        $printer = trim((string) $request->get('printer', ''));
+        $sqMin   = $request->get('sq_min', '');
+        $sqMax   = $request->get('sq_max', '');
 
-    // expression used in select & having
-    $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))';
+        $readDate = function (?string $v): ?string {
+            if (!$v) return null;
+            try {
+                return Carbon::parse($v)->toDateString();
+            } catch (\Throwable $e) {
+                try {
+                    return Carbon::createFromFormat('d/m/Y', $v)->format('Y-m-d');
+                } catch (\Throwable $e2) {
+                    return null;
+                }
+            }
+        };
 
-    $jobs = DB::table('products as p')
-        ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
-        ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
-        ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
-        ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
+        // accept both naming styles from the form
+        $dlStart = $readDate($request->get('deadline_start', $request->get('deadline_from')));
+        $dlEnd   = $readDate($request->get('deadline_end',   $request->get('deadline_to')));
 
-        // exclude rows already completed in printing
-        ->whereNotExists(function ($q2) {
-            $q2->select(DB::raw(1))
-               ->from('fulfillment_progress as fp')
-               ->whereColumn('fp.ProductID', 'p.ProductID')
-               ->where('fp.stage', 'printing')
-               ->where('fp.status', 'completed');
-        })
+        $sbStart = $readDate($request->get('submitted_start', $request->get('submitted_from')));
+        $sbEnd   = $readDate($request->get('submitted_end',   $request->get('submitted_to')));
 
-        // ---- filters
-        ->when($printer !== '', function ($qb) use ($printer) {
-            $qb->where('s.printer', 'like', '%'.$printer.'%');
-        })
-        // deadline range (DATE column on orders)
-        ->when($dlStart && $dlEnd, function ($qb) use ($dlStart, $dlEnd) {
-            $qb->whereBetween('o.deadline', [$dlStart, $dlEnd]);
-        })
-        ->when($dlStart && !$dlEnd, function ($qb) use ($dlStart) {
-            $qb->where('o.deadline', '>=', $dlStart);
-        })
-        ->when(!$dlStart && $dlEnd, function ($qb) use ($dlEnd) {
-            $qb->where('o.deadline', '<=', $dlEnd);
-        })
-        // submission date range (DATE on p.updated_at)
-        ->when($sbStart && $sbEnd, function ($qb) use ($sbStart, $sbEnd) {
-            $qb->whereBetween(DB::raw('DATE(p.updated_at)'), [$sbStart, $sbEnd]);
-        })
-        ->when($sbStart && !$sbEnd, function ($qb) use ($sbStart) {
-            $qb->where(DB::raw('DATE(p.updated_at)'), '>=', $sbStart);
-        })
-        ->when(!$sbStart && $sbEnd, function ($qb) use ($sbEnd) {
-            $qb->where(DB::raw('DATE(p.updated_at)'), '<=', $sbEnd);
-        })
+        $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))';
 
-        ->groupBy(
-            'p.ProductID',
-            'p.updated_at',
-            'p.status',
-            'p.taskType',
-            'o.id',
-            'o.order_number',
-            'o.deadline',
-            'p.accepted'
-        )
-        ->select([
-            'p.ProductID',
-            'p.updated_at as submission_date',
-            'p.status',
-            'p.taskType',
-            'o.id as order_id',
-            'o.order_number',
-            'o.deadline',
+        $jobs = DB::table('products as p')
+            ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
+            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+            ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
+            ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
+            ->whereNotExists(function ($q2) {
+                $q2->select(DB::raw(1))
+                    ->from('fulfillment_progress as fp')
+                    ->whereColumn('fp.ProductID', 'p.ProductID')
+                    ->where('fp.stage', 'printing')
+                    ->where('fp.status', 'completed');
+            })
 
-            // use the string with selectRaw/DB::raw
-            DB::raw("$sqExpr as sq_inch"),
+            // printer
+            ->when(
+                $printer !== '',
+                fn($qb) =>
+                $qb->where('s.printer', 'like', '%' . $printer . '%')
+            )
 
-            DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
-            DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
-            DB::raw('COALESCE(p.accepted, 0) as accepted'),
-        ])
+            // DEADLINE (orders.deadline is a DATE)
+            ->when($dlStart && $dlEnd, fn($q) => $q->whereBetween('o.deadline', [$dlStart, $dlEnd]))
+            ->when($dlStart && !$dlEnd, fn($q) => $q->whereDate('o.deadline', '>=', $dlStart))
+            ->when(!$dlStart && $dlEnd, fn($q) => $q->whereDate('o.deadline', '<=', $dlEnd))
 
-        // sq inch range — must use HAVING (it's an aggregate)
-        ->when($sqMin !== null && $sqMin !== '', fn($qb) => $qb->having('sq_inch', '>=', (float) $sqMin))
-        ->when($sqMax !== null && $sqMax !== '', fn($qb) => $qb->having('sq_inch', '<=', (float) $sqMax))
+            // SUBMISSION DATE (DATE(p.updated_at))
+            ->when($sbStart && $sbEnd, fn($q) => $q->whereBetween(DB::raw('DATE(p.updated_at)'), [$sbStart, $sbEnd]))
+            ->when($sbStart && !$sbEnd, fn($q) => $q->whereDate('p.updated_at', '>=', $sbStart))
+            ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
 
-        ->orderBy('o.id')
-        ->orderBy('p.ProductID')
-        ->paginate(10)
-        ->appends($request->query()); // keep filters on pagination
+            ->groupBy('p.ProductID', 'p.updated_at', 'p.status', 'p.taskType', 'o.id', 'o.order_number', 'o.deadline', 'p.accepted')
+            ->select([
+                'p.ProductID',
+                'p.updated_at as submission_date',
+                'p.status',
+                'p.taskType',
+                'o.id as order_id',
+                'o.order_number',
+                'o.deadline',
+                DB::raw("$sqExpr as sq_inch"),
+                DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
+                DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
+                DB::raw('COALESCE(p.accepted, 0) as accepted'),
+            ])
+            ->when($sqMin !== '', fn($qb) => $qb->havingRaw("$sqExpr >= ?", [(float)$sqMin]))
+            ->when($sqMax !== '', fn($qb) => $qb->havingRaw("$sqExpr <= ?", [(float)$sqMax]))
+            ->orderBy('o.id')->orderBy('p.ProductID')
+            ->paginate(10)
+            ->appends($request->query());
 
-    // KPIs (unchanged)
-    $inProgress = DB::table('products')
-        ->where('status', 'in_progress')
-        ->where('taskType', 'printing')
-        ->count();
+        // KPIs (unchanged)
+        $inProgress = DB::table('products')
+            ->where('status', 'in_progress')
+            ->where('taskType', 'printing')
+            ->count();
 
-    $completed = DB::table('fulfillment_progress')
-        ->where('stage', 'printing')
-        ->where('status', 'completed')
-        ->count();
+        $completed = DB::table('fulfillment_progress')
+            ->where('stage', 'printing')
+            ->where('status', 'completed')
+            ->count();
 
-    return view('printing.dashboard', compact('jobs', 'inProgress', 'completed'));
-}
+        return view('printing.dashboard', compact('jobs', 'inProgress', 'completed'));
+    }
 
 
     /**
@@ -252,7 +242,7 @@ class PrintingController extends Controller
                     ->where('pi.ProductID', $product)
                     ->where(function ($q) {
                         $q->whereNotNull('s.lamination')->where('s.lamination', '<>', '')
-                        ->orWhereNotNull('s.cutter')->where('s.cutter', '<>', '');
+                            ->orWhereNotNull('s.cutter')->where('s.cutter', '<>', '');
                     })
                     ->exists();
 
@@ -264,7 +254,7 @@ class PrintingController extends Controller
                     $methods = DB::table('delivery_breakdowns')
                         ->where('ProductID', $product)
                         ->pluck('method')
-                        ->map(fn ($m) => strtolower(trim((string)$m)))
+                        ->map(fn($m) => strtolower(trim((string)$m)))
                         ->unique()
                         ->all();
 
@@ -315,7 +305,6 @@ class PrintingController extends Controller
                         'updated_at'  => $now,
                     ]);
                 }
-
             });
 
             return response()->json(['ok' => true]);
