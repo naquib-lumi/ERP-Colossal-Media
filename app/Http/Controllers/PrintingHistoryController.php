@@ -42,7 +42,8 @@ class PrintingHistoryController extends Controller
         if ($q !== '') {
             $base->where(function ($w) use ($q) {
                 $w->where('o.order_number', 'like', "%{$q}%")
-                  ->orWhere('p.productName', 'like', "%{$q}%");
+                  ->orWhere('p.productName', 'like', "%{$q}%")
+                  ->orWhere('p.materialRemark', 'like', "%{$q}%");
 
                 if (preg_match('/^\d+$/', $q)) {
                     $w->orWhere('p.ProductID', (int) $q);

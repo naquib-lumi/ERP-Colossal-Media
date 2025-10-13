@@ -65,7 +65,7 @@
             name="q"
             value="{{ $q ?? '' }}"
             class="form-control grow"
-            placeholder="Search by Order ID or Job Title">
+            placeholder="Search by Product Name or Remarks">
 
           <div class="dates">
             <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">

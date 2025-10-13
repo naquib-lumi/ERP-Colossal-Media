@@ -335,15 +335,15 @@
     <div class="kpi-grid">
       <div class="kpi-card">
         <div>
-          <div class="kpi-title mb-1">In Progress</div>
-          <div class="kpi-value" data-kpi="inprogress">{{ $inProgress }}</div>
+          <div class="kpi-title mb-1" style="color: #635bff;">In Progress</div>
+          <div class="kpi-value" data-kpi="inprogress" style="color: #635bff;">{{ $inProgress }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
       <div class="kpi-card">
         <div>
-          <div class="kpi-title mb-1">Completed</div>
-          <div class="kpi-value" data-kpi="completed">{{ $completed }}</div>
+          <div class="kpi-title mb-1" style="color:seagreen;">Completed</div>
+          <div class="kpi-value" data-kpi="completed" style="color:seagreen;">{{ $completed }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-check2"></i></div>
       </div>
