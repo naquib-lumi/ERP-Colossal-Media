@@ -672,7 +672,6 @@
     display: none;
   }
 
-  
   /* ===== Resizable table ===== */
   .resize-table{ table-layout: fixed; width:100%; }
   .resize-table thead th{ position:relative; overflow:visible; }
