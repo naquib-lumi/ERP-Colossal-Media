@@ -301,7 +301,7 @@ class DispatchControlController extends Controller
                 $qb->where(DB::raw('LOWER(p.status)'), $status);
             })
             ->orderByRaw('db.date IS NULL, db.date ASC, COALESCE(db.time, "23:59:59") ASC')
-            ->paginate(10)
+            ->paginate(1000)
             ->appends($request->query());
 
         $orders->getCollection()->transform(function ($r) {
