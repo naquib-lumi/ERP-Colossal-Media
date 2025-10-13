@@ -333,21 +333,36 @@
                     </div>
                   </a>
                   <ul class="dropdown-menu dropdown-menu-end">
-                 <li>
-    <a class="dropdown-item" href="{{ (auth()->user()->role === 'salesperson' || auth()->user()->role === 'head-salesperson') ? route('sales.profile.show') : ((auth()->user()->role === 'artist' || auth()->user()->role === 'head-artist') ? route('artist.profile.show') : 'pages-account-settings-account.html') }}">
-        <div class="d-flex">
-            <div class="flex-shrink-0 me-3">
-                <div class="avatar avatar-online">
-                    <img src="{{ asset('assets/img/avatars/1.png') }}" alt="" class="w-px-40 h-auto rounded-circle" />
-                </div>
-            </div>
-            <div class="flex-grow-1">
-                <h6 class="mb-0">{{ auth()->user()->name }}</h6>
-                <small class="text-body-secondary">{{ auth()->user()->role }}</small>
-            </div>
-        </div>
-    </a>
-</li>
+                  <li>
+                    @php
+                      $role = auth()->user()->role ?? '';
+
+                      // Map roles to their profile routes (fallback to the static page)
+                      $routeUrl = match ($role) {
+                        'salesperson', 'head-salesperson'                 => route('sales.profile.show'),
+                        'artist', 'head-artist'                           => route('artist.profile.show'),
+                        'operations-printing'                             => route('printing.profile'),
+                        'operations-furnishing', 'operation-furnishing'   => route('furnishing.profile'),
+                        'operations-dispatch-control'                     => route('dispatchcontrol.user'),
+                        'operations-delivery-installation'                => route('installation.profile'),
+                        default                                           => url('pages-account-settings-account.html'),
+                      };
+                    @endphp
+
+                    <a class="dropdown-item" href="{{ $routeUrl }}">
+                      <div class="d-flex">
+                        <div class="flex-shrink-0 me-3">
+                          <div class="avatar avatar-online">
+                            <img src="{{ asset('assets/img/avatars/1.png') }}" alt="" class="w-px-40 h-auto rounded-circle" />
+                          </div>
+                        </div>
+                        <div class="flex-grow-1">
+                          <h6 class="mb-0">{{ auth()->user()->name }}</h6>
+                          <small class="text-body-secondary">{{ auth()->user()->role }}</small>
+                        </div>
+                      </div>
+                    </a>
+                  </li>
                     <!-- <li>
                       <div class="dropdown-divider my-1"></div>
                     </li>
