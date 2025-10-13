@@ -671,7 +671,52 @@
   #pageRoot.is-editing .td-cutter .view-text {
     display: none;
   }
+  
+  /* ===== Resizable table ===== */
+  .resize-table{ table-layout: fixed; width:100%; }
+  .resize-table thead th{ position:relative; overflow:visible; }
+  .resize-handle{
+    position:absolute; top:0; right:-4px; width:8px; height:100%;
+    cursor:col-resize; z-index:2;
+  }
+  .resize-handle::after{
+    content:""; position:absolute; top:0; bottom:0; left:3px; width:2px;
+    background:transparent; transition:background .15s;
+  }
+  .resize-handle:hover::after{ background:#d0d5dd; }
+
+  /* When dragging, show a guideline */
+  .is-resizing *{ cursor:col-resize !important; }
+  .resize-guide{
+    position:fixed; top:0; bottom:0; width:1px; background:#94a3b8; pointer-events:none;
+    z-index:9999; display:none;
+  }
+
+  /* ===== Remarks list (stacked) ===== */
+  .remarks-block{
+    border:1px solid #eceff3; border-radius:12px; padding:10px 12px; background:#fbfcfe;width: 100%;
+  }
+  .remarks-list{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
+  .remarks-list li{
+    padding:8px 10px; border:1px dashed #d8dee6; border-radius:8px; background:#fff;
+    white-space:normal; word-wrap:break-word; overflow-wrap:anywhere;word-break: break-word;
+    line-height:1.35;
+  }
+
+  .remarks-list li .msg{
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .remarks-list li .by{
+    display:block;
+    margin-top:4px;
+    color:#98a2b3;               
+    font-size:.75rem;            
+  }
+  .remarks-list li .op{ color:#667085; font-weight:600; margin-right:.35rem; text-transform:capitalize; }
 </style>
+<div class="resize-guide" id="colGuide"></div>
 
 <div class="container-fluid py-4 px-4">
   <div class="page-wrap" id="pageRoot">
@@ -729,11 +774,28 @@
         <div class="mt-3">
           <div class="section-hd" style="margin-bottom:8px"><i class="bi bi-chat-square-text"></i> Product Remarks</div>
           <div class="chips">
-            @forelse($remarkLabels as $tag)
-            <span class="chip">{{ $tag }}</span>
-            @empty
-            <span class="text-muted">—</span>
-            @endforelse
+            @if(!empty($remarkLabels) && count($remarkLabels))
+              <div class="remarks-block mt-2">
+                <ul class="remarks-list">
+                  @foreach ($remarkLabels as $line)
+                    @php
+                      // Optional: split "operation: message" → <span class="op">operation</span> message
+                      $op = null; $msg = $line;
+                      if (str_contains($line, ':')) {
+                        [$op, $msg] = explode(':', $line, 2);
+                        $op = trim($op); $msg = trim($msg);
+                      }
+                    @endphp
+                    <li>
+                      @if($op)<span class="op">{{ $op }}:</span>@endif
+                      <span>{{ $msg }}</span>
+                    </li>
+                  @endforeach
+                </ul>
+              </div>
+            @else
+              <div class="text-muted">No product remarks.</div>
+            @endif
           </div>
         </div>
       </div>
@@ -768,19 +830,22 @@
 
           <div class="subcard-body" id="p{{ $block['id'] }}-body" data-block-product="{{ $block['id'] }}">
             <div class="table-responsive">
-              <table class="table table-products align-middle mb-0">
+              @php
+                $widthKey = 'items-cols-' . ($header->ProductID ?? $product_header['code'] ?? 'prod');
+              @endphp
+              <table class="table align-middle resize-table js-resize-table" data-width-key="{{ $widthKey }}">
                 <thead class="table-light">
                   <tr>
-                    <th class="col-item" style="width: 12%">ITEM</th>
-                    <th class="col-qty">QUANTITY</th>
-                    <th class="col-size">SIZE</th>
-                    <th class="col-bleed">BLEED</th>
-                    <th class="col-material">MATERIAL</th>
-                    <th class="col-centre">PRIME CENTRE</th>
-                    <th class="col-lam">LAMINATION</th>
-                    <th class="col-printer">PRINTER</th>
-                    <th class="col-cutter">CUTTER</th>
-                    <th class="col-assemble">ASSEMBLE</th>
+                    <th>Item <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Quantity <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Size <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Bleed <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Material <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Prime Centre <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Lamination <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Printer <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Cutter <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Assemble</th> {{-- no handle on the last column --}}
                   </tr>
                 </thead>
                 <tbody>
@@ -1255,6 +1320,88 @@ document.addEventListener('DOMContentLoaded', function () {
     form.submit();
   });
 });
+
+(function() {
+  const guide = document.getElementById('colGuide');
+
+  function initResizableTable(tbl){
+    const key = tbl.dataset.widthKey || 'tbl-cols';
+    const thead = tbl.querySelector('thead');
+    const ths   = [...thead.querySelectorAll('th')];
+    if (!ths.length) return;
+
+    // Build a <colgroup> so we can set widths cleanly
+    let colgroup = tbl.querySelector('colgroup');
+    if (!colgroup){
+      colgroup = document.createElement('colgroup');
+      for (let i=0;i<ths.length;i++){ colgroup.appendChild(document.createElement('col')); }
+      tbl.insertBefore(colgroup, tbl.firstChild);
+    }
+    const cols = [...colgroup.querySelectorAll('col')];
+
+    // load saved widths
+    const saved = localStorage.getItem(key);
+    if (saved){
+      try {
+        const widths = JSON.parse(saved);
+        widths.forEach((w,i)=>{ if(cols[i]) cols[i].style.width = w; });
+      } catch(e){}
+    } else {
+      // initialize from current header widths
+      ths.forEach((th,i)=>{ cols[i].style.width = th.getBoundingClientRect().width + 'px'; });
+    }
+
+    let startX=0, startW=0, index=-1, moving=false;
+
+    function save(){
+      const widths = cols.map(c => c.style.width || (c.getBoundingClientRect().width + 'px'));
+      localStorage.setItem(key, JSON.stringify(widths));
+    }
+
+    function onMove(e){
+      if(!moving) return;
+      const dx = e.clientX - startX;
+      const newW = Math.max(60, startW + dx); // min 60px
+      cols[index].style.width = newW + 'px';
+      guide.style.left = (startX + dx) + 'px';
+    }
+
+    function onUp(){
+      if(!moving) return;
+      moving = false;
+      document.body.classList.remove('is-resizing');
+      guide.style.display = 'none';
+      save();
+      window.removeEventListener('mousemove', onMove, true);
+      window.removeEventListener('mouseup', onUp, true);
+    }
+
+    // attach handle on all th except last
+    ths.forEach((th,i)=>{
+      const handle = th.querySelector('.resize-handle');
+      if (!handle || i === ths.length - 1) return;
+
+      handle.addEventListener('mousedown', (e)=>{
+        e.preventDefault();
+        startX = e.clientX;
+        startW = parseFloat((cols[i].style.width || th.getBoundingClientRect().width));
+        index  = i;
+        moving = true;
+
+        document.body.classList.add('is-resizing');
+        guide.style.display = 'block';
+        guide.style.left = startX + 'px';
+
+        window.addEventListener('mousemove', onMove, true);
+        window.addEventListener('mouseup', onUp, true);
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.querySelectorAll('.js-resize-table').forEach(initResizableTable);
+  });
+})();
 </script>
 
 @endsection

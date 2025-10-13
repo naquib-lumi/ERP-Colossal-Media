@@ -279,22 +279,6 @@ class PrintingProductOrderController extends Controller
             return trim($label ? "{$label}: {$row->remark}" : $row->remark);
         })->filter()->unique()->values()->all();
 
-        $remarks = DB::table('product_remarks as pr')
-            ->where('pr.ProductID', $productId)
-            ->orderBy('pr.created_at')
-            ->get(['pr.operation', 'pr.remark'])
-            ->map(function ($r) {
-                $op = strtolower((string)($r->operation ?? ''));
-                // keep your wording tweak
-                $label = $op === 'installation' ? 'delivery & installation' : $op;
-
-                return [
-                    'op'   => $label,
-                    'text' => (string)($r->remark ?? ''),
-                ];
-            })
-            ->values();
-
         // Attachments (from orders.orderAttachment)
         $attachments = [];
         $rawAtt = (string)($headerRow->orderAttachment ?? '');
@@ -375,7 +359,6 @@ class PrintingProductOrderController extends Controller
             'product_header' => $productHeader,
             'blocks'         => $blocks,
             'canEdit' => $canEdit,
-            'remarks' => $remarks
         ]);
     }
 
