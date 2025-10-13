@@ -34,7 +34,7 @@ class PrintingHistoryController extends Controller
             // only furnishing stage that is completed
             ->where('fp.stage', 'printing')
             ->where(function ($w) {
-                $w->where('fp.status', 'completed')
+                $w->whereIn('fp.status', ['completed', 'rejected'])
                 ->orWhereNotNull('fp.completedAt');
             });
 

@@ -329,7 +329,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::post('/dispatchcontrol/job/{product}/save', [DispatchControlProductOrderController::class, 'save'])->name('dispatchcontrol.jobs.save');
 
         Route::get('/dispatchcontrol/history', [DispatchControlHistoryController::class, 'index'])->name('dispatchcontrol.history');
-        Route::get('/installation/history/{product}', [DispatchControlHistoryController::class, 'show'])->name('dispatchcontrol.history.show');
+        Route::get('/dispatchcontrol/history/{product}', [DispatchControlHistoryController::class, 'show'])->name('dispatchcontrol.history.show');
         Route::get('/dispatchcontrol/history/{product}/proofs', [DispatchControlHistoryController::class, 'proofs'])->name('dispatchcontrol.history.proofs');
 
         Route::get('/dispatchcontrol/job-order', [DispatchControlController::class, 'index'])->name('dispatchcontrol.job-order');

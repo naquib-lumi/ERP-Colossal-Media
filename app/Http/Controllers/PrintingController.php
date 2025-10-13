@@ -8,70 +8,109 @@ use Illuminate\Support\Facades\DB;
 class PrintingController extends Controller
 {
     public function dashboard(Request $request)
-    {
-        $jobs = DB::table('products as p')
-            ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
-            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
-            ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
-            // show ALL products; only keep a sensible status filter
-            ->whereIn('p.status', ['in_progress', 'pending', 'rejected', 'completed'])
-            
-            ->whereNotExists(function ($q) {
-                $q->select(DB::raw(1))
-                ->from('fulfillment_progress as fp')
-                ->whereColumn('fp.ProductID', 'p.ProductID')
-                ->where('fp.stage', 'printing')
-                ->where('fp.status', 'completed');
-            })
-            
-            ->groupBy(
-                'p.ProductID',
-                'p.updated_at',
-                'p.status',
-                'p.taskType',
-                'o.id',
-                'o.order_number',
-                'o.deadline',
-                'p.accepted'
-            )
-            ->select([
-                'p.ProductID',
-                'p.updated_at as submission_date',
-                'p.status',
-                'p.taskType', // <-- keep taskType so Blade can tell its stage
-                'o.id as order_id',
-                'o.order_number',
-                'o.deadline',
+{
+    // ---- filters
+    $printer   = trim((string) $request->get('printer', ''));
+    $sqMin     = $request->get('sqmin');
+    $sqMax     = $request->get('sqmax');
+    $dlStart   = $request->get('deadline_start');
+    $dlEnd     = $request->get('deadline_end');
+    $sbStart   = $request->get('submitted_start'); // DATE on p.updated_at
+    $sbEnd     = $request->get('submitted_end');
 
-                // total sq inch across all items for this product
-                DB::raw('SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0)) as sq_inch'),
+    // expression used in select & having
+    $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))';
 
-                // pick one non-empty printer across items; fallback to "—"
-                DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
+    $jobs = DB::table('products as p')
+        ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
+        ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+        ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
+        ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
 
-                // nice code e.g. #ORD-35-P0040
-                DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
+        // exclude rows already completed in printing
+        ->whereNotExists(function ($q2) {
+            $q2->select(DB::raw(1))
+               ->from('fulfillment_progress as fp')
+               ->whereColumn('fp.ProductID', 'p.ProductID')
+               ->where('fp.stage', 'printing')
+               ->where('fp.status', 'completed');
+        })
 
-                // accepted flag is now on products
-                DB::raw('COALESCE(p.accepted, 0) as accepted'),
-            ])
-            ->orderBy('o.id')
-            ->orderBy('p.ProductID')
-            ->paginate(10);
+        // ---- filters
+        ->when($printer !== '', function ($qb) use ($printer) {
+            $qb->where('s.printer', 'like', '%'.$printer.'%');
+        })
+        // deadline range (DATE column on orders)
+        ->when($dlStart && $dlEnd, function ($qb) use ($dlStart, $dlEnd) {
+            $qb->whereBetween('o.deadline', [$dlStart, $dlEnd]);
+        })
+        ->when($dlStart && !$dlEnd, function ($qb) use ($dlStart) {
+            $qb->where('o.deadline', '>=', $dlStart);
+        })
+        ->when(!$dlStart && $dlEnd, function ($qb) use ($dlEnd) {
+            $qb->where('o.deadline', '<=', $dlEnd);
+        })
+        // submission date range (DATE on p.updated_at)
+        ->when($sbStart && $sbEnd, function ($qb) use ($sbStart, $sbEnd) {
+            $qb->whereBetween(DB::raw('DATE(p.updated_at)'), [$sbStart, $sbEnd]);
+        })
+        ->when($sbStart && !$sbEnd, function ($qb) use ($sbStart) {
+            $qb->where(DB::raw('DATE(p.updated_at)'), '>=', $sbStart);
+        })
+        ->when(!$sbStart && $sbEnd, function ($qb) use ($sbEnd) {
+            $qb->where(DB::raw('DATE(p.updated_at)'), '<=', $sbEnd);
+        })
 
-        // KPIs
-        $inProgress = DB::table('products')
-            ->where('status', 'in_progress')
-            ->where('taskType', 'printing')
-            ->count();
+        ->groupBy(
+            'p.ProductID',
+            'p.updated_at',
+            'p.status',
+            'p.taskType',
+            'o.id',
+            'o.order_number',
+            'o.deadline',
+            'p.accepted'
+        )
+        ->select([
+            'p.ProductID',
+            'p.updated_at as submission_date',
+            'p.status',
+            'p.taskType',
+            'o.id as order_id',
+            'o.order_number',
+            'o.deadline',
 
-        $completed = DB::table('fulfillment_progress')
-            ->where('stage', 'printing')
-            ->where('status', 'completed')
-            ->count();
+            // use the string with selectRaw/DB::raw
+            DB::raw("$sqExpr as sq_inch"),
 
-        return view('printing.dashboard', compact('jobs', 'inProgress', 'completed'));
-    }
+            DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
+            DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
+            DB::raw('COALESCE(p.accepted, 0) as accepted'),
+        ])
+
+        // sq inch range — must use HAVING (it's an aggregate)
+        ->when($sqMin !== null && $sqMin !== '', fn($qb) => $qb->having('sq_inch', '>=', (float) $sqMin))
+        ->when($sqMax !== null && $sqMax !== '', fn($qb) => $qb->having('sq_inch', '<=', (float) $sqMax))
+
+        ->orderBy('o.id')
+        ->orderBy('p.ProductID')
+        ->paginate(10)
+        ->appends($request->query()); // keep filters on pagination
+
+    // KPIs (unchanged)
+    $inProgress = DB::table('products')
+        ->where('status', 'in_progress')
+        ->where('taskType', 'printing')
+        ->count();
+
+    $completed = DB::table('fulfillment_progress')
+        ->where('stage', 'printing')
+        ->where('status', 'completed')
+        ->count();
+
+    return view('printing.dashboard', compact('jobs', 'inProgress', 'completed'));
+}
+
 
     /**
      * Show a single Printing Job Order detail page

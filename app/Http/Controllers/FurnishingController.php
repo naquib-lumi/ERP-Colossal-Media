@@ -15,7 +15,7 @@ class FurnishingController extends Controller
             ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
             ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
             // show ALL products; only keep a sensible status filter
-            ->whereIn('p.status', ['in_progress', 'pending', 'rejected', 'completed'])
+            ->whereIn('p.status', ['in_progress', 'pending','completed'])
             ->whereNotExists(function ($q) {
                 $q->select(DB::raw(1))
                     ->from('fulfillment_progress as fp')
