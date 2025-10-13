@@ -35,13 +35,15 @@ class FulfillmentController extends Controller
             ->leftJoin('products as op', 'op.ProductID', '=', 'p.redoOf')
             ->leftJoin('orders   as oo', 'oo.id',        '=', 'op.OrderID')
             ->leftJoin('delivery_breakdowns as dd', 'dd.ProductID', '=', 'p.ProductID')
-            ->where(function ($w) { $w->whereNull('o.status')->orWhere('o.status', 0); });
+            ->where(function ($w) {
+                $w->whereNull('o.status')->orWhere('o.status', 0);
+            });
 
         // Permission: Head Artist sees ALL. Others only their own orders.
         if (!$isHead) {
             $query->where(function ($w) use ($userId) {
                 $w->where('o.artist_id', $userId)
-                ->orWhere('o.salesperson_id', $userId);
+                    ->orWhere('o.salesperson_id', $userId);
             });
         }
 
@@ -95,7 +97,7 @@ class FulfillmentController extends Controller
             return $r;
         });
 
-        $taskTypes = ['printing','furnishing','installation'];
+        $taskTypes = ['printing', 'furnishing', 'installation'];
         $statuses = DB::table('products')
             ->whereNotNull('status')
             ->selectRaw('LOWER(status) as status')
@@ -121,162 +123,214 @@ class FulfillmentController extends Controller
         ]);
     }
 
-public function show(Request $request, Product $product)
-{
-    $user  = $request->user();
-    $order = $product->order()->first();
+    public function show(Request $request, Product $product)
+    {
+        $user  = $request->user();
+        $order = $product->order()->first();
 
-    // Eager load with extra fields needed on the page
-    $product->load([
-        'order:id,order_number,orderTitle,companyName,leadName,leadPhone,leadEmail,lead_id,deadline,created_at,artist_id,salesperson_id,orderAttachment',
-        'order.artist:id,name',
-        'order.salesperson:id,name',
+        // Eager load with extra fields needed on the page
+        $product->load([
+            'order:id,order_number,orderTitle,companyName,leadName,leadPhone,leadEmail,lead_id,deadline,created_at,artist_id,salesperson_id,orderAttachment',
+            'order.artist:id,name',
+            'order.salesperson:id,name',
 
-        // add prime_centre; keep your existing columns
-        'items' => fn($q) => $q->select(
-            'ItemID','ProductID','itemName','quantity',
-            'sizeWidth','sizeUnit','sizeHeight',
-            'bleedUnit','bleedTop','bleedBottom','bleedLeft','bleedRight',
-            'finishing','material',
-            'prime_centre'                 // <-- NEW
-        )->with('spec:SpecificationID,ItemID,printer,cutter,lamination'),
+            // add prime_centre; keep your existing columns
+            'items' => fn($q) => $q->select(
+                'ItemID',
+                'ProductID',
+                'itemName',
+                'quantity',
+                'sizeWidth',
+                'sizeUnit',
+                'sizeHeight',
+                'bleedUnit',
+                'bleedTop',
+                'bleedBottom',
+                'bleedLeft',
+                'bleedRight',
+                'finishing',
+                'material',
+                'prime_centre'                 // <-- NEW
+            )->with('spec:SpecificationID,ItemID,printer,cutter,lamination'),
 
-        // include the two new delivery fields
-        'deliveryBreakdowns:BreakdownID,ProductID,method,location,quantity,date,time,deliver_install_type,outsource_cost',
+            // include the two new delivery fields
+            'deliveryBreakdowns:BreakdownID,ProductID,method,location,quantity,date,time,deliver_install_type,outsource_cost',
 
-        // remarks unchanged
-        'remarks:RemarkID,ProductID,operation,remark,created_at',
-    ]);
+            // remarks unchanged
+            'remarks:RemarkID,ProductID,operation,remark,created_at',
+        ]);
 
-    $order = $product->order()->first();
+        $order = $product->order()->first();
 
-    // ---------- Product/Order display code (handles redo R & original ids) ----------
-    $isRedo     = !is_null($product->redoOf);
-    $isEditable = (int)($product->editable ?? 0) === 1; // only selected redo shows "R"
-    $showR      = $isRedo && $isEditable;
+        // ---------- Product/Order display code (handles redo R & original ids) ----------
+        $isRedo     = !is_null($product->redoOf);
+        $isEditable = (int)($product->editable ?? 0) === 1; // only selected redo shows "R"
+        $showR      = $isRedo && $isEditable;
 
-    // the product id to show (original for redo rows)
-    $pidForDisplay = $isRedo ? (int)$product->redoOf : (int)$product->ProductID;
+        // the product id to show (original for redo rows)
+        $pidForDisplay = $isRedo ? (int)$product->redoOf : (int)$product->ProductID;
 
-    // the order id to show (original order for redo rows, else current)
-    $displayOrderId = (int)$product->OrderID;
-    if ($isRedo) {
-        $origOrderId = \App\Models\Product::where('ProductID', $product->redoOf)->value('OrderID');
-        if ($origOrderId) {
-            $displayOrderId = (int)$origOrderId;
+        // the order id to show (original order for redo rows, else current)
+        $displayOrderId = (int)$product->OrderID;
+        if ($isRedo) {
+            $origOrderId = \App\Models\Product::where('ProductID', $product->redoOf)->value('OrderID');
+            if ($origOrderId) {
+                $displayOrderId = (int)$origOrderId;
+            }
         }
-    }
 
-    $productCode = sprintf('#ORD-%s-P%04d%s', $displayOrderId, $pidForDisplay, $showR ? 'R' : '');
+        $productCode = sprintf('#ORD-%s-P%04d%s', $displayOrderId, $pidForDisplay, $showR ? 'R' : '');
 
-    // ---------- Lead attachments ----------
-    $toPublicUrl = function (string $p): string {
-        $p = ltrim($p, '/');
-        if (Str::startsWith($p, 'storage/')) {
-            return url($p);
-        }
-        return Storage::disk('public')->url($p);
-    };
-
-    $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
-        ->orderBy('id')
-        ->get()
-        ->map(function ($row) {
-            $p = $row->file_location;
+        // ---------- Lead attachments ----------
+        $toPublicUrl = function (string $p): string {
             $p = ltrim($p, '/');
-            $p = preg_replace('#^public/#', '', $p);
-            $p = preg_replace('#^storage/#', '', $p);
-            $web = 'storage/' . $p;
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+            return Storage::disk('public')->url($p);
+        };
 
-            return (object)[
+        $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($row) {
+                $p = $row->file_location;
+                $p = ltrim($p, '/');
+                $p = preg_replace('#^public/#', '', $p);
+                $p = preg_replace('#^storage/#', '', $p);
+                $web = 'storage/' . $p;
+
+                return (object)[
+                    'name' => basename($p),
+                    'size' => (int) $row->file_size,
+                    'ext'  => $row->file_extension,
+                    'url'  => asset($web),
+                ];
+            });
+
+        $raw   = $order->orderAttachment; // string|array|null
+        $paths = [];
+        if (is_array($raw)) {
+            $paths = $raw;
+        } elseif (is_string($raw)) {
+            $rawTrim = trim($raw);
+            if (Str::startsWith($rawTrim, '[')) {
+                $paths = json_decode($rawTrim, true) ?: [];
+            } else {
+                $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
+            }
+        }
+
+        $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
+            $p   = ltrim($p, '/');
+            $url = $toPublicUrl($p);
+            return [
                 'name' => basename($p),
-                'size' => (int) $row->file_size,
-                'ext'  => $row->file_extension,
-                'url'  => asset($web),
+                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+                'url'  => $url,
             ];
         });
 
-    $raw   = $order->orderAttachment; // string|array|null
-    $paths = [];
-    if (is_array($raw)) {
-        $paths = $raw;
-    } elseif (is_string($raw)) {
-        $rawTrim = trim($raw);
-        if (Str::startsWith($rawTrim, '[')) {
-            $paths = json_decode($rawTrim, true) ?: [];
+        // Attachments stored on order (keeps your helper if present)
+        $attachments = [];
+        if (method_exists($this, 'getOrderAttachments')) {
+            $attachments = (array) $this->getOrderAttachments($order);
         } else {
-            $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
-        }
-    }
-
-    $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
-        $p   = ltrim($p, '/');
-        $url = $toPublicUrl($p);
-        return [
-            'name' => basename($p),
-            'ext'  => pathinfo($p, PATHINFO_EXTENSION),
-            'url'  => $url,
-        ];
-    });
-
-    // Attachments stored on order (keeps your helper if present)
-    $attachments = [];
-    if (method_exists($this, 'getOrderAttachments')) {
-        $attachments = (array) $this->getOrderAttachments($order);
-    } else {
-        $raw = $order?->orderAttachment;
-        if (is_string($raw) && trim($raw) !== '') {
-            $decoded = json_decode($raw, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $attachments = $decoded;
-            } else {
-                $attachments = [$raw];
+            $raw = $order?->orderAttachment;
+            if (is_string($raw) && trim($raw) !== '') {
+                $decoded = json_decode($raw, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $attachments = $decoded;
+                } else {
+                    $attachments = [$raw];
+                }
+            } elseif (is_array($raw)) {
+                $attachments = $raw;
             }
-        } elseif (is_array($raw)) {
-            $attachments = $raw;
         }
+
+        // ---------- Fulfillment progress (use fulfillment_progress, fall back to products when in_progress) ----------
+        // We now support 4 stages: printing, furnishing, delivery (Dispatch Control), installation (display as Delivery & Installation)
+        $ALL_STAGES = ['printing', 'furnishing', 'delivery', 'installation'];
+
+        // Pull all rows for this product and reduce to latest per stage
+        $rows = DB::table('fulfillment_progress')
+            ->where('ProductID', $product->ProductID)
+            ->whereIn('stage', $ALL_STAGES)
+            ->get();
+
+        $latest = []; // stage => ['status','acceptedAt','completedAt','_rank']
+        foreach ($rows as $r) {
+            $rank = $r->completedAt ?? $r->acceptedAt ?? $r->created_at;
+            $cur  = $latest[$r->stage]['_rank'] ?? null;
+
+            if (!$cur || $rank > $cur) {
+                $latest[$r->stage] = [
+                    'status'     => strtolower((string)$r->status),
+                    'acceptedAt' => $r->acceptedAt,
+                    'completedAt' => $r->completedAt,
+                    '_rank'      => $rank,
+                ];
+            }
+        }
+
+        // Build the structure the Blade expects; keep key names compatible with your previous view
+        $currentStage  = strtolower((string)$product->taskType);
+        $currentStatus = strtolower((string)$product->status);
+
+        $progress = collect($ALL_STAGES)->mapWithKeys(function ($stage) use ($latest, $currentStage, $currentStatus) {
+            $row         = $latest[$stage] ?? null;
+            $status      = $row['status'] ?? 'pending';
+            $acceptedAt  = $row['acceptedAt']  ?? null;
+            $completedAt = $row['completedAt'] ?? null;
+
+            // If this is the product's current stage and products.status is in_progress, force in_progress
+            if ($currentStage === $stage && $currentStatus === 'in_progress' && !in_array($status, ['completed', 'rejected'], true)) {
+                $status = 'in_progress';
+            }
+
+            // Optional duration (only if both ends exist)
+            $duration = null;
+            if ($acceptedAt && $completedAt) {
+                $start = \Carbon\Carbon::parse($acceptedAt);
+                $end   = \Carbon\Carbon::parse($completedAt);
+                $duration = $start->diffForHumans($end, [
+                    'parts'  => 3,
+                    'short'  => true,
+                    'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE,
+                ]);
+            }
+
+            return [$stage => [
+                'status'       => $status,
+                'accepted_at'  => $acceptedAt,
+                'completed_at' => $completedAt,
+                'duration'     => $duration,
+            ]];
+        });
+
+        // ---------- Deliveries for this product (sorted, nulls last) ----------
+        $deliveries = $product->deliveryBreakdowns()
+            ->orderByRaw('CASE WHEN `date` IS NULL THEN 1 ELSE 0 END, `date` ASC, `time` ASC')
+            ->get();
+
+        return view('artist.fulfillment.product-show', [
+            // keep everything you already return
+            'product'         => $product,
+            'order'           => $order,
+            'items'           => $product->items,
+            'attachments'     => $attachments,
+            'progress'        => $progress,     // now includes printing, furnishing, delivery, installation
+            'deliveries'      => $deliveries,
+            'leadAttachments' => $leadAttachments,
+            'orderFiles'      => $orderFiles,
+
+            // NEW (for header / code):
+            'productCode'     => $productCode,
+            'displayOrderId'  => $displayOrderId,
+        ]);
     }
 
-    // ---------- Progress: mark previous steps as 'completed', current as 'in_progress' ----------
-    $steps = ['printing','furnishing','installation']; // delivery can be treated outside the 3-step flow
-    $current = strtolower((string) $product->taskType);
-    $currentIdx = array_search($current, $steps, true);
-
-    $progress = collect($steps)->mapWithKeys(function ($t, $idx) use ($currentIdx) {
-        $state = 'pending';
-        if ($currentIdx !== false) {
-            if ($idx < $currentIdx)       $state = 'completed';
-            elseif ($idx === $currentIdx) $state = 'in_progress';
-        }
-        return [$t => [
-            'status'       => $state,
-            'accepted_at'  => null,
-            'completed_at' => null,
-            'duration'     => null,
-        ]];
-    });
-
-    // ---------- Deliveries for this product (sorted, nulls last) ----------
-    $deliveries = $product->deliveryBreakdowns()
-        ->orderByRaw('CASE WHEN `date` IS NULL THEN 1 ELSE 0 END, `date` ASC, `time` ASC')
-        ->get();
-
-    return view('artist.fulfillment.product-show', [
-        // keep everything you already return
-        'product'         => $product,
-        'order'           => $order,
-        'items'           => $product->items,
-        'attachments'     => $attachments,
-        'progress'        => $progress,
-        'deliveries'      => $deliveries,
-        'leadAttachments' => $leadAttachments,
-        'orderFiles'      => $orderFiles,
-
-        // NEW (for header / code):
-        'productCode'     => $productCode,
-        'displayOrderId'  => $displayOrderId,
-    ]);
-}
 
 
     // Optional: hook your PDF later

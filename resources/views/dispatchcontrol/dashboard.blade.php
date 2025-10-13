@@ -4,79 +4,282 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
-/* ===== 基础表格：固定列宽，确保四个阶段列等宽 ===== */
-.table-progress { table-layout: fixed; }
-.table-progress col.col-id        { width: 160px; }
-.table-progress col.col-stage     { width: 18%; }   /* 4 列阶段，每列等宽 */
-.table-progress col.col-date      { width: 140px; }
-.table-progress col.col-deadline  { width: 140px; }
-.table-progress col.col-actions   { width: 110px; }
-.table-progress thead th { font-size:12px; color:#475467; font-weight:700; }
-.table-progress td, .table-progress th { vertical-align: middle; padding:16px 14px; }
+  /* ===== Cards (subtle) ===== */
+  .stat-card {
+    border: 1px solid #E7EAEE;
+    border-radius: 14px;
+    background: #fff;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .05)
+  }
 
-/* ===== 统一轨道（跨四列） ===== */
-.pipeline {
-  position: relative;
-  height: 18px;            /* 行高留一点空间好看 */
-}
-.pipeline .track {
-  position: absolute; left:0; right:0; top:50%;
-  height:6px; transform: translateY(-50%);
-  border-radius: 999px; background:#E5E7EB;    /* 整条浅灰底 */
-}
-.pipeline .fill {
-  position:absolute; left:0; top:50%;
-  transform: translateY(-50%);
-  height:6px; border-radius:999px;
-  background:#12B76A;      /* 绿色完成段 */
-  width: var(--progress, 0%);   /* 关键：控制到哪一节点 */
-}
+  .stat-card .num {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -.3px
+  }
 
-/* 四个节点（正中对齐四列中心） */
-.dot {
-  position:absolute; top:50%; transform:translate(-50%,-50%);
-  width:12px; height:12px; border-radius:50%;
-  background:#12B76A; box-shadow:0 0 0 2px #fff;
-}
-.dot.gray { background:#98A2B3; }
-.dot.red  { background:#F04438; }
+  .stat-card .label {
+    color: #6B7280;
+    font-weight: 600
+  }
 
-/* 节点位置：四列中心（12.5%、37.5%、62.5%、87.5%） */
-.dot.p1 { left:12.5%; }
-.dot.p2 { left:37.5%; }
-.dot.p3 { left:62.5%; }
-.dot.p4 { left:87.5%; }
+  /* ===== Table sizing + zebra + sticky head ===== */
+  .table-progress {
+    table-layout: fixed
+  }
 
-/* Actions */
-.action-btn{
-  width:32px; height:32px; border:1px solid #D0D5DD; border-radius:8px; background:#fff; color:#475467;
-  display:inline-flex; align-items:center; justify-content:center;
-}
-.action-btn:hover{ background:#F2F4F7; color:#344054; }
+  .table-progress col.col-id {
+    width: 170px
+  }
 
-/* 统计卡片 */
-.stat-card {
-  border:1px solid #E5E7EB;
-  border-radius:12px;
-  padding:20px;
-  display:flex; align-items:center; justify-content:space-between;
-  background:#fff;
-  box-shadow:0 1px 2px rgba(16,24,40,.06);
-}
-.stat-card .num { font-size:32px; font-weight:700; }
-.stat-card small { color:#667085; }
+  .table-progress col.col-stage {
+    width: 18%
+  }
 
+  .table-progress col.col-date {
+    width: 140px
+  }
+
+  .table-progress col.col-deadline {
+    width: 140px
+  }
+
+  .table-progress col.col-actions {
+    width: 120px
+  }
+
+  .table-progress thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #F8FAFC;
+    font-size: 12px;
+    color: #475467;
+    font-weight: 700;
+    border-bottom: 1px solid #EDF1F6
+  }
+
+  .table-progress tbody tr:nth-child(odd) {
+    background: #FCFCFD
+  }
+
+  .table-progress td,
+  .table-progress th {
+    padding: 14px 14px;
+    vertical-align: middle
+  }
+
+  .table-progress tbody tr:hover {
+    background: #FAFBFF
+  }
+
+  /* ===== Unified pipeline ===== */
+  .pipeline {
+    position: relative;
+    height: 18px;
+  }
+
+  .pipeline .track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 6px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: #E5E7EB;
+  }
+
+  .pipeline .fill {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 6px;
+    border-radius: 999px;
+    background: #12B76A;
+    left: var(--start, 0%);
+    /* NEW: where the green segment begins */
+    width: calc(var(--end, 0%) - var(--start, 0%));
+    /* NEW: segment length */
+  }
+
+  .dot {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #12B76A;
+    box-shadow: 0 0 0 2px #fff;
+  }
+
+  .dot.gray {
+    background: #98A2B3;
+  }
+
+  .dot.red {
+    background: #F04438;
+  }
+
+  .dot.p1 {
+    left: 12.5%
+  }
+
+  .dot.p2 {
+    left: 37.5%
+  }
+
+  .dot.p3 {
+    left: 62.5%
+  }
+
+  .dot.p4 {
+    left: 87.5%
+  }
+
+  /* Node positions */
+  .dot.p1 {
+    left: 12.5%
+  }
+
+  .dot.p2 {
+    left: 37.5%
+  }
+
+  .dot.p3 {
+    left: 62.5%
+  }
+
+  .dot.p4 {
+    left: 87.5%
+  }
+
+  /* Actions (compact, consistent) */
+  .action-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #D6DAE1;
+    border-radius: 10px;
+    background: #fff;
+    color: #475467;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: .15s
+  }
+
+  .action-btn:hover {
+    background: #EEF2F7;
+    color: #1F2937
+  }
+
+  /* ===== Pagination: footed + centered ===== */
+  .card-ft {
+    padding: 12px 16px;
+    border-top: 1px solid #EDF1F6;
+    background: #fff
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin: 0
+  }
+
+  .pagination li {
+    display: inline-block
+  }
+
+  .pagination .page-link {
+    color: #475467;
+    border: 1px solid #D0D5DD;
+    border-radius: 10px;
+    padding: 8px 12px;
+    background: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1;
+    transition: .15s
+  }
+
+  .pagination .page-link:hover {
+    background: #F2F4F7;
+    border-color: #CBD3DD
+  }
+
+  .pagination .active .page-link {
+    background: #12B76A;
+    border-color: #12B76A;
+    color: #fff
+  }
+
+  .pagination .disabled .page-link {
+    color: #A3AAB5;
+    background: #F8FAFB;
+    border-color: #E5E7EB;
+    cursor: not-allowed
+  }
+
+  .table-responsive+nav[role="navigation"] {
+    display: none !important;
+  }
+
+  /* tighten any paginator margins globally */
+  nav[role="navigation"] {
+    margin: 0 !important;
+  }
+
+  .cx-mask {position:fixed;inset:0;background:#0005;display:none;align-items:center;justify-content:center;z-index:1000}
+  .cx-mask.show{display:flex}
+  .cx-wrap{width:100%;padding:16px}
+  .cx-modal{background:#fff;border-radius:12px;box-shadow:0 10px 30px #0003;margin:0 auto;max-width:640px}
+  .cx-header,.cx-footer{padding:16px 20px;display:flex;gap:12px;align-items:center}
+  .cx-body{padding:0 20px 16px 20px}
+  .cx-title{font-weight:600}
+  .cx-close{margin-left:auto;background:none;border:0}
+
+  .cx-footer .btn {
+    min-width: 140px;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 600;
+    transition: transform .04s ease, box-shadow .15s ease;
+  }
+
+  .cx-footer .btn:active { transform: translateY(1px); }
+
+  .cx-footer .btn.btn-back {
+    background: #f3f4f6;      /* light gray */
+    border: 1px solid #e5e7eb;
+    color: #374151;
+  }
+  .cx-footer .btn.btn-back:hover { background: #edeef1; }
+
+  .cx-footer .btn.btn-accept {
+    background: #16a34a;      /* emerald-600 */
+    border: 1px solid #15803d;
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(22,163,74,.22);
+  }
+  .cx-footer .btn.btn-accept:hover { background: #15803d; }
 </style>
-<div class="container-fluid py-4 px-4">
-  <h1 class="h4 fw-bold mb-4">Dashboard Overview</h1>
 
-  <!-- 顶部统计卡片 -->
+<div class="container-fluid py-4 px-4" style="max-width:1200px;margin:0 auto">
+  <h1 class="h4 fw-bold mb-3" style="letter-spacing:-.2px">Dashboard Overview</h1>
+
+  {{-- KPIs --}}
   <div class="row g-3 mb-4">
     <div class="col-12 col-lg-6">
       <div class="stat-card">
         <div>
-          <div class="text-muted mb-1">In Progress</div>
-          <div class="num">24</div>
+          <div class="label mb-1">In Progress</div>
+          <div class="num">{{ $inProgress }}</div>
         </div>
         <i class="bi bi-clock fs-3 text-secondary"></i>
       </div>
@@ -84,24 +287,24 @@
     <div class="col-12 col-lg-6">
       <div class="stat-card">
         <div>
-          <div class="text-muted mb-1">Completed</div>
-          <div class="num">156</div>
+          <div class="label mb-1">Completed</div>
+          <div class="num">{{ $completed }}</div>
         </div>
         <i class="bi bi-check2 fs-3 text-success"></i>
       </div>
     </div>
   </div>
 
-<div class="container-fluid py-4 px-4">
-  <h1 class="h4 fw-bold mb-4">Dashboard Overview</h1>
-
+  {{-- Production Status --}}
   <div class="card border-0 shadow-sm">
     <div class="card-body">
-      <h5 class="mb-3">Production Status</h5>
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h5 class="mb-0 fw-semibold">Production Status</h5>
+        <small class="text-muted">Sorted by least progress</small>
+      </div>
 
       <div class="table-responsive">
         <table class="table table-progress align-middle mb-0">
-          <!-- 固定列宽：四个阶段列等宽，下面的 colspan=4 就能拿到一整条轨道宽度 -->
           <colgroup>
             <col class="col-id">
             <col class="col-stage">
@@ -113,7 +316,7 @@
             <col class="col-actions">
           </colgroup>
 
-          <thead class="table-light">
+          <thead>
             <tr>
               <th>PRODUCT ID</th>
               <th>PRINTING</th>
@@ -127,176 +330,224 @@
           </thead>
 
           <tbody>
-            <!-- Row 1：只有 Printing 灰点，进度 0%（和你的图一致） -->
-            <tr>
-              <td>#ORD005-P1</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:0%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot gray p1"></span>
-                </div>
-              </td>
-              <td>2025-07-25</td>
-              <td>2025-07-15</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
+            @php
+            // constant maps
+            $STAGES = ['printing','furnishing','delivery','installation'];
+            $POS = ['printing'=>12.5,'furnishing'=>37.5,'delivery'=>62.5,'installation'=>87.5];
+            $DOT = ['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
+            // helper to render a dot class or skip entirely if stage missing
+            $dotClass = function(array $p, string $stage) use ($DOT) {
+            if (!isset($p['stages'][$stage])) return null; // skip dot for missing stage
+            $s = $p['stages'][$stage]['status'] ?? null;
+            $posClass = $DOT[$stage];
+            if ($s === 'completed') return "dot {$posClass}";
+            if ($s === 'rejected') return "dot red {$posClass}";
+            return "dot gray {$posClass}";
+            };
+            @endphp
 
-            <!-- Row 2：绿线从 Printing 到 Delivery 中间，最后 Delivery 灰点 -->
-            <tr>
-              <td>#ORD003-P4</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:62.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot p3"></span>
-                  <span class="dot gray p4"></span>
-                </div>
-              </td>
-              <td>2025-07-28</td>
-              <td>2025-07-18</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
+            @forelse ($rows as $r)
+              @php
+                $STAGES = ['printing','furnishing','delivery','installation'];
+                $POS = ['printing'=>12.5,'furnishing'=>37.5,'delivery'=>62.5,'installation'=>87.5];
+                $DOT = ['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
 
-            <!-- Row 3：绿线到 Dispatch 前（约 42%），Dispatch 处红点 -->
-            <tr>
-              <td>#ORD005-P2</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:42%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot red p3"></span>
-                  <span class="dot gray p4" style="opacity:.35"></span>
-                </div>
-              </td>
-              <td>2025-07-20</td>
-              <td>2025-07-10</td>
-              <td class="text-center">
-                <div class="d-inline-flex gap-1">
-                  <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-                  <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                  <button class="action-btn" title="Done"><i class="bi bi-check2"></i></button>
-                </div>
-              </td>
-            </tr>
+                $currentStage = $r['current_stage'] ?? null; // from products.taskType
+                $currentStatus = $r['current_status'] ?? null; // from products.status
 
-            <!-- Row 4：到 Dispatch 完成（62.5%），Delivery 端出现问题（p4 红点） -->
-            <tr>
-              <td>#ORD001-P3</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:62.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot p3"></span>
-                  <span class="dot red p4"></span>
-                </div>
-              </td>
-              <td>2025-07-22</td>
-              <td>2025-07-11</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
+                $hasStage = function(string $s) use ($r, $currentStage) {
+                return isset($r['stages'][$s]) || $currentStage === $s;
+                };
 
-            <!-- Row 5：全流程完成（到 p4） -->
-            <tr>
-              <td>#ORD007-P6</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:87.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot p3"></span>
-                  <span class="dot p4"></span>
-                </div>
-              </td>
-              <td>2025-07-30</td>
-              <td>2025-07-16</td>
-              <td class="text-center">
-                <div class="d-inline-flex gap-1">
-                  <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-                  <button class="action-btn" title="Edit"><i class="bi bi-pencil"></i></button>
-                  <button class="action-btn" title="Done"><i class="bi bi-check2"></i></button>
-                </div>
-              </td>
-            </tr>
+                $visible = array_values(array_filter($STAGES, $hasStage));
 
-            <!-- Row 6：到 p2（37.5%）完成，后续待开始 -->
-            <tr>
-              <td>#ORD008-P1</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:37.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot p2"></span>
-                  <span class="dot gray p3" style="opacity:.35"></span>
-                  <span class="dot gray p4" style="opacity:.35"></span>
-                </div>
-              </td>
-              <td>2025-07-18</td>
-              <td>2025-07-09</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
+                $first = $visible[0] ?? null;
+                $start = $first ? $POS[$first] : 0;
 
-            <!-- Row 7：只完成 p1（12.5%），其余待开始 -->
-            <tr>
-              <td>#ORD009-P2</td>
-              <td colspan="4">
-                <div class="pipeline" style="--progress:12.5%;">
-                  <div class="track"></div>
-                  <div class="fill"></div>
-                  <span class="dot p1"></span>
-                  <span class="dot gray p2" style="opacity:.35"></span>
-                  <span class="dot gray p3" style="opacity:.35"></span>
-                  <span class="dot gray p4" style="opacity:.35"></span>
-                </div>
-              </td>
-              <td>2025-07-21</td>
-              <td>2025-07-12</td>
-              <td class="text-center">
-                <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-              </td>
-            </tr>
+                $rej = null;
+                foreach ($visible as $s) {
+                if (($r['stages'][$s]['status'] ?? null) === 'rejected') { $rej = $s; break; }
+                }
+                if ($rej) {
+                $end = $POS[$rej];
+                } else {
+                $lastCompleted = null;
+                foreach ($visible as $s) {
+                if (($r['stages'][$s]['status'] ?? null) === 'completed') { $lastCompleted = $s; }
+                }
+                $end = $lastCompleted
+                ? ($lastCompleted === 'delivery' ? 100 : $POS[$lastCompleted])
+                : $start;
+                }
 
-  <!-- 全部完成：整条绿色，p1~p4 全部绿色 dot -->
-  <tr>
-    <td>#ORD010-P4</td>
-    <td colspan="4">
-      <div class="pipeline" style="--progress:100%;">
-        <div class="track"></div>
-        <div class="fill"></div>
-        <span class="dot p1"></span>
-        <span class="dot p2"></span>
-        <span class="dot p3"></span>
-        <span class="dot p4"></span>
-      </div>
-    </td>
-    <td>2025-07-26</td>
-    <td>2025-07-17</td>
-    <td class="text-center">
-      <button class="action-btn" title="View"><i class="bi bi-eye"></i></button>
-    </td>
-  </tr>
+                $dotClass = function(array $row, string $stage) use ($DOT, $currentStage, $currentStatus) {
+                if ($stage === $currentStage && $currentStatus === 'in_progress') {
+                return 'dot '.$DOT[$stage].' gray';
+                }
+                if (!isset($row['stages'][$stage]) && $stage !== $currentStage) return null;
 
+                $s = $row['stages'][$stage]['status'] ?? null;
+                if ($s === 'completed') return 'dot '.$DOT[$stage];
+                elseif ($s === 'rejected') return 'dot red '.$DOT[$stage];
+                else return 'dot gray '.$DOT[$stage]; // includes pending/unknown
+                };
+
+                $dateIn = $r['orderDate'] ? \Carbon\Carbon::parse($r['orderDate'])->format('Y-m-d') : '—';
+                $deadline = $r['deadline'] ? \Carbon\Carbon::parse($r['deadline'])->format('Y-m-d') : '—';
+
+                $isdelivery = strtolower((string)($r['current_stage'] ?? '')) === 'delivery';
+                $accepted = (int)($r['accepted'] ?? 0) === 1;
+
+                
+              @endphp
+
+              <tr id="job-{{ $r['ProductID'] }}">
+                <td>{{ $r['product_code'] }}</td>
+                <td colspan="4">
+                  <div class="pipeline" style="--start:{{ $start }}%; --end:{{ $end }}%;">
+                    <div class="track"></div>
+                    <div class="fill"></div>
+
+                    @php $d = $dotClass($r,'printing'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
+                    @php $d = $dotClass($r,'furnishing'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
+                    @php $d = $dotClass($r,'delivery'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
+                    @php $d = $dotClass($r,'installation'); @endphp @if($d)<span class="{{ $d }}"></span>@endif
+                  </div>
+                </td>
+                <td>{{ $dateIn }}</td>
+                <td>{{ $deadline }}</td>
+                <td class="text-center">
+                  @php
+                    $pid = $r['ProductID'] ?? ($r->ProductID ?? null);
+
+                    $isdeliveryCompleted = (int)($r['delivery_completed'] ?? 0) === 1
+                                          || strtolower((string)($r['current_status'] ?? '')) === 'completed';
+                  @endphp
+
+                  <div class="d-inline-flex gap-1">
+                    {{-- Always show View --}}
+                    @if (!$accepted || $isdeliveryCompleted || !$isdelivery)
+                    <a href="{{ route('dispatchcontrol.job.show', $pid) }}" class="action-btn" title="View">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    @endif
+                    {{-- If installation NOT completed yet, show Edit / Mark Completed --}}
+                    @unless ($isdeliveryCompleted)
+                      @if ($accepted && $isdelivery)
+                        <a href="{{ route('dispatchcontrol.job.show', $pid) }}" class="action-btn" title="Edit">
+                          <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="action-btn js-open-proof" data-id="{{ $pid }}" title="Mark Completed">
+                          <i class="bi bi-check2"></i>
+                        </button>
+                      @endif
+                    @endunless
+                  </div>
+                </td>
+              </tr>
+            @empty
+              <tr>
+                <td colspan="8" class="text-center text-muted py-4">No data.</td>
+              </tr>
+            @endforelse
           </tbody>
+
         </table>
       </div>
+    </div>
 
+    {{-- Pagination pinned to card foot --}}
+    @if ($rows instanceof \Illuminate\Pagination\LengthAwarePaginator)
+    <div class="card-ft">
+      {{-- Bootstrap-5 numeric pager, 1 neighbor on each side --}}
+      {{ $rows->withQueryString()->onEachSide(1)->links('pagination::bootstrap-5') }}
+    </div>
+    @endif
+
+  </div>
+</div>
+
+<form id="proofForm" method="POST" enctype="multipart/form-data"
+      action="" style="display:none">@csrf @method('PATCH')</form>
+
+<div id="proofModal" class="cx-mask" aria-hidden="true">
+  <div class="cx-wrap">
+    <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="proofTitle" style="max-width:720px">
+      <div class="cx-header">
+        <i class="bi bi-images text-success"></i>
+        <div id="proofTitle" class="cx-title">Upload Installation Proof</div>
+        <button type="button" class="cx-close" data-close="proofModal"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="cx-body">
+        <div class="mb-2 small text-muted">Add at least one image (JPG/PNG, up to 12 MB each).</div>
+        <input id="proofFiles" type="file" name="photos[]" accept="image/*" multiple class="form-control mb-3">
+        <div id="proofPreview" class="d-flex flex-wrap gap-2"></div>
+      </div>
+      <div class="cx-footer">
+        <button type="button" class="btn btn-back" data-close="proofModal">Cancel</button>
+        <button type="button" id="confirmProof" class="btn btn-accept">
+          Confirm & Complete
+        </button>
+      </div>
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const modal   = document.getElementById('proofModal');
+  const files   = document.getElementById('proofFiles');
+  const preview = document.getElementById('proofPreview');
+  const form    = document.getElementById('proofForm');
+
+  function openProof(productId) {
+    // set action to PATCH /installation/jobs/{product}/complete
+    const urlTmpl = "{{ route('dispatchcontrol.jobs.complete', ['product' => '___ID___']) }}";
+    form.action = urlTmpl.replace('___ID___', productId);
+    form.style.display = 'block'; // needed so the FormData sees inputs
+
+    // reset inputs & preview
+    files.value = '';
+    preview.innerHTML = '';
+
+    modal.classList.add('show');
+  }
+  function closeProof() { modal.classList.remove('show'); }
+
+  document.querySelectorAll('.js-open-proof').forEach(btn => {
+    btn.addEventListener('click', () => openProof(btn.dataset.id));
+  });
+
+  document.querySelectorAll('[data-close="proofModal"]').forEach(btn => {
+    btn.addEventListener('click', closeProof);
+  });
+  modal?.addEventListener('click', e => { if (e.target === modal) closeProof(); });
+
+  // live preview
+  files?.addEventListener('change', () => {
+    preview.innerHTML = '';
+    const list = Array.from(files.files || []);
+    list.slice(0, 12).forEach(f => {
+      const url = URL.createObjectURL(f);
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.maxWidth = '120px';
+      img.style.maxHeight = '90px';
+      img.style.objectFit = 'cover';
+      img.className = 'border rounded';
+      preview.appendChild(img);
+    });
+  });
+
+  document.getElementById('confirmProof')?.addEventListener('click', () => {
+    if (!files?.files?.length) {
+      alert('Please upload at least one photo.');
+      return;
+    }
+    // Move input into form (it already is), submit
+    form.appendChild(files);
+    form.submit();
+  });
+});
+</script>
 @endsection

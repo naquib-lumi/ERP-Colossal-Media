@@ -5,66 +5,95 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class DispatchControlHistoryController extends Controller
 {
     public function index(Request $request)
-{
-    $q     = trim($request->get('q', ''));
-    $start = trim($request->get('start', ''));
-    $end   = trim($request->get('end', ''));
-    $perPage = 8;
+    {
+        $q     = trim($request->get('q', ''));
+        $start = trim($request->get('start', ''));  // mm/dd/yyyy
+        $end   = trim($request->get('end', ''));    // mm/dd/yyyy
+        $perPage = 8;
 
-    $query = DB::table('products as p')
-        ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-        ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
-        ->select([
-            // NEW: pretty product code like #ORD-3-P0016
-            DB::raw("CONCAT('#ORD-', COALESCE(p.OrderID, o.id), '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
+        $query = DB::table('fulfillment_progress as fp')
+            ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->whereRaw('LOWER(fp.stage) = ?', ['delivery'])
+            ->whereRaw('LOWER(fp.status) = ?', ['completed'])
+            ->select([
+                'p.ProductID',
+                'p.productName as product_name',
+                'p.materialRemark as remarks',
+                'o.id as order_id',
+                'o.order_number',
+                'fp.completedAt as completed_date',   // ✅ Completed Date comes from progress table
+            ]);
 
-            // keep raw ids if you need them elsewhere
-            'p.ProductID as product_id',
-            'p.OrderID as order_id',
+        if ($q !== '') {
+            $qLower = mb_strtolower($q);
+            $query->where(function ($w) use ($q, $qLower) {
+                // product name / remarks
+                $w->where('p.productName', 'like', "%{$q}%")
+                ->orWhere('p.materialRemark', 'like', "%{$q}%")
+                // completed date text search (yyyy-mm-dd or part of it)
+                ->orWhereRaw('DATE(fp.completedAt) LIKE ?', ["%{$qLower}%"])
+                // order number too (often useful)
+                ->orWhere('o.order_number', 'like', "%{$q}%");
+            });
+        }
 
-            'p.productName as product_name',
-            DB::raw("DATE_FORMAT(p.updated_at, '%b %d, %Y') as completed_date"),
-            DB::raw("COALESCE(NULLIF(p.materialRemark,''), '–') as remarks"),
-            DB::raw('NULL as proof_url'),
-            'o.order_number',
-        ])
-        ->where('p.status', 'completed')
-        ->where(function ($w) {
-            $w->whereIn(DB::raw("LOWER(COALESCE(p.taskType, ''))"), [
-                'dispatch','delivery','printing','furnishing'
-            ])->orWhereNull('p.taskType');
-        });
-
-    if ($q !== '') {
-        $query->where(function ($w) use ($q) {
-            $w->where('p.productName', 'like', "%{$q}%")
-              ->orWhere('o.order_number', 'like', "%{$q}%")
-              ->orWhere('p.ProductID', 'like', "%{$q}%")
-              ->orWhere('pi.ItemID', 'like', "%{$q}%");
-        });
-    }
-
-    try {
+        // Date range (Completed Date = fp.completedAt)
         if ($start !== '') {
-            $s = \Carbon\Carbon::createFromFormat('m/d/Y', $start)->startOfDay()->toDateString();
-            $query->whereDate('p.updated_at', '>=', $s);
+            try {
+                $startDate = Carbon::createFromFormat('m/d/Y', $start)->startOfDay();
+                $query->where('fp.completedAt', '>=', $startDate);
+            } catch (\Throwable $e) {}
         }
-    } catch (\Throwable $e) {}
-    try {
         if ($end !== '') {
-            $e = \Carbon\Carbon::createFromFormat('m/d/Y', $end)->endOfDay()->toDateString();
-            $query->whereDate('p.updated_at', '<=', $e);
+            try {
+                $endDate = Carbon::createFromFormat('m/d/Y', $end)->endOfDay();
+                $query->where('fp.completedAt', '<=', $endDate);
+            } catch (\Throwable $e) {}
         }
-    } catch (\Throwable $e) {}
 
-    $orders = $query->orderByDesc('p.updated_at')
-                    ->paginate($perPage)
-                    ->appends($request->query());
+        $orders = $query
+            ->orderByDesc('fp.completedAt')
+            ->paginate($perPage)
+            ->appends($request->query());
 
-    return view('dispatchcontrol.history', compact('orders','q','start','end'));
+        return view('dispatchcontrol.history', compact('orders', 'q', 'start', 'end'));
     }
+
+    public function show($productId)
+    {
+        // Reuse the same data as FurnishingProductOrderController@show
+        $data = app(\App\Http\Controllers\DispatchControlProductOrderController::class)->show($productId);
+
+        // If show() in the original controller returns a view,
+        // we can just re-render that but hide the actionbar using a flag.
+        return $data->with('isHistoryView', true);
+    }
+
+    public function proofs(Request $request, int $product)
+    {
+        $rows = DB::table('installation_proofs')
+            ->where('ProductID', $product)
+            ->orderByDesc('id')
+            ->get(['id','ProductID','OrderID','file_path','original_name','mime','size','created_at']);
+
+        $files = $rows->map(function ($r) {
+            return [
+                'id'   => (int)$r->id,
+                'name' => $r->original_name ?: basename($r->file_path),
+                'url'  => Storage::disk('public')->url($r->file_path),
+                'mime' => $r->mime,
+                'size' => (int)$r->size,
+            ];
+        });
+
+        return response()->json(['ok' => true, 'files' => $files]);
+    }
+
 }

@@ -234,6 +234,40 @@
   nav[role="navigation"] {
     margin: 0 !important;
   }
+
+  .cx-mask {position:fixed;inset:0;background:#0005;display:none;align-items:center;justify-content:center;z-index:1000}
+  .cx-mask.show{display:flex}
+  .cx-wrap{width:100%;padding:16px}
+  .cx-modal{background:#fff;border-radius:12px;box-shadow:0 10px 30px #0003;margin:0 auto;max-width:640px}
+  .cx-header,.cx-footer{padding:16px 20px;display:flex;gap:12px;align-items:center}
+  .cx-body{padding:0 20px 16px 20px}
+  .cx-title{font-weight:600}
+  .cx-close{margin-left:auto;background:none;border:0}
+
+  .cx-footer .btn {
+    min-width: 140px;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 600;
+    transition: transform .04s ease, box-shadow .15s ease;
+  }
+
+  .cx-footer .btn:active { transform: translateY(1px); }
+
+  .cx-footer .btn.btn-back {
+    background: #f3f4f6;      /* light gray */
+    border: 1px solid #e5e7eb;
+    color: #374151;
+  }
+  .cx-footer .btn.btn-back:hover { background: #edeef1; }
+
+  .cx-footer .btn.btn-accept {
+    background: #16a34a;      /* emerald-600 */
+    border: 1px solid #15803d;
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(22,163,74,.22);
+  }
+  .cx-footer .btn.btn-accept:hover { background: #15803d; }
 </style>
 
 <div class="container-fluid py-4 px-4" style="max-width:1200px;margin:0 auto">
@@ -361,6 +395,7 @@
                 $dateIn = $r['orderDate'] ? \Carbon\Carbon::parse($r['orderDate'])->format('Y-m-d') : '—';
                 $deadline = $r['deadline'] ? \Carbon\Carbon::parse($r['deadline'])->format('Y-m-d') : '—';
 
+                $isInstallation = strtolower((string)($r['current_stage'] ?? '')) === 'installation';
                 $accepted = (int)($r['accepted'] ?? 0) === 1;
 
                 
@@ -382,14 +417,31 @@
                 <td>{{ $dateIn }}</td>
                 <td>{{ $deadline }}</td>
                 <td class="text-center">
+                  @php
+                    $pid = $r['ProductID'] ?? ($r->ProductID ?? null);
+
+                    $isInstallCompleted = (int)($r['installation_completed'] ?? 0) === 1
+                                          || strtolower((string)($r['current_status'] ?? '')) === 'completed';
+                  @endphp
+
                   <div class="d-inline-flex gap-1">
-                    @if (!$accepted)
-                    <a href="{{ route('installation.job.show', $r['ProductID']) }}" class="action-btn" title="View"><i class="bi bi-eye"></i></a>
+                    {{-- Always show View --}}
+                    @if (!$accepted || $isInstallCompleted || !$isInstallation)
+                    <a href="{{ route('installation.job.show', $pid) }}" class="action-btn" title="View">
+                      <i class="bi bi-eye"></i>
+                    </a>
                     @endif
-                    @if ($accepted)
-                    <a href="{{ route('installation.job.show', $r['ProductID']) }}" class="action-btn" title="Edit"><i class="bi bi-pencil"></i></a>
-                    <a class="action-btn" title="Done"><i class="bi bi-check2"></i></a>
-                    @endif
+                    {{-- If installation NOT completed yet, show Edit / Mark Completed --}}
+                    @unless ($isInstallCompleted)
+                      @if ($accepted && $isInstallation)
+                        <a href="{{ route('installation.job.show', $pid) }}" class="action-btn" title="Edit">
+                          <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="action-btn js-open-proof" data-id="{{ $pid }}" title="Mark Completed">
+                          <i class="bi bi-check2"></i>
+                        </button>
+                      @endif
+                    @endunless
                   </div>
                 </td>
               </tr>
@@ -414,4 +466,88 @@
 
   </div>
 </div>
+
+<form id="proofForm" method="POST" enctype="multipart/form-data"
+      action="" style="display:none">@csrf @method('PATCH')</form>
+
+<div id="proofModal" class="cx-mask" aria-hidden="true">
+  <div class="cx-wrap">
+    <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="proofTitle" style="max-width:720px">
+      <div class="cx-header">
+        <i class="bi bi-images text-success"></i>
+        <div id="proofTitle" class="cx-title">Upload Installation Proof</div>
+        <button type="button" class="cx-close" data-close="proofModal"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="cx-body">
+        <div class="mb-2 small text-muted">Add at least one image (JPG/PNG, up to 12 MB each).</div>
+        <input id="proofFiles" type="file" name="photos[]" accept="image/*" multiple class="form-control mb-3">
+        <div id="proofPreview" class="d-flex flex-wrap gap-2"></div>
+      </div>
+      <div class="cx-footer">
+        <button type="button" class="btn btn-back" data-close="proofModal">Cancel</button>
+        <button type="button" id="confirmProof" class="btn btn-accept">
+          Confirm & Complete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const modal   = document.getElementById('proofModal');
+  const files   = document.getElementById('proofFiles');
+  const preview = document.getElementById('proofPreview');
+  const form    = document.getElementById('proofForm');
+
+  function openProof(productId) {
+    // set action to PATCH /installation/jobs/{product}/complete
+    const urlTmpl = "{{ route('installation.jobs.complete', ['product' => '___ID___']) }}";
+    form.action = urlTmpl.replace('___ID___', productId);
+    form.style.display = 'block'; // needed so the FormData sees inputs
+
+    // reset inputs & preview
+    files.value = '';
+    preview.innerHTML = '';
+
+    modal.classList.add('show');
+  }
+  function closeProof() { modal.classList.remove('show'); }
+
+  document.querySelectorAll('.js-open-proof').forEach(btn => {
+    btn.addEventListener('click', () => openProof(btn.dataset.id));
+  });
+
+  document.querySelectorAll('[data-close="proofModal"]').forEach(btn => {
+    btn.addEventListener('click', closeProof);
+  });
+  modal?.addEventListener('click', e => { if (e.target === modal) closeProof(); });
+
+  // live preview
+  files?.addEventListener('change', () => {
+    preview.innerHTML = '';
+    const list = Array.from(files.files || []);
+    list.slice(0, 12).forEach(f => {
+      const url = URL.createObjectURL(f);
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.maxWidth = '120px';
+      img.style.maxHeight = '90px';
+      img.style.objectFit = 'cover';
+      img.className = 'border rounded';
+      preview.appendChild(img);
+    });
+  });
+
+  document.getElementById('confirmProof')?.addEventListener('click', () => {
+    if (!files?.files?.length) {
+      alert('Please upload at least one photo.');
+      return;
+    }
+    // Move input into form (it already is), submit
+    form.appendChild(files);
+    form.submit();
+  });
+});
+</script>
 @endsection

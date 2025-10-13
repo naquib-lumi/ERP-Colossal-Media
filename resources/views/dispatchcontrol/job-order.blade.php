@@ -2,7 +2,12 @@
 
 @section('content')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-
+<style>
+.table td i {
+  font-size: 1rem;
+  vertical-align: middle;
+}
+</style>
 @php
   // Safe defaults so the view never breaks
   $stats  = $stats  ?? [];
@@ -17,11 +22,21 @@
   ];
   $statusStyles = [
     'completed'   => 'bg-success text-white',
-    'in progress' => 'bg-warning-subtle text-warning',
+    'in_progress' => 'bg-warning-subtle text-warning',
+    'rejected' => 'bg-danger-subtle text-danger',
   ];
 
   $totalResults = method_exists($orders, 'total') ? $orders->total() : $orders->count();
   $hasResults   = $totalResults > 0;
+
+  $taskLabel = function (?string $raw) {
+      $t = strtolower((string)$raw);
+      return match ($t) {
+          'delivery'      => 'Dispatch Control',
+          'installation'  => 'Delivery & Installation',
+          default         => \Illuminate\Support\Str::title($t),
+      };
+  };
 @endphp
 
 <style>
@@ -106,16 +121,16 @@
           <option value="">All Task Types</option>
           <option value="printing"     @selected($tt==='printing')>Printing</option>
           <option value="furnishing"   @selected($tt==='furnishing')>Furnishing</option>
-          <option value="installation" @selected($tt==='installation')>Installation</option>
-          <option value="self pickup"  @selected($tt==='self pickup')>Self Pickup</option>
-          <option value="courier"      @selected($tt==='courier')>Courier</option>
+          <option value="installation" @selected($tt==='installation')>Delivery & Installation</option>
+          <option value="delivery"  @selected($tt==='delivery')>Dispatch Control</option>
         </select>
 
         <select class="form-select" name="status">
           @php $st = strtolower(request('status','')); @endphp
           <option value="">All Statuses</option>
-          <option value="in progress" @selected($st==='in progress')>In Progress</option>
+          <option value="in_progress" @selected($st==='in_progress')>In Progress</option>
           <option value="completed"   @selected($st==='completed')>Completed</option>
+          <option value="rejected"   @selected($st==='rejected')>Rejected</option>
         </select>
 
         <div class="ms-xl-auto d-flex gap-2">
@@ -166,23 +181,42 @@
           <tr>
             <td class="fw-semibold">{{ $o->product_code ?? $o->product_id ?? '—' }}</td>
             <td>{{ $o->product_name ?? '—' }}</td>
-            <td><span class="pill {{ $typeCls }}">{{ $o->task_type ? \Illuminate\Support\Str::title($o->task_type) : '—' }}</span></td>
+
+            <td>
+              <span class="pill {{ $typeCls }}">
+                {{ $taskLabel($o->task_type) }}
+              </span>
+            </td>
+
             <td>{{ $o->deadline ?? '—' }}</td>
             <td><span class="pill {{ $statCls }}">{{ $o->status ? \Illuminate\Support\Str::title($o->status) : '—' }}</span></td>
-            <td>
+            <td class="text-center">
               @if(!empty($o->delivery_date))
                 {{ $o->delivery_date }}
-              @elseif(($o->status ?? '') && strtolower($o->status)==='in progress')
-                <i class="bi bi-exclamation-triangle text-warning"></i>
               @else
-                —
+                <i class="bi bi-exclamation-triangle text-warning" title="No delivery date"></i>
               @endif
             </td>
-            <td>{{ $o->delivery_location ?? '—' }}</td>
+
+            <td class="text-center">
+              @if(!empty($o->delivery_location))
+                {{ $o->delivery_location }}
+              @else
+                <i class="bi bi-exclamation-triangle text-warning" title="No delivery location"></i>
+              @endif
+            </td>
             <td class="text-end">
-              <a href="{{ $o->details_url ?? '#' }}" class="action-btn" title="View">
-                <i class="bi bi-eye"></i>
-              </a>
+              <div class="d-inline-flex gap-1">
+                <a href="{{ $o->details_url ?? '#' }}" class="action-btn" title="View">
+                  <i class="bi bi-eye"></i>
+                </a>
+
+                @if(!empty($o->can_edit) && $o->can_edit)
+                  <a href="{{ $o->edit_url ?? ($o->details_url ?? '#') }}" class="action-btn" title="Edit">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                @endif
+              </div>
             </td>
           </tr>
         @empty
@@ -219,4 +253,16 @@
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Auto-enter edit mode when coming from the list with ?edit=1
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('edit') === '1') {
+      document.getElementById('btnEdit')?.click();
+    }
+  } catch (e) {}
+});
+</script>
 @endsection

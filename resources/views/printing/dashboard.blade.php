@@ -118,31 +118,33 @@
               $sq = is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0) . ' sq in' : '0 sq in';
               $code = $row->product_code ?? ('ORD'.($row->order_id ?? $row->ProductID).'-P'.$row->ProductID);
 
-              $accepted = (int)($row->accepted ?? 0) === 1;
+              $isPrinting = strtolower((string)($row->taskType ?? '')) === 'printing';
+              $accepted   = (int)($row->accepted ?? 0) === 1;
             @endphp
             <tr id="job-{{ $row->ProductID }}">
-              <td>{{ $code }}</td>
+              <td>{{ $row->product_code }}</td>
               <td>{{ ($row->printer ?? '-') === '-' ? '—' : $row->printer }}</td>
-              <td>{{ $sq }}</td>
-              <td>{{ $deadline }}</td>
-              <td>{{ $submitted }}</td>
+              <td>{{ is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0).' sq in' : '0 sq in' }}</td>
+              <td>{{ $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—' }}</td>
+              <td>{{ $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—' }}</td>
+
               <td class="text-nowrap">
-                @if (!$accepted)
+                @if (!$accepted || !$isPrinting)
                 <a href="{{ route('printing.orders.show', $row->ProductID) }}" class="icon-pill" title="View">
                   <i class="bi bi-eye"></i>
                 </a>
                 @endif
-                @if ($accepted)
-                <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed">
-                  <i class="bi bi-check2"></i>
-                </button>
-
-                <a class="icon-pill" title="Report"
-                   href="{{ route('printing.report', ['productId' => $row->ProductID]) }}">
-                  <i class="bi bi-exclamation-triangle"></i>
-                </a>
-
-                <a href="{{ route('printing.orders.show', $row->ProductID) }}" class="icon-pill" title="Edit"><i class="bi bi-pencil"></i></a>
+                {{-- Optional: printing-only extras (unchanged from before) --}}
+                @if ($isPrinting && $accepted)
+                  <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed">
+                    <i class="bi bi-check2"></i>
+                  </button>
+                  <a class="icon-pill" title="Report" href="{{ route('printing.report', ['productId' => $row->ProductID]) }}">
+                    <i class="bi bi-exclamation-triangle"></i>
+                  </a>
+                  <a href="{{ route('printing.orders.show', $row->ProductID) }}" class="icon-pill" title="Edit">
+                    <i class="bi bi-pencil"></i>
+                  </a>
                 @endif
               </td>
             </tr>

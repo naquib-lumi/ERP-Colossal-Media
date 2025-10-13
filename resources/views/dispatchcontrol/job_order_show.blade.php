@@ -687,11 +687,11 @@
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
         <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
-        <h1 class="h4 fw-bold mb-0">Installation Task — <span class="text-muted">{{ $product_code }}</span></h1>
+        <h1 class="h4 fw-bold mb-0">Dispatch Control Task — <span class="text-muted">{{ $product_code }}</span></h1>
       </div>
       <span class="assignee-chip">{{ $assignee }}</span>
     </div>
-    <div class="text-muted mb-3">Installation Module</div>
+    <div class="text-muted mb-3">Dispatch Control Module</div>
 
     {{-- Job Information --}}
     <div class="card soft mb-4">
@@ -812,7 +812,7 @@
         </div>
         <form id="saveForm"
           method="POST"
-          action="{{ route('installation.jobs.save', $header->ProductID) }}"
+          action="{{ route('dispatchcontrol.jobs.save', $header->ProductID) }}"
           style="display:none">
           @csrf
         </form>
@@ -958,11 +958,11 @@
         @endforeach
       </div>
     </div>
-    <form id="acceptForm" method="POST" action="{{ route('installation.orders.accept', $header->ProductID) }}" style="display:none">
+    <form id="acceptForm" method="POST" action="{{ route('dispatchcontrol.orders.accept', $header->ProductID) }}" style="display:none">
       @csrf
     </form>
 
-    <form id="rejectForm" method="POST" action="{{ route('installation.orders.reject', $header->ProductID) }}" style="display:none">
+    <form id="rejectForm" method="POST" action="{{ route('dispatchcontrol.orders.reject', $header->ProductID) }}" style="display:none">
       @csrf
       <input type="hidden" name="reason" id="rejectReasonInput">
     </form>
@@ -1058,7 +1058,7 @@
     <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="acceptTitle">
       <div class="cx-header">
         <i class="bi bi-check2-circle text-success"></i>
-        <div id="acceptTitle" class="cx-title">Accept Installation Task</div>
+        <div id="acceptTitle" class="cx-title">Accept Dispatch Control Task</div>
         <button type="button" class="cx-close" data-close="modalAccept"><i class="bi bi-x-lg"></i></button>
       </div>
       <div class="cx-body">Are you sure you want to accept this task?</div>
@@ -1075,7 +1075,7 @@
   <div class="cx-wrap">
     <div class="cx-modal" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
       <div class="cx-header">
-        <div id="rejectTitle" class="cx-title">Reject Installation Task</div>
+        <div id="rejectTitle" class="cx-title">Reject Dispatch Control Task</div>
         <button type="button" class="cx-close" data-close="modalReject"><i class="bi bi-x-lg"></i></button>
       </div>
       <div class="cx-body">

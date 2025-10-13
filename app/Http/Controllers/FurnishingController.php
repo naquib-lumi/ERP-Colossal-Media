@@ -7,72 +7,70 @@ use Illuminate\Support\Facades\DB;
 
 class FurnishingController extends Controller
 {
+
     public function dashboard(Request $request)
-{
-    // ===== Common scope pieces =====
-    $base = DB::table('products as p')
-        ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-        ->whereRaw('LOWER(p.taskType) = "furnishing"')
-        ->whereIn('p.status', ['to_assign','assigned','in_progress','pending'])
-        // hide rejected orders (also tolerate NULL)
-        ->where(function ($q) {
-            $q->whereNull('o.orderStatus')
-              ->orWhere('o.orderStatus', '<>', 'rejected');
-        });
+    {
+        $jobs = DB::table('products as p')
+            ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
+            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+            ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
+            // show ALL products; only keep a sensible status filter
+            ->whereIn('p.status', ['in_progress', 'pending', 'rejected', 'completed'])
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('fulfillment_progress as fp')
+                    ->whereColumn('fp.ProductID', 'p.ProductID')
+                    ->where('fp.stage', 'furnishing')
+                    ->where('fp.status', 'completed');
+            })
+            ->groupBy(
+                'p.ProductID',
+                'p.updated_at',
+                'p.status',
+                'p.taskType',
+                'o.id',
+                'o.order_number',
+                'o.deadline',
+                'p.accepted'
+            )
+            ->select([
+                'p.ProductID',
+                'p.updated_at as submission_date',
+                'p.status',
+                'p.taskType', // <-- keep taskType so Blade can tell its stage
+                'o.id as order_id',
+                'o.order_number',
+                'o.deadline',
 
-    // ===== KPI: In Progress =====
-    $inProgress = (clone $base)->count('p.ProductID');
+                // total sq inch across all items for this product
+                DB::raw('SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0)) as sq_inch'),
 
-    // ===== KPI: Completed =====
-    $completed = DB::table('fulfillment_progress')
-        ->where('stage', 'furnishing')
-        ->where('status', 'completed')
-        ->count();
+                // pick one non-empty printer across items; fallback to "—"
+                DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.cutter, '')), ''), '—') as cutter"),
 
-    // ===== Table rows =====
-    $jobs = (clone $base)
-        ->leftJoin('product_items as i', 'i.ProductID', '=', 'p.ProductID')
-        ->leftJoin('specifications as s', 's.ItemID', '=', 'i.ItemID')
-        ->groupBy(
-            'p.ProductID','p.OrderID','p.productName',
-            'o.deadline','p.created_at','p.updated_at',
-            'o.order_number','o.accepted'
-        )
-        ->select([
-            'p.ProductID',
-            'p.OrderID',
-            'p.productName',
-            DB::raw('o.order_number'),
-            DB::raw('o.deadline as deadline'),
-            DB::raw('COALESCE(p.updated_at, p.created_at) as submission_date'),
-            DB::raw("MAX(COALESCE(NULLIF(TRIM(s.cutter), ''), '')) as cutter"),
-            DB::raw("
-                ROUND(
-                    SUM(
-                        COALESCE(i.quantity,0) *
-                        COALESCE(i.sizeWidth,0) *
-                        COALESCE(i.sizeHeight,0) *
-                        CASE
-                            WHEN LOWER(COALESCE(i.sizeUnit,'')) IN ('in','inch','inches') THEN 1
-                            WHEN LOWER(COALESCE(i.sizeUnit,'')) IN ('cm') THEN (1/2.54/2.54)
-                            WHEN LOWER(COALESCE(i.sizeUnit,'')) IN ('mm','millimeter','millimetre') THEN (1/25.4/25.4)
-                            WHEN LOWER(COALESCE(i.sizeUnit,'')) IN ('ft','foot','feet') THEN 144
-                            ELSE 0
-                        END
-                    ),
-                2) as sq_in
-            "),
-            DB::raw('COALESCE(o.accepted, 0) as accepted'),
-        ])
-        ->orderByDesc('submission_date')
-        ->paginate(10);
+                // nice code e.g. #ORD-35-P0040
+                DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
 
-    return view('furnishing.dashboard', [
-        'inProgress' => $inProgress,
-        'completed'  => $completed,
-        'jobs'       => $jobs,
-    ]);
-}
+                // accepted flag is now on products
+                DB::raw('COALESCE(p.accepted, 0) as accepted'),
+            ])
+            ->orderBy('o.id')
+            ->orderBy('p.ProductID')
+            ->paginate(10);
+
+        // KPIs
+        $inProgress = DB::table('products')
+            ->where('status', 'in_progress')
+            ->where('taskType', 'furnishing')
+            ->count();
+
+        $completed = DB::table('fulfillment_progress')
+            ->where('stage', 'furnishing')
+            ->where('status', 'completed')
+            ->count();
+
+        return view('furnishing.dashboard', compact('jobs', 'inProgress', 'completed'));
+    }
 
 
     // Dashboard 勾确认：把该产品置为 completed（保持 taskType=furnishing）
@@ -80,17 +78,37 @@ class FurnishingController extends Controller
     {
         try {
             DB::transaction(function () use ($product) {
-                // 1) move the product forward to delivery phase
+                $now = now();
+
+                $nextStage = null;
+               
+                $methods = DB::table('delivery_breakdowns')
+                    ->where('ProductID', $product)
+                    ->pluck('method')
+                    ->map(fn ($m) => strtolower(trim((string)$m)))
+                    ->unique()
+                    ->all();
+
+                $hasDelivery     = in_array('self_pickup', $methods, true) || in_array('courier', $methods, true);
+                $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true);;
+
+                if ($hasDelivery && $hasInstallation) {
+                    $nextStage = 'delivery';
+                } elseif ($hasDelivery) {
+                    $nextStage = 'delivery';
+                } elseif ($hasInstallation) {
+                    $nextStage = 'installation';
+                } else {
+                    $nextStage = 'delivery';
+                }
+                
                 DB::table('products')
                     ->where('ProductID', $product)
                     ->update([
                         'status'     => 'in_progress',
-                        'taskType'   => 'delivery',
-                        'updated_at' => now(),
+                        'taskType'   => $nextStage,
+                        'updated_at' => $now,
                     ]);
-
-                // 2) mark furnishing stage as completed in fulfillment_progress
-                $now = now();
 
                 $exists = DB::table('fulfillment_progress')
                     ->where('ProductID', $product)
