@@ -4,25 +4,80 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class FurnishingController extends Controller
 {
 
     public function dashboard(Request $request)
     {
+        // --- Read filters
+        $cutter         = trim(mb_strtolower((string) $request->get('cutter', '')));
+        $sqMin          = $request->get('sq_min', '');
+        $sqMax          = $request->get('sq_max', '');
+        $deadlineFrom  = $request->filled('deadline_from')
+            ? optional(Carbon::parse($request->input('deadline_from')))->toDateString()
+            : null;
+        $deadlineTo    = $request->filled('deadline_to')
+            ? optional(Carbon::parse($request->input('deadline_to')))->toDateString()
+            : null;
+
+        $submittedFrom = $request->filled('submitted_from')
+            ? optional(Carbon::parse($request->input('submitted_from')))->toDateString()
+            : null;
+        $submittedTo   = $request->filled('submitted_to')
+            ? optional(Carbon::parse($request->input('submitted_to')))->toDateString()
+            : null;
+
+        // We'll reuse this SQL in SELECT and HAVING
+        $sqExprSql = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))';
+
         $jobs = DB::table('products as p')
             ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
             ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
             ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
-            // show ALL products; only keep a sensible status filter
-            ->whereIn('p.status', ['in_progress', 'pending', 'rejected', 'completed'])
+
+            // sensible statuses
+            ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
+
+            // exclude already completed furnishing in fulfillment_progress
             ->whereNotExists(function ($q) {
                 $q->select(DB::raw(1))
-                    ->from('fulfillment_progress as fp')
-                    ->whereColumn('fp.ProductID', 'p.ProductID')
-                    ->where('fp.stage', 'furnishing')
-                    ->where('fp.status', 'completed');
+                ->from('fulfillment_progress as fp')
+                ->whereColumn('fp.ProductID', 'p.ProductID')
+                ->where('fp.stage', 'furnishing')
+                ->where('fp.status', 'completed');
             })
+
+            // --- Filters (WHERE) ---
+            // cutter (case-insensitive)
+            ->when($cutter !== '', function ($qb) use ($cutter) {
+                $qb->whereRaw('LOWER(s.cutter) LIKE ?', ['%'.$cutter.'%']);
+            })
+
+            // DEADLINE range (orders.deadline)
+            ->when($deadlineFrom && $deadlineTo, function ($qb) use ($deadlineFrom, $deadlineTo) {
+                $qb->whereBetween('o.deadline', [$deadlineFrom, $deadlineTo]);
+            })
+            ->when($deadlineFrom && !$deadlineTo, function ($qb) use ($deadlineFrom) {
+                $qb->whereDate('o.deadline', '>=', $deadlineFrom);
+            })
+            ->when(!$deadlineFrom && $deadlineTo, function ($qb) use ($deadlineTo) {
+                $qb->whereDate('o.deadline', '<=', $deadlineTo);
+            })
+
+            // SUBMITTED range (products.updated_at)
+            ->when($submittedFrom && $submittedTo, function ($qb) use ($submittedFrom, $submittedTo) {
+                $qb->whereBetween('p.updated_at', [$submittedFrom, $submittedTo]);
+            })
+            ->when($submittedFrom && !$submittedTo, function ($qb) use ($submittedFrom) {
+                $qb->whereDate('p.updated_at', '>=', $submittedFrom);
+            })
+            ->when(!$submittedFrom && $submittedTo, function ($qb) use ($submittedTo) {
+                $qb->whereDate('p.updated_at', '<=', $submittedTo);
+            })
+
+            // group for aggregates
             ->groupBy(
                 'p.ProductID',
                 'p.updated_at',
@@ -33,30 +88,34 @@ class FurnishingController extends Controller
                 'o.deadline',
                 'p.accepted'
             )
+
+            // select
             ->select([
                 'p.ProductID',
                 'p.updated_at as submission_date',
                 'p.status',
-                'p.taskType', // <-- keep taskType so Blade can tell its stage
+                'p.taskType',
                 'o.id as order_id',
                 'o.order_number',
                 'o.deadline',
 
-                // total sq inch across all items for this product
-                DB::raw('SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0)) as sq_inch'),
+                DB::raw("$sqExprSql as sq_inch"),
 
-                // pick one non-empty printer across items; fallback to "—"
+                // pick one non-empty cutter across items; fallback "—"
                 DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.cutter, '')), ''), '—') as cutter"),
 
-                // nice code e.g. #ORD-35-P0040
                 DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
-
-                // accepted flag is now on products
                 DB::raw('COALESCE(p.accepted, 0) as accepted'),
             ])
+
+            // sq inch range must be in HAVING (aggregate)
+            ->when($sqMin !== '', fn($qb) => $qb->havingRaw("$sqExprSql >= ?", [(float)$sqMin]))
+            ->when($sqMax !== '', fn($qb) => $qb->havingRaw("$sqExprSql <= ?", [(float)$sqMax]))
+
             ->orderBy('o.id')
             ->orderBy('p.ProductID')
-            ->paginate(10);
+            ->paginate(10)
+            ->appends($request->query()); // keep filters on pagination links
 
         // KPIs
         $inProgress = DB::table('products')
@@ -71,7 +130,6 @@ class FurnishingController extends Controller
 
         return view('furnishing.dashboard', compact('jobs', 'inProgress', 'completed'));
     }
-
 
     // Dashboard 勾确认：把该产品置为 completed（保持 taskType=furnishing）
     public function markComplete($product)

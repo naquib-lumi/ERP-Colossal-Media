@@ -284,6 +284,17 @@
     cursor: not-allowed;
     background: #F6F7FB;
   }
+
+  .filter-card{ border:1px solid #ECEFF3; border-radius:14px; }
+  .filter-card .form-label{ font-size:.8rem; color:#6b7280; margin-bottom:.25rem; }
+  .filter-card .input-group-text{ background:#f8fafc; border-color:#e5e7eb; }
+  .filter-card .form-control{ border-color:#e5e7eb; }
+  .filter-card .has-icon .form-control{ border-left:0; }
+  .filter-card .input-group-text i{ opacity:.75; }
+  @media (min-width: 1200px){
+    .filter-card form .col-lg-2 { min-width: 220px; }
+    .filter-card form .col-lg-3 { min-width: 260px; }
+  }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -294,15 +305,15 @@
     <div class="kpi-grid">
       <div class="kpi-card">
         <div>
-          <div class="kpi-title mb-1">In Progress</div>
-          <div class="kpi-value" id="kpiInProgress">{{ $inProgress }}</div>
+          <div class="kpi-title mb-1" style="color: #635bff;">In Progress</div>
+          <div class="kpi-value" id="kpiInProgress" style="color: #635bff;">{{ $inProgress }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
       <div class="kpi-card">
         <div>
-          <div class="kpi-title mb-1">Completed</div>
-          <div class="kpi-value" id="kpiCompleted">{{ $completed }}</div>
+          <div class="kpi-title mb-1" style="color:seagreen;">Completed</div>
+          <div class="kpi-value" id="kpiCompleted" style="color:seagreen;">{{ $completed }}</div>
         </div>
         <div class="kpi-icon"><i class="bi bi-check2"></i></div>
       </div>
@@ -312,6 +323,94 @@
     <section class="card table-card">
       <div class="card-hd d-flex align-items-center justify-content-between">
         <span>Furnishing Jobs</span>
+      </div>
+
+      <div class="card shadow-soft mb-3 filter-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-3">
+            <h6 class="mb-0 fw-semibold">Furnishing Jobs</h6>
+            <span class="text-muted small ms-2">Filter &amp; search</span>
+          </div>
+
+          <form class="row g-3 align-items-end" method="GET" action="{{ route('furnishing.dashboard') }}">
+            {{-- Cutter --}}
+            <div class="col-12 col-md-4 col-lg-2">
+              <label class="form-label">Cutter</label>
+              <div class="input-group input-group-sm has-icon">
+                <span class="input-group-text"><i class="bi bi-scissors"></i></span>
+                <input type="text"
+                      name="cutter"
+                      value="{{ request('cutter') }}"
+                      class="form-control"
+                      placeholder="e.g. AOL 5x10 Flatbed">
+              </div>
+            </div>
+
+            {{-- Sq Inch (min) --}}
+            <div class="col-6 col-md-4 col-lg-2">
+              <label class="form-label">Sq Inch (Min)</label>
+              <div class="input-group input-group-sm has-icon">
+                <span class="input-group-text"><i class="bi bi-arrow-down-left"></i></span>
+                <input type="number" step="1" min="0"
+                      name="sq_min" value="{{ request('sq_min') }}"
+                      class="form-control" placeholder="0">
+              </div>
+            </div>
+
+            {{-- Sq Inch (max) --}}
+            <div class="col-6 col-md-4 col-lg-2">
+              <label class="form-label">Sq Inch (Max)</label>
+              <div class="input-group input-group-sm has-icon">
+                <span class="input-group-text"><i class="bi bi-arrow-up-right"></i></span>
+                <input type="number" step="1" min="0"
+                      name="sq_max" value="{{ request('sq_max') }}"
+                      class="form-control" placeholder="Any">
+              </div>
+            </div>
+
+            {{-- Deadline range --}}
+            <div class="col-6 col-md-4 col-lg-2">
+              <label class="form-label">Deadline From</label>
+              <div class="input-group input-group-sm has-icon">
+                <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                <input type="date" name="deadline_from" value="{{ request('deadline_from') }}" class="form-control">
+              </div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+              <label class="form-label">Deadline To</label>
+              <div class="input-group input-group-sm has-icon">
+                <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
+                <input type="date" name="deadline_to" value="{{ request('deadline_to') }}" class="form-control">
+              </div>
+            </div>
+
+            {{-- Submitted range --}}
+            <div class="col-6 col-md-4 col-lg-2">
+              <label class="form-label">Submitted From</label>
+              <div class="input-group input-group-sm has-icon">
+                <span class="input-group-text"><i class="bi bi-upload"></i></span>
+                <input type="date" name="submitted_from" value="{{ request('submitted_from') }}" class="form-control">
+              </div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+              <label class="form-label">Submitted To</label>
+              <div class="input-group input-group-sm has-icon">
+                <span class="input-group-text"><i class="bi bi-check2-square"></i></span>
+                <input type="date" name="submitted_to" value="{{ request('submitted_to') }}" class="form-control">
+              </div>
+            </div>
+
+            {{-- Actions --}}
+            <div class="col-12 col-lg-4 ms-auto d-flex gap-2 justify-content-end">
+              <a href="{{ route('furnishing.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+              </a>
+              <button class="btn btn-dark">
+                <i class="bi bi-funnel me-1"></i> Apply Filter
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <div class="table-wrapper">

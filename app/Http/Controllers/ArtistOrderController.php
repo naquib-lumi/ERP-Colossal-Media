@@ -13,6 +13,7 @@ use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\Helpers;
 
 class ArtistOrderController extends Controller
 {
@@ -301,6 +302,8 @@ class ArtistOrderController extends Controller
 
             return redirect()->route('artist.orders.edit', $order->id)
                 ->with('success', 'Order created successfully.');
+
+            Helpers::notify($user, 'New order have been created', url('/leads/37/edit'), ['database']);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->validator)->withInput();
         } catch (\Throwable $e) {

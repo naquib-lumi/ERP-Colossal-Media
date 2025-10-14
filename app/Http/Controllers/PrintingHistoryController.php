@@ -34,7 +34,7 @@ class PrintingHistoryController extends Controller
             // only furnishing stage that is completed
             ->where('fp.stage', 'printing')
             ->where(function ($w) {
-                $w->where('fp.status', 'completed')
+                $w->whereIn('fp.status', ['completed', 'rejected'])
                 ->orWhereNotNull('fp.completedAt');
             });
 
@@ -42,7 +42,8 @@ class PrintingHistoryController extends Controller
         if ($q !== '') {
             $base->where(function ($w) use ($q) {
                 $w->where('o.order_number', 'like', "%{$q}%")
-                  ->orWhere('p.productName', 'like', "%{$q}%");
+                  ->orWhere('p.productName', 'like', "%{$q}%")
+                  ->orWhere('p.materialRemark', 'like', "%{$q}%");
 
                 if (preg_match('/^\d+$/', $q)) {
                     $w->orWhere('p.ProductID', (int) $q);
