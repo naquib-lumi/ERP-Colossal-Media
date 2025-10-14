@@ -83,7 +83,7 @@ body{background:var(--bg);}
 
 </style>
 
-<div class="page-wrap py-4">
+<div class="py-4">
 
   <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-3 px-2">
@@ -99,8 +99,7 @@ body{background:var(--bg);}
             <p class="title mb-1">Total Leads Added</p>
             <span class="icon-pill"><i class="bi bi-magnet"></i></span>
           </div>
-          <div class="num">36</div>
-          <span class="delta text-success">+12% from last period</span>
+          <div class="num">{{ number_format($kpis['total_leads']) }}</div>
         </div>
       </div>
       <div class="col-md-3">
@@ -109,27 +108,28 @@ body{background:var(--bg);}
             <p class="title mb-1">Total Meetings Held</p>
             <span class="icon-pill"><i class="bi bi-calendar3"></i></span>
           </div>
-          <div class="num">18</div>
-          <span class="delta text-success">+8% from last period</span>
+          <div class="num">{{ number_format($kpis['total_meetings']) }}</div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card soft kpi p-3">
           <div class="d-flex justify-content-between align-items-start">
-            <p class="title mb-1">Accepted Meetings</p>
+            <p class="title mb-1">Scheduled Meetings</p>
             <span class="icon-pill"><i class="bi bi-check2-square"></i></span>
           </div>
-          <div class="num">10</div>
-          <span class="text-muted small">55.6% acceptance rate</span>
+          <div class="num">{{ number_format($kpis['accepted_meets']) }}</div>
+          <span class="text-muted small" style="color: #10b981;">
+            {{ $kpis['total_meetings'] ? number_format($kpis['accepted_meets'] / max($kpis['total_meetings'],1) * 100, 1) : 0 }}% acceptance rate
+          </span>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card soft kpi p-3">
           <div class="d-flex justify-content-between align-items-start">
-            <p class="title mb-1">Rejected</p>
+            <p class="title mb-1">Canceled Meeting</p>
             <span class="icon-pill"><i class="bi bi-x-square"></i></span>
           </div>
-          <div class="num">8</div>
+          <div class="num">{{ number_format($kpis['rejected_meets']) }}</div>
         </div>
       </div>
     </div>
@@ -144,10 +144,10 @@ body{background:var(--bg);}
             <div class="d-flex align-items-center gap-2">
               <label class="small text-muted mb-0">Month</label>
               <select id="mpMonth" class="form-select form-select-sm short-select">
-                <option>Jan</option><option>Feb</option><option>Mar</option>
-                <option>Apr</option><option>May</option><option selected>Jun</option>
-                <option>Jul</option><option>Aug</option><option>Sep</option>
-                <option>Oct</option><option>Nov</option><option>Dec</option>
+                @php $m = $monthlyPerformance['month_short']; @endphp
+                @foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $mon)
+                  <option value="{{ $mon }}" {{ $mon === $m ? 'selected' : '' }}>{{ $mon }}</option>
+                @endforeach
               </select>
             </div>
           </div>
@@ -175,28 +175,42 @@ body{background:var(--bg);}
               </div>
             </div>
             <aside class="sidebar">
-              <div class="filter-stack d-flex flex-column gap-3">
+              <form id="outcomeFilter" method="GET" class="filter-stack d-flex flex-column gap-3">
                 <div>
                   <div class="label">Start date</div>
-                  <input type="date" class="form-control" value="2025-01-01">
+                  <input type="date" class="form-control" name="start_date"
+                        value="{{ $meetingOutcomes['filters']['start_date'] }}">
                 </div>
                 <div>
                   <div class="label">End date</div>
-                  <input type="date" class="form-control" value="2025-01-31">
+                  <input type="date" class="form-control" name="end_date"
+                        value="{{ $meetingOutcomes['filters']['end_date'] }}">
                 </div>
                 <div>
                   <div class="label">Salesperson</div>
-                  <select class="form-select">
-                    <option>All Salespersons</option><option>Alex</option><option>Brenda</option>
+                  <select class="form-select" name="salesperson">
+                    <option value="all" {{ $meetingOutcomes['filters']['salesperson']==='all' ? 'selected' : '' }}>
+                      All Salesperson
+                    </option>
+                    @foreach($salespeople as $sp)
+                      <option value="{{ $sp->id }}" {{ (string)$sp->id === (string)$meetingOutcomes['filters']['salesperson'] ? 'selected' : '' }}>
+                        {{ $sp->name }}
+                      </option>
+                    @endforeach
                   </select>
                 </div>
                 <div>
                   <div class="label">Period</div>
-                  <select class="form-select">
-                    <option selected>Monthly</option><option>Quarterly</option><option>Yearly</option>
+                  <select class="form-select" name="period" id="piePeriod">
+                    @php $p = $meetingOutcomes['filters']['period'] ?? 'monthly'; @endphp
+                    <option value="monthly"  {{ $p==='monthly'  ? 'selected' : '' }}>Monthly</option>
+                    <option value="quarterly"{{ $p==='quarterly'? 'selected' : '' }}>Quarterly</option>
+                    <option value="yearly"   {{ $p==='yearly'   ? 'selected' : '' }}>Yearly</option>
+                    <option value="custom"   {{ $p==='custom'   ? 'selected' : '' }}>Custom</option>
                   </select>
                 </div>
-              </div>
+                {{-- No submit button needed; we auto-submit on change --}}
+              </form>
             </aside>
           </div>
         </div>
@@ -208,19 +222,43 @@ body{background:var(--bg);}
   <div class="card soft p-3 mb-3" id="jobOrdersCard">
     <h6 class="fw-bold mb-2">Job Orders</h6>
     <div class="d-flex align-items-center toolbar mb-2">
-      <input type="text" id="jobSearch" class="form-control" placeholder="Search by Order ID, Job Title, Company…">
-      <select id="artistFilter" class="form-select short-select">
-        <option value="">All Artists</option><option>Artist A</option><option>Artist B</option>
-      </select>
-      <input type="date" id="jobDate" class="form-control short-select">
-      <select id="statusFilter" class="form-select short-select">
-        <option value="">All Status</option><option>In Progress</option><option>Completed</option><option>Overdue</option>
-      </select>
-      <div class="ms-auto d-flex gap-2">
-        <button class="btn btn-dark-compact btn-sm-compact">
-  <i class="bi bi-download"></i> Export
-</button>
-      </div>
+      <form method="GET" class="d-flex align-items-center toolbar mb-2" id="jobFilterForm" style="width: 100%;">
+        <input type="text"
+              name="order_search"
+              value="{{ $filters['order_search'] ?? '' }}"
+              class="form-control"
+              placeholder="Search by Job Title, Company…">
+
+        <select name="artist" class="form-select short-select">
+          <option value="">All Artists</option>
+          @foreach($artists as $ar)
+            <option value="{{ $ar->id }}" {{ (string)($filters['artist'] ?? '') === (string)$ar->id ? 'selected' : '' }}>
+              {{ $ar->name }}
+            </option>
+          @endforeach
+        </select>
+
+        <input type="date"
+              name="order_date"
+              value="{{ $filters['order_date'] ?? '' }}"
+              class="form-control short-select">
+
+        <select name="order_status" class="form-select short-select">
+          @php $st = $filters['order_status'] ?? ''; @endphp
+          <option value="" {{ $st==='' ? 'selected' : '' }}>All Status</option>
+          <option {{ $st==='In Progress' ? 'selected' : '' }}>In Progress</option>
+          <option {{ $st==='Completed'   ? 'selected' : '' }}>Completed</option>
+          <option {{ $st==='Rejected'    ? 'selected' : '' }}>Rejected</option>
+          <option {{ $st==='Assigned'    ? 'selected' : '' }}>Assigned</option>
+          <option {{ $st==='To Assign'   ? 'selected' : '' }}>To Assign</option>
+        </select>
+
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-dark-compact btn-sm-compact" type="submit">
+            <i class="bi bi-download"></i> Export
+          </button>
+        </div>
+      </form>
     </div>
 
     <div class="table-wrap">
@@ -231,16 +269,25 @@ body{background:var(--bg);}
           </tr>
         </thead>
         <tbody>
-          <tr data-artist="Artist A" data-status="In Progress">
-            <td>ORD-2025-002</td><td>Logo Design</td><td>Tech Corp</td><td>Artist A</td>
-            <td><span class="tag">In Progress</span></td><td>2025-02-15</td>
-            <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-          </tr>
-          <tr data-artist="Artist B" data-status="Completed">
-            <td>ORD-2025-003</td><td>Brochure Design</td><td>Marketing Inc</td><td>Artist B</td>
-            <td><span class="tag">Completed</span></td><td>2025-02-10</td>
-            <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-          </tr>
+          @forelse($jobOrders as $o)
+            @php
+              $isTopRedo = in_array($o->id, $redoTop3Ids ?? []);
+              $rawNumber = $isTopRedo && $o->orig_no ? $o->orig_no : $o->order_number;
+              $orderIdDisplay = rtrim($rawNumber ?? '', 'R') . ($isTopRedo ? 'R' : '');
+              $statusLabel = ucwords(str_replace('_',' ', $o->orderStatus ?? ''));
+            @endphp
+            <tr data-artist="{{ $o->artist_name ?? '' }}" data-status="{{ $statusLabel }}">
+              <td>{{ $orderIdDisplay }}</td>
+              <td>{{ $o->orderTitle }}</td>
+              <td>{{ $o->companyName }}</td>
+              <td>{{ $o->artist_name ?? '—' }}</td>
+              <td><span class="tag">{{ $statusLabel ?: '—' }}</span></td>
+              <td>{{ optional(\Carbon\Carbon::parse($o->deadline ?? null))->toDateString() }}</td>
+              <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
+            </tr>
+          @empty
+            <tr><td colspan="7" class="text-center text-muted">No orders to display.</td></tr>
+          @endforelse
         </tbody>
       </table>
     </div>
@@ -251,10 +298,10 @@ body{background:var(--bg);}
     <h6 class="fw-bold mb-2">Job Order Fulfillment</h6>
     <div class="chart-wrap"><canvas id="orderFulfill"></canvas></div>
     <div class="small mt-2">
-      <span class="badge-dot" style="background:var(--green)"></span>New Order
+      <span class="badge-dot" style="background:var(--green)"></span>Total Orders
       <span class="badge-dot" style="background:var(--amber);margin-left:14px"></span>In Progress
       <span class="badge-dot" style="background:var(--cyan);margin-left:14px"></span>Completed
-      <span class="badge-dot" style="background:var(--red);margin-left:14px"></span>Overdue
+      <span class="badge-dot" style="background:var(--red);margin-left:14px"></span>Rejected
     </div>
   </div>
 
@@ -262,53 +309,63 @@ body{background:var(--bg);}
   <div class="card soft p-3 mb-3">
     <h6 class="fw-bold mb-2">Machine Usage Summary</h6>
     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-  <!-- Search 在前 -->
-  <input type="text" class="form-control form-control-sm w-180" placeholder="Search machine...">
+      <form method="GET" class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="machineFilterForm" style="width: 100%;">
+        <input type="text" name="machine_q" class="form-control form-control-sm w-180"
+              placeholder="Search machine..." value="{{ $machineFilters['machine_q'] ?? '' }}">
 
-  <!-- 下拉：Machine Type -->
-  <select class="form-select form-select-sm w-160">
-    <option>All Machine Types</option>
-    <option>Printer</option>
-    <option>Cutter</option>
-  </select>
+        <select name="machine_type" class="form-select form-select-sm w-160">
+          @php $mt = $machineFilters['machine_type'] ?? ''; @endphp
+          <option value="" {{ $mt==='' ? 'selected' : '' }}>All Machine Types</option>
+          <option value="Printer" {{ $mt==='Printer' ? 'selected' : '' }}>Printer</option>
+          <option value="Cutter"  {{ $mt==='Cutter'  ? 'selected' : '' }}>Cutter</option>
+        </select>
 
-  <!-- 下拉：时间范围 -->
-  <select class="form-select form-select-sm w-160">
-    <option>Last 30 Days</option>
-    <option>Last 90 Days</option>
-    <option>This Year</option>
-  </select>
+        <select name="machine_range" class="form-select form-select-sm w-160">
+          @php $mr = $machineFilters['machine_range'] ?? 'last30'; @endphp
+          <option value="last30" {{ $mr==='last30' ? 'selected' : '' }}>Last 30 Days</option>
+          <option value="last90" {{ $mr==='last90' ? 'selected' : '' }}>Last 90 Days</option>
+          <option value="year"   {{ $mr==='year'   ? 'selected' : '' }}>This Year</option>
+        </select>
 
-  <!-- 右侧按钮 -->
-  <div class="ms-auto d-flex gap-2">
-    <button class="btn btn-dark-compact btn-sm-compact">
-      <i class="bi bi-download"></i> Export
-    </button>
-    <button class="btn btn-gray-compact btn-sm-compact">
-      <i class="bi bi-plus-lg"></i> Add Machine Type
-    </button>
-  </div>
-</div>
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-dark-compact btn-sm-compact" type="submit">
+            <i class="bi bi-download"></i> Export
+          </button>
+          <button class="btn btn-gray-compact btn-sm-compact" type="button">
+            <i class="bi bi-plus-lg"></i> Add Machine Type
+          </button>
+        </div>
+      </form>
+    </div>
 
 
     <div class="table-wrap">
       <table class="table mb-0" id="machineTable">
         <thead>
           <tr>
-            <th>Machine Name</th><th>Machine Type</th><th>Used by Items</th><th>Total Quantity</th><th>Past Usage</th><th class="text-end">Actions</th>
+            <th>MACHINE NAME</th>
+            <th>MACHINE TYPE</th>
+            <th>USED BY ITEMS</th>
+            <th>TOTAL QUANTITY</th>
+            <th class="text-end">ACTIONS</th>
           </tr>
         </thead>
         <tbody>
-          <tr data-type="Printer">
-            <td>Handtop Hybrid</td><td>Printer</td><td>24 items</td><td>1,250</td>
-            <td><span class="tag">#ORD005-P1</span><span class="tag">#ORD006-P1</span><span class="tag">#ORD007-P1</span></td>
-            <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-          </tr>
-          <tr data-type="Cutter">
-            <td>Silhouette Cameo 4</td><td>Cutter</td><td>15 items</td><td>680</td>
-            <td><span class="tag">#ORD012-C3</span><span class="tag">#ORD013-C3</span></td>
-            <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-          </tr>
+          @forelse($machineUsage as $m)
+            <tr>
+              <td>{{ $m->machine_name }}</td>
+              <td>{{ $m->machine_type }}</td>
+              <td>{{ number_format($m->used_items) }} items</td>
+              <td>{{ number_format($m->total_qty) }}</td>
+              <td class="text-end">
+                <button class="kebab"><i class="bi bi-three-dots-vertical"></i></button>
+              </td>
+            </tr>
+          @empty
+            <tr>
+              <td colspan="5" class="text-center text-muted">No machine usage found for current filters.</td>
+            </tr>
+          @endforelse
         </tbody>
       </table>
     </div>
@@ -404,52 +461,93 @@ body{background:var(--bg);}
 const mpCtx = document.getElementById('barMonthly');
 const mpLabels = ['Leads Added','Accepted','Rejected','50/50','Low Chance'];
 const mpColors = ['#60a5fa','#22c55e','#ef4444','#06b6d4','#a78bfa'];
-const monthlyData = {
-  Jan:[100,30,15,50,5], Feb:[80,25,12,35,8], Mar:[95,22,14,40,7],
-  Apr:[110,21,16,38,6], May:[90,34,10,45,4], Jun:[100,30,15,50,5],
-  Jul:[105,36,12,42,7], Aug:[98,28,14,39,6], Sep:[92,26,13,41,5],
-  Oct:[108,33,12,47,6], Nov:[97,29,15,43,5], Dec:[101,31,14,48,4],
-};
-function makeDataset(values){
-  return [{ label:'This Month', data:values, backgroundColor:mpColors, borderRadius:6, borderSkipped:false }];
-}
-let currentMonth='Jun';
+
+// Values from server (per your rules)
+const monthlyServerValues = {!! json_encode([
+  $monthlyPerformance['bars']['leads_added'],
+  $monthlyPerformance['bars']['accepted'],
+  $monthlyPerformance['bars']['rejected'],
+  $monthlyPerformance['bars']['fifty_fifty'],
+  $monthlyPerformance['bars']['low_chance'],
+]) !!};
+
+
 if (mpCtx) {
   const barMonthly = new Chart(mpCtx, {
     type:'bar',
-    data:{ labels:mpLabels, datasets:makeDataset(monthlyData[currentMonth]) },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.y}`}} },
-      scales:{ x:{grid:{display:false}}, y:{beginAtZero:true, ticks:{stepSize:20}} }
-    }
+    data:{ labels: mpLabels, datasets:[{ label:'This Month', data: monthlyServerValues, backgroundColor: mpColors, borderRadius:6, borderSkipped:false }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ x:{grid:{display:false}}, y:{beginAtZero:true, ticks:{stepSize:20}} } }
   });
+
+  // Keep the same visual control; on change, reload with new month (no UI change)
   const mpSel = document.getElementById('mpMonth');
-  mpSel && mpSel.addEventListener('change',e=>{
-    barMonthly.data.datasets = makeDataset(monthlyData[e.target.value] || []);
-    barMonthly.update();
+  mpSel && mpSel.addEventListener('change', e => {
+    const params = new URLSearchParams(window.location.search);
+    params.set('mpMonth', e.target.value);
+    params.set('year', {{ (int)$monthlyPerformance['year'] }});
+    window.location.search = params.toString();
   });
 }
 
 // ===== Meeting Outcomes 饼图 =====
 const pieCtx = document.getElementById('pieOutcome');
 if (pieCtx) {
-  new Chart(pieCtx, {
-    type:'pie',
-    data:{ labels:['Accepted','Rejected'], datasets:[{ data:[10,8], backgroundColor:['#22c55e','#ef4444'], borderWidth:0 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} } }
-  });
+  const accepted = {{ $meetingOutcomes['accepted'] }};
+  const rejected = {{ $meetingOutcomes['rejected'] }};
+
+  // If both are zero, show a message instead of an empty chart
+  if (accepted === 0 && rejected === 0) {
+    pieCtx.parentElement.innerHTML =
+      `<div class="d-flex justify-content-center align-items-center text-muted" style="height:220px; font-size:12px;">
+         No meeting data found for selected filters
+       </div>`;
+  } else {
+    new Chart(pieCtx, {
+      type: 'pie',
+      data: {
+        labels: ['Accepted','Rejected'],
+        datasets: [{
+          data: [accepted, rejected],
+          backgroundColor: ['#22c55e','#ef4444'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
 }
 
 // ===== Job Order Fulfillment =====
 const fulfillCtx = document.getElementById('orderFulfill');
 if (fulfillCtx) {
-  new Chart(fulfillCtx,{
-    type:'bar',
-    data:{ labels:['New Order','In Progress','Completed','Overdue'],
-      datasets:[{ data:[30,12,17,1], backgroundColor:['#22c55e','#f59e0b','#06b6d4','#ef4444'], borderRadius:6, borderSkipped:false }]},
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales:{ y:{beginAtZero:true, ticks:{stepSize:5}}, x:{grid:{display:false}} } }
+  const fulfillData = {!! json_encode([
+    $jobFulfillment['total'],
+    $jobFulfillment['in_progress'],
+    $jobFulfillment['completed'],
+    $jobFulfillment['rejected'],
+  ]) !!};
+
+  new Chart(fulfillCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Total Orders','In Progress','Completed','Rejected'],
+      datasets: [{
+        data: fulfillData,
+        backgroundColor: ['#22c55e','#f59e0b','#06b6d4','#ef4444'],
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 5 } }, x: { grid: { display: false } } }
+    }
   });
 }
 
@@ -481,6 +579,65 @@ if (redoCtx) {
     }
   });
 }
+
+(function(){
+  const form = document.getElementById('outcomeFilter');
+  if (!form) return;
+
+  // autosubmit on any change
+  form.addEventListener('change', function(){
+    // if period changed to a preset range, set dates then submit
+    if (document.activeElement && document.activeElement.name === 'period') {
+      const period = document.activeElement.value;
+      const sd = form.querySelector('input[name="start_date"]');
+      const ed = form.querySelector('input[name="end_date"]');
+      const today = new Date();
+
+      const pad = n => String(n).padStart(2,'0');
+      const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+      if (period === 'monthly') {
+        const s = new Date(today.getFullYear(), today.getMonth(), 1);
+        const e = new Date(today.getFullYear(), today.getMonth()+1, 0);
+        sd.value = iso(s); ed.value = iso(e);
+      } else if (period === 'quarterly') {
+        const q = Math.floor(today.getMonth()/3);                 // 0..3
+        const s = new Date(today.getFullYear(), q*3, 1);
+        const e = new Date(today.getFullYear(), q*3 + 3, 0);
+        sd.value = iso(s); ed.value = iso(e);
+      } else if (period === 'yearly') {
+        const s = new Date(today.getFullYear(), 0, 1);
+        const e = new Date(today.getFullYear(), 11, 31);
+        sd.value = iso(s); ed.value = iso(e);
+      }
+    }
+    form.submit();
+  });
+
+  const f = document.getElementById('jobFilterForm');
+  if (!f) return;
+
+  // submit on change of selects/date
+  ['artist','order_date','order_status'].forEach(n => {
+    const el = f.querySelector(`[name="${n}"]`);
+    if (el) el.addEventListener('change', () => f.submit());
+  });
+
+  // submit on Enter in search
+  const q = f.querySelector('[name="order_search"]');
+  if (q) q.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); f.submit(); }
+  });
+
+  const machinefilter = document.getElementById('machineFilterForm');
+  if (!machinefilter) return;
+  ['machine_type','machine_range'].forEach(n=>{
+    const el = machinefilter.querySelector(`[name="${n}"]`);
+    if (el) el.addEventListener('change', () => machinefilter.submit());
+  });
+  const result = machinefilter.querySelector('[name="machine_q"]');
+  if (result) result.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); machinefilter.submit(); }});
+})();
 </script>
 
 @endsection
