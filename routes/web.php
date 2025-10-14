@@ -43,6 +43,14 @@ use App\Http\Controllers\DispatchControlJobOrderTableController;
 
 use App\Http\Controllers\DataEntryController;
 
+use App\Http\Controllers\BossDashboardController;
+use App\Http\Controllers\BossFulfillmentController;
+use App\Http\Controllers\BossReportController;
+use App\Http\Controllers\BossManageUserController;
+use App\Http\Controllers\BossDataManagementController;
+
+
+
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -245,18 +253,10 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
         Route::put('/data-entry/orders/{order}', [DataEntryController::class, 'update'])->name('data-entry.orders.update');
         
         // If your Blade still uses these actions:
-        Route::delete('/data-entry/orders/{order}/remarks/{remark}', [DataEntryController::class, 'destroyRemark'])
-        ->name('data-entry.orders.remarks.destroy');
-
-        Route::delete('/data-entry/orders/{order}/items/{item}', [DataEntryController::class, 'destroyItem'])
-            ->name('data-entry.orders.items.destroy');
-
-        Route::delete('/data-entry/orders/{order}/delivery/{delivery}', [DataEntryController::class, 'deleteDelivery'])
-            ->name('data-entry.orders.delivery.destroy');
-
-        Route::delete('/data-entry/orders/{order}/attachments', [DataEntryController::class, 'deleteAttachment'])
-            ->name('data-entry.orders.attachments.destroy');
-
+        Route::delete('/data-entry/orders/{order}/remarks/{remark}', [DataEntryController::class, 'destroyRemark'])->name('data-entry.orders.remarks.destroy');
+        Route::delete('/data-entry/orders/{order}/items/{item}', [DataEntryController::class, 'destroyItem'])->name('data-entry.orders.items.destroy');
+        Route::delete('/data-entry/orders/{order}/delivery/{delivery}', [DataEntryController::class, 'deleteDelivery'])->name('data-entry.orders.delivery.destroy');
+        Route::delete('/data-entry/orders/{order}/attachments', [DataEntryController::class, 'deleteAttachment'])->name('data-entry.orders.attachments.destroy');
         Route::patch('/data-entry/orders/{order}/begin', [DataEntryController::class, 'begin'])->name('data-entry.orders.begin');
     });
 
@@ -323,7 +323,6 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
     });
 
 
-    // Dispatch Control
     Route::middleware(['web','auth','role:operations-dispatch-control'])->group(function () {
         Route::get('/dispatchcontrol/dashboard', [DispatchControlController::class, 'dashboard'])->name('dispatchcontrol.dashboard');
         Route::get('/dispatchcontrol/product-order', [DispatchControlProductOrderController::class, 'productorder'])->name('dispatchcontrol.product-order');
@@ -355,8 +354,12 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
     });
 
     Route::middleware('role:boss')->group(function () {
-        Route::get('/boss/dashboard', [AdminController::class, 'dashboard'])->name('boss.dashboard');
-        Route::get('/boss/reports', [AdminController::class, 'reports'])->name('boss.reports');
+        Route::get('/boss/dashboard', [BossDashboardController::class, 'index'])->name('boss.dashboard');
+        Route::get('/boss/reports', [BossReportController::class, 'index'])->name('boss.reports');
+        Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'index'])->name('boss.fulfillment');
+        Route::get('/boss/manageuser', [BossManageUserController::class, 'index'])->name('boss.manageuser');
+        Route::get('/boss/datamanagement', [BossDataManagementController::class, 'index'])->name('boss.datamanagement');
+    
     });
 
 
