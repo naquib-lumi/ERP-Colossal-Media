@@ -256,13 +256,34 @@ html.layout-menu-hover .logo-text {
                 </a>
               </li> -->
             @endif
-            @if (auth()->user()->role === 'Boss')
-              <li class="menu-item {{ request()->routeIs('boss.reports') ? 'active' : '' }}">
-                <a href="{{ route('boss.reports') }}" class="menu-link">
-                  <i class="menu-icon tf-icons ti ti-report"></i>
-                  <div data-i18n="Reports">Reports</div>
+            @if (auth()->user()->role === 'boss')
+                <li class="menu-item {{ request()->routeIs('boss.reports') ? 'active' : '' }}">
+                  <a href="{{ route('boss.reports') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-bar-chart-alt"></i>
+                    <div data-i18n="Reports">Reports</div>
+                  </a>
+                </li>
+
+                <li class="menu-item {{ request()->routeIs('boss.fulfillment') ? 'active' : '' }}">
+                    <a href="{{ route('boss.fulfillment') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-package"></i>
+                    <div data-i18n="Fulfillment">Fulfillment</div>
+                  </a>
+                 </li>
+
+                 <li class="menu-item {{ request()->routeIs('boss.manageuser') ? 'active' : '' }}">
+                <a href="{{ route('boss.manageuser') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-group"></i>
+                  <div data-i18n="Manage User">Manage User</div>
+                 </a>
+                 </li>
+                 <li class="menu-item {{ request()->routeIs('boss.datamanagement') ? 'active' : '' }}">
+                <a href="{{ route('boss.datamanagement') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-data"></i>
+                  <div data-i18n="Data Management">Data Management</div>
                 </a>
               </li>
+
             @endif
           @endif
         </ul>

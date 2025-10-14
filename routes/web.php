@@ -43,6 +43,14 @@ use App\Http\Controllers\DispatchControlJobOrderTableController;
 
 use App\Http\Controllers\DataEntryController;
 
+use App\Http\Controllers\BossDashboardController;
+use App\Http\Controllers\BossFulfillmentController;
+use App\Http\Controllers\BossReportController;
+use App\Http\Controllers\BossManageUserController;
+use App\Http\Controllers\BossDataManagementController;
+
+
+
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -240,18 +248,10 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::put('/data-entry/orders/{order}', [DataEntryController::class, 'update'])->name('data-entry.orders.update');
         
         // If your Blade still uses these actions:
-        Route::delete('/data-entry/orders/{order}/remarks/{remark}', [DataEntryController::class, 'destroyRemark'])
-        ->name('data-entry.orders.remarks.destroy');
-
-        Route::delete('/data-entry/orders/{order}/items/{item}', [DataEntryController::class, 'destroyItem'])
-            ->name('data-entry.orders.items.destroy');
-
-        Route::delete('/data-entry/orders/{order}/delivery/{delivery}', [DataEntryController::class, 'deleteDelivery'])
-            ->name('data-entry.orders.delivery.destroy');
-
-        Route::delete('/data-entry/orders/{order}/attachments', [DataEntryController::class, 'deleteAttachment'])
-            ->name('data-entry.orders.attachments.destroy');
-
+        Route::delete('/data-entry/orders/{order}/remarks/{remark}', [DataEntryController::class, 'destroyRemark'])->name('data-entry.orders.remarks.destroy');
+        Route::delete('/data-entry/orders/{order}/items/{item}', [DataEntryController::class, 'destroyItem'])->name('data-entry.orders.items.destroy');
+        Route::delete('/data-entry/orders/{order}/delivery/{delivery}', [DataEntryController::class, 'deleteDelivery'])->name('data-entry.orders.delivery.destroy');
+        Route::delete('/data-entry/orders/{order}/attachments', [DataEntryController::class, 'deleteAttachment'])->name('data-entry.orders.attachments.destroy');
         Route::patch('/data-entry/orders/{order}/begin', [DataEntryController::class, 'begin'])->name('data-entry.orders.begin');
     });
 
@@ -316,7 +316,10 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/dispatchcontrol/history', [DispatchControlHistoryController::class, 'index'])->name('dispatchcontrol.history');
         Route::get('/dispatchcontrol/job-order', [DispatchControlController::class, 'index'])->name('dispatchcontrol.job-order');
         Route::get('/dispatchcontrol/user', [DispatchControlProfileController::class, 'index'])->name('dispatchcontrol.user');
-        Route::put('/dispatch/profile', [DispatchControlProfileController::class, 'update'])->name('dispatchcontrol.user.update');
+        Route::put('/dispatchcontrol/profile', [DispatchControlProfileController::class, 'update'])->name('dispatchcontrol.user.update');
+        Route::get('/dispatchcontrol/job-order/{order}', [DispatchControlProductOrderController::class, 'show'])
+    ->whereNumber('order')
+    ->name('dispatchcontrol.job-order.show');
     });
 
     Route::middleware('role:admin')->group(function () {
@@ -330,8 +333,12 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
     });
 
     Route::middleware('role:boss')->group(function () {
-        Route::get('/boss/dashboard', [AdminController::class, 'dashboard'])->name('boss.dashboard');
-        Route::get('/boss/reports', [AdminController::class, 'reports'])->name('boss.reports');
+        Route::get('/boss/dashboard', [BossDashboardController::class, 'index'])->name('boss.dashboard');
+        Route::get('/boss/reports', [BossReportController::class, 'index'])->name('boss.reports');
+        Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'index'])->name('boss.fulfillment');
+        Route::get('/boss/manageuser', [BossManageUserController::class, 'index'])->name('boss.manageuser');
+        Route::get('/boss/datamanagement', [BossDataManagementController::class, 'index'])->name('boss.datamanagement');
+    
     });
 
 
