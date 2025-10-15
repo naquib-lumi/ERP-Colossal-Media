@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Order;
+use App\Helpers\Helpers;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class DispatchControlProductOrderController extends Controller
 {
@@ -311,7 +314,14 @@ class DispatchControlProductOrderController extends Controller
         $order = DB::table('products')
             ->join('orders', 'orders.id', '=', 'products.OrderID')
             ->where('products.ProductID', $product)
-            ->select('products.accepted', 'orders.orderStatus', 'products.ProductID')
+            ->select('products.ProductID',
+                'products.productName',
+                'products.accepted',
+                'orders.id as order_id',
+                'orders.order_number',
+                'orders.orderStatus',
+                'orders.artist_id',
+                'orders.salesperson_id')
             ->first();
 
         if (!$order || (int)($order->accepted ?? 0) !== 1 || strtolower((string)$order->orderStatus) === 'rejected') {
@@ -321,7 +331,9 @@ class DispatchControlProductOrderController extends Controller
         $cutters = (array) $request->input('cutters', []);
         $remarks = (array) $request->input('remarks', []);
 
-        DB::transaction(function () use ($product, $cutters, $remarks) {
+        $remarksAdded = [];
+
+        DB::transaction(function () use ($product, $cutters, $remarks, &$remarksAdded) {
             // 1) Save cutters to specifications (by ItemID)
             foreach ($cutters as $itemId => $cutter) {
                 $cutter = trim((string)$cutter);
@@ -377,8 +389,72 @@ class DispatchControlProductOrderController extends Controller
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+                $remarksAdded[] = ['operation' => $op, 'remark' => $text];
             }
         });
+
+        // ==== Notifications (only if something changed) ====
+        if (!empty($remarksAdded)) {
+            $actor     = Auth::user();
+            $actorName = $actor?->name ?? 'System';
+            $actorRole = str_replace('-', ' ', $actor?->role ?? 'user');
+
+            $orderId   = (int)$order->order_id;
+            $orderNo   = (string)$order->order_number;
+            $prodId    = (int)$order->ProductID;
+            $prodName  = (string)$order->productName;
+
+            $remarksCnt = count($remarksAdded);
+
+            $previewParts = [];
+            if ($remarksCnt) $previewParts[] = "remarks added: {$remarksCnt}";
+            $preview = $previewParts ? ' (' . implode(', ', $previewParts) . ')' : '';
+
+            $message = "Updates on Product {$prodName} by {$actorName} ({$actorRole}){$preview}.";
+
+            // Role-aware URL
+            $urlFor = function (User $user) use ($orderId) {
+                $role = strtolower($user->role);
+
+                if (in_array($user->role, ['artist','head-artist'])) {
+                    return url("/artist/orders/{$orderId}");
+                }
+                if (in_array($user->role, ['salesperson','head-salesperson'])) {
+                    return url("/orders/{$orderId}");
+                }
+                if ($role === 'boss') {
+                    return url("/boss/orders/{$orderId}");
+                } 
+                if ($role === 'admin') {
+                    return url("/admin/orders/{$orderId}");
+                } 
+                return url("/");
+            };
+
+            // Target assignees
+            $targetIds = array_filter([
+                $order->salesperson_id ?? null,
+                $order->artist_id      ?? null,
+            ]);
+
+            if (!empty($targetIds)) {
+                User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
+                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                });
+            }
+
+            // Optional broadcasts
+            User::whereIn('role', ['head-salesperson','head-artist'])->get()
+                ->each(function (User $u) use ($message, $urlFor) {
+                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                });
+
+            User::whereIn('role', ['admin','boss'])->get()
+                ->each(function (User $u) use ($message, $urlFor) {
+                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                });
+        }
 
         return back()->with('ok', true);
     }
@@ -389,6 +465,25 @@ class DispatchControlProductOrderController extends Controller
 
         $stage = $this->stageForRole($request->user()) ?? 'installation';
         $now   = now();
+
+        // --- Load product & order info up-front (for notifications) ---
+        $p = DB::table('products')
+            ->where('ProductID', $product)
+            ->select('ProductID', 'productName', 'OrderID')
+            ->first();
+
+        if (!$p) {
+            return back()->with('error', 'Product not found.');
+        }
+
+        $o = DB::table('orders')
+            ->where('id', $p->OrderID)  // products.OrderID -> orders.id
+            ->select('id', 'order_number', 'artist_id', 'salesperson_id')
+            ->first();
+
+        if (!$o) {
+            return back()->with('error', 'Order not found for this product.');
+        }
 
         DB::transaction(function () use ($product, $stage, $now) {
             // 1️⃣ Update product's accepted flag to 1
@@ -411,6 +506,59 @@ class DispatchControlProductOrderController extends Controller
             );
         });
 
+        // --- Build message once ---
+        $actor      = Auth::user();
+        $actorName  = $actor?->name ?? 'System';
+        $actorRole  = str_replace('-', ' ', $actor?->role ?? 'user');
+        $productId  = (int) $p->ProductID;
+        $productName= (string) $p->productName;
+        $orderNo    = (string) $o->order_number;
+        $orderId    = (int) $o->id;
+
+        $message = "Product {$productName} has been accepted by {$actorName} ({$actorRole}).";
+
+        // Helper to pick a destination URL based on the recipient’s role
+        $urlFor = function (User $user) use ($orderId) {
+            if (in_array($user->role, ['artist','head-artist'])) {
+                return url("/artist/orders/{$orderId}");
+            }
+            if (in_array($user->role, ['salesperson','head-salesperson'])) {
+                return url("/orders/{$orderId}");
+            }
+            if (in_array($user->role, ['boss','Boss'])) {
+                return url("/boss/orders/{$orderId}");
+            } 
+            if (in_array($user->role, ['admin','Admin'])) {
+                return url("/admin/orders/{$orderId}");
+            } 
+            return url("/");
+        };
+
+        // ---- Targeted recipients (people in charge of this product) ----
+        $targetIds = array_filter([
+            $o->salesperson_id ?? null,
+            $o->artist_id      ?? null,
+        ]);
+
+        if (!empty($targetIds)) {
+            User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
+                Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
+        }
+
+        // ---- Optional: notify leads/management (keep or remove as you wish) ----
+        // Head roles (if they exist in your enum)
+        User::whereIn('role', ['head-salesperson','head-artist'])->get()
+            ->each(function (User $u) use ($message, $urlFor) {
+                Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
+
+        // Admin + Boss (broadcast)
+        User::whereIn('role', ['admin','boss'])->get()
+            ->each(function (User $u) use ($message, $urlFor) {
+                Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
+
         return back()->with('ok', 'task accepted.');
     }
 
@@ -425,6 +573,25 @@ class DispatchControlProductOrderController extends Controller
 
         $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
         abort_if(!$orderId, 404, 'Product not found.');
+
+        // --- Load product & order info up-front (for notifications) ---
+        $p = DB::table('products')
+            ->where('ProductID', $product)
+            ->select('ProductID', 'productName', 'OrderID')
+            ->first();
+
+        if (!$p) {
+            abort(404, 'Product not found.');
+        }
+
+        $o = DB::table('orders')
+            ->where('id', $p->OrderID)  // products.OrderID -> orders.id
+            ->select('id', 'order_number', 'artist_id', 'salesperson_id')
+            ->first();
+
+        if (!$o) {
+            abort(404, 'Order not found for this product.');
+        }
 
         DB::transaction(function () use ($product, $orderId, $stage, $now, $data) {
 
@@ -463,6 +630,64 @@ class DispatchControlProductOrderController extends Controller
                 ['status', 'updated_at'] // keep acceptedAt if already set earlier
             );
         });
+
+        // --- Build and send notifications (after commit) ---
+        $actor      = Auth::user();
+        $actorName  = $actor?->name ?? 'System';
+        $actorRole  = str_replace('-', ' ', $actor?->role ?? 'user');
+
+        $productId   = (int) $p->ProductID;
+        $productName = (string) $p->productName;
+        $orderNo     = (string) $o->order_number;
+        $orderId     = (int) $o->id;
+
+        // Trim very long reasons in the notification text to stay readable
+        $reason = trim((string) $request->reason);
+        $reasonPreview = mb_strimwidth($reason, 0, 60, '…', 'UTF-8');
+
+        $message = "Product {$productName} was rejected by {$actorName} ({$actorRole}). Reason: {$reasonPreview}";
+
+        // Role-aware destination
+        $urlFor = function (User $user) use ($orderId) {
+            $role = strtolower($user->role);
+
+            if (in_array($user->role, ['artist','head-artist'])) {
+                return url("/artist/orders/{$orderId}");
+            }
+            if (in_array($user->role, ['salesperson','head-salesperson'])) {
+                return url("/orders/{$orderId}");
+            }
+            if ($role === 'boss') {
+                return url("/boss/orders/{$orderId}");
+            } 
+            if ($role === 'admin') {
+                return url("/admin/orders/{$orderId}");
+            }
+            return url("/");
+        };
+
+        // Targeted recipients: assigned salesperson & artist for this order
+        $targetIds = array_filter([
+            $o->salesperson_id ?? null,
+            $o->artist_id      ?? null,
+        ]);
+
+        if (!empty($targetIds)) {
+            User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
+                Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
+        }
+
+        // Optional broadcasts (keep/remove as you prefer)
+        User::whereIn('role', ['head-salesperson','head-artist'])->get()
+            ->each(function (User $u) use ($message, $urlFor) {
+                Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
+
+        User::whereIn('role', ['admin','boss'])->get()
+            ->each(function (User $u) use ($message, $urlFor) {
+                Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
 
         return back()->with('ok', 'Product rejected and order marked as rejected.');
     }

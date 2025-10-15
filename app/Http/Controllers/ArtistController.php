@@ -293,7 +293,7 @@ class ArtistController extends Controller
         $order->save();
 
         return redirect()
-        ->route('artist.orders.assign.show', $order)
+        ->route('artist.dashboard', $order)
         ->with('ok', 'Artist assigned successfully.');
     }
 

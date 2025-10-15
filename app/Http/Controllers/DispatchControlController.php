@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use App\Helpers\Helpers;
 
 class DispatchControlController extends Controller
 {
@@ -167,6 +170,25 @@ class DispatchControlController extends Controller
 
     public function completeWithProof(Request $request, int $product)
     {
+        // Load product + order info up-front for notifications
+        $p = DB::table('products')
+            ->where('ProductID', $product)
+            ->select('ProductID','productName','OrderID')
+            ->first();
+
+        if (!$p) {
+            return response()->json(['ok' => false, 'message' => 'Product not found.'], 404);
+        }
+
+        $o = DB::table('orders')
+            ->where('id', $p->OrderID)
+            ->select('id','order_number','artist_id','salesperson_id')
+            ->first();
+
+        if (!$o) {
+            return response()->json(['ok' => false, 'message' => 'Order not found for this product.'], 404);
+        }
+
         // Validate at least one image
         $validated = $request->validate([
             'photos'   => 'required|array|min:1',
@@ -241,6 +263,60 @@ class DispatchControlController extends Controller
             ]);
 
         });
+
+        // ===== Notifications (after commit) =====
+        $actor     = Auth::user();
+        $actorName = $actor?->name ?? 'System';
+        $actorRole = str_replace('-', ' ', $actor?->role ?? 'user');
+
+        $productId   = (int) $p->ProductID;
+        $productName = (string) $p->productName;
+        $orderNo     = (string) $o->order_number;
+        $orderId     = (int) $o->id;
+
+        $message = "Dispatch Control completed for Product {$productName} by {$actorName} ({$actorRole}), product completed.";
+
+        // Role-aware destination (adjust if your routes differ)
+        $urlFor = function (User $user) use ($productId, $orderId) {
+            $role = strtolower($user->role);
+
+            if (in_array($role, ['artist','head-artist'])) {
+                return url("/artist/orders/{$orderId}");
+            }
+            if (in_array($role, ['salesperson','head-salesperson'])) {
+                return url("/orders/{$orderId}");
+            }
+            if ($role === 'boss') {
+                return url("/boss/orders/{$orderId}");
+            }
+            if ($role === 'admin') {
+                return url("/admin/orders/{$orderId}");
+            }
+            return url("/orders/{$productId}");
+        };
+
+        // Notify assignees (artist + salesperson)
+        $targetIds = array_filter([
+            $o->salesperson_id ?? null,
+            $o->artist_id      ?? null,
+        ]);
+
+        if (!empty($targetIds)) {
+            User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
+                Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
+        }
+
+        // Optional: heads/admin/boss (remove if you only want the above)
+        User::whereIn('role', ['head-salesperson','head-artist'])->get()
+            ->each(function (User $u) use ($message, $urlFor) {
+                Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
+
+        User::whereIn('role', ['admin','boss'])->get()
+            ->each(function (User $u) use ($message, $urlFor) {
+            Helpers::notify($u, $message, $urlFor($u), ['database']);
+            });
 
         return back()->with('ok', 'Dispatch Control marked completed with photo proof.');
     }
