@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use App\Helpers\Helpers;
 
 class FurnishingController extends Controller
 {
@@ -134,11 +137,31 @@ class FurnishingController extends Controller
     // Dashboard 勾确认：把该产品置为 completed（保持 taskType=furnishing）
     public function markComplete($product)
     {
-        try {
-            DB::transaction(function () use ($product) {
-                $now = now();
+        // Load product + order info up-front for notifications
+        $p = DB::table('products')
+            ->where('ProductID', $product)
+            ->select('ProductID','productName','OrderID')
+            ->first();
 
-                $nextStage = null;
+        if (!$p) {
+            return response()->json(['ok' => false, 'message' => 'Product not found.'], 404);
+        }
+
+        $o = DB::table('orders')
+            ->where('id', $p->OrderID)
+            ->select('id','order_number','artist_id','salesperson_id')
+            ->first();
+
+        if (!$o) {
+            return response()->json(['ok' => false, 'message' => 'Order not found for this product.'], 404);
+        }
+
+        // We want to reuse the computed next stage after commit
+        $computedNextStage = null;
+
+        try {
+            DB::transaction(function () use ($product, &$computedNextStage) {
+                $now = now();
                
                 $methods = DB::table('delivery_breakdowns')
                     ->where('ProductID', $product)
@@ -151,20 +174,21 @@ class FurnishingController extends Controller
                 $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true);;
 
                 if ($hasDelivery && $hasInstallation) {
-                    $nextStage = 'delivery';
+                    $computedNextStage = 'delivery';
                 } elseif ($hasDelivery) {
-                    $nextStage = 'delivery';
+                    $computedNextStage = 'delivery';
                 } elseif ($hasInstallation) {
-                    $nextStage = 'installation';
+                    $computedNextStage = 'installation';
                 } else {
-                    $nextStage = 'delivery';
+                    $computedNextStage = 'delivery';
                 }
                 
                 DB::table('products')
                     ->where('ProductID', $product)
                     ->update([
                         'status'     => 'in_progress',
-                        'taskType'   => $nextStage,
+                        'taskType'   => $computedNextStage,
+                        'accepted'   => null,
                         'updated_at' => $now,
                     ]);
 
@@ -194,6 +218,85 @@ class FurnishingController extends Controller
                     ]);
                 }
             });
+
+            // ===== Notifications (after commit) =====
+            $actor     = Auth::user();
+            $actorName = $actor?->name ?? 'System';
+            $actorRole = str_replace('-', ' ', $actor?->role ?? 'user');
+
+            $productId   = (int) $p->ProductID;
+            $productName = (string) $p->productName;
+            $orderNo     = (string) $o->order_number;
+            $orderId     = (int) $o->id;
+            $nextStage   = $computedNextStage ?: 'next stage';
+
+            $message = "Furnishing completed for Product {$productName} by {$actorName} ({$actorRole}). Next stage: {$nextStage}.";
+
+            // Role-aware destination (adjust if your routes differ)
+            $urlFor = function (User $user) use ($productId, $orderId) {
+                $role = strtolower($user->role);
+
+                if (in_array($role, ['artist','head-artist'])) {
+                    return url("/artist/orders/{$orderId}");
+                }
+                if (in_array($role, ['salesperson','head-salesperson'])) {
+                    return url("/orders/{$orderId}");
+                }
+                if ($role === 'boss') {
+                    return url("/boss/orders/{$orderId}");
+                }
+                if ($role === 'admin') {
+                    return url("/admin/orders/{$orderId}");
+                }
+                if ($role === 'operations-furnishing') {
+                    return url("/furnishing/job/{$productId}");
+                }
+                if ($role === 'operations-dispatch-control') {
+                    return url("/dispatchcontrol/job/{$productId}");
+                }
+                if ($role === 'operations-delivery-installation') {
+                    return url("/installation/job/{$productId}");
+                }
+                return url("/orders/{$productId}");
+            };
+
+            // Notify assignees (artist + salesperson)
+            $targetIds = array_filter([
+                $o->salesperson_id ?? null,
+                $o->artist_id      ?? null,
+            ]);
+
+            if (!empty($targetIds)) {
+                User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
+                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                });
+            }
+
+            // Notify the Operations team responsible for the NEXT stage
+            $stageRoleMap = [
+                'furnishing'   => 'operations-furnishing',
+                'delivery'     => 'operations-dispatch-control',
+                'installation' => 'operations-delivery-installation',
+            ];
+            if (isset($stageRoleMap[$computedNextStage])) {
+                $opsRole = $stageRoleMap[$computedNextStage];
+                User::where('role', $opsRole)->get()->each(function (User $u) use ($message, $urlFor) {
+                    // add a short directive for ops users
+                    $opsMsg = $message . ' Please take over.';
+                    Helpers::notify($u, $opsMsg, $urlFor($u), ['database']);
+                });
+            }
+
+            // Optional: heads/admin/boss (remove if you only want the above)
+            User::whereIn('role', ['head-salesperson','head-artist'])->get()
+                ->each(function (User $u) use ($message, $urlFor) {
+                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                });
+
+            User::whereIn('role', ['admin','boss'])->get()
+                ->each(function (User $u) use ($message, $urlFor) {
+                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                });
 
             return response()->json(['ok' => true]);
         } catch (\Throwable $e) {
