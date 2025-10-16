@@ -287,6 +287,85 @@ class ArtistOrderController extends Controller
                 }
             }
 
+            /**
+             * =======================
+             *  NOTIFICATIONS (NEW)
+             * =======================
+             */
+            $actor     = $user;
+            $actorName = $actor->name;
+            $actorRole = str_replace('-', ' ', strtolower($actor->role));
+
+            $productCount = DB::table('products')->where('OrderID', $order->id)->count();
+            $deadlineTxt  = $order->deadline
+                ? \Carbon\Carbon::parse($order->deadline)->timezone('Asia/Kuala_Lumpur')->format('Y-m-d')
+                : '-';
+
+            // Base message for everyone
+            $messageCommon = "New order {$order->order_number} created by {$actorName} ({$actorRole}). "
+                        . "{$productCount} Product(s) added. Deadline: {$deadlineTxt}.";
+
+            // Optional special message when head-artist assigns to a normal artist
+            $messageForAssignee = null;
+            if ($actor->hasRole('head-artist') && isset($assignee) && $assignee && $assignee->hasRole('artist')) {
+                $messageForAssignee = "You have been **assigned** a new order {$order->order_number} by {$actorName} "
+                                    . "(head-artist). {$productCount} Product(s) added. Deadline: {$deadlineTxt}.";
+            }
+
+            // Role-aware URL builder
+            $urlFor = function (User $u) use ($order) {
+                return match ($u->role) {
+                    'artist'                          => url("/artist/orders/{$order->id}/edit"),
+                    'head-artist'                     => url("/artist/orders/{$order->id}"),
+                    'salesperson', 'head-salesperson' => url("/orders/{$order->id}"),
+                    'admin', 'Admin'                  => url("/admin/orders/{$order->id}"),
+                    'boss',  'Boss'                   => url("/boss/orders/{$order->id}"),
+                    default                           => url("/"),
+                };
+            };
+
+            // ======================
+            // Build recipients list
+            // ======================
+            $recipients = collect();
+
+            // 1) Always include these roles
+            $baseRoles = ['admin', 'boss', 'head-artist', 'head-salesperson']; // head-salesperson is optional in your DB
+            $recipients = $recipients->merge(
+                User::whereIn('role', $baseRoles)->get()
+            );
+
+            // 2) Assigned salesperson (if any)
+            if (!empty($order->salesperson_id)) {
+                $recipients = $recipients->merge(
+                    User::where('id', $order->salesperson_id)->get()
+                );
+            }
+
+            // 3) If creator is a NORMAL artist, make sure head-artists are included (already in baseRoles, but keep this for clarity/safety)
+            if (strtolower($actor->role) === 'artist') {
+                $recipients = $recipients->merge(
+                    User::where('role', 'head-artist')->get()
+                );
+            }
+
+            // 4) If creator is head-artist and assigned to a normal artist, include that assignee
+            if (strtolower($actor->role) === 'head-artist' && isset($assignee) && $assignee && strtolower($assignee->role) === 'artist') {
+                $recipients = $recipients->merge([$assignee]);
+            }
+
+            // De-duplicate on user id
+            $recipients = $recipients->unique('id')->values();
+
+            // Send notifications
+            foreach ($recipients as $u) {
+                $msg = ($messageForAssignee && isset($assignee) && $u->id === $assignee->id)
+                    ? $messageForAssignee
+                    : $messageCommon;
+
+                Helpers::notify($u, $msg, $urlFor($u), ['database']);
+            }
+
             if (auth()->user()->hasRole('head-artist')) {
                 if ($assignee && $assignee->hasRole('head-artist')) {
                     // Assigned to head-artist → go straight to edit
@@ -303,7 +382,6 @@ class ArtistOrderController extends Controller
             return redirect()->route('artist.orders.edit', $order->id)
                 ->with('success', 'Order created successfully.');
 
-            Helpers::notify($user, 'New order have been created', url('/leads/37/edit'), ['database']);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->validator)->withInput();
         } catch (\Throwable $e) {

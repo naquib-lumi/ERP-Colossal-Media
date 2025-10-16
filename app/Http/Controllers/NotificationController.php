@@ -5,19 +5,21 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
-
 use App\Helpers\Helpers;
 
 class NotificationController extends Controller
 {
     public function markAsRead(Request $request)
     {
-        $notification = Auth::user()->notifications()->find($request->id);
-        if ($notification) {
-            $notification->markAsRead();
-            return response()->json(['success' => true]);
+        $n = Auth::user()->notifications()->find($request->id);
+        if ($n) {
+            if (is_null($n->read_at)) {
+                $n->markAsRead();
+            }
+            // return a minimal payload the UI expects
+            return response()->json(['ok' => true, 'id' => $n->id]);
         }
-        return response()->json(['error' => 'Notification not found'], 404);
+        return response()->json(['ok' => false, 'message' => 'Notification not found'], 404);
     }
 
     public function markAllAsRead()
@@ -26,11 +28,11 @@ class NotificationController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function archive(Request $request)
+    public function archive(Request $request, string $id)
     {
-        $notification = Auth::user()->notifications()->find($request->id);
-        if ($notification) {
-            $notification->delete();
+        $n = Auth::user()->notifications()->find($id);
+        if ($n) {
+            $n->delete();
             return response()->json(['success' => true]);
         }
         return response()->json(['error' => 'Notification not found'], 404);
@@ -38,7 +40,8 @@ class NotificationController extends Controller
 
     public function index()
     {
-        $notifications = Auth::user()->notifications()->paginate(20);
+        // full page – leave as all notifications (or change to unread() if you prefer)
+        $notifications = Auth::user()->notifications()->latest()->paginate(20);
         return view('notifications.index', compact('notifications'));
     }
 
@@ -47,13 +50,22 @@ class NotificationController extends Controller
         return Auth::user()->unreadNotifications->count();
     }
 
+    // --- optional: tiny endpoint to return the latest unread for the dropdown
+    public function latestUnread()
+    {
+        $items = Auth::user()
+            ->unreadNotifications()
+            ->latest()
+            ->take(10)
+            ->get();
 
-
+        return response()->json($items);
+    }
 
     public function testSelf(Request $request) {
-    Helpers::notify(auth()->user(), 'Test notification to self', url('/'), ['database','mail']);
-    return response()->json(['success' => true]);
-}
+        Helpers::notify(auth()->user(), 'Test notification to self', url('/'), ['database','mail']);
+        return response()->json(['success' => true]);
+    }
 
     public function testAll(Request $request) {
         User::all()->each(function($user) {

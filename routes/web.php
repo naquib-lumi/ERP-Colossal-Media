@@ -107,12 +107,25 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
-    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
-    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllAsRead');
-    Route::post('/notifications/{id}/archive', [NotificationController::class, 'archive'])->name('notifications.archive');
-    Route::get('/notifications/count', [NotificationController::class, 'count'])->name('notifications.count');
-    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::middleware('auth')->group(function () {
+        Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])
+        ->name('notifications.markAsRead');
+
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.markAllAsRead');
+
+        Route::post('/notifications/{id}/archive', [NotificationController::class, 'archive'])
+        ->name('notifications.archive');
+
+        Route::get('/notifications/count', [NotificationController::class, 'count'])
+            ->name('notifications.count');
+
+        Route::get('/notifications', [NotificationController::class, 'index'])
+            ->name('notifications.index');
+
+        // optional
+        Route::get('/notifications/latest-unread', [NotificationController::class, 'latestUnread'])
+            ->name('notifications.latestUnread');
     
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -236,6 +249,7 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
 
         // AJAX search for artists (head-artist assigning)
         Route::get('/artist/orders/assignees/search', [ArtistOrderController::class, 'searchArtists'])->name('artist.orders.assignees.search');
+        Route::post('/artist/orders/{order}/assign', [ArtistOrderController::class, 'assign'])->name('artist.orders.assigns');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])

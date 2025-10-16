@@ -3238,7 +3238,7 @@
 
       btn.disabled = true;
       try {
-        const res = await fetch(@json(route('artist.orders.assign', $order)), {
+        const res = await fetch(@json(route('artist.orders.assigns', $order)), {
           method: 'POST',
           headers: {
             'X-CSRF-TOKEN': @json(csrf_token()),
