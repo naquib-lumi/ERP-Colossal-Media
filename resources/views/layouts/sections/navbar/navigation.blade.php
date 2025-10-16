@@ -188,137 +188,163 @@
 
                 <!-- Notification -->
 <li class="nav-item dropdown-notifications navbar-dropdown dropdown me-3 me-xl-2">
-    <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-        <span class="position-relative">
-            <i class="icon-base bx bx-bell icon-md"></i>
-            @if (auth()->user()->unreadNotifications->count())
-                <span class="badge rounded-pill bg-danger badge-dot badge-notifications border">{{ auth()->user()->unreadNotifications->count() }}</span>
-            @endif
-        </span>
-    </a>
-    <ul class="dropdown-menu dropdown-menu-end p-0">
-        <li class="dropdown-menu-header border-bottom">
-            <div class="dropdown-header d-flex align-items-center py-3">
-                <h6 class="mb-0 me-auto">Notifications</h6>
-                <div class="d-flex align-items-center h6 mb-0">
-                    @if (auth()->user()->unreadNotifications->count())
-                        <span class="badge bg-label-primary me-2">{{ auth()->user()->unreadNotifications->count() }} New</span>
-                    @endif
-                    <a href="javascript:void(0)" class="dropdown-notifications-all p-2" data-bs-toggle="tooltip" data-bs-placement="top" title="Mark all as read">
-                        <i class="icon-base bx bx-envelope-open text-heading"></i>
-                    </a>
+  <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+    <span class="position-relative">
+      <i class="icon-base bx bx-bell icon-md"></i>
+      @php $unreadCount = auth()->user()->unreadNotifications->count(); @endphp
+      @if ($unreadCount)
+        <span class="badge rounded-pill bg-danger badge-dot badge-notifications border">{{ $unreadCount }}</span>
+      @endif
+    </span>
+  </a>
+
+  <ul class="dropdown-menu dropdown-menu-end p-0">
+    <li class="dropdown-menu-header border-bottom">
+      <div class="dropdown-header d-flex align-items-center py-3">
+        <h6 class="mb-0 me-auto">Notifications</h6>
+        <div class="d-flex align-items-center h6 mb-0">
+          @if ($unreadCount)
+            <span class="badge bg-label-primary me-2">{{ $unreadCount }} New</span>
+          @endif
+          <a href="javascript:void(0)" class="dropdown-notifications-all p-2" data-bs-toggle="tooltip" data-bs-placement="top" title="Mark all as read">
+            <i class="icon-base bx bx-envelope-open text-heading"></i>
+          </a>
+        </div>
+      </div>
+    </li>
+
+    <li class="dropdown-notifications-list scrollable-container">
+      <ul class="list-group list-group-flush">
+        @php $unreads = auth()->user()->unreadNotifications()->latest()->take(10)->get(); @endphp
+        @forelse ($unreads as $notification)
+          <li class="list-group-item list-group-item-action dropdown-notifications-item" data-id="{{ $notification->id }}">
+            <a href="javascript:void(0)" class="d-flex w-100 text-decoration-none text-body" onclick="markAsReadAndGo('{{ $notification->id }}', '{{ $notification->data['url'] ?? '/' }}')">
+              <div class="d-flex w-100">
+                <div class="flex-shrink-0 me-3">
+                  <div class="avatar">
+                    <span class="avatar-initial rounded-circle bg-label-info">
+                      <i class="icon-base bx bx-bell"></i>
+                    </span>
+                  </div>
                 </div>
-            </div>
-        </li>
-        <li class="dropdown-notifications-list scrollable-container">
-            <ul class="list-group list-group-flush">
-                @forelse (auth()->user()->notifications()->take(10)->get() as $notification)
-                    <li class="list-group-item list-group-item-action dropdown-notifications-item {{ $notification->unread() ? '' : 'marked-as-read' }}" data-id="{{ $notification->id }}">
-                        <a href="javascript:void(0)" class="d-flex w-100 text-decoration-none text-body" onclick="markAsRead('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')">
-                            <div class="d-flex w-100">
-                                <div class="flex-shrink-0 me-3">
-                                    <div class="avatar">
-                                        <span class="avatar-initial rounded-circle bg-label-info">
-                                            <i class="icon-base bx bx-bell"></i>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="small mb-0">{{ $notification->data['message'] ?? 'No Message' }}</h6>
-                                    <small class="text-body-secondary">{{ $notification->created_at->format('Y-m-d H:i') }}</small>
-                                </div>
-                                <div class="flex-shrink-0 dropdown-notifications-actions">
-                                    <a href="javascript:void(0)" class="dropdown-notifications-read" onclick="markAsRead('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')">
-                                        <span class="badge badge-dot bg-success"></span>
-                                    </a>
-                                    <a href="javascript:void(0)" class="dropdown-notifications-archive" data-id="{{ $notification->id }}">
-                                        <span class="icon-base bx bx-x"></span>
-                                    </a>
-                                </div>
-                            </div>
-                        </a>
-                    </li>
-                @empty
-                    <li class="list-group-item list-group-item-action dropdown-notifications-item">
-                        <div class="d-flex">
-                            <div class="flex-grow-1">
-                                <small class="text-body-secondary">No notifications</small>
-                            </div>
-                        </div>
-                    </li>
-                @endforelse
-            </ul>
-        </li>
-        <li class="border-top">
-            <div class="d-grid p-4">
-                <a class="btn btn-primary btn-sm d-flex" href="{{ route('notifications.index') }}">
-                    <small class="align-middle">View all notifications</small>
-                </a>
-            </div>
-        </li>
-    </ul>
+                <div class="flex-grow-1">
+                  <h6 class="small mb-0">{{ $notification->data['message'] ?? 'No Message' }}</h6>
+                  <small class="text-body-secondary">
+                    {{ $notification->created_at->setTimezone('Asia/Kuala_Lumpur')->format('Y-m-d H:i') }}
+                  </small>
+                </div>
+
+                <div class="flex-shrink-0 dropdown-notifications-actions">
+                  <a href="javascript:void(0)" class="dropdown-notifications-read"
+                    onclick="markAsReadKeep('{{ $notification->id }}', this)">
+                    <span class="badge badge-dot bg-success"></span>
+                  </a>
+                  <a href="javascript:void(0)" class="dropdown-notifications-archive"
+                    onclick="archiveNotification('{{ $notification->id }}', this)">
+                    <span class="icon-base bx bx-x"></span>
+                  </a>
+                </div>
+              </div>
+            </a>
+          </li>
+        @empty
+          <li class="list-group-item list-group-item-action dropdown-notifications-item">
+            <div class="d-flex"><div class="flex-grow-1">
+              <small class="text-body-secondary">No unread notifications</small>
+            </div></div>
+          </li>
+        @endforelse
+      </ul>
+    </li>
+
+    <li class="border-top">
+      <div class="d-grid p-4">
+        <a class="btn btn-primary btn-sm d-flex" href="{{ route('notifications.index') }}">
+          <small class="align-middle">View all notifications</small>
+        </a>
+      </div>
+    </li>
+  </ul>
 </li>
 
 <script>
-    function markAsRead(notificationId, redirectUrl) {
-        fetch(`/notifications/${notificationId}/read`, {
-            method: 'PATCH',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ _method: 'PATCH' })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.location.href = redirectUrl;
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    }
+  const CSRF = '{{ csrf_token() }}';
 
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.dropdown-notifications-archive').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.stopPropagation();
-                const id = this.getAttribute('data-id');
-                fetch(`/notifications/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
-                    }
-                }).then(response => {
-                    if (response.ok) {
-                        this.closest('li').remove();
-                        let count = parseInt(document.querySelector('.badge-notifications')?.textContent || 0);
-                        if (count > 0) {
-                            document.querySelector('.badge-notifications').textContent = count - 1;
-                            if (count - 1 === 0) document.querySelector('.badge-notifications').remove();
-                        }
-                    }
-                });
-            });
-        });
+  // Click the message → PATCH, then redirect, and remove from list
+  function markAsReadAndGo(id, url) {
+    fetch(`{{ route('notifications.markAsRead', ['id' => '___ID___']) }}`.replace('___ID___', id), {
+      method: 'PATCH',
+      headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => {
+        // update counter immediately
+        const badge = document.querySelector('.badge-notifications');
+        if (badge) {
+          const next = Math.max(0, (parseInt(badge.textContent || '0', 10) - 1));
+          next ? badge.textContent = next : badge.remove();
+        }
+        // remove item from the dropdown
+        const li = document.querySelector(`li.dropdown-notifications-item[data-id="${id}"]`);
+        li && li.remove();
+        // redirect
+        window.location.href = url || '/';
+      })
+      .catch(() => { /* no alert */ });
+  }
 
-        document.querySelector('.dropdown-notifications-all')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            fetch('{{ route('notifications.markAllAsRead') }}', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Content-Type': 'application/json'
-                }
-            }).then(response => {
-                if (response.ok) {
-                    document.querySelectorAll('.dropdown-notifications-item:not(.marked-as-read)').forEach(item => item.classList.add('marked-as-read'));
-                    document.querySelector('.badge-notifications')?.remove();
-                    document.querySelector('.badge.bg-label-primary')?.remove();
-                }
-            });
-        });
-    });
+  // Click the green dot → PATCH only; keep the item visible
+  function markAsReadKeep(id, dotEl) {
+    event.stopPropagation(); // don’t trigger the outer link
+    fetch(`{{ route('notifications.markAsRead', ['id' => '___ID___']) }}`.replace('___ID___', id), {
+      method: 'PATCH',
+      headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => {
+        // turn the dot to muted and flag the li as read
+        const li = dotEl.closest('li.dropdown-notifications-item');
+        if (li) li.classList.add('marked-as-read');
+
+        const dot = dotEl.querySelector('.badge-dot');
+        if (dot) {
+          dot.classList.remove('bg-success');
+          dot.classList.add('bg-secondary'); // visually “read”
+        }
+
+        // update the bell count
+        const badge = document.querySelector('.badge-notifications');
+        if (badge) {
+          const next = Math.max(0, (parseInt(badge.textContent || '0', 10) - 1));
+          next ? badge.textContent = next : badge.remove();
+        }
+      })
+      .catch(() => { /* no alert */ });
+  }
+
+  // Archive (X) → POST and remove from list
+  function archiveNotification(id, btnEl) {
+    event.stopPropagation();
+    fetch(`{{ route('notifications.archive', ['id' => '___ID___']) }}`.replace('___ID___', id), {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+    }).then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => {
+        const li = btnEl.closest('li.dropdown-notifications-item');
+        li && li.remove();
+      }).catch(() => { /* no alert */ });
+  }
+
+  // Mark all as read
+  document.querySelector('.dropdown-notifications-all')?.addEventListener('click', function(e){
+    e.preventDefault();
+    fetch(`{{ route('notifications.markAllAsRead') }}`, {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+    }).then(() => {
+      document.querySelectorAll('.dropdown-notifications-item').forEach(li => li.remove());
+      document.querySelector('.badge-notifications')?.remove();
+      document.querySelector('.badge.bg-label-primary')?.remove();
+    }).catch(() => {});
+  });
 </script>
 <!--/ Notification -->
 
