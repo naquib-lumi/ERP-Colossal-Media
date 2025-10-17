@@ -14,85 +14,69 @@ class FurnishingController extends Controller
 
     public function dashboard(Request $request)
     {
-        // --- Read filters
-        $cutter         = trim(mb_strtolower((string) $request->get('cutter', '')));
-        $sqMin          = $request->get('sq_min', '');
-        $sqMax          = $request->get('sq_max', '');
-        $deadlineFrom  = $request->filled('deadline_from')
-            ? optional(Carbon::parse($request->input('deadline_from')))->toDateString()
-            : null;
-        $deadlineTo    = $request->filled('deadline_to')
-            ? optional(Carbon::parse($request->input('deadline_to')))->toDateString()
-            : null;
+        // Filters (same pattern as printing)
+        $q       = trim((string) $request->get('q', ''));          // unified keyword (cutter/order/company/product)
+        $artist  = trim((string) $request->get('artist', ''));     // artist dropdown
 
-        $submittedFrom = $request->filled('submitted_from')
-            ? optional(Carbon::parse($request->input('submitted_from')))->toDateString()
-            : null;
-        $submittedTo   = $request->filled('submitted_to')
-            ? optional(Carbon::parse($request->input('submitted_to')))->toDateString()
-            : null;
+        $readDate = function (?string $v): ?string {
+            if (!$v) return null;
+            try { return \Carbon\Carbon::parse($v)->toDateString(); }
+            catch (\Throwable $e) {
+                if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $v, $m)) {
+                    return "{$m[3]}-".str_pad($m[1],2,'0',STR_PAD_LEFT)."-".str_pad($m[2],2,'0',STR_PAD_LEFT);
+                }
+                return null;
+            }
+        };
 
-        // We'll reuse this SQL in SELECT and HAVING
-        $sqExprSql = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))';
+        $dlStart = $readDate($request->get('deadline_from'));
+        $dlEnd   = $readDate($request->get('deadline_to'));
+        $sbStart = $readDate($request->get('submitted_from'));
+        $sbEnd   = $readDate($request->get('submitted_to'));
+
+        $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))'; // display only
 
         $jobs = DB::table('products as p')
             ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
             ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
             ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
-
-            // sensible statuses
             ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
-
-            // exclude already completed furnishing in fulfillment_progress
-            ->whereNotExists(function ($q) {
-                $q->select(DB::raw(1))
+            // exclude already completed furnishing
+            ->whereNotExists(function ($q2) {
+                $q2->select(DB::raw(1))
                 ->from('fulfillment_progress as fp')
                 ->whereColumn('fp.ProductID', 'p.ProductID')
                 ->where('fp.stage', 'furnishing')
                 ->where('fp.status', 'completed');
             })
 
-            // --- Filters (WHERE) ---
-            // cutter (case-insensitive)
-            ->when($cutter !== '', function ($qb) use ($cutter) {
-                $qb->whereRaw('LOWER(s.cutter) LIKE ?', ['%'.$cutter.'%']);
+            // Unified keyword search: cutter + order title + company name + product name
+            ->when($q !== '', function ($qb) use ($q) {
+                $like = '%'.$q.'%';
+                $qb->where(function ($w) use ($like) {
+                    $w->where('s.cutter', 'like', $like)
+                    ->orWhere('o.orderTitle', 'like', $like)
+                    ->orWhere('o.companyName', 'like', $like)
+                    ->orWhere('p.productName', 'like', $like);
+                });
             })
 
-            // DEADLINE range (orders.deadline)
-            ->when($deadlineFrom && $deadlineTo, function ($qb) use ($deadlineFrom, $deadlineTo) {
-                $qb->whereBetween('o.deadline', [$deadlineFrom, $deadlineTo]);
-            })
-            ->when($deadlineFrom && !$deadlineTo, function ($qb) use ($deadlineFrom) {
-                $qb->whereDate('o.deadline', '>=', $deadlineFrom);
-            })
-            ->when(!$deadlineFrom && $deadlineTo, function ($qb) use ($deadlineTo) {
-                $qb->whereDate('o.deadline', '<=', $deadlineTo);
-            })
+            // Artist filter (orders.artist_id)
+            ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', (int) $artist))
 
-            // SUBMITTED range (products.updated_at)
-            ->when($submittedFrom && $submittedTo, function ($qb) use ($submittedFrom, $submittedTo) {
-                $qb->whereBetween('p.updated_at', [$submittedFrom, $submittedTo]);
-            })
-            ->when($submittedFrom && !$submittedTo, function ($qb) use ($submittedFrom) {
-                $qb->whereDate('p.updated_at', '>=', $submittedFrom);
-            })
-            ->when(!$submittedFrom && $submittedTo, function ($qb) use ($submittedTo) {
-                $qb->whereDate('p.updated_at', '<=', $submittedTo);
-            })
+            // Deadline (DATE)
+            ->when($dlStart && $dlEnd, fn($q) => $q->whereBetween('o.deadline', [$dlStart, $dlEnd]))
+            ->when($dlStart && !$dlEnd, fn($q) => $q->whereDate('o.deadline', '>=', $dlStart))
+            ->when(!$dlStart && $dlEnd, fn($q) => $q->whereDate('o.deadline', '<=', $dlEnd))
 
-            // group for aggregates
-            ->groupBy(
-                'p.ProductID',
-                'p.updated_at',
-                'p.status',
-                'p.taskType',
-                'o.id',
-                'o.order_number',
-                'o.deadline',
-                'p.accepted'
-            )
+            // Submission (DATE(p.updated_at))
+            ->when($sbStart && $sbEnd, fn($q) => $q->whereBetween(DB::raw('DATE(p.updated_at)'), [$sbStart, $sbEnd]))
+            ->when($sbStart && !$sbEnd, fn($q) => $q->whereDate('p.updated_at', '>=', $sbStart))
+            ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
 
-            // select
+            ->groupBy('p.ProductID', 'p.updated_at', 'p.status', 'p.taskType',
+                    'o.id', 'o.order_number', 'o.deadline', 'o.orderDate', 'o.created_at', 'p.accepted')
+
             ->select([
                 'p.ProductID',
                 'p.updated_at as submission_date',
@@ -101,37 +85,74 @@ class FurnishingController extends Controller
                 'o.id as order_id',
                 'o.order_number',
                 'o.deadline',
-
-                DB::raw("$sqExprSql as sq_inch"),
-
-                // pick one non-empty cutter across items; fallback "—"
+                DB::raw("$sqExpr as sq_inch"),
                 DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.cutter, '')), ''), '—') as cutter"),
-
-                DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
+                // New format: #ORD-YYYY-OOO-PXXXX  (year from orderDate or created_at)
+                DB::raw("
+                    CONCAT(
+                        '#ORD-',
+                        LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
+                        '-',
+                        LPAD(o.id, 3, '0'),
+                        '-P',
+                        LPAD(p.ProductID, 4, '0')
+                    ) as product_code
+                "),
                 DB::raw('COALESCE(p.accepted, 0) as accepted'),
-            ])
+            ]);
 
-            // sq inch range must be in HAVING (aggregate)
-            ->when($sqMin !== '', fn($qb) => $qb->havingRaw("$sqExprSql >= ?", [(float)$sqMin]))
-            ->when($sqMax !== '', fn($qb) => $qb->havingRaw("$sqExprSql <= ?", [(float)$sqMax]))
+            $sort = (string) $request->get('sort', 'deadline_nearest');
 
-            ->orderBy('o.id')
-            ->orderBy('p.ProductID')
-            ->paginate(10)
-            ->appends($request->query()); // keep filters on pagination links
+            switch ($sort) {
+                case 'deadline_furthest':
+                    // Furthest deadline from today (NULLs last)
+                    $jobs->orderByRaw('o.deadline IS NULL')
+                        ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) DESC')
+                        ->orderBy('o.deadline', 'asc')
+                        ->orderBy('o.id')->orderBy('p.ProductID');
+                    break;
+
+                case 'submitted_nearest':
+                    // Nearest submission date to today
+                    $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
+                        ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) ASC')
+                        ->orderBy('p.updated_at', 'asc')
+                        ->orderBy('o.id')->orderBy('p.ProductID');
+                    break;
+
+                case 'submitted_furthest':
+                    // Furthest submission date from today
+                    $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
+                        ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) DESC')
+                        ->orderBy('p.updated_at', 'asc')
+                        ->orderBy('o.id')->orderBy('p.ProductID');
+                    break;
+
+                case 'deadline_nearest':
+                default:
+                    // Nearest deadline to today (default)
+                    $jobs->orderByRaw('o.deadline IS NULL')
+                        ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) ASC')
+                        ->orderBy('o.deadline', 'asc')
+                        ->orderBy('o.id')->orderBy('p.ProductID');
+                    break;
+            }
+
+            $jobs = $jobs->paginate(10)->appends($request->query());
 
         // KPIs
-        $inProgress = DB::table('products')
-            ->where('status', 'in_progress')
-            ->where('taskType', 'furnishing')
-            ->count();
+        $inProgress = DB::table('products')->where('status','in_progress')->where('taskType','furnishing')->count();
+        $completed  = DB::table('fulfillment_progress')->where('stage','furnishing')->where('status','completed')->count();
 
-        $completed = DB::table('fulfillment_progress')
-            ->where('stage', 'furnishing')
-            ->where('status', 'completed')
-            ->count();
+        // Artist dropdown (same approach as printing)
+        $artists = DB::table('users as u')
+            ->select('u.id','u.name')
+            ->whereIn('u.id', function ($sub) {
+                $sub->from('orders as o')->select('o.artist_id')->whereNotNull('o.artist_id');
+            })
+            ->orderBy('u.name')->get();
 
-        return view('furnishing.dashboard', compact('jobs', 'inProgress', 'completed'));
+        return view('furnishing.dashboard', compact('jobs','inProgress','completed','artists'));
     }
 
     // Dashboard 勾确认：把该产品置为 completed（保持 taskType=furnishing）
