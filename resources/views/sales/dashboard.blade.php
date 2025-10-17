@@ -32,12 +32,21 @@
                             <strong> {{ $rejectCount }}</strong>
                         </div>
 
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="d-flex align-items-center">
                                 <div class="me-2" style="width: 16px; height: 16px; background-color: #ff9f43;"></div>
                                 <span>Follow Up</span>
                             </div>
                             <strong>{{ $followupCount }}</strong>
+                        </div>
+
+                        <!-- ✅ 新增：Meeting 统计（蓝色） -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="me-2" style="width: 16px; height: 16px; background-color: #3B82F6;"></div>
+                                <span>Meeting</span>
+                            </div>
+                            <strong>{{ $meetingCount }}</strong>
                         </div>
                     </div>
 
@@ -210,7 +219,8 @@
                         show: false
                     }
                 },
-                series: [{
+                series: [
+                    {
                         name: 'Accepted/Month',
                         data: @json(array_slice($acceptCounts, 0, $currentMonth))
                     },
@@ -221,6 +231,10 @@
                     {
                         name: 'FollowUp/Month',
                         data: @json(array_slice($followupCounts, 0, $currentMonth))
+                    },
+                    {
+                        name: 'Meeting/Month',
+                        data: @json(array_slice($meetingCounts, 0, $currentMonth))
                     }
                 ],
                 plotOptions: {
@@ -245,8 +259,8 @@
                 legend: {
                     show: false
                 },
-                colors: ['#28c76f', '#000000', '#ff9f43'], // Accepted, Rejected (black), Follow Up
-
+                // ✅ 颜色列表追加蓝色（与上方统计色一致）
+                colors: ['#28c76f', '#000000', '#ff9f43', '#3B82F6'],
 
                 fill: {
                     opacity: 1
@@ -280,7 +294,8 @@
                 yaxis: {
                     show: false
                 },
-                responsive: [{
+                responsive: [
+                    {
                         breakpoint: 1440,
                         options: {
                             plotOptions: {
