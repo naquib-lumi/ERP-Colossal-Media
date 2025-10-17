@@ -144,15 +144,15 @@
 
   /* Node positions */
   .dot.p1 {
-    left: 12.5%
+    left: 8%
   }
 
   .dot.p2 {
-    left: 37.5%
+    left: 35%
   }
 
   .dot.p3 {
-    left: 62.5%
+    left: 60%
   }
 
   .dot.p4 {
@@ -268,6 +268,17 @@
     box-shadow: 0 6px 18px rgba(22,163,74,.22);
   }
   .cx-footer .btn.btn-accept:hover { background: #15803d; }
+
+  .filter-card .has-icon .input-group-text{ background:#fff }
+  .filter-card .input-group-text i{ color:#7b8191 }
+  .filter-card .form-control,
+  .filter-card .form-select{
+    border-color:#e6e8f0; border-radius:10px;
+  }
+  .filter-card .form-control:focus,
+  .filter-card .form-select:focus{
+    border-color:#bfc6ff; box-shadow:0 0 0 .15rem rgba(99,91,255,.12);
+  }
 </style>
 
 <div class="container-fluid py-4 px-4" style="max-width:1200px;margin:0 auto">
@@ -294,6 +305,79 @@
       </div>
     </div>
   </div>
+
+{{-- Filter & search toolbar --}}
+<div class="card shadow-soft mb-3 filter-card">
+  <div class="card-body">
+    <div class="d-flex align-items-center mb-3">
+      <h6 class="mb-0 fw-semibold">Installation Jobs</h6>
+      <span class="text-muted small ms-2">Filter &amp; search</span>
+    </div>
+
+    <form class="row g-3 align-items-end" method="GET" action="{{ route('installation.dashboard') }}">
+      {{-- Product ID (server-side, all pages) --}}
+      <div class="col-12 col-md-6 col-lg-3">
+        <label class="form-label">Search Product ID</label>
+        <div class="input-group input-group-sm has-icon">
+          <span class="input-group-text"><i class="bi bi-hash"></i></span>
+          <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="e.g. 49 or P0049">
+        </div>
+      </div>
+
+      {{-- Keyword: Order title / Company name / Product name --}}
+      <div class="col-12 col-md-6 col-lg-4">
+        <label class="form-label">Search</label>
+        <div class="input-group input-group-sm has-icon">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" name="q" value="{{ request('q', $q ?? '') }}" class="form-control"
+                 placeholder="Order title, Company name, or Product name">
+        </div>
+      </div>
+
+      {{-- Artist --}}
+      <div class="col-12 col-md-6 col-lg-3">
+        <label class="form-label">Artist</label>
+        <div class="input-group input-group-sm has-icon">
+          <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+          <select name="artist" class="form-select">
+            <option value="">All artists</option>
+            @foreach (($artists ?? []) as $a)
+              <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist', $artist ?? '') ? 'selected' : '' }}>
+                {{ $a->name }}
+              </option>
+            @endforeach
+          </select>
+        </div>
+      </div>
+
+      {{-- Deadline range --}}
+      <div class="col-6 col-md-4 col-lg-2">
+        <label class="form-label">Deadline From</label>
+        <div class="input-group input-group-sm has-icon">
+          <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+          <input type="date" name="deadline_from" value="{{ request('deadline_from', $deadline_from ?? '') }}" class="form-control">
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <label class="form-label">Deadline To</label>
+        <div class="input-group input-group-sm has-icon">
+          <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
+          <input type="date" name="deadline_to" value="{{ request('deadline_to', $deadline_to ?? '') }}" class="form-control">
+        </div>
+      </div>
+
+      {{-- Actions --}}
+      <div class="col-12 col-lg-4 ms-auto d-flex gap-2 justify-content-end">
+        <a href="{{ route('installation.dashboard') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+        </a>
+        <button class="btn btn-dark">
+          <i class="bi bi-funnel me-1"></i> Apply Filter
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
   {{-- Production Status --}}
   <div class="card border-0 shadow-sm">
@@ -323,8 +407,33 @@
               <th>FURNISHING</th>
               <th>DISPATCH CONTROL</th>
               <th>DELIVERY & INSTALLATION</th>
-              <th>DATE IN</th>
-              <th>DEADLINE</th>
+              <th>
+                @php
+                  $isDateIn   = request('sort_by') === 'date_in';
+                  $nextModeDI = $isDateIn && request('sort_mode') === 'near' ? 'far' : 'near';
+                @endphp
+                <a class="text-decoration-none text-dark"
+                  href="{{ request()->fullUrlWithQuery(['sort_by' => 'date_in', 'sort_mode' => $nextModeDI, 'page' => 1]) }}">
+                  DATE IN
+                  @if($isDateIn)
+                    <span class="badge bg-light text-muted ms-1">{{ strtoupper(request('sort_mode','near')) }}</span>
+                  @endif
+                </a>
+              </th>
+
+              <th>
+                @php
+                  $isDeadline   = request('sort_by') === 'deadline';
+                  $nextModeDL   = $isDeadline && request('sort_mode') === 'near' ? 'far' : 'near';
+                @endphp
+                <a class="text-decoration-none text-dark"
+                  href="{{ request()->fullUrlWithQuery(['sort_by' => 'deadline', 'sort_mode' => $nextModeDL, 'page' => 1]) }}">
+                  DEADLINE
+                  @if($isDeadline)
+                    <span class="badge bg-light text-muted ms-1">{{ strtoupper(request('sort_mode','near')) }}</span>
+                  @endif
+                </a>
+              </th>
               <th class="text-center">ACTIONS</th>
             </tr>
           </thead>
@@ -333,7 +442,7 @@
             @php
             // constant maps
             $STAGES = ['printing','furnishing','delivery','installation'];
-            $POS = ['printing'=>12.5,'furnishing'=>37.5,'delivery'=>62.5,'installation'=>87.5];
+            $POS = ['printing'=>8,'furnishing'=>35,'delivery'=>60,'installation'=>87.5];
             $DOT = ['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
             // helper to render a dot class or skip entirely if stage missing
             $dotClass = function(array $p, string $stage) use ($DOT) {
@@ -349,7 +458,7 @@
             @forelse ($rows as $r)
               @php
                 $STAGES = ['printing','furnishing','delivery','installation'];
-                $POS = ['printing'=>12.5,'furnishing'=>37.5,'delivery'=>62.5,'installation'=>87.5];
+                $POS = ['printing'=>8,'furnishing'=>35,'delivery'=>60,'installation'=>87.5];
                 $DOT = ['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
 
                 $currentStage = $r['current_stage'] ?? null; // from products.taskType
@@ -401,7 +510,7 @@
                 
               @endphp
 
-              <tr id="job-{{ $r['ProductID'] }}">
+              <tr data-id="{{ $r['ProductID'] }}" class="clickable-row" style="cursor: pointer;">
                 <td>{{ $r['product_code'] }}</td>
                 <td colspan="4">
                   <div class="pipeline" style="--start:{{ $start }}%; --end:{{ $end }}%;">
@@ -547,6 +656,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Move input into form (it already is), submit
     form.appendChild(files);
     form.submit();
+  });
+});
+
+(() => {
+  const input = document.getElementById('pidFilter');
+  const tbody = document.querySelector('.table-progress tbody');
+  if (!input || !tbody) return;
+  input.addEventListener('input', function(){
+    const q = (this.value || '').trim().toLowerCase();
+    tbody.querySelectorAll('tr').forEach(tr => {
+      const txt = (tr.querySelector('td')?.textContent || '').toLowerCase();
+      tr.style.display = q && !txt.includes(q) ? 'none' : '';
+    });
+  });
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.clickable-row').forEach(row => {
+    row.addEventListener('dblclick', () => {
+      const id = row.dataset.id;
+      if (id) {
+        window.location.href = `/installation/job/${id}`;
+      }
+    });
   });
 });
 </script>

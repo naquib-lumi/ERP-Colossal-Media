@@ -24,10 +24,29 @@ class InstallationController extends Controller
             'issue'       => 'Issue',
         ];
 
-        $search  = trim((string) $request->query('q', ''));
+        // NEW: unified filter inputs
+        $pid     = trim((string) $request->query('pid', ''));      // Product ID (all pages)
+        $q       = trim((string) $request->query('q', ''));        // keyword: orderTitle/companyName/productName
+        $artist  = trim((string) $request->query('artist', ''));   // orders.artist_id
+        $dFrom   = trim((string) $request->query('deadline_from', ''));
+        $dTo     = trim((string) $request->query('deadline_to', ''));
+
+        // Keep your existing params too
+        $search  = $q;                                             // keep name used in view, but uses new 'q'
         $status  = $request->query('status', 'all');
 
-        // 1) Pull all rows we need
+        // Date parser (yyyy-mm-dd from <input type="date">)
+        $toYmd = static function (?string $v): ?string {
+            if (!$v) return null;
+            try { return \Carbon\Carbon::parse($v)->toDateString(); } catch (\Throwable $e) { return null; }
+        };
+        $dFromY = $toYmd($dFrom);
+        $dToY   = $toYmd($dTo);
+
+        // Optional: artists for dropdown (doesn't change your other logic)
+        $artists = DB::table('users')->select('id','name')->orderBy('name')->get();
+
+        // 1) Pull all rows we need  (ADD orderTitle/companyName/artist_id for filter)
         $rows = DB::table('products as p')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
             ->leftJoin('fulfillment_progress as fp', 'fp.ProductID', '=', 'p.ProductID')
@@ -40,6 +59,9 @@ class InstallationController extends Controller
                 'o.order_number',
                 'o.orderDate',
                 'o.deadline',
+                'o.orderTitle',      // NEW
+                'o.companyName',     // NEW
+                'o.artist_id',       // NEW
                 'fp.stage',
                 'fp.status as stage_status',
                 'fp.acceptedAt',
@@ -50,22 +72,24 @@ class InstallationController extends Controller
             ->orderBy('p.ProductID')
             ->get();
 
-        // 2) Reduce to "latest row per stage" for each product
+        // 2) Reduce to "latest row per stage" for each product  (UNCHANGED)
         $byProduct = [];
         foreach ($rows as $r) {
-            $pid = $r->ProductID;
-            if (!isset($byProduct[$pid])) {
-                // null-safe lowercasing for current stage/status
+            $pidKey = $r->ProductID;
+            if (!isset($byProduct[$pidKey])) {
                 $curStage  = $r->current_stage ?? null;
                 $curStatus = $r->current_status ?? null;
 
-                $byProduct[$pid] = [
-                    'ProductID'       => $pid,
+                $byProduct[$pidKey] = [
+                    'ProductID'       => $pidKey,
                     'productName'     => $r->productName,
                     'OrderID'         => $r->OrderID,
                     'order_number'    => $r->order_number,
                     'orderDate'       => $r->orderDate,
                     'deadline'        => $r->deadline,
+                    'orderTitle'      => $r->orderTitle,     // keep for search
+                    'companyName'     => $r->companyName,    // keep for search
+                    'artist_id'       => $r->artist_id,      // keep for filter
                     'stages'          => [],
                     'current_stage'   => $curStage  ? strtolower($curStage)  : null,
                     'current_status'  => $curStatus ? strtolower($curStatus) : null,
@@ -73,16 +97,14 @@ class InstallationController extends Controller
                 ];
             }
 
-            if (!$r->stage) {
-                continue;
-            }
+            if (!$r->stage) continue;
 
             $k    = strtolower(trim($r->stage)); // printing|furnishing|delivery|installation
             $rank = $r->completedAt ?? $r->acceptedAt ?? $r->fp_created_at;
-            $cur  = $byProduct[$pid]['stages'][$k]['_rank'] ?? null;
+            $cur  = $byProduct[$pidKey]['stages'][$k]['_rank'] ?? null;
 
             if (!$cur || $rank > $cur) {
-                $byProduct[$pid]['stages'][$k] = [
+                $byProduct[$pidKey]['stages'][$k] = [
                     'status' => strtolower((string)$r->stage_status), // completed|rejected|in_progress|null
                     'done'   => $r->completedAt,
                     '_rank'  => $rank,
@@ -90,7 +112,7 @@ class InstallationController extends Controller
             }
         }
 
-        // 3) Convert to list, compute product code and progress width (for sorting)
+        // 3) Convert to list, compute product code and progress width (UNCHANGED)
         $STAGES    = ['printing', 'furnishing', 'delivery', 'installation'];
         $positions = [12.5, 37.5, 62.5, 87.5];
 
@@ -120,51 +142,128 @@ class InstallationController extends Controller
 
             $p['progress'] = $progressWidth($p);
 
-            // installation completed flag for UI
             $instStatus = $p['stages']['installation']['status'] ?? null;
             $p['installation_completed'] = $instStatus === 'completed' ? 1 : 0;
 
-            // KPI: (installation completed => completed)
             if ($instStatus === 'completed') $completed++;
             else $inProgress++;
 
             $list[] = $p;
         }
 
-        // 4) Search filter (optional)
-        if ($search !== '') {
-            $needle = mb_strtolower($search);
+        // 4) NEW FILTERS (server-side, BEFORE paginate)
+
+        // 4a) Product ID / Code (pid)
+        if ($pid !== '') {
+            $needle = mb_strtolower($pid);
             $list = array_values(array_filter($list, function ($p) use ($needle) {
-                return str_contains(mb_strtolower($p['productName'] ?? ''), $needle)
-                    || str_contains(mb_strtolower($p['order_number'] ?? ''), $needle)
-                    || str_contains((string)$p['ProductID'], $needle);
+                $code = mb_strtolower((string)($p['product_code'] ?? ''));
+                return str_contains((string)($p['ProductID'] ?? ''), $needle) || str_contains($code, $needle);
             }));
         }
 
-        // 5) Sort by lesser progress FIRST (ascending)
+        // 4b) Keyword: Order Title / Company Name / Product Name
+        if ($q !== '') {
+            $needle = mb_strtolower($q);
+            $list = array_values(array_filter($list, function ($p) use ($needle) {
+                return str_contains(mb_strtolower($p['orderTitle']  ?? ''), $needle)
+                    || str_contains(mb_strtolower($p['companyName'] ?? ''), $needle)
+                    || str_contains(mb_strtolower($p['productName'] ?? ''), $needle);
+            }));
+        }
+
+        // 4c) Artist (orders.artist_id)
+        if ($artist !== '') {
+            $list = array_values(array_filter($list, function ($p) use ($artist) {
+                return (string)($p['artist_id'] ?? '') === (string)$artist;
+            }));
+        }
+
+        // 4d) Deadline range (orders.deadline)
+        if ($dFromY || $dToY) {
+            $fromTS = $dFromY ? strtotime($dFromY) : null;
+            $toTS   = $dToY   ? strtotime($dToY)   : null;
+            $list = array_values(array_filter($list, function ($p) use ($fromTS, $toTS) {
+                $d = $p['deadline'] ?? null;
+                if (!$d) return false;
+                $ts = strtotime($d);
+                if ($fromTS && $ts < $fromTS) return false;
+                if ($toTS   && $ts > $toTS)   return false;
+                return true;
+            }));
+        }
+
+        // 5) Sort by lesser progress FIRST (ascending)  (UNCHANGED)
         usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
 
-        // 6) Paginate manually (10 per page)
-        $perPage = 10; // <-- was 1000
+        // 6) Paginate manually (10 per page)  (UNCHANGED)
+        // $perPage = 10;
+        // $page    = max(1, (int)$request->query('page', 1));
+        // $total   = count($list);
+        // $items   = array_slice($list, ($page - 1) * $perPage, $perPage);
+
+        // $rowsPaginated = new LengthAwarePaginator(
+        //     $items, $total, $perPage, $page,
+        //     ['path' => $request->url(), 'query' => $request->query()]
+        // );
+
+        $sortBy   = $request->query('sort_by', '');       // 'deadline' | 'date_in' | ''
+        $sortMode = $request->query('sort_mode', 'near'); // 'near' | 'far' (proximity to today)
+
+        if (in_array($sortBy, ['deadline', 'date_in'], true)) {
+            // Proximity sort to TODAY (nearest/furthest)
+            $today = new \DateTimeImmutable('today');
+
+            $getDate = static function(array $row, string $key) {
+                $raw = $row[$key] ?? null;
+                if (!$raw) return null;
+                try { return new \DateTimeImmutable($raw); } catch (\Throwable $e) { return null; }
+            };
+            $distance = static function (? \DateTimeImmutable $d, \DateTimeImmutable $t): int {
+                if (!$d) return PHP_INT_MAX; // missing dates go last/farthest
+                return abs((int)$d->format('U') - (int)$t->format('U'));
+            };
+
+            $key = $sortBy === 'deadline' ? 'deadline' : 'orderDate';
+
+            usort($list, function ($a, $b) use ($today, $getDate, $distance, $key, $sortMode) {
+                $ad = $getDate($a, $key); $bd = $getDate($b, $key);
+                $da = $distance($ad, $today);
+                $db = $distance($bd, $today);
+                $cmp = $da <=> $db; // smaller distance = nearer
+                return $sortMode === 'far' ? -$cmp : $cmp;
+            });
+
+        } else {
+            // Default: least progress first (what you had before)
+            usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
+        }
+
+        $perPage = 10;
         $page    = max(1, (int)$request->query('page', 1));
         $total   = count($list);
         $items   = array_slice($list, ($page - 1) * $perPage, $perPage);
 
-        $rowsPaginated = new LengthAwarePaginator(
-            $items,
-            $total,
-            $perPage,
-            $page,
+        $rowsPaginated = new \Illuminate\Pagination\LengthAwarePaginator(
+            $items, $total, $perPage, $page,
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
         return view('installation.dashboard', [
-            'statuses'   => $statuses,
-            'search'     => $search,
-            'status'     => $status,
-            'inProgress' => $inProgress,
-            'completed'  => $completed,
-            'rows'       => $rowsPaginated,
+            'statuses'      => $statuses,
+            'search'        => $search,         // keep original name for your blade
+            'status'        => $status,
+            'inProgress'    => $inProgress,
+            'completed'     => $completed,
+            'rows'          => $rowsPaginated,
+
+            // expose filters & artists to the view
+            'pid'           => $pid,
+            'q'             => $q,
+            'artist'        => $artist,
+            'deadline_from' => $dFromY,
+            'deadline_to'   => $dToY,
+            'artists'       => $artists,
         ]);
     }
 
