@@ -2,14 +2,14 @@
 
 @section('title', 'Dashboard Overview')
 @section('content')
-<div class="container">
-    <div class="row mb-4">
+<div class="container-fluid">
+    <div class="row mb-4 align-items-center">
         <div class="col">
             <h2>Dashboard Overview</h2>
-            <p>Last updated: {{ $lastUpdated }}</p>
+            <p class="text-muted">Last updated: {{ $lastUpdated }}</p>
         </div>
         <div class="col-auto">
-            <select class="form-select" onchange="location = this.value;">
+            <select class="form-select form-select-sm" onchange="location = this.value;">
                 <option value="?period=this_month" {{ $period == 'this_month' ? 'selected' : '' }}>This Month</option>
                 <option value="?period=this_year" {{ $period == 'this_year' ? 'selected' : '' }}>This Year</option>
                 <option value="?period=last_month" {{ $period == 'last_month' ? 'selected' : '' }}>Last Month</option>
@@ -18,70 +18,119 @@
         </div>
     </div>
 
-    <div class="row mb-4">
-        <div class="col-md-2">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h5>Order to Assign</h5>
-                    <h3>24</h3>
+   <div class="row mb-4 g-3">
+    <div class="col-md-3">
+        <div class="card h-100 border-0 shadow-sm text-center bg-white rounded-3">
+            <div class="card-body d-flex justify-content-between align-items-center p-3">
+                <div class="text-start">
+                    <h6 class="mb-1 text-muted">Orders to Assign</h6>
+                    <h3 class="mb-0 text-dark">{{ $ordersToAssign }}</h3>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h5>Total Orders</h5>
-                    <h3>156</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h5>In Progress Orders</h5>
-                    <h3>{{ $inProgressCount }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h5>Completed Orders</h5>
-                    <h3>{{ $completedCount }}</h3>
+                <div class="bg-light rounded-circle p-2">
+                    <i class="fas fa-puzzle-piece text-dark"></i>
                 </div>
             </div>
         </div>
     </div>
-
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">Orders In Progress</div>
-                <div class="card-body">
-                    @foreach($inProgressOrders as $order)
-                    <div class="mb-3">
-                        <strong>#{{ $order->order_number }}</strong><br>
-                        {{ $order->orderTitle }}<br>
-                        {{ $order->getStatusLabelAttribute() }}<br>
-                        Due: {{ $order->deadline ? $order->deadline->format('M d, Y') : 'N/A' }}<br>
-                        Assigned to: {{ $order->artist->name ?? 'N/A' }}
-                    </div>
-                    @endforeach
+    <div class="col-md-3">
+        <div class="card h-100 border-0 shadow-sm text-center bg-white rounded-3">
+            <div class="card-body d-flex justify-content-between align-items-center p-3">
+                <div class="text-start">
+                    <h6 class="mb-1 text-muted">Total Orders</h6>
+                    <h3 class="mb-0 text-dark">{{ $totalOrders }}</h3>
+                </div>
+                <div class="bg-light rounded-circle p-2">
+                    <i class="fas fa-clipboard text-dark"></i>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">Recent Completed Orders</div>
-                <div class="card-body">
-                    @foreach($completedOrders as $order)
-                    <div class="mb-3">
-                        <strong>#{{ $order->order_number }}</strong><br>
-                        {{ $order->orderTitle }}<br>
-                        Completed<br>
-                        {{ $order->updated_at->format('M d, Y') }}<br>
-                        Completed by: {{ $order->artist->name ?? 'N/A' }}
-                    </div>
-                    @endforeach
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 border-0 shadow-sm text-center bg-white rounded-3">
+            <div class="card-body d-flex justify-content-between align-items-center p-3">
+                <div class="text-start">
+                    <h6 class="mb-1 text-muted">In Progress Orders</h6>
+                    <h3 class="mb-0 text-dark">{{ $inProgressCount }}</h3>
                 </div>
+                <div class="bg-light rounded-circle p-2">
+                    <i class="fas fa-spinner text-dark"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 border-0 shadow-sm text-center bg-white rounded-3">
+            <div class="card-body d-flex justify-content-between align-items-center p-3">
+                <div class="text-start">
+                    <h6 class="mb-1 text-muted">Completed Orders</h6>
+                    <h3 class="mb-0 text-dark">{{ $completedCount }}</h3>
+                </div>
+                <div class="bg-light rounded-circle p-2">
+                    <i class="fas fa-check text-dark"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header  text-white">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Orders In Progress</h5>
+                </div>
+                <div class="card-body">
+                    @forelse($inProgressOrders as $order)
+                        <div class="card mb-2 border-0 bg-light">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ $order->order_number }}</h6>
+                                        <p class="mb-1 small text-muted">{{ $order->orderTitle }}</p>
+                                         <p class="mb-0 small">Assigned To: {{ $order->artist?->name ?? 'N/A' }}</p>
+                                        
+                                    </div>
+                                    <div class="text-end">
+                                       <span class="badge bg-secondary">{{ $order->getStatusLabelAttribute() }}</span>
+                                        <p class="mb-1 small text-dark fw-bold">Due: {{ $order->deadline ? $order->deadline->format('M d, Y') : 'N/A' }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-center text-muted">No orders in progress.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header  text-white">
+                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Recent Completed Order</h5>
+                </div>
+                <div class="card-body">
+                    @forelse($completedOrders as $order)
+                        <div class="card mb-2 border-0 bg-light">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ $order->order_number }}</h6>
+                                        <p class="mb-1 small text-muted">{{ $order->orderTitle }}</p>
+                                           <p class="mb-0 small">Completed By: {{ $order->artist?->name ?? 'N/A' }}</p>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-secondary">{{ $order->getStatusLabelAttribute() }}</span>
+                                        <p class="mb-1 small text-dark fw-bold">{{ $order->updated_at->format('M d, Y') }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-center text-muted">No completed orders.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
