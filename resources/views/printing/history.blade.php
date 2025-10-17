@@ -124,6 +124,18 @@
     position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
     color: #7b8191; pointer-events: none;
   }
+
+  .table.fixed{table-layout:fixed}
+  .table.fixed .col-id{width:220px}
+  .table.fixed .col-name{width:28%}
+  .table.fixed .col-date{width:170px}
+  .table.fixed .col-remarks{width:18%}  /* smaller */
+  .table.fixed .col-actions{width:120px;text-align:center}
+
+  .th-sort{ text-decoration:none; color:inherit; user-select:none; }
+  .th-sort:hover{ text-decoration:underline; }
+  .th-sort.is-active{ font-weight:700; }
+  .sort-caret{ opacity:.6; margin-left:.25rem; }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -132,63 +144,63 @@
 
     {{-- Toolbar --}}
     <div class="card history-filter shadow-soft mb-3">
-  <form method="GET" action="{{ route('printing.history') }}">
-    <div class="card-body toolbar">
-      {{-- Quick Product ID (page filter) --}}
-      <div class="with-icon grow">
-        <i class="bi bi-hash"></i>
-        <input id="pidFilter" type="text" class="form-control" placeholder="Enter Product ID">
-      </div>
+      <form method="GET" action="{{ route('printing.history') }}">
+        <div class="card-body toolbar">
+          {{-- Quick Product ID (page filter) --}}
+          <div class="with-icon grow">
+            <i class="bi bi-hash"></i>
+            <input id="pidFilter" type="text" class="form-control" placeholder="Enter Product ID">
+          </div>
 
-      {{-- Main search --}}
-      <div class="with-icon grow">
-        <i class="bi bi-search"></i>
-        <input
-          type="text"
-          name="q"
-          value="{{ $q ?? '' }}"
-          class="form-control"
-          placeholder="Search by Product Name or Remarks">
-      </div>
+          {{-- Main search --}}
+          <div class="with-icon grow">
+            <i class="bi bi-search"></i>
+            <input
+              type="text"
+              name="q"
+              value="{{ $q ?? '' }}"
+              class="form-control"
+              placeholder="Search by Order Title, Company, Product, Remarks">
+          </div>
 
-      {{-- Artist Filter --}}
-      <div class="with-icon artist-select">
-        <i class="bi bi-person-badge"></i>
-        <select name="artist" class="form-select">
-          <option value="">All artists</option>
-          @foreach (($artists ?? []) as $a)
-            <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist') ? 'selected' : '' }}>
-              {{ $a->name }}
-            </option>
-          @endforeach
-        </select>
-      </div>
+          {{-- Artist Filter --}}
+          <div class="with-icon artist-select">
+            <i class="bi bi-person-badge"></i>
+            <select name="artist" class="form-select">
+              <option value="">All artists</option>
+              @foreach (($artists ?? []) as $a)
+                <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist') ? 'selected' : '' }}>
+                  {{ $a->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
 
-      {{-- Dates --}}
-      <div class="dates">
-        <div class="with-icon">
-          <i class="bi bi-calendar-event"></i>
-          <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
+          {{-- Dates --}}
+          <div class="dates">
+            <div class="with-icon">
+              <i class="bi bi-calendar-event"></i>
+              <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
+            </div>
+            <span class="text-muted">to</span>
+            <div class="with-icon">
+              <i class="bi bi-calendar-check"></i>
+              <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
+            </div>
+          </div>
+
+          {{-- Actions --}}
+          <div class="actions">
+            <a href="{{ route('printing.history') }}" class="btn btn-light border" title="Reset">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+            </a>
+            <button class="btn btn-dark btn-apply" type="submit">
+              <i class="bi bi-funnel me-1"></i> Apply Filter
+            </button>
+          </div>
         </div>
-        <span class="text-muted">to</span>
-        <div class="with-icon">
-          <i class="bi bi-calendar-check"></i>
-          <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
-        </div>
-      </div>
-
-      {{-- Actions --}}
-      <div class="actions">
-        <a href="{{ route('printing.history') }}" class="btn btn-light border" title="Reset">
-          <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
-        </a>
-        <button class="btn btn-dark btn-apply" type="submit">
-          <i class="bi bi-funnel me-1"></i> Apply Filter
-        </button>
-      </div>
+      </form>
     </div>
-  </form>
-</div>
 
     {{-- Completed Orders --}}
     <div class="card border-0 shadow-soft">
@@ -199,20 +211,34 @@
         </div>
 
         <div class="table-responsive">
+          @php
+            $qAll = request()->query();
+            $urlWith = function(array $overrides) use ($qAll) {
+              return route('printing.history', array_filter(array_merge($qAll, $overrides), fn($v)=>$v!==null && $v!==''));
+            };
+            $dir     = request('dir','desc') === 'asc' ? 'asc' : 'desc';
+            $nextDir = $dir === 'asc' ? 'desc' : 'asc';
+          @endphp
           <table class="table align-middle fixed">
             <colgroup>
-              <col style="width: 200px;" class="col-id">
-              <col class="col-name">
-              <col class="col-date">
-              <col class="col-remarks">
-              <col class="col-actions">
-            </colgroup>
+                <col class="col-id">
+                <col class="col-name">
+                <col class="col-date">
+                <col class="col-remarks">   {{-- narrower --}}
+                <col class="col-actions">
+              </colgroup>
 
             <thead class="table-light">
               <tr>
                 <th>PRODUCT ID</th>
                 <th>PRODUCT NAME</th>
-                <th class="js-sort-completed" data-order="">COMPLETED DATE</th>
+                <th>
+                  <a class="th-sort is-active"
+                    href="{{ $urlWith(['sort'=>'completed','dir'=>$nextDir]) }}">
+                    COMPLETED DATE
+                    <span class="sort-caret">{{ $dir === 'asc' ? '↑' : '↓' }}</span>
+                  </a>
+                </th>
                 <th>REMARKS</th>
                 <th class="text-center">PRODUCT DETAILS</th>
               </tr>
