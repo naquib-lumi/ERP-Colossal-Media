@@ -100,6 +100,20 @@ class DataEntryController extends Controller
         return view('data-entry.orders', compact('orders', 'metrics', 'statusRaw'));
     }
 
+    private function fileInfoFromPath(string $relPath): array
+    {
+        // adjust disk if needed
+        $url  = Storage::disk('public')->url($relPath);
+        $ext  = pathinfo($relPath, PATHINFO_EXTENSION);
+
+        return [
+            'name' => basename($relPath),
+            'url'  => $url,
+            'size' => null, // unknown for order CSV; can be resolved if you want
+            'ext'  => $ext,
+        ];
+    }
+
     public function show(Order $order)
     {
         $user = auth()->user();
@@ -107,9 +121,30 @@ class DataEntryController extends Controller
             abort(403);
         }
 
-        $order->load(['artist:id,name', 'salesperson:id,name']);
+        $order->loadMissing([
+            'salesperson:id,name',
+            'artist:id,name',
+            'products'        => fn ($q) => $q->orderBy('ProductID'),
+            'products.items'  => fn ($q) => $q->orderBy('ItemID'),
+            'products.items.spec',
+            'leadAttachments',
+            'deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+        ]);
 
-        return view('data-entry.order.show', compact('order'));
+        // Attachments: prefer orderAttachment CSV; otherwise fallback to lead_attachments
+        $attachments = $order->attachment_paths->isNotEmpty()
+            ? $order->attachment_paths->map(fn ($path) => $this->fileInfoFromPath($path))
+            : LeadAttachment::where('lead_id', $order->lead_id)
+                ->latest()
+                ->get()
+                ->map(fn ($a) => [
+                    'name' => basename($a->file_location),
+                    'url'  => Storage::disk('public')->url($a->file_location),
+                    'size' => (int) $a->file_size,
+                    'ext'  => $a->file_extension,
+                ]);
+
+        return view('data-entry.order.show', compact('order', 'attachments'));
     }
 
     public function edit(Order $order)

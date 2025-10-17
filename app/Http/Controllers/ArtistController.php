@@ -24,6 +24,8 @@ use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
+use App\Helpers\Helpers;
+use App\Notifications\GenericNotification;
 
 class ArtistController extends Controller
 {
@@ -471,7 +473,6 @@ class ArtistController extends Controller
             });
 
         // 2) Order attachments (the ones artist uploads)
-        // If you already have helpers getOrderAttachments/putOrderAttachments, use them:
         $rawPaths = method_exists($this, 'getOrderAttachments')
             ? (array) $this->getOrderAttachments($order)
             : (array) json_decode((string) $order->orderAttachment, true);
@@ -536,6 +537,73 @@ class ArtistController extends Controller
         $order->submit        = 1;
         $order->pending       = 1;
         $order->save();
+
+        /**
+         * =======================
+         *  NOTIFICATIONS
+         * =======================
+         */
+        $actor      = $user;
+        $actorName  = $actor->name;
+        $actorRole  = str_replace('-', ' ', strtolower($actor->role));
+
+        $orderId    = (int) $order->id;
+        $orderNo    = (string) $order->order_number;
+        $deadline   = $order->deadline
+            ? \Carbon\Carbon::parse($order->deadline)->timezone('Asia/Kuala_Lumpur')->format('Y-m-d')
+            : '-';
+
+        $productCount   = Product::where('OrderID', $orderId)->count();
+        $dataEntryUser  = User::find((int)$order->data_entry_id);
+        $dataEntryName  = $dataEntryUser?->name ?? 'Data Entry';
+
+        // Messages
+        $messageCommon = "Order {$orderNo} has been passed to **Data Entry ({$dataEntryName})** by {$actorName} ({$actorRole}). "
+                    . "{$productCount} Product(s). Deadline: {$deadline}.";
+
+        $messageForDE  = "You have been **passed** an Order {$orderNo} for Data Entry by {$actorName} ({$actorRole}). "
+                    . "{$productCount} Product(s). Deadline: {$deadline}, please take over.";
+
+        // Role-aware URL
+        $urlFor = function (User $u) use ($orderId) {
+            return match (strtolower($u->role)) {
+                'artist', 'head-artist'               => url("/artist/orders/{$orderId}"),
+                'salesperson', 'head-salesperson'     => url("/orders/{$orderId}"),
+                'admin'                               => url("/admin/orders/{$orderId}"),
+                'boss'                                => url("/boss/orders/{$orderId}"),
+                'data-entry'                          => url("/data-entry/orders/{$orderId}/edit"), // adjust if your route differs
+                default                               => url("/"),
+            };
+        };
+
+        // Build recipients (NO operation roles)
+        $recipients = collect();
+
+        // Core business roles
+        $recipients = $recipients->merge(
+            User::whereIn('role', ['head-artist','head-salesperson','admin','boss'])->get()
+        );
+
+        // Assigned salesperson (if any)
+        if (!empty($order->salesperson_id)) {
+            if ($sp = User::find($order->salesperson_id)) {
+                $recipients->push($sp);
+            }
+        }
+
+        // Assigned data-entry
+        if ($dataEntryUser) {
+            $recipients->push($dataEntryUser);
+        }
+
+        // De-duplicate by id
+        $recipients = $recipients->unique('id')->values();
+
+        // Send
+        foreach ($recipients as $u) {
+            $msg = ($dataEntryUser && $u->id === $dataEntryUser->id) ? $messageForDE : $messageCommon;
+            Helpers::notify($u, $msg, $urlFor($u), ['database']);
+        }
 
         return response()->json(['ok' => true]);
     }
@@ -957,6 +1025,136 @@ class ArtistController extends Controller
                     $productRow->syncTaskTypeFromSpecs();
                 } 
             });
+
+            if ($request->boolean('submit')) {
+
+                $actor     = Auth::user();
+                $actorName = $actor?->name ?? 'System';
+                $actorRole = str_replace('-', ' ', strtolower($actor?->role ?? 'user'));
+
+                // Basic order context
+                $orderId  = (int) $order->id;
+                $orderNo  = (string) $order->order_number;
+                $deadline = $order->deadline
+                    ? \Carbon\Carbon::parse($order->deadline)->timezone('Asia/Kuala_Lumpur')->format('Y-m-d')
+                    : '-';
+
+                // Pull products with their taskType (for ops notifications)
+                $products = \App\Models\Product::where('OrderID', $orderId)
+                    ->get(['ProductID','productName','taskType']);
+
+                $productCount      = $products->count();
+                $initialTasksArray = $products->pluck('taskType')->filter()->unique()->values()->all();
+                $initialTasksStr   = implode(', ', $initialTasksArray ?: ['-']);
+
+                /**
+                 * ======================
+                 *  1) BUSINESS ROLES
+                 *     (order-level message, no dupes)
+                 * ======================
+                 */
+                $orderMsg = "Order #{$orderNo} has been **submitted** by {$actorName} ({$actorRole}). "
+                        . "{$productCount} Product(s). Deadline: {$deadline}. "
+                        . "Initial task(s): {$initialTasksStr}.";
+
+                $orderUrlFor = function (\App\Models\User $u) use ($orderId) {
+                    return match (strtolower($u->role)) {
+                        'artist', 'head-artist'            => url("/artist/orders/{$orderId}"),
+                        'salesperson', 'head-salesperson'  => url("/orders/{$orderId}"),
+                        'admin'                             => url("/admin/orders/{$orderId}"),
+                        'boss'                              => url("/boss/orders/{$orderId}"),
+                        default                             => url("/"),
+                    };
+                };
+
+                // Build recipients just like your successful example
+                $businessRecipients = collect();
+
+                // Always include these roles
+                $baseRoles = ['admin','boss','head-artist','head-salesperson'];
+                $businessRecipients = $businessRecipients->merge(
+                    \App\Models\User::whereIn('role', $baseRoles)->get()
+                );
+
+                // Assigned salesperson (if any)
+                if (!empty($order->salesperson_id)) {
+                    $businessRecipients = $businessRecipients->merge(
+                        \App\Models\User::where('id', $order->salesperson_id)->get()
+                    );
+                }
+
+                // If creator is a normal artist, ensure head-artist is included (already in base, but keep consistent)
+                if (strtolower((string)$actor->role) === 'artist') {
+                    $businessRecipients = $businessRecipients->merge(
+                        \App\Models\User::where('role', 'head-artist')->get()
+                    );
+                }
+
+                // De-duplicate on user id
+                $businessRecipients = $businessRecipients->unique('id')->values();
+
+                $bizKey = "order-submitted:order={$orderId}";
+
+                foreach ($businessRecipients as $u) {
+                    Helpers::notifyOnce(
+                        $u,
+                        $orderMsg,
+                        $orderUrlFor($u),
+                        ['database'],
+                        $bizKey // <— same for all business recipients; uniqueness is per-user
+                    );
+                }
+
+                /**
+                 * ======================
+                 *  2) OPERATIONS ROLES
+                 *     (one message per task type; URL must be ProductID;
+                 *      de-dupe by user id)
+                 * ======================
+                 */
+                $opsRoleForTask = [
+                    'printing'     => 'operations-printing',
+                    'furnishing'   => 'operations-furnishing',
+                    'delivery'     => 'operations-dispatch-control',
+                    'installation' => 'operations-delivery-installation',
+                ];
+
+                // Group items by normalized taskType
+                $byTask = $products
+                    ->filter(fn($p) => filled($p->taskType))
+                    ->groupBy(fn($p) => strtolower((string)$p->taskType));
+
+                foreach ($byTask as $task => $group) {
+                    if (!isset($opsRoleForTask[$task])) continue;
+
+                    $opsRole   = $opsRoleForTask[$task];
+                    $count     = $group->count();
+                    $firstId   = (int) $group->first()->ProductID;
+
+                    $idsPreview = $group->pluck('ProductID')->take(5)->implode(', ');
+                    $msg = "Order {$orderNo} submitted by {$actorName} ({$actorRole}). "
+                        . "{$count} product(s) for **{$task}**"
+                        . ($idsPreview ? " (#{$idsPreview})" : '')
+                        . ". Deadline: {$deadline}.";
+
+                    // STABLE key per task for this order => prevents duplicates for the same user
+                    $opsKey = "order-submitted:order={$orderId}:task={$task}";
+
+                    \App\Models\User::whereRaw('LOWER(role) = ?', [$opsRole])
+                        ->get()
+                        ->each(function ($u) use ($msg, $firstId, $opsKey) {
+                            $url = match (strtolower($u->role)) {
+                                'operations-printing'              => url("/printing/jobs/{$firstId}"),
+                                'operations-furnishing'            => url("/furnishing/jobs/{$firstId}"),
+                                'operations-dispatch-control'      => url("/dispatchcontrol/job/{$firstId}"),
+                                'operations-delivery-installation' => url("/installation/job/{$firstId}"),
+                                default                            => url("/"),
+                            };
+
+                            \App\Helpers\Helpers::notifyOnce($u, $msg, $url, ['database'], $opsKey);
+                        });
+                }
+            }
 
             $message = $request->boolean('submit')
             ? 'Order submitted.'

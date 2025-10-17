@@ -12,98 +12,122 @@ use App\Helpers\Helpers;
 class PrintingController extends Controller
 {
     public function dashboard(Request $request)
-    {
-        // --- read raw inputs
-        $printer = trim((string) $request->get('printer', ''));
-        $sqMin   = $request->get('sq_min', '');
-        $sqMax   = $request->get('sq_max', '');
+{
+    // --- read raw inputs
+    $q        = trim((string) $request->get('q', ''));            // unified keyword search
+    $artistId = trim((string) $request->get('artist', ''));       // artist filter
 
-        $readDate = function (?string $v): ?string {
-            if (!$v) return null;
+    $readDate = function (?string $v): ?string {
+        if (!$v) return null;
+        try {
+            return \Carbon\Carbon::parse($v)->toDateString();
+        } catch (\Throwable $e) {
             try {
-                return Carbon::parse($v)->toDateString();
-            } catch (\Throwable $e) {
-                try {
-                    return Carbon::createFromFormat('d/m/Y', $v)->format('Y-m-d');
-                } catch (\Throwable $e2) {
-                    return null;
-                }
+                return \Carbon\Carbon::createFromFormat('d/m/Y', $v)->format('Y-m-d');
+            } catch (\Throwable $e2) {
+                return null;
             }
-        };
+        }
+    };
 
-        // accept both naming styles from the form
-        $dlStart = $readDate($request->get('deadline_start', $request->get('deadline_from')));
-        $dlEnd   = $readDate($request->get('deadline_end',   $request->get('deadline_to')));
+    $dlStart = $readDate($request->get('deadline_start', $request->get('deadline_from')));
+    $dlEnd   = $readDate($request->get('deadline_end',   $request->get('deadline_to')));
 
-        $sbStart = $readDate($request->get('submitted_start', $request->get('submitted_from')));
-        $sbEnd   = $readDate($request->get('submitted_end',   $request->get('submitted_to')));
+    $sbStart = $readDate($request->get('submitted_start', $request->get('submitted_from')));
+    $sbEnd   = $readDate($request->get('submitted_end',   $request->get('submitted_to')));
 
-        $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))';
+    // square inch kept for display only (no more filtering)
+    $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))';
 
-        $jobs = DB::table('products as p')
-            ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
-            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
-            ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
-            ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
-            ->whereNotExists(function ($q2) {
-                $q2->select(DB::raw(1))
-                    ->from('fulfillment_progress as fp')
-                    ->whereColumn('fp.ProductID', 'p.ProductID')
-                    ->where('fp.stage', 'printing')
-                    ->where('fp.status', 'completed');
-            })
+    $jobs = DB::table('products as p')
+        ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
+        ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+        ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
+        ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
+        ->whereNotExists(function ($q2) {
+            $q2->select(DB::raw(1))
+                ->from('fulfillment_progress as fp')
+                ->whereColumn('fp.ProductID', 'p.ProductID')
+                ->where('fp.stage', 'printing')
+                ->where('fp.status', 'completed');
+        })
 
-            // printer
-            ->when(
-                $printer !== '',
-                fn($qb) =>
-                $qb->where('s.printer', 'like', '%' . $printer . '%')
-            )
+        // Unified keyword search: printer, order title, company name, product name
+        ->when($q !== '', function ($qb) use ($q) {
+            $like = '%' . $q . '%';
+            $qb->where(function ($qq) use ($like) {
+                $qq->where('s.printer', 'like', $like)
+                   ->orWhere('o.orderTitle', 'like', $like)
+                   ->orWhere('o.companyName', 'like', $like)
+                   ->orWhere('p.productName', 'like', $like);
+            });
+        })
 
-            // DEADLINE (orders.deadline is a DATE)
-            ->when($dlStart && $dlEnd, fn($q) => $q->whereBetween('o.deadline', [$dlStart, $dlEnd]))
-            ->when($dlStart && !$dlEnd, fn($q) => $q->whereDate('o.deadline', '>=', $dlStart))
-            ->when(!$dlStart && $dlEnd, fn($q) => $q->whereDate('o.deadline', '<=', $dlEnd))
+        // Artist filter
+        ->when($artistId !== '', fn($qb) => $qb->where('o.artist_id', (int) $artistId))
 
-            // SUBMISSION DATE (DATE(p.updated_at))
-            ->when($sbStart && $sbEnd, fn($q) => $q->whereBetween(DB::raw('DATE(p.updated_at)'), [$sbStart, $sbEnd]))
-            ->when($sbStart && !$sbEnd, fn($q) => $q->whereDate('p.updated_at', '>=', $sbStart))
-            ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
+        // DEADLINE (orders.deadline is a DATE)
+        ->when($dlStart && $dlEnd, fn($q) => $q->whereBetween('o.deadline', [$dlStart, $dlEnd]))
+        ->when($dlStart && !$dlEnd, fn($q) => $q->whereDate('o.deadline', '>=', $dlStart))
+        ->when(!$dlStart && $dlEnd, fn($q) => $q->whereDate('o.deadline', '<=', $dlEnd))
 
-            ->groupBy('p.ProductID', 'p.updated_at', 'p.status', 'p.taskType', 'o.id', 'o.order_number', 'o.deadline', 'p.accepted')
-            ->select([
-                'p.ProductID',
-                'p.updated_at as submission_date',
-                'p.status',
-                'p.taskType',
-                'o.id as order_id',
-                'o.order_number',
-                'o.deadline',
-                DB::raw("$sqExpr as sq_inch"),
-                DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
-                DB::raw("CONCAT('#ORD-', o.id, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
-                DB::raw('COALESCE(p.accepted, 0) as accepted'),
-            ])
-            ->when($sqMin !== '', fn($qb) => $qb->havingRaw("$sqExpr >= ?", [(float)$sqMin]))
-            ->when($sqMax !== '', fn($qb) => $qb->havingRaw("$sqExpr <= ?", [(float)$sqMax]))
-            ->orderBy('o.id')->orderBy('p.ProductID')
-            ->paginate(10)
-            ->appends($request->query());
+        // SUBMISSION DATE (DATE(p.updated_at))
+        ->when($sbStart && $sbEnd, fn($q) => $q->whereBetween(DB::raw('DATE(p.updated_at)'), [$sbStart, $sbEnd]))
+        ->when($sbStart && !$sbEnd, fn($q) => $q->whereDate('p.updated_at', '>=', $sbStart))
+        ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
 
-        // KPIs (unchanged)
-        $inProgress = DB::table('products')
-            ->where('status', 'in_progress')
-            ->where('taskType', 'printing')
-            ->count();
+        ->groupBy('p.ProductID', 'p.updated_at', 'p.status', 'p.taskType', 'o.id', 'o.order_number', 'o.deadline', 'o.orderDate', 'o.created_at', 'p.accepted')
+        ->select([
+            'p.ProductID',
+            'p.updated_at as submission_date',
+            'p.status',
+            'p.taskType',
+            'o.id as order_id',
+            'o.order_number',
+            'o.deadline',
+            DB::raw("$sqExpr as sq_inch"),
+            DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
+            // New product code: #ORD-YYYY-OOO-PPPP
+            DB::raw("
+                CONCAT(
+                    '#ORD-',
+                    LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
+                    '-',
+                    LPAD(o.id, 3, '0'),
+                    '-P',
+                    LPAD(p.ProductID, 4, '0')
+                ) as product_code
+            "),
+            DB::raw('COALESCE(p.accepted, 0) as accepted'),
+        ])
+        ->orderBy('o.id')->orderBy('p.ProductID')
+        ->paginate(10)
+        ->appends($request->query());
 
-        $completed = DB::table('fulfillment_progress')
-            ->where('stage', 'printing')
-            ->where('status', 'completed')
-            ->count();
+    // KPI blocks (unchanged)
+    $inProgress = DB::table('products')
+        ->where('status', 'in_progress')
+        ->where('taskType', 'printing')
+        ->count();
 
-        return view('printing.dashboard', compact('jobs', 'inProgress', 'completed'));
-    }
+    $completed = DB::table('fulfillment_progress')
+        ->where('stage', 'printing')
+        ->where('status', 'completed')
+        ->count();
 
+    // Build artist dropdown (only artists who appear in orders related to printable products)
+    $artists = DB::table('users as u')
+        ->select('u.id', 'u.name')
+        ->whereIn('u.id', function ($sub) {
+            $sub->from('orders as o')
+                ->select('o.artist_id')
+                ->whereNotNull('o.artist_id');
+        })
+        ->orderBy('u.name')
+        ->get();
+
+    return view('printing.dashboard', compact('jobs', 'inProgress', 'completed', 'artists'));
+}
 
     /**
      * Show a single Printing Job Order detail page
