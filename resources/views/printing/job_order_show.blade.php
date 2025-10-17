@@ -673,8 +673,11 @@
   }
 
   /* ===== Resizable table ===== */
-  .resize-table{ table-layout: fixed; width:100%; }
-  .resize-table thead th{ position:relative; overflow:visible; }
+  .resize-table{ table-layout: fixed; width:100%; border-collapse: separate !important;
+    border-spacing: 0; }
+  .resize-table thead th{ position:relative; overflow:visible; background-color: #e9ecef; /* same tone as .table-light */
+    border-right: 1px solid #d3d3d3; /* subtle gray divider */
+    border-bottom: 1px solid #ccc;}
   .resize-handle{
     position:absolute; top:0; right:-4px; width:8px; height:100%;
     cursor:col-resize; z-index:2;
@@ -715,6 +718,18 @@
     font-size:.75rem;            
   }
   .remarks-list li .op{ color:#667085; font-weight:600; margin-right:.35rem; text-transform:capitalize; }
+
+  .resize-table thead th:last-child {
+    border-right: none;
+  }
+
+  .resize-table tbody td {
+    border-right: 1px solid #f0f0f0;
+  }
+
+  .resize-table tbody td:last-child {
+    border-right: none;
+  }
 </style>
 <div class="resize-guide" id="colGuide"></div>
 <div class="container-fluid py-4 px-4">

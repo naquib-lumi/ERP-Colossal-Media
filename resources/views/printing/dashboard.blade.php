@@ -320,6 +320,11 @@
       min-width: 260px;
     }
   }
+
+  .js-sortable { cursor: pointer; user-select: none; }
+  .js-sortable::after { content: " ↕"; opacity: .5; font-size: .9em; }
+  .js-sortable[data-order="asc"]::after  { content: " ↑"; }
+  .js-sortable[data-order="desc"]::after { content: " ↓"; }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -364,46 +369,41 @@
           </div>
 
           <form class="row g-3 align-items-end" method="GET" action="{{ route('printing.dashboard') }}">
-            {{-- Printer --}}
-            <div class="col-12 col-md-4 col-lg-2">
-              <label class="form-label">Printer</label>
+            {{-- Client-side Product ID search (no DB call) --}}
+            <div class="col-12 col-md-6 col-lg-3">
+              <label class="form-label">Search Product ID</label>
               <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-printer"></i></span>
+                <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                <input id="pidFilter" type="text" class="form-control" placeholder="Enter product ID">
+              </div>
+            </div>
+
+            {{-- Keyword search: printer / order title / company name / product name --}}
+            <div class="col-12 col-md-6 col-lg-4">
+              <label class="form-label">Search</label>
+              <div class="input-group input-group-sm has-icon">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
                 <input type="text"
-                  name="printer"
-                  value="{{ request('printer') }}"
-                  class="form-control"
-                  placeholder="e.g. Flatbed A2 DTF">
+                      name="q"
+                      value="{{ request('q') }}"
+                      class="form-control"
+                      placeholder="Order title, Company name, or Product name">
               </div>
             </div>
 
-            {{-- Sq Inch (min) --}}
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Sq Inch (Min)</label>
+            {{-- Artist filter --}}
+            <div class="col-12 col-md-6 col-lg-3">
+              <label class="form-label">Artist</label>
               <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-arrow-down-left"></i></span>
-                <input type="number"
-                  step="1"
-                  min="0"
-                  name="sq_min"
-                  value="{{ request('sq_min') }}"
-                  class="form-control"
-                  placeholder="0">
-              </div>
-            </div>
-
-            {{-- Sq Inch (max) --}}
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Sq Inch (Max)</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-arrow-up-right"></i></span>
-                <input type="number"
-                  step="1"
-                  min="0"
-                  name="sq_max"
-                  value="{{ request('sq_max') }}"
-                  class="form-control"
-                  placeholder="Any">
+                <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                <select name="artist" class="form-select">
+                  <option value="">All artists</option>
+                  @foreach (($artists ?? []) as $a)
+                    <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist') ? 'selected' : '' }}>
+                      {{ $a->name }}
+                    </option>
+                  @endforeach
+                </select>
               </div>
             </div>
 
@@ -412,10 +412,7 @@
               <label class="form-label">Deadline From</label>
               <div class="input-group input-group-sm has-icon">
                 <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
-                <input type="date"
-                  name="deadline_from"
-                  value="{{ request('deadline_from') }}"
-                  class="form-control">
+                <input type="date" name="deadline_from" value="{{ request('deadline_from') }}" class="form-control">
               </div>
             </div>
 
@@ -424,39 +421,12 @@
               <label class="form-label">Deadline To</label>
               <div class="input-group input-group-sm has-icon">
                 <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
-                <input type="date"
-                  name="deadline_to"
-                  value="{{ request('deadline_to') }}"
-                  class="form-control">
-              </div>
-            </div>
-
-            {{-- Submitted From --}}
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Submitted From</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-upload"></i></span>
-                <input type="date"
-                  name="submitted_from"
-                  value="{{ request('submitted_from') }}"
-                  class="form-control">
-              </div>
-            </div>
-
-            {{-- Submitted To --}}
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Submitted To</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-check2-square"></i></span>
-                <input type="date"
-                  name="submitted_to"
-                  value="{{ request('submitted_to') }}"
-                  class="form-control">
+                <input type="date" name="deadline_to" value="{{ request('deadline_to') }}" class="form-control">
               </div>
             </div>
 
             {{-- Actions --}}
-            <div class="col-12 col-lg-4 ms-auto d-flex gap-2 justify-content-end">
+            <div class="col-12 col-lg-4 d-flex gap-2 justify-content-end ms-lg-auto">
               <a href="{{ route('printing.dashboard') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
               </a>
@@ -476,8 +446,8 @@
               <th>PRODUCT ID</th>
               <th>PRINTER</th>
               <th>SQ INCH</th>
-              <th>DEADLINE</th>
-              <th>SUBMISSION DATE</th>
+              <th class="js-sortable" data-sortkey="deadline">DEADLINE</th>
+              <th class="js-sortable" data-sortkey="submitted">SUBMISSION DATE</th>
               <th class="col-actions">ACTIONS</th>
             </tr>
           </thead>
@@ -492,12 +462,17 @@
             $isPrinting = strtolower((string)($row->taskType ?? '')) === 'printing';
             $accepted = (int)($row->accepted ?? 0) === 1;
             @endphp
-            <tr id="job-{{ $row->ProductID }}">
+            <tr id="job-{{ $row->ProductID }}" class="js-row-open" data-href="{{ route('printing.orders.show', $row->ProductID) }}" style="cursor: pointer;">
               <td>{{ $row->product_code }}</td>
               <td>{{ ($row->printer ?? '-') === '-' ? '—' : $row->printer }}</td>
               <td>{{ is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0).' sq in' : '0 sq in' }}</td>
-              <td>{{ $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—' }}</td>
-              <td>{{ $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—' }}</td>
+              <td class="td-deadline" data-date="{{ $row->deadline ?: '' }}">
+                {{ $row->deadline ? \Carbon\Carbon::parse($row->deadline)->format('Y-m-d') : '—' }}
+              </td>
+
+              <td class="td-submitted" data-date="{{ $row->submission_date ?: '' }}">
+                {{ $row->submission_date ? \Carbon\Carbon::parse($row->submission_date)->format('Y-m-d') : '—' }}
+              </td>
 
               <td class="text-nowrap">
                 @if (!$accepted || !$isPrinting)
@@ -666,6 +641,102 @@
         mask.setAttribute('aria-hidden', 'true');
         currentId = null;
       }
+    });
+  })();
+
+  (function () {
+    const input = document.getElementById('pidFilter');
+    if (!input) return;
+
+    const table = document.querySelector('.table tbody');
+    if (!table) return;
+
+    input.addEventListener('input', function () {
+      const q = (this.value || '').trim().toLowerCase();
+      for (const tr of table.querySelectorAll('tr')) {
+        const firstCell = tr.querySelector('td');
+        if (!firstCell) continue;
+        const text = (firstCell.textContent || '').toLowerCase();
+        tr.style.display = q && !text.includes(q) ? 'none' : '';
+      }
+    });
+  })();
+
+  document.addEventListener('dblclick', function (e) {
+    const tr = e.target.closest('tr.js-row-open');
+    if (!tr) return;
+
+    // If the dblclick is on a control, let the control handle it
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+
+    const url = tr.dataset.href;
+    if (url) window.location.href = url;
+  });
+
+  (function() {
+    const tbody = document.querySelector('.table tbody');
+    if (!tbody) return;
+
+    // --- helpers
+    const toTS = (iso) => {
+      if (!iso) return NaN;
+      const d = new Date(iso + 'T00:00:00'); // force local midnight
+      return isNaN(d.getTime()) ? NaN : d.getTime();
+    };
+    const rowVal = (tr, key) => {
+      if (key === 'deadline') {
+        return toTS(tr.querySelector('.td-deadline')?.dataset.date || '');
+      } else if (key === 'submitted') {
+        return toTS(tr.querySelector('.td-submitted')?.dataset.date || '');
+      }
+      return NaN;
+    };
+
+    const sortRows = (key, order = 'asc') => {
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort((a, b) => {
+        const av = rowVal(a, key), bv = rowVal(b, key);
+        // push empty to the bottom
+        if (isNaN(av) && isNaN(bv)) return 0;
+        if (isNaN(av)) return 1;
+        if (isNaN(bv)) return -1;
+        return order === 'asc' ? (av - bv) : (bv - av);
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    };
+
+    const nearestByDeadline = () => {
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const today = new Date(); today.setHours(0,0,0,0);
+      const t0 = today.getTime();
+      rows.sort((a, b) => {
+        const av = toTS(a.querySelector('.td-deadline')?.dataset.date || '');
+        const bv = toTS(b.querySelector('.td-deadline')?.dataset.date || '');
+        const aKey = isNaN(av) ? Number.POSITIVE_INFINITY : Math.abs(av - t0);
+        const bKey = isNaN(bv) ? Number.POSITIVE_INFINITY : Math.abs(bv - t0);
+        return aKey - bKey;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+      // mark header state visually
+      const hd = document.querySelector('.js-sortable[data-sortkey="deadline"]');
+      if (hd) hd.dataset.order = 'nearest';
+    };
+
+    // --- default: nearest to today by DEADLINE (current page)
+    nearestByDeadline();
+
+    // --- header click sorting
+    document.querySelectorAll('.js-sortable').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sortkey;
+        const cur = th.dataset.order;
+        const next = cur === 'asc' ? 'desc' : 'asc';
+        // reset others
+        document.querySelectorAll('.js-sortable').forEach(x => { if (x !== th) x.dataset.order = ''; });
+        th.dataset.order = next;
+        sortRows(key, next);
+      });
     });
   })();
 </script>

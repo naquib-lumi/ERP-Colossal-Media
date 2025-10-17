@@ -22,7 +22,7 @@
 
   /* Table */
   .table.fixed{table-layout:fixed;width:100%;}
-  .table thead th{font-size:12px;color:#475467;font-weight:700}
+  .table thead th{font-size:12px;color:#475467;font-weight:700;background: #F8FAFC;}
   .table td{vertical-align:middle}
   .table>:not(caption)>*>*{padding:14px 16px}
 
@@ -50,6 +50,80 @@
   }
   .icon-btn:hover{background:#F2F4F7;color:#344054}
   .pagination .page-link{border-radius:10px}
+
+
+  /* Sort cue for Completed Date header */
+  .js-sort-completed { cursor: pointer; user-select: none; }
+  .js-sort-completed[data-order="asc"]::after  { content:" ↑"; opacity:.6; }
+  .js-sort-completed[data-order="desc"]::after { content:" ↓"; opacity:.6; }
+
+  /* ===== Filter slab ===== */
+  .history-filter.card { 
+    border: 0; 
+    border-radius: 14px; 
+    box-shadow: 0 3px 14px rgba(18, 23, 42, .06);
+  }
+  .history-filter .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem 1rem;
+    align-items: center;
+    padding: 14px 16px;
+  }
+
+  /* inputs */
+  .history-filter .form-control {
+    height: 42px;
+    border-radius: 10px;
+    border-color: #e6e8f0;
+    box-shadow: none;
+  }
+  .history-filter .form-control:focus {
+    border-color: #bfc6ff;
+    box-shadow: 0 0 0 .15rem rgba(99,91,255,.12);
+  }
+
+  /* layout helpers */
+  .history-filter .grow { flex: 1 1 340px; min-width: 260px; }
+  .history-filter .dates { display: flex; align-items: center; gap: .5rem; }
+  .history-filter .date-input { width: 180px; }
+  .history-filter .actions { margin-left: auto; display: flex; gap: .5rem; }
+
+  /* buttons */
+  .history-filter .btn {
+    height: 42px; border-radius: 10px;
+  }
+  .history-filter .btn-light {
+    border-color: #e6e8f0; background: #f6f7fb; color: #111827;
+  }
+  .history-filter .btn-light:hover { background: #eef0f8; }
+  .history-filter .btn-dark {
+    background: #1f2233; border-color: #1f2233;
+  }
+  .history-filter .btn-dark:hover { background: #2a2f47; }
+
+  /* optional: input with leading icon (just add .with-icon) */
+  .history-filter .with-icon { position: relative; }
+  .history-filter .with-icon > i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 16px; color: #7b8191; pointer-events: none;
+  }
+  .history-filter .with-icon > .form-control { padding-left: 36px; }
+
+  /* compact on small screens */
+  @media (max-width: 768px) {
+    .history-filter .actions { width: 100%; justify-content: flex-end; }
+    .history-filter .date-input { flex: 1 1 150px; min-width: 0; }
+  }
+
+  .artist-select { flex: 0 1 220px; position: relative; }
+  .artist-select select {
+    height: 42px; border-radius: 10px; border-color: #e6e8f0; padding-left: 36px;
+  }
+  .artist-select i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #7b8191; pointer-events: none;
+  }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -57,33 +131,64 @@
     <h1 class="h4 fw-bold mb-4">Order History</h1>
 
     {{-- Toolbar --}}
-    <div class="card border-0 shadow-soft mb-3">
-      <form method="GET" action="{{ route('printing.history') }}">
-        <div class="card-body toolbar">
-          <input
-            type="text"
-            name="q"
-            value="{{ $q ?? '' }}"
-            class="form-control grow"
-            placeholder="Search by Product Name or Remarks">
+    <div class="card history-filter shadow-soft mb-3">
+  <form method="GET" action="{{ route('printing.history') }}">
+    <div class="card-body toolbar">
+      {{-- Quick Product ID (page filter) --}}
+      <div class="with-icon grow">
+        <i class="bi bi-hash"></i>
+        <input id="pidFilter" type="text" class="form-control" placeholder="Enter Product ID">
+      </div>
 
-          <div class="dates">
-            <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
-            <span class="text-muted">to</span>
-            <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
-          </div>
+      {{-- Main search --}}
+      <div class="with-icon grow">
+        <i class="bi bi-search"></i>
+        <input
+          type="text"
+          name="q"
+          value="{{ $q ?? '' }}"
+          class="form-control"
+          placeholder="Search by Product Name or Remarks">
+      </div>
 
-          <div class="actions">
-            <a href="{{ route('printing.history') }}" class="btn btn-light border" title="Reset">
-              <i class="bi bi-arrow-counterclockwise me-1"></i><span>Reset</span>
-            </a>
-            <button class="btn btn-dark btn-apply" type="submit">
-              <i class="bi bi-funnel me-1"></i><span>Apply Filter</span>
-            </button>
-          </div>
+      {{-- Artist Filter --}}
+      <div class="with-icon artist-select">
+        <i class="bi bi-person-badge"></i>
+        <select name="artist" class="form-select">
+          <option value="">All artists</option>
+          @foreach (($artists ?? []) as $a)
+            <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist') ? 'selected' : '' }}>
+              {{ $a->name }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+
+      {{-- Dates --}}
+      <div class="dates">
+        <div class="with-icon">
+          <i class="bi bi-calendar-event"></i>
+          <input type="text" name="start" value="{{ $start ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
         </div>
-      </form>
+        <span class="text-muted">to</span>
+        <div class="with-icon">
+          <i class="bi bi-calendar-check"></i>
+          <input type="text" name="end" value="{{ $end ?? '' }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
+        </div>
+      </div>
+
+      {{-- Actions --}}
+      <div class="actions">
+        <a href="{{ route('printing.history') }}" class="btn btn-light border" title="Reset">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+        </a>
+        <button class="btn btn-dark btn-apply" type="submit">
+          <i class="bi bi-funnel me-1"></i> Apply Filter
+        </button>
+      </div>
     </div>
+  </form>
+</div>
 
     {{-- Completed Orders --}}
     <div class="card border-0 shadow-soft">
@@ -96,7 +201,7 @@
         <div class="table-responsive">
           <table class="table align-middle fixed">
             <colgroup>
-              <col class="col-id">
+              <col style="width: 200px;" class="col-id">
               <col class="col-name">
               <col class="col-date">
               <col class="col-remarks">
@@ -107,7 +212,7 @@
               <tr>
                 <th>PRODUCT ID</th>
                 <th>PRODUCT NAME</th>
-                <th>COMPLETED DATE</th>
+                <th class="js-sort-completed" data-order="">COMPLETED DATE</th>
                 <th>REMARKS</th>
                 <th class="text-center">PRODUCT DETAILS</th>
               </tr>
@@ -120,10 +225,15 @@
                   $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
                   $remarks = $row->materialRemark ?: '–';
                 @endphp
-                <tr>
-                  <td class="fw-semibold">{{ $row->order_number ?: ('ORD'.($row->order_id ?? $row->ProductID)) }}-P{{ $row->ItemID ?? $row->ProductID }}</td>
+                <tr class="js-row-open" data-href="{{ route('printing.history.show', $row->ProductID) }}" style="cursor:pointer;">
+                  <td style="font-weight: 800 !important;" class="fw-semibold">{{ $row->product_code }}</td>
                   <td><span class="truncate" title="{{ $prodName }}">{{ $prodName }}</span></td>
-                  <td>{{ $completed }}</td>
+
+                  {{-- completed date cell with raw ISO value for JS sorting --}}
+                  <td class="td-completed" data-date="{{ $row->completed_date ?: '' }}">
+                    {{ $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—' }}
+                  </td>
+
                   <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
                   <td class="text-center">
                     <a href="{{ route('printing.history.show', $row->ProductID) }}" class="icon-btn" title="View details">
@@ -241,6 +351,81 @@
   }
 
   document.querySelectorAll('.js-date').forEach(attachNativeDate);
+
+  // ===== Client-side Product ID quick filter (page only)
+  const pidInput = document.getElementById('pidFilter');
+  const tbody = document.querySelector('.table tbody');
+
+  if (pidInput && tbody) {
+    pidInput.addEventListener('input', function () {
+      const q = (this.value || '').trim().toLowerCase();
+      for (const tr of tbody.querySelectorAll('tr')) {
+        const firstCell = tr.querySelector('td');
+        const text = (firstCell?.textContent || '').toLowerCase();
+        tr.style.display = q && !text.includes(q) ? 'none' : '';
+      }
+    });
+  }
+
+  // ===== Double-click row to open details
+  document.addEventListener('dblclick', (e) => {
+    const tr = e.target.closest('tr.js-row-open');
+    if (!tr) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+    const url = tr.dataset.href;
+    if (url) window.location.href = url;
+  });
+
+  // ===== Completed Date sorting
+  const thCompleted = document.querySelector('.js-sort-completed');
+  function toTS(iso) {
+    if (!iso) return NaN;
+    const d = new Date(iso);
+    if (isNaN(d)) {
+      // try yyyy-mm-dd only
+      const d2 = new Date(iso + 'T00:00:00');
+      return isNaN(d2) ? NaN : d2.getTime();
+    }
+    return d.getTime();
+  }
+  function sortByCompleted(order) {
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort((a, b) => {
+      const av = toTS(a.querySelector('.td-completed')?.dataset.date || '');
+      const bv = toTS(b.querySelector('.td-completed')?.dataset.date || '');
+      if (isNaN(av) && isNaN(bv)) return 0;
+      if (isNaN(av)) return 1;   // blanks to bottom
+      if (isNaN(bv)) return -1;
+      return order === 'asc' ? (av - bv) : (bv - av);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+  function sortNearestCompleted() {
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const t0 = new Date(); t0.setHours(0,0,0,0);
+    const t0ms = t0.getTime();
+    rows.sort((a, b) => {
+      const av = toTS(a.querySelector('.td-completed')?.dataset.date || '');
+      const bv = toTS(b.querySelector('.td-completed')?.dataset.date || '');
+      const aKey = isNaN(av) ? Number.POSITIVE_INFINITY : Math.abs(av - t0ms);
+      const bKey = isNaN(bv) ? Number.POSITIVE_INFINITY : Math.abs(bv - t0ms);
+      return aKey - bKey;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  // Default: nearest completed date
+  if (tbody) sortNearestCompleted();
+
+  // Click header to toggle asc/desc
+  if (thCompleted && tbody) {
+    thCompleted.addEventListener('click', () => {
+      const next = thCompleted.dataset.order === 'asc' ? 'desc' : 'asc';
+      thCompleted.dataset.order = next;
+      sortByCompleted(next);
+    });
+  }
 })();
 </script>
 @endpush
