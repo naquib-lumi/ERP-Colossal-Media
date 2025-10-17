@@ -479,7 +479,7 @@
     </div>
 
     <div class="text-end">
-        <button type="button" onclick="history.back()" class="btn btn-secondary mt-6">Close</button>
+        <button type="button" onclick="history.back()" class="btn btn-secondary mt-6">Back</button>
     </div>
 </div>
 @endsection

@@ -25,6 +25,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use App\Helpers\Helpers;
+use App\Notifications\GenericNotification;
 
 class ArtistController extends Controller
 {
@@ -536,6 +537,73 @@ class ArtistController extends Controller
         $order->submit        = 1;
         $order->pending       = 1;
         $order->save();
+
+        /**
+         * =======================
+         *  NOTIFICATIONS
+         * =======================
+         */
+        $actor      = $user;
+        $actorName  = $actor->name;
+        $actorRole  = str_replace('-', ' ', strtolower($actor->role));
+
+        $orderId    = (int) $order->id;
+        $orderNo    = (string) $order->order_number;
+        $deadline   = $order->deadline
+            ? \Carbon\Carbon::parse($order->deadline)->timezone('Asia/Kuala_Lumpur')->format('Y-m-d')
+            : '-';
+
+        $productCount   = Product::where('OrderID', $orderId)->count();
+        $dataEntryUser  = User::find((int)$order->data_entry_id);
+        $dataEntryName  = $dataEntryUser?->name ?? 'Data Entry';
+
+        // Messages
+        $messageCommon = "Order {$orderNo} has been passed to **Data Entry ({$dataEntryName})** by {$actorName} ({$actorRole}). "
+                    . "{$productCount} Product(s). Deadline: {$deadline}.";
+
+        $messageForDE  = "You have been **passed** an Order {$orderNo} for Data Entry by {$actorName} ({$actorRole}). "
+                    . "{$productCount} Product(s). Deadline: {$deadline}, please take over.";
+
+        // Role-aware URL
+        $urlFor = function (User $u) use ($orderId) {
+            return match (strtolower($u->role)) {
+                'artist', 'head-artist'               => url("/artist/orders/{$orderId}"),
+                'salesperson', 'head-salesperson'     => url("/orders/{$orderId}"),
+                'admin'                               => url("/admin/orders/{$orderId}"),
+                'boss'                                => url("/boss/orders/{$orderId}"),
+                'data-entry'                          => url("/data-entry/orders/{$orderId}/edit"), // adjust if your route differs
+                default                               => url("/"),
+            };
+        };
+
+        // Build recipients (NO operation roles)
+        $recipients = collect();
+
+        // Core business roles
+        $recipients = $recipients->merge(
+            User::whereIn('role', ['head-artist','head-salesperson','admin','boss'])->get()
+        );
+
+        // Assigned salesperson (if any)
+        if (!empty($order->salesperson_id)) {
+            if ($sp = User::find($order->salesperson_id)) {
+                $recipients->push($sp);
+            }
+        }
+
+        // Assigned data-entry
+        if ($dataEntryUser) {
+            $recipients->push($dataEntryUser);
+        }
+
+        // De-duplicate by id
+        $recipients = $recipients->unique('id')->values();
+
+        // Send
+        foreach ($recipients as $u) {
+            $msg = ($dataEntryUser && $u->id === $dataEntryUser->id) ? $messageForDE : $messageCommon;
+            Helpers::notify($u, $msg, $urlFor($u), ['database']);
+        }
 
         return response()->json(['ok' => true]);
     }
