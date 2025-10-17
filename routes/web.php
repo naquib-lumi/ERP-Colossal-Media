@@ -356,12 +356,28 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
         Route::patch('/dispatchcontrol/jobs/{product}/complete', [DispatchControlController::class, 'completeWithProof'])->name('dispatchcontrol.jobs.complete');
     });
 
-    Route::middleware('role:admin')->group(function () {
-        Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
-        Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
-        Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
-    });
-
+Route::middleware('role:admin')->group(function () {
+    Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::get('/admin/leads-monthly', [AdminController::class, 'leadsMonthly'])->name('admin.leadsMonthly');
+    Route::get('/admin/leads-breakdown', [AdminController::class, 'leadsBreakdown'])->name('admin.leadsBreakdown');
+    Route::get('/admin/fulfillment-counts', [AdminController::class, 'fulfillmentCounts'])->name('admin.fulfillmentCounts');
+    Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
+     Route::get('/admin/manageuser-table', [AdminController::class, 'manageUserTable'])->name('admin.manageuserTable');
+    
+    Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
+    Route::put('/admin/user/{user}', [AdminController::class, 'updateUser'])->name('admin.user.update');
+    Route::patch('/admin/user/{user}/disable', [AdminController::class, 'disableUser'])->name('admin.user.disable');
+    Route::get('/admin/orders', [AdminController::class, 'orders'])->name('admin.orders');
+    Route::get('/admin/coasing-data', [AdminController::class, 'coasingData'])->name('admin.coasing-data');
+    Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
+    Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
+    Route::get('/admin/fulfillment', [AdminController::class, 'fulfillment'])->name('admin.fulfillment');
+    Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user');
+    Route::get('/admin/data-key-in', [AdminController::class, 'dataKeyIn'])->name('admin.data-key-in');
+    Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
+    Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
+    Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
+});
     Route::middleware('role:printing,installation,delivery,furnishing')->group(function () {
         Route::get('/operations/tasks', [OperationsController::class, 'tasks'])->name('operations.tasks');
     });

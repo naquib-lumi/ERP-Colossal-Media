@@ -140,20 +140,62 @@ $configData = \App\Helpers\Helpers::appClasses();
                 </a>
               </li>
             @endif
-            @if (auth()->user()->role === 'Admin')
-              <li class="menu-item {{ request()->routeIs('admin.settings') ? 'active' : '' }}">
-                <a href="{{ route('admin.settings') }}" class="menu-link">
-                  <i class="menu-icon tf-icons ti ti-settings"></i>
-                  <div data-i18n="Settings">Settings</div>
+            @if (auth()->user()->role === 'admin')
+            <li class="menu-item {{ request()->routeIs('admin.manageuser') ? 'active' : '' }}">
+                <a href="{{ route('admin.manageuser') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-group"></i>
+                    <div data-i18n="Manage User">Manage User</div>
                 </a>
-              </li>
-              <li class="menu-item {{ request()->routeIs('admin.reports') ? 'active' : '' }}">
+            </li>
+            <li class="menu-item {{ request()->routeIs('admin.orders') ? 'active' : '' }}">
+                <a href="{{ route('admin.orders') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-file"></i>
+                    <div data-i18n="Orders">Orders</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('admin.coasing-data') ? 'active' : '' }}">
+                <a href="{{ route('admin.coasing-data') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-data"></i>
+                    <div data-i18n="Coasing Data">Coasing Data</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('admin.calendar') ? 'active' : '' }}">
+                <a href="{{ route('admin.calendar') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-calendar"></i>
+                    <div data-i18n="Calendar">Calendar</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('admin.reports') ? 'active' : '' }}">
                 <a href="{{ route('admin.reports') }}" class="menu-link">
-                  <i class="menu-icon tf-icons ti ti-report"></i>
-                  <div data-i18n="Reports">Reports</div>
+                    <i class="menu-icon tf-icons ti ti-report"></i>
+                    <div data-i18n="Reports">Reports</div>
                 </a>
-              </li>
-            @endif
+            </li>
+            <li class="menu-item {{ request()->routeIs('admin.fulfillment') ? 'active' : '' }}">
+                <a href="{{ route('admin.fulfillment') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-package"></i>
+                    <div data-i18n="Fulfillment">Fulfillment</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('admin.user') ? 'active' : '' }}">
+                <a href="{{ route('admin.user') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-user"></i>
+                    <div data-i18n="User">User</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('admin.data-key-in') ? 'active' : '' }}">
+                <a href="{{ route('admin.data-key-in') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-key"></i>
+                    <div data-i18n="Data Key In">Data Key In</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('admin.settings') ? 'active' : '' }}">
+                <a href="{{ route('admin.settings') }}" class="menu-link">
+                    <i class="menu-icon tf-icons ti ti-settings"></i>
+                    <div data-i18n="Settings">Settings</div>
+                </a>
+            </li>
+        @endif
             @if (in_array(auth()->user()->role, ['operations-printing']))
               <li class="menu-item {{ request()->routeIs('printing.history') ? 'active' : '' }}">
                 <a href="{{ route('printing.history') }}" class="menu-link">
@@ -202,19 +244,17 @@ $configData = \App\Helpers\Helpers::appClasses();
                 </a>
               </li>
               <li class="menu-item {{ request()->routeIs('installation.calendar') ? 'active' : '' }}">
-    <a href="{{ route('installation.calendar') }}" class="menu-link">
-      <i class="menu-icon icon-base bx bx-calendar"></i>
-      <div data-i18n="Calendar">Calendar</div>
-    </a>
-  </li>
-                <li class="menu-item {{ request()->routeIs('installation.profile') ? 'active' : '' }}">
-  <a href="{{ route('installation.profile') }}" class="menu-link">
-    <i class="menu-icon icon-base bx bx-user"></i>
-    <div data-i18n="Profile">Profile</div>
-  </a>
-</li>
-
-
+                <a href="{{ route('installation.calendar') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-calendar"></i>
+                  <div data-i18n="Calendar">Calendar</div>
+                </a>
+              </li>
+                            <li class="menu-item {{ request()->routeIs('installation.profile') ? 'active' : '' }}">
+              <a href="{{ route('installation.profile') }}" class="menu-link">
+                <i class="menu-icon icon-base bx bx-user"></i>
+                <div data-i18n="Profile">Profile</div>
+              </a>
+            </li>
               <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
                 <a href="{{ route('installation.history') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-user"></i>

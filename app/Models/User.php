@@ -11,13 +11,14 @@ class User extends Authenticatable
 {
     use HasApiTokens, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'role', 'contact_number'];
+    protected $fillable = ['name', 'email', 'password', 'role', 'contact_number', 'status'];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
         'role' => 'string',
+        'status' => 'string',
     ];
 
     public function hasRole($role)
@@ -45,14 +46,18 @@ class User extends Authenticatable
         return str_replace('-', ' ', ucwords((string) $this->role, " -_"));
     }
 
-    // Default avatar url (use your theme’s default)
     public function getAvatarUrlAttribute(): string
     {
-        // change to your actual default image if different
         return asset('assets/img/avatars/1.png');
     }
 
-    // Simple status; adjust if you later add a real status column
-    public function getStatusLabelAttribute(): string { return 'Active'; }
-    public function getStatusBadgeClassAttribute(): string { return 'bg-success'; }
+    public function getStatusLabelAttribute(): string
+    {
+        return $this->status === 'active' ? 'Active' : 'Inactive';
+    }
+
+    public function getStatusBadgeClassAttribute(): string
+    {
+        return $this->status === 'active' ? 'bg-success' : 'bg-secondary';
+    }
 }

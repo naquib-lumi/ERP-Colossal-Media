@@ -218,43 +218,42 @@ public function dashboard()
     }
 
 
-    // In SalesController.php, add these methods
-
-public function ProfileShow(Request $request)
-{
-    $user = $request->user();
-    return view('sales.profile.show', compact('user'));
-}
-
-public function ProfileUpdate(Request $request)
-{
-    $user = $request->user();
-
-    $validated = $request->validate([
-        'name'           => ['required','string','max:255'],
-        'email'          => ['required','email','max:255'],
-        'contact_number' => ['nullable','string','max:30'],
-
-        // Password section (optional)
-        // If 'password' is present, 'current_password' must match the logged-in user
-        'current_password' => ['nullable','required_with:password','current_password'],
-        'password'         => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
-    ]);
-
-    // Update profile fields
-    $user->fill([
-        'name'           => $validated['name'],
-        'email'          => $validated['email'],
-        'contact_number' => $validated['contact_number'] ?? null,
-    ]);
-
-    // Update password if provided
-    if (!empty($validated['password'])) {
-        $user->password = Hash::make($validated['password']);
+  
+    public function ProfileShow(Request $request)
+    {
+        $user = $request->user();
+        return view('sales.profile.show', compact('user'));
     }
 
-    $user->save();
+    public function ProfileUpdate(Request $request)
+    {
+        $user = $request->user();
 
-    return back()->with('success', 'Profile updated.');
-}
+        $validated = $request->validate([
+            'name'           => ['required','string','max:255'],
+            'email'          => ['required','email','max:255'],
+            'contact_number' => ['nullable','string','max:30'],
+
+            // Password section (optional)
+            // If 'password' is present, 'current_password' must match the logged-in user
+            'current_password' => ['nullable','required_with:password','current_password'],
+            'password'         => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
+        ]);
+
+        // Update profile fields
+        $user->fill([
+            'name'           => $validated['name'],
+            'email'          => $validated['email'],
+            'contact_number' => $validated['contact_number'] ?? null,
+        ]);
+
+        // Update password if provided
+        if (!empty($validated['password'])) {
+            $user->password = Hash::make($validated['password']);
+        }
+
+        $user->save();
+
+        return back()->with('success', 'Profile updated.');
+    }
 }
