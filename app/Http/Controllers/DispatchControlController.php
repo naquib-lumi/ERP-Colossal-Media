@@ -24,8 +24,27 @@ class DispatchControlController extends Controller
             'issue'       => 'Issue',
         ];
 
-        $search  = trim((string) $request->query('q', ''));
+        $pid     = trim((string)$request->query('pid', ''));    // product id/code (all pages)
+        $q       = trim((string)$request->query('q', ''));      // keyword
+        $artist  = trim((string)$request->query('artist', '')); // orders.artist_id
+        $dFrom   = trim((string)$request->query('deadline_from', ''));
+        $dTo     = trim((string)$request->query('deadline_to', ''));
+
+        $search  = $q;
         $status  = $request->query('status', 'all');
+
+        $toYmd = static function (?string $v): ?string {
+            if (!$v) return null;
+            try { return \Carbon\Carbon::parse($v)->toDateString(); } catch (\Throwable $e) { return null; }
+        };
+        $dFromY = $toYmd($dFrom);
+        $dToY   = $toYmd($dTo);
+
+         $artists = DB::table('users')
+            ->select('id', 'name')
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->orderBy('name')
+            ->get();
 
         // 1) Pull all rows we need
         $rows = DB::table('products as p')
@@ -40,6 +59,9 @@ class DispatchControlController extends Controller
                 'o.order_number',
                 'o.orderDate',
                 'o.deadline',
+                'o.orderTitle',      // NEW
+                'o.companyName',     // NEW
+                'o.artist_id',
                 'fp.stage',
                 'fp.status as stage_status',
                 'fp.acceptedAt',
@@ -53,19 +75,22 @@ class DispatchControlController extends Controller
         // 2) Reduce to "latest row per stage" for each product
         $byProduct = [];
         foreach ($rows as $r) {
-            $pid = $r->ProductID;
-            if (!isset($byProduct[$pid])) {
+            $pidKey = $r->ProductID;
+            if (!isset($byProduct[$pidKey])) {
                 // null-safe lowercasing for current stage/status
                 $curStage  = $r->current_stage ?? null;
                 $curStatus = $r->current_status ?? null;
 
-                $byProduct[$pid] = [
-                    'ProductID'       => $pid,
+                $byProduct[$pidKey] = [
+                    'ProductID'       => $pidKey,
                     'productName'     => $r->productName,
                     'OrderID'         => $r->OrderID,
                     'order_number'    => $r->order_number,
                     'orderDate'       => $r->orderDate,
                     'deadline'        => $r->deadline,
+                    'orderTitle'      => $r->orderTitle,     // keep for search
+                    'companyName'     => $r->companyName,    // keep for search
+                    'artist_id'       => $r->artist_id,      // keep for filter
                     'stages'          => [],
                     'current_stage'   => $curStage  ? strtolower($curStage)  : null,
                     'current_status'  => $curStatus ? strtolower($curStatus) : null,
@@ -79,10 +104,10 @@ class DispatchControlController extends Controller
 
             $k    = strtolower(trim($r->stage)); // printing|furnishing|delivery|installation
             $rank = $r->completedAt ?? $r->acceptedAt ?? $r->fp_created_at;
-            $cur  = $byProduct[$pid]['stages'][$k]['_rank'] ?? null;
+            $cur  = $byProduct[$pidKey]['stages'][$k]['_rank'] ?? null;
 
             if (!$cur || $rank > $cur) {
-                $byProduct[$pid]['stages'][$k] = [
+                $byProduct[$pidKey]['stages'][$k] = [
                     'status' => strtolower((string)$r->stage_status), // completed|rejected|in_progress|null
                     'done'   => $r->completedAt,
                     '_rank'  => $rank,
@@ -131,18 +156,85 @@ class DispatchControlController extends Controller
             $list[] = $p;
         }
 
-        // 4) Search filter (optional)
-        if ($search !== '') {
-            $needle = mb_strtolower($search);
+        // Product ID / code (searches across pages)
+        if ($pid !== '') {
+            $needle = mb_strtolower($pid);
             $list = array_values(array_filter($list, function ($p) use ($needle) {
-                return str_contains(mb_strtolower($p['productName'] ?? ''), $needle)
-                    || str_contains(mb_strtolower($p['order_number'] ?? ''), $needle)
-                    || str_contains((string)$p['ProductID'], $needle);
+                $code = mb_strtolower((string)($p['product_code'] ?? ''));
+                return str_contains((string)($p['ProductID'] ?? ''), $needle) || str_contains($code, $needle);
             }));
         }
 
+        // Keyword: order title / company / product name
+        if ($q !== '') {
+            $needle = mb_strtolower($q);
+            $list = array_values(array_filter($list, function ($p) use ($needle) {
+                return str_contains(mb_strtolower($p['orderTitle']  ?? ''), $needle)
+                    || str_contains(mb_strtolower($p['companyName'] ?? ''), $needle)
+                    || str_contains(mb_strtolower($p['productName'] ?? ''), $needle);
+            }));
+        }
+
+        // Artist filter
+        if ($artist !== '') {
+            $list = array_values(array_filter($list, fn($p) => (string)($p['artist_id'] ?? '') === (string)$artist));
+        }
+
+        // Deadline range
+        if ($dFromY || $dToY) {
+            $fromTS = $dFromY ? strtotime($dFromY) : null;
+            $toTS   = $dToY   ? strtotime($dToY)   : null;
+            $list = array_values(array_filter($list, function ($p) use ($fromTS, $toTS) {
+                $raw = $p['deadline'] ?? null;
+                if (!$raw) return false;
+                $ts = strtotime($raw);
+                if ($fromTS && $ts < $fromTS) return false;
+                if ($toTS   && $ts > $toTS)   return false;
+                return true;
+            }));
+        }
+
+        // 4) Search filter (optional)
+        // if ($search !== '') {
+        //     $needle = mb_strtolower($search);
+        //     $list = array_values(array_filter($list, function ($p) use ($needle) {
+        //         return str_contains(mb_strtolower($p['productName'] ?? ''), $needle)
+        //             || str_contains(mb_strtolower($p['order_number'] ?? ''), $needle)
+        //             || str_contains((string)$p['ProductID'], $needle);
+        //     }));
+        // }
+
         // 5) Sort by lesser progress FIRST (ascending)
         usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
+
+        $sortBy   = $request->query('sort_by', '');       // 'deadline' | 'date_in' | ''
+        $sortMode = $request->query('sort_mode', 'near'); // 'near' | 'far'
+
+        if (in_array($sortBy, ['deadline', 'date_in'], true)) {
+            $today = new \DateTimeImmutable('today');
+            $key   = $sortBy === 'deadline' ? 'deadline' : 'orderDate';
+
+            $getDate = static function(array $row, string $key) {
+                $raw = $row[$key] ?? null;
+                if (!$raw) return null;
+                try { return new \DateTimeImmutable($raw); } catch (\Throwable $e) { return null; }
+            };
+            $distance = static function (? \DateTimeImmutable $d, \DateTimeImmutable $t): int {
+                if (!$d) return PHP_INT_MAX; // missing dates go last
+                return abs((int)$d->format('U') - (int)$t->format('U'));
+            };
+
+            usort($list, function ($a, $b) use ($today, $getDate, $distance, $key, $sortMode) {
+                $ad = $getDate($a, $key); $bd = $getDate($b, $key);
+                $da = $distance($ad, $today);
+                $db = $distance($bd, $today);
+                $cmp = $da <=> $db;
+                return $sortMode === 'far' ? -$cmp : $cmp;
+            });
+        } else {
+            // your original "least progress first" sort stays the default
+            usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
+        }
 
         // 6) Paginate manually (10 per page)
         $perPage = 10; // <-- was 1000
@@ -165,6 +257,12 @@ class DispatchControlController extends Controller
             'inProgress' => $inProgress,
             'completed'  => $completed,
             'rows'       => $rowsPaginated,
+            'pid'           => $pid,
+            'q'             => $q,
+            'artist'        => $artist,
+            'deadline_from' => $dFromY,
+            'deadline_to'   => $dToY,
+            'artists'       => $artists,
         ]);
     }
 

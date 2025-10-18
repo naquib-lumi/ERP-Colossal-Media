@@ -16,6 +16,18 @@
     box-shadow: 0 1px 2px rgba(16, 24, 40, .05)
   }
 
+  .kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #F4F6FA;
+    color: #667085;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px
+  }
+
   .stat-card .num {
     font-size: 34px;
     font-weight: 800;
@@ -289,95 +301,95 @@
     <div class="col-12 col-lg-6">
       <div class="stat-card">
         <div>
-          <div class="label mb-1">In Progress</div>
-          <div class="num">{{ $inProgress }}</div>
+          <div class="label mb-1" style="color: #635bff;">In Progress</div>
+          <div class="num" style="color: #635bff;">{{ $inProgress }}</div>
         </div>
-        <i class="bi bi-clock fs-3 text-secondary"></i>
+        <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
     </div>
     <div class="col-12 col-lg-6">
       <div class="stat-card">
         <div>
-          <div class="label mb-1">Completed</div>
-          <div class="num">{{ $completed }}</div>
+          <div class="label mb-1" style="color:seagreen;">Completed</div>
+          <div class="num" style="color:seagreen;">{{ $completed }}</div>
         </div>
-        <i class="bi bi-check2 fs-3 text-success"></i>
+        <div class="kpi-icon"><i class="bi bi-check2"></div></i>
       </div>
     </div>
   </div>
 
-{{-- Filter & search toolbar --}}
-<div class="card shadow-soft mb-3 filter-card">
-  <div class="card-body">
-    <div class="d-flex align-items-center mb-3">
-      <h6 class="mb-0 fw-semibold">Installation Jobs</h6>
-      <span class="text-muted small ms-2">Filter &amp; search</span>
+  {{-- Filter & search toolbar --}}
+  <div class="card shadow-soft mb-3 filter-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center mb-3">
+        <h6 class="mb-0 fw-semibold">Installation Jobs</h6>
+        <span class="text-muted small ms-2">Filter &amp; search</span>
+      </div>
+
+      <form class="row g-3 align-items-end" method="GET" action="{{ route('installation.dashboard') }}">
+        {{-- Product ID (server-side, all pages) --}}
+        <div class="col-12 col-md-6 col-lg-4">
+          <label class="form-label">Search Product ID</label>
+          <div class="input-group input-group-sm has-icon">
+            <span class="input-group-text"><i class="bi bi-hash"></i></span>
+            <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="Enter Product ID">
+          </div>
+        </div>
+
+        {{-- Keyword: Order title / Company name / Product name --}}
+        <div class="col-12 col-md-6 col-lg-4">
+          <label class="form-label">Search</label>
+          <div class="input-group input-group-sm has-icon">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" name="q" value="{{ request('q', $q ?? '') }}" class="form-control"
+                  placeholder="Order title, Company name, or Product name">
+          </div>
+        </div>
+
+        {{-- Artist --}}
+        <div class="col-12 col-md-6 col-lg-4">
+          <label class="form-label">Artist</label>
+          <div class="input-group input-group-sm has-icon">
+            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+            <select name="artist" class="form-select">
+              <option value="">All artists</option>
+              @foreach (($artists ?? []) as $a)
+                <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist', $artist ?? '') ? 'selected' : '' }}>
+                  {{ $a->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+        </div>
+
+        {{-- Deadline range --}}
+        <div class="col-6 col-md-4 col-lg-2">
+          <label class="form-label">Deadline From</label>
+          <div class="input-group input-group-sm has-icon">
+            <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+            <input type="date" name="deadline_from" value="{{ request('deadline_from', $deadline_from ?? '') }}" class="form-control">
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-lg-2">
+          <label class="form-label">Deadline To</label>
+          <div class="input-group input-group-sm has-icon">
+            <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
+            <input type="date" name="deadline_to" value="{{ request('deadline_to', $deadline_to ?? '') }}" class="form-control">
+          </div>
+        </div>
+
+        {{-- Actions --}}
+        <div class="col-12 col-lg-4 ms-auto d-flex gap-2 justify-content-end">
+          <a href="{{ route('installation.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+          </a>
+          <button class="btn btn-dark">
+            <i class="bi bi-funnel me-1"></i> Apply Filter
+          </button>
+        </div>
+      </form>
     </div>
-
-    <form class="row g-3 align-items-end" method="GET" action="{{ route('installation.dashboard') }}">
-      {{-- Product ID (server-side, all pages) --}}
-      <div class="col-12 col-md-6 col-lg-3">
-        <label class="form-label">Search Product ID</label>
-        <div class="input-group input-group-sm has-icon">
-          <span class="input-group-text"><i class="bi bi-hash"></i></span>
-          <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="e.g. 49 or P0049">
-        </div>
-      </div>
-
-      {{-- Keyword: Order title / Company name / Product name --}}
-      <div class="col-12 col-md-6 col-lg-4">
-        <label class="form-label">Search</label>
-        <div class="input-group input-group-sm has-icon">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input type="text" name="q" value="{{ request('q', $q ?? '') }}" class="form-control"
-                 placeholder="Order title, Company name, or Product name">
-        </div>
-      </div>
-
-      {{-- Artist --}}
-      <div class="col-12 col-md-6 col-lg-3">
-        <label class="form-label">Artist</label>
-        <div class="input-group input-group-sm has-icon">
-          <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-          <select name="artist" class="form-select">
-            <option value="">All artists</option>
-            @foreach (($artists ?? []) as $a)
-              <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist', $artist ?? '') ? 'selected' : '' }}>
-                {{ $a->name }}
-              </option>
-            @endforeach
-          </select>
-        </div>
-      </div>
-
-      {{-- Deadline range --}}
-      <div class="col-6 col-md-4 col-lg-2">
-        <label class="form-label">Deadline From</label>
-        <div class="input-group input-group-sm has-icon">
-          <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
-          <input type="date" name="deadline_from" value="{{ request('deadline_from', $deadline_from ?? '') }}" class="form-control">
-        </div>
-      </div>
-      <div class="col-6 col-md-4 col-lg-2">
-        <label class="form-label">Deadline To</label>
-        <div class="input-group input-group-sm has-icon">
-          <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
-          <input type="date" name="deadline_to" value="{{ request('deadline_to', $deadline_to ?? '') }}" class="form-control">
-        </div>
-      </div>
-
-      {{-- Actions --}}
-      <div class="col-12 col-lg-4 ms-auto d-flex gap-2 justify-content-end">
-        <a href="{{ route('installation.dashboard') }}" class="btn btn-outline-secondary">
-          <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
-        </a>
-        <button class="btn btn-dark">
-          <i class="bi bi-funnel me-1"></i> Apply Filter
-        </button>
-      </div>
-    </form>
   </div>
-</div>
 
   {{-- Production Status --}}
   <div class="card border-0 shadow-sm">

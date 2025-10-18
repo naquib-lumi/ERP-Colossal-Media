@@ -44,7 +44,11 @@ class InstallationController extends Controller
         $dToY   = $toYmd($dTo);
 
         // Optional: artists for dropdown (doesn't change your other logic)
-        $artists = DB::table('users')->select('id','name')->orderBy('name')->get();
+        $artists = DB::table('users')
+            ->select('id', 'name')
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->orderBy('name')
+            ->get();
 
         // 1) Pull all rows we need  (ADD orderTitle/companyName/artist_id for filter)
         $rows = DB::table('products as p')
@@ -195,17 +199,6 @@ class InstallationController extends Controller
 
         // 5) Sort by lesser progress FIRST (ascending)  (UNCHANGED)
         usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
-
-        // 6) Paginate manually (10 per page)  (UNCHANGED)
-        // $perPage = 10;
-        // $page    = max(1, (int)$request->query('page', 1));
-        // $total   = count($list);
-        // $items   = array_slice($list, ($page - 1) * $perPage, $perPage);
-
-        // $rowsPaginated = new LengthAwarePaginator(
-        //     $items, $total, $perPage, $page,
-        //     ['path' => $request->url(), 'query' => $request->query()]
-        // );
 
         $sortBy   = $request->query('sort_by', '');       // 'deadline' | 'date_in' | ''
         $sortMode = $request->query('sort_mode', 'near'); // 'near' | 'far' (proximity to today)
