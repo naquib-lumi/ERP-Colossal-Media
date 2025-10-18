@@ -249,7 +249,7 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
 
         // AJAX search for artists (head-artist assigning)
         Route::get('/artist/orders/assignees/search', [ArtistOrderController::class, 'searchArtists'])->name('artist.orders.assignees.search');
-        Route::post('/artist/orders/{order}/assign', [ArtistOrderController::class, 'assign'])->name('artist.orders.assigns');
+        Route::post('/artist/orders/{order}/edit', [ArtistOrderController::class, 'assign'])->name('artist.orders.assigns');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])

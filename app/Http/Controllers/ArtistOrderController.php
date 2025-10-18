@@ -660,10 +660,26 @@ class ArtistOrderController extends Controller
             'user_id' => ['nullable','integer','exists:users,id'],
         ]);
 
-        $order->artist_id = $validated['user_id'] ?? null; // allow unassign
+        $assignee = isset($validated['user_id']) ? User::find($validated['user_id']) : null;
+
+        if (!$assignee) {
+            $newStatus = 'to_assign';
+        } elseif ($assignee->role === 'head-artist') {
+            $newStatus = 'in_progress';
+        } else {
+            $newStatus = 'assigned';
+        }
+
+        $order->artist_id   = $assignee?->id;   // allow unassign (null)
+        $order->orderStatus = $newStatus;
         $order->save();
 
-        return response()->json(['ok' => true, 'artist_id' => $order->artist_id]);
+        return response()->json([
+            'ok'          => true,
+            'artist_id'   => $order->artist_id,
+            'orderStatus' => $order->orderStatus,
+            'assigneeRole'=> $assignee?->role,
+        ]);
     }
 
 }

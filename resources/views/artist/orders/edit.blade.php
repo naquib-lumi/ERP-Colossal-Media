@@ -452,6 +452,7 @@
                               min="0"
                               class="form-control"
                               placeholder="1000"
+                              onkeydown="return !['e','E','+','-'].includes(event.key)"
                               value="{{ old("products.$pIndex.qty_total", $product->totalQuantity ?? '') }}"
                               {{ $readonly }}>
                           </div>
@@ -557,6 +558,7 @@
                                     <label class="form-label">Quantity</label>
                                     <input type="number" min="0" class="form-control"
                                       name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}" {{ $readonly }}>
                                   </div>
 
@@ -587,15 +589,17 @@
                                     </select>
                                   </div>
                                   <div class="col-12 col-md-4">
-                                    <label class="form-label">Size - Width</label>
+                                    <label class="form-label">Width</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
                                       type="number" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
                                       type="number" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -609,27 +613,33 @@
                                     </select>
                                   </div>
                                   <div class="col-12 col-md-2">
-                                    <label class="form-label">Bleed (Top)</label>
+                                    <label class="form-label">Top</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
                                       type="number" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
                                       type="number" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
                                       type="number" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
                                       value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
                                       type="number" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
                                       value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -765,7 +775,10 @@
 
                                   <div class="col-md-6">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" {{ $readonly }}>
+                                    <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12">
@@ -789,12 +802,17 @@
                                   </div>
 
                                   <div class="col-12 col-md-4">
-                                    <label class="form-label">Size - Width</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <label class="form-label">Width</label>
+                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                    {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12 col-md-4">
@@ -807,20 +825,32 @@
                                     </select>
                                   </div>
                                   <div class="col-12 col-md-2">
-                                    <label class="form-label">Bleed (Top)</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <label class="form-label">Top</label>
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                   </div>
 
                                   <div class="col-md-3">
@@ -1023,7 +1053,9 @@
                                     name="products[{{ $pIndex }}][deliveries][{{ $i }}][outsource_cost]"
                                     value="{{ $costVal }}"
                                     data-outsource-cost
-                                    {{ $costDisabledAttr }} data-optional="true">
+                                    {{ $costDisabledAttr }} data-optional="true"
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
                                 </div>
 
                                 {{-- Location --}}
@@ -1039,7 +1071,10 @@
                                   <label class="form-label">Quantity</label>
                                   <input type="number" class="form-control del-qty"
                                     name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]"
-                                    value="{{ $d->quantity }}" {{ $readonly }}>
+                                    value="{{ $d->quantity }}" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                 </div>
 
                                 {{-- Date & Time --}}
@@ -1097,7 +1132,9 @@
                                     name="products[{{ $pIndex }}][deliveries][__INDEX__][outsource_cost]"
                                     class="form-control"
                                     data-outsource-cost
-                                    disabled data-optional="true">
+                                    disabled data-optional="true"
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
                                 </div>
 
                                 <div class="col-12 col-md-4">
@@ -1107,7 +1144,9 @@
 
                                 <div class="col-12 col-md-4">
                                   <label class="form-label">Quantity</label>
-                                  <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty">
+                                  <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty"
+                                  onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
                                 </div>
 
                                 <div class="col-12 col-md-4">
@@ -1126,11 +1165,11 @@
                           <div id="remarks-wrap-{{ $pIndex }}">
                             @php
                             $ops = [
-                            'printing' => 'Printing',
-                            'furnishing' => 'Furnishing',
-                            'installation' => 'Delivery & Installation',
-                            'courier' => 'Courier',
-                            'self_pickup' => 'Self Pickup',
+                            'printing' => 'To Printing',
+                            'furnishing' => 'To Furnishing',
+                            'installation' => 'To Delivery & Installation',
+                            'courier' => 'To Courier',
+                            'self_pickup' => 'To Self Pickup',
                             ];
                             $rows = $product->remarks ?? collect();
                             @endphp
@@ -1256,20 +1295,26 @@
             <div class="card mt-4" id="assign-artist-card">
               <div class="card-header d-flex justify-content-between align-items-center">
                 <strong>Assign Artist</strong>
-                <button id="btn-assign-artist" type="button" class="btn btn-primary btn-sm">
-                  Re Assign Artist
-                </button>
+                
               </div>
               <div class="card-body">
-                <label for="assignee_artist_id" class="form-label">Artist</label>
-                <select id="assignee_artist_id" class="form-select" style="width:100%">
-                  @if(!empty($order->artist_id) && !empty($order->artist))
-                    <option value="{{ $order->artist_id }}" selected>
-                      {{ $order->artist->name }} ({{ $order->artist->role }})
-                    </option>
-                  @endif
-                </select>
-                <div class="form-text">Optional — you can assign or change later.</div>
+                <div class="d-flex align-items-end gap-2">
+                  <div class="flex-grow-1">
+                    <label for="assignee_artist_id" class="form-label mb-1 fw-semibold">Artist</label>
+                    <select id="assignee_artist_id" class="form-select" style="width:100%">
+                      @if(!empty($order->artist_id) && !empty($order->artist))
+                        <option value="{{ $order->artist_id }}" selected>
+                          {{ $order->artist->name }} ({{ $order->artist->role }})
+                        </option>
+                      @endif
+                    </select>
+                  </div>
+                  <div class="pb-1">
+                    <button id="btn-assign-artist" type="button" class="btn btn-primary btn-sm">
+                      Assign Artist
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           @endif
@@ -1284,7 +1329,7 @@
     {{-- Sticky save bar --}}
     <div class="col-12">
       <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
-        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
         <input type="hidden" name="submit" id="submit-input" value="0">
         @if(!$isSubmitted)
         <button type="button" name="is_draft" onclick="document.getElementById('submit-input').value=0" class="btn btn-secondary" id="btn-draft">Save Draft</button>
@@ -1312,7 +1357,9 @@
         </div>
         <div class="col-md-2">
           <label class="form-label">Quantity</label>
-          <input name="items[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty">
+          <input name="items[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
+          onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
         </div>
         <div class="col-md-6">
           <label class="form-label">Material</label>
@@ -1320,7 +1367,7 @@
         </div>
 
         <div class="col-12 col-md-3">
-          <label class="form-label">Size - Width</label>
+          <label class="form-label">Width</label>
           <input name="items[IDX][size][w]" type="text" class="form-control">
         </div>
         <div class="col-12 col-md-3">
@@ -1333,7 +1380,7 @@
         </div>
 
         <div class="col-12 col-md-3">
-          <label class="form-label">Bleed (Top)</label>
+          <label class="form-label">Top</label>
           <input name="items[IDX][bleed][top]" type="text" class="form-control">
         </div>
         <div class="col-12 col-md-3">
@@ -1403,7 +1450,9 @@
         </div>
         <div class="col-12 col-md-2">
           <label class="form-label">Quantity</label>
-          <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty">
+          <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
+          onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
         </div>
         <div class="col-12 col-md-4">
           <label class="form-label">Date & Time</label>
@@ -1489,15 +1538,16 @@
           <div class="row g-3">
             <div class="col-md-8">
               <label class="form-label">Product Name</label>
-              <input type="text" class="form-control" id="p_name" name="product_name">
+              <input type="text" class="form-control" id="p_name" name="product_name" required>
             </div>
             <div class="col-md-4">
               <label class="form-label">Quantity</label>
-              <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1">
+              <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1"
+              onkeydown="return !['e','E','+','-'].includes(event.key)" required>
             </div>
             <div class="col-12">
               <label class="form-label">Material Remark</label>
-              <textarea class="form-control" id="p_material" name="material_info" rows="2" placeholder="Optional"></textarea>
+              <textarea class="form-control" id="p_material" name="material_info" rows="2" placeholder="material" required></textarea>
             </div>
           </div>
 
@@ -1525,15 +1575,15 @@
 {{-- Template for one remark row --}}
 <script type="text/template" id="remarkRowTpl">
   <div class="remark-row d-flex gap-2 align-items-start">
-    <select class="form-select" name="remarks[__IDX__][operation]">
+    <select class="form-select" name="remarks[__IDX__][operation]" required>
       <option value="" disabled selected>Select operation</option>
-      <option value="printing">Printing</option>
-      <option value="furnishing">Furnishing</option>
-      <option value="installation">Delivery & Installation</option>
-      <option value="courier">Courier</option>
-      <option value="self_pickup">Self Pickup</option>
+      <option value="printing">To Printing</option>
+      <option value="furnishing">To Furnishing</option>
+      <option value="installation">To Delivery & Installation</option>
+      <option value="courier">To Courier</option>
+      <option value="self_pickup">To Self Pickup</option>
     </select>
-    <input class="form-control" name="remarks[__IDX__][remark]" placeholder="Remark…">
+    <input class="form-control" name="remarks[__IDX__][remark]" placeholder="Remark…" required>
     <button type="button" class="btn btn-outline-danger remove-remark">&times;</button>
   </div>
 </script>
@@ -2095,11 +2145,11 @@
         div.innerHTML = `
           <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
             <option value="">— Select —</option>
-            <option value="printing">Printing</option>
-            <option value="furnishing">Furnishing</option>
-            <option value="installation">Installation</option>
-            <option value="self pickup">Self Pickup</option>
-            <option value="courier">Courier</option>
+            <option value="printing">To Printing</option>
+            <option value="furnishing">To Furnishing</option>
+            <option value="installation">To Installation</option>
+            <option value="self pickup">To Self Pickup</option>
+            <option value="courier">To Courier</option>
           </select>
           <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…" {{$readonly}} data-optional="true">
           <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -3250,7 +3300,7 @@
         const data = await res.json().catch(() => ({}));
         if (res.ok && data?.ok) {
           if (window.Swal) {
-            Swal.fire({ icon:'success', title:'Assignment saved', timer:1200, showConfirmButton:false });
+            Swal.fire({ icon:'success', title:'Artist Assigned', timer:1200, showConfirmButton:false });
           }
         } else {
           const msg = data?.message || `HTTP ${res.status}`;
