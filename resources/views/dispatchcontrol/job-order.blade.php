@@ -7,6 +7,54 @@
   font-size: 1rem;
   vertical-align: middle;
 }
+
+.filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;               /* allow wrapping */
+  gap: 0.5rem;                   /* spacing between items */
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.filter-toolbar .input-group,
+.filter-toolbar select,
+.filter-toolbar .btn {
+  flex: 1 1 auto;                /* allow flexible width */
+  min-width: 180px;              /* ensure readability on smaller screens */
+}
+
+@media (max-width: 992px) {      /* for tablet/laptop */
+  .filter-toolbar .btn {
+    flex: 0 0 auto;              /* keep buttons compact */
+  }
+}
+
+  /* Layout polish */
+  .card-soft{border:1px solid #ECEFF3;border-radius:14px;box-shadow:0 4px 12px rgba(16,24,40,.06)}
+  .stat{display:flex;gap:12px;align-items:center;padding:18px;border-radius:14px;border:1px solid #ECEFF3;background:#fff}
+  .stat i{font-size:20px}
+  .stat .count{font-weight:800;font-size:18px;line-height:1}
+  .stat small{color:#667085}
+
+  /* Toolbar */
+  .toolbar{gap:10px}
+  .toolbar .form-control,.toolbar .form-select,.toolbar .btn{height:44px}
+  .toolbar .form-select{min-width:190px}
+  .toolbar .btn{white-space:nowrap}  /* prevent label wrapping like in your screenshot */
+  .btn-icon{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center}
+
+  /* Table */
+  .table thead th{font-size:12px;letter-spacing:.02em;font-weight:700;color:#475467;background:#F8FAFC}
+  .table tbody tr:hover{background:#FAFBFC}
+  .pill{display:inline-block;padding:.35rem .7rem;border-radius:999px;font-weight:600;font-size:.825rem}
+  .action-btn{width:32px;height:32px;padding:0;border:1px solid #D0D5DD;border-radius:8px;background:#fff;color:#475467;display:inline-flex;align-items:center;justify-content:center}
+  .action-btn:hover{background:#F2F4F7;color:#111827}
+
+  /* Empty state inside table */
+  .empty-wrap{padding:38px 12px;text-align:center}
+  .empty-icon{width:52px;height:52px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:#EEF2FF;color:#4F46E5;margin-bottom:12px}
+  .empty-title{font-weight:700;color:#111827}
+  .empty-text{color:#667085}
 </style>
 @php
   // Safe defaults so the view never breaks
@@ -38,35 +86,6 @@
       };
   };
 @endphp
-
-<style>
-  /* Layout polish */
-  .card-soft{border:1px solid #ECEFF3;border-radius:14px;box-shadow:0 4px 12px rgba(16,24,40,.06)}
-  .stat{display:flex;gap:12px;align-items:center;padding:18px;border-radius:14px;border:1px solid #ECEFF3;background:#fff}
-  .stat i{font-size:20px}
-  .stat .count{font-weight:800;font-size:18px;line-height:1}
-  .stat small{color:#667085}
-
-  /* Toolbar */
-  .toolbar{gap:10px}
-  .toolbar .form-control,.toolbar .form-select,.toolbar .btn{height:44px}
-  .toolbar .form-select{min-width:190px}
-  .toolbar .btn{white-space:nowrap}  /* prevent label wrapping like in your screenshot */
-  .btn-icon{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center}
-
-  /* Table */
-  .table thead th{font-size:12px;letter-spacing:.02em;font-weight:700;color:#475467;background:#F8FAFC}
-  .table tbody tr:hover{background:#FAFBFC}
-  .pill{display:inline-block;padding:.35rem .7rem;border-radius:999px;font-weight:600;font-size:.825rem}
-  .action-btn{width:32px;height:32px;padding:0;border:1px solid #D0D5DD;border-radius:8px;background:#fff;color:#475467;display:inline-flex;align-items:center;justify-content:center}
-  .action-btn:hover{background:#F2F4F7;color:#111827}
-
-  /* Empty state inside table */
-  .empty-wrap{padding:38px 12px;text-align:center}
-  .empty-icon{width:52px;height:52px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:#EEF2FF;color:#4F46E5;margin-bottom:12px}
-  .empty-title{font-weight:700;color:#111827}
-  .empty-text{color:#667085}
-</style>
 
 <div class="container-fluid py-4 px-4">
   <h1 class="fw-bold mb-3" style="font-size:32px;letter-spacing:-.3px;">Job Order Table</h1>
@@ -113,43 +132,50 @@
 
   {{-- Toolbar --}}
   <div class="card card-soft mb-3">
-    <div class="card-body d-flex flex-column flex-xl-row align-items-stretch toolbar">
-      <form class="w-100 d-flex flex-column flex-xl-row align-items-stretch gap-2" method="GET" action="{{ route('dispatchcontrol.job-order') }}">
-        <input type="text" name="q" value="{{ request('q') }}" class="form-control" placeholder="Search by Order ID or Job Title">
-        <select class="form-select" name="task_type">
-          @php $tt = strtolower(request('task_type','')); @endphp
-          <option value="">All Task Types</option>
-          <option value="printing"     @selected($tt==='printing')>Printing</option>
-          <option value="furnishing"   @selected($tt==='furnishing')>Furnishing</option>
-          <option value="installation" @selected($tt==='installation')>Delivery & Installation</option>
-          <option value="delivery"  @selected($tt==='delivery')>Dispatch Control</option>
-        </select>
-
-        <select class="form-select" name="status">
-          @php $st = strtolower(request('status','')); @endphp
-          <option value="">All Statuses</option>
-          <option value="in_progress" @selected($st==='in_progress')>In Progress</option>
-          <option value="completed"   @selected($st==='completed')>Completed</option>
-          <option value="rejected"   @selected($st==='rejected')>Rejected</option>
-        </select>
-
-        <div class="ms-xl-auto d-flex gap-2">
-          <a href="{{ route('dispatchcontrol.job-order') }}" class="btn btn-light border">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
-          </a>
-          <button class="btn btn-dark">
-            <i class="bi bi-funnel me-1"></i>Apply Filter
-          </button>
-          <a
-            class="btn btn-outline-secondary @if(!$hasResults) disabled @endif"
-            @if($hasResults)
-              href="{{ route('dispatchcontrol.job-order', array_merge(request()->all(), ['export' => 1])) }}"
-            @endif
-            title="{{ $hasResults ? 'Export CSV' : 'No data to export' }}"
-          >
-            <i class="bi bi-download me-1"></i>Export CSV
-          </a>
+    <div class="card-body">
+      <form method="GET" action="{{ route('dispatchcontrol.job-order') }}" class="filter-toolbar">
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-hash"></i></span>
+          <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="# Enter Product ID">
         </div>
+
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" name="q" value="{{ request('q', $q ?? '') }}" class="form-control" placeholder="Search by Order Title, Company, Product, or Remarks">
+        </div>
+
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+          <select name="artist" class="form-select">
+            <option value="">All artists</option>
+            @foreach(($artists ?? []) as $a)
+              <option value="{{ $a->id }}" @selected((string)$a->id === (string)request('artist', $artist ?? ''))>
+                {{ $a->name }}
+              </option>
+            @endforeach
+          </select>
+        </div>
+
+        <select name="task_type" class="form-select">
+          <option value="">All Types</option>
+          <option value="printing" @selected(request('task_type')==='printing')>Printing</option>
+          <option value="furnishing" @selected(request('task_type')==='furnishing')>Furnishing</option>
+          <option value="installation" @selected(request('task_type')==='installation')>Delivery & Installation</option>
+          <option value="delivery" @selected(request('task_type')==='delivery')>Dispatch Control</option>
+        </select>
+
+        <select name="status" class="form-select">
+          <option value="">All Statuses</option>
+          <option value="in_progress" @selected(request('status')==='in_progress')>In Progress</option>
+          <option value="completed" @selected(request('status')==='completed')>Completed</option>
+          <option value="rejected" @selected(request('status')==='rejected')>Rejected</option>
+        </select>
+
+        <button class="btn btn-dark"><i class="bi bi-funnel me-1"></i> Apply Filter</button>
+        <a href="{{ route('dispatchcontrol.job-order') }}" class="btn btn-light border">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+        </a>
+        <a class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i> Export CSV</a>
       </form>
     </div>
   </div>
@@ -163,9 +189,39 @@
             <th>PRODUCT ID</th>
             <th>PRODUCT NAME</th>
             <th>TASK TYPE</th>
-            <th>DEADLINE</th>
+
+            {{-- DEADLINE sort (nearest / furthest) --}}
+            <th>
+              @php
+                $isDead = request('sort_by') === 'deadline';
+                $nextDead = ($isDead && request('sort_mode')==='near') ? 'far' : 'near';
+              @endphp
+              <a class="text-decoration-none text-dark"
+                href="{{ request()->fullUrlWithQuery(['sort_by'=>'deadline','sort_mode'=>$nextDead,'page'=>1]) }}">
+                DEADLINE
+                @if($isDead)
+                  <span class="badge bg-light text-muted ms-1">{{ strtoupper(request('sort_mode','near')) }}</span>
+                @endif
+              </a>
+            </th>
+
             <th>STATUS</th>
-            <th>DELIVERY DATE</th>
+
+            {{-- DELIVERY DATE sort (nearest / furthest) --}}
+            <th>
+              @php
+                $isDel = request('sort_by') === 'delivery_date';
+                $nextDel = ($isDel && request('sort_mode')==='near') ? 'far' : 'near';
+              @endphp
+              <a class="text-decoration-none text-dark"
+                href="{{ request()->fullUrlWithQuery(['sort_by'=>'delivery_date','sort_mode'=>$nextDel,'page'=>1]) }}">
+                DELIVERY DATE
+                @if($isDel)
+                  <span class="badge bg-light text-muted ms-1">{{ strtoupper(request('sort_mode','near')) }}</span>
+                @endif
+              </a>
+            </th>
+
             <th>DELIVERY LOCATION</th>
             <th class="text-end">ACTIONS</th>
           </tr>
@@ -178,7 +234,7 @@
             $typeCls = $typeStyles[$type]     ?? 'bg-light text-muted';
             $statCls = $statusStyles[$status] ?? 'bg-light text-muted';
           @endphp
-          <tr>
+          <tr class="js-row" data-href="{{ $o->details_url }}" style="cursor: pointer;">
             <td class="fw-semibold">{{ $o->product_code ?? $o->product_id ?? '—' }}</td>
             <td>{{ $o->product_name ?? '—' }}</td>
 
@@ -189,7 +245,12 @@
             </td>
 
             <td>{{ $o->deadline ?? '—' }}</td>
-            <td><span class="pill {{ $statCls }}">{{ $o->status ? \Illuminate\Support\Str::title($o->status) : '—' }}</span></td>
+            <td>
+              @php
+                $nice = $o->status ? \Illuminate\Support\Str::title(str_replace('_',' ', $o->status)) : '—';
+              @endphp
+              <span class="pill {{ $statCls }}">{{ $nice }}</span>
+            </td>
             <td class="text-center">
               @if(!empty($o->delivery_date))
                 {{ $o->delivery_date }}
@@ -255,14 +316,14 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-  // Auto-enter edit mode when coming from the list with ?edit=1
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('edit') === '1') {
-      document.getElementById('btnEdit')?.click();
-    }
-  } catch (e) {}
+document.addEventListener('dblclick', e => {
+  const tr = e.target.closest('tr.js-row');
+  if (!tr) return;
+  // ignore when dbl-clicking interactive controls
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+  const url = tr.dataset.href;
+  if (url) window.location.href = url;
 });
 </script>
 @endsection
