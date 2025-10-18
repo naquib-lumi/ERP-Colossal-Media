@@ -580,12 +580,12 @@ class ArtistOrderController extends Controller
         }
 
         $request->validate([
-            'product_name'        => ['required','string','max:255'],
-            'quantity'            => ['required','integer','min:1'],
+            'product_name'        => ['nullable','string','max:255'],
+            'quantity'            => ['nullable','integer','min:1'],
             'material_info'       => ['nullable','string'],
             'remarks'             => ['nullable','array'],
-            'remarks.*.operation' => ['required_with:remarks.*.remark','in:printing,furnishing,installation,courier,self_pickup'],
-            'remarks.*.remark'    => ['required_with:remarks.*.operation','string'],
+            'remarks.*.operation' => ['nullable','in:printing,furnishing,installation,courier,self_pickup'],
+            'remarks.*.remark'    => ['nullable','string'],
         ]);
 
         // Create product (columns match your products table)

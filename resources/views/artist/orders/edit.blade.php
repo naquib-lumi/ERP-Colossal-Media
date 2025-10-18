@@ -1538,16 +1538,16 @@
           <div class="row g-3">
             <div class="col-md-8">
               <label class="form-label">Product Name</label>
-              <input type="text" class="form-control" id="p_name" name="product_name" required>
+              <input type="text" class="form-control" id="p_name" name="product_name">
             </div>
             <div class="col-md-4">
               <label class="form-label">Quantity</label>
               <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1"
-              onkeydown="return !['e','E','+','-'].includes(event.key)" required>
+              onkeydown="return !['e','E','+','-'].includes(event.key)">
             </div>
             <div class="col-12">
               <label class="form-label">Material Remark</label>
-              <textarea class="form-control" id="p_material" name="material_info" rows="2" placeholder="material" required></textarea>
+              <textarea class="form-control" id="p_material" name="material_info" rows="2" placeholder="Backlit Fabric"></textarea>
             </div>
           </div>
 
@@ -1575,7 +1575,7 @@
 {{-- Template for one remark row --}}
 <script type="text/template" id="remarkRowTpl">
   <div class="remark-row d-flex gap-2 align-items-start">
-    <select class="form-select" name="remarks[__IDX__][operation]" required>
+    <select class="form-select" name="remarks[__IDX__][operation]">
       <option value="" disabled selected>Select operation</option>
       <option value="printing">To Printing</option>
       <option value="furnishing">To Furnishing</option>
@@ -1583,7 +1583,7 @@
       <option value="courier">To Courier</option>
       <option value="self_pickup">To Self Pickup</option>
     </select>
-    <input class="form-control" name="remarks[__IDX__][remark]" placeholder="Remark…" required>
+    <input class="form-control" name="remarks[__IDX__][remark]" placeholder="Remark…">
     <button type="button" class="btn btn-outline-danger remove-remark">&times;</button>
   </div>
 </script>
@@ -3315,5 +3315,98 @@
       }
     });
   });
+
+(function () {
+  // Utility: set value + fire events (supports Select2 if present)
+  function setValueAndTrigger(el, val) {
+    if (!el) return;
+    const isSelect = el.tagName === 'SELECT';
+    const old = el.value;
+    if (old === String(val)) return;
+    el.value = val;
+    // native events
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    // select2 support (if used)
+    if (isSelect && window.jQuery && jQuery(el).data('select2')) {
+      jQuery(el).val(val).trigger('change.select2');
+    }
+  }
+
+  function syncRow(row, cause) {
+    if (!row) return;
+    const methodSel = row.querySelector('[data-method-select]');
+    const typeSel   = row.querySelector('[data-install-type]');
+    const costInp   = row.querySelector('[data-outsource-cost]');
+
+    if (!methodSel || !typeSel || !costInp) return;
+
+    const isDI      = methodSel.value === 'delivery_installation';
+    const needsCost = isDI && (typeSel.value === 'outsource' || typeSel.value === 'both');
+
+    // When switching AWAY from DI → clear type + cost before disabling
+    if (!isDI) {
+      setValueAndTrigger(typeSel, '');
+      setValueAndTrigger(costInp, '');
+    }
+
+    // Toggle disabled states
+    typeSel.disabled = !isDI;
+
+    // If type changes to in_house or nothing → clear cost
+    if (!needsCost) {
+      setValueAndTrigger(costInp, '');
+    }
+    costInp.disabled = !needsCost;
+
+    // Optional: harden number input (block e/E/+/-)
+    row.querySelectorAll('input[type="number"]').forEach(function (n) {
+      if (n.__boundBlockSci) return;
+      n.addEventListener('keydown', function (e) {
+        if (['e','E','+','-'].includes(e.key)) e.preventDefault();
+      });
+      n.__boundBlockSci = true;
+    });
+  }
+
+  // Event delegation (works for dynamic rows)
+  document.addEventListener('change', function (e) {
+    if (e.target.matches('[data-method-select]') || e.target.matches('[data-install-type]')) {
+      const row = e.target.closest('[data-delivery-row]');
+      syncRow(row, 'change');
+    }
+  });
+
+  // Init existing rows on load
+  function initAll() {
+    document.querySelectorAll('[data-delivery-row]').forEach(function (row) {
+      syncRow(row, 'init');
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll);
+  } else {
+    initAll();
+  }
+
+  // Watch for newly added delivery rows
+  const container = document.querySelector('#deliveries-container') || document.body;
+  const mo = new MutationObserver(function (muts) {
+    muts.forEach(function (m) {
+      m.addedNodes.forEach(function (n) {
+        if (n.nodeType === 1 && n.matches && n.matches('[data-delivery-row]')) {
+          syncRow(n, 'added');
+        }
+        // handle wrappers adding children
+        if (n.nodeType === 1) {
+          n.querySelectorAll && n.querySelectorAll('[data-delivery-row]').forEach(function (row) {
+            syncRow(row, 'added-deep');
+          });
+        }
+      });
+    });
+  });
+  mo.observe(container, { childList: true, subtree: true });
+})();
 </script>
 @endpush

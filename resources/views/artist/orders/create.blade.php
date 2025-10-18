@@ -407,7 +407,7 @@
             </div>
             <div class="col-12">
               <label class="form-label">Material Remark</label>
-              <textarea class="form-control" id="p_material" rows="2" placeholder="Optional"></textarea>
+              <textarea class="form-control" id="p_material" rows="2" placeholder="Backlit Fabric"></textarea>
             </div>
           </div>
 
