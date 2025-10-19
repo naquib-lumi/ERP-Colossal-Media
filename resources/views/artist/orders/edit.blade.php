@@ -258,6 +258,7 @@
 </script>
 @endpush
 @endif
+<meta name="csrf-token" content="{{ csrf_token() }}">
 
 {{-- Loading overlay --}}
 <div id="loading-overlay" class="overlay">
@@ -356,7 +357,7 @@
 
                 <div class="col-12">
                   <label class="form-label d-flex align-items-center gap-2">
-                    <span>Attachments</span>
+                    <span>Lead Attachments</span>
                     <span class="text-body-secondary small">(read-only — uploaded by salesperson)</span>
                   </label>
 
@@ -399,21 +400,33 @@
             $locked = $isRedo && !$selectedForRedo;
             @endphp
             <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
-            <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}">
+            <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}" data-product-row data-product-id="{{ $product->ProductID }}" data-url="{{ route('artist.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
               <h2 class="accordion-header" id="pHead{{ $pIndex }}">
-                <button
-                  class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
-                  type="button"
-                  data-bs-toggle="collapse"
-                  data-bs-target="#pCollapse{{ $pIndex }}"
-                  aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
-                  aria-controls="pCollapse{{ $pIndex }}">
-                  Product #{{ $product->display_code  ?? $loop->iteration }}
-                  — {{ $product->productName ?? 'Product' }}
-                  @if ($selectedForRedo)
-                  <span class="badge bg-primary ms-2">REDO</span>
+                <div class="d-flex justify-content-between align-items-center w-100">
+                  <button
+                    class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#pCollapse{{ $pIndex }}"
+                    aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
+                    aria-controls="pCollapse{{ $pIndex }}">
+                    Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
+                    @if ($selectedForRedo)
+                      <span class="badge bg-primary ms-2">REDO</span>
+                    @endif
+                  </button>
+
+                  @if ($submitted)
+                    <button type="button"
+                            class="btn btn-link text-danger p-0 ms-2 me-3"
+                            data-delete-product
+                            aria-label="Delete product"
+                            title="Delete this product"
+                            style="text-decoration:none;">
+                      <i class="bx bx-trash fs-5"></i>
+                    </button>
                   @endif
-                </button>
+                </div>
               </h2>
 
               <div
@@ -3407,6 +3420,133 @@
     });
   });
   mo.observe(container, { childList: true, subtree: true });
+})();
+
+(function () {
+  function csrfToken() {
+    const el = document.querySelector('meta[name="csrf-token"]');
+    return el ? el.getAttribute('content') : '';
+  }
+
+  document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('[data-delete-product]');
+    if (!btn) return;
+
+    const row = btn.closest('[data-product-row]');
+    const url = row?.dataset?.url;
+    if (!url) return;
+
+    // SweetAlert confirmation dialog
+    const confirm = await Swal.fire({
+      title: 'Delete this product?',
+      text: 'This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    // Perform DELETE request
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'X-CSRF-TOKEN': csrfToken(),
+        'Accept': 'application/json'
+      },
+      credentials: 'same-origin'
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      return Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: data.message || 'Failed to delete product.'
+      });
+    }
+
+    // Remove row visually
+    row.remove();
+
+    // Success message
+    await Swal.fire({
+      icon: 'success',
+      title: 'Deleted!',
+      text: 'The product has been deleted successfully.',
+      timer: 1500,
+      showConfirmButton: false
+    });
+  });
+})();
+
+(function () {
+  const toInt = v => {
+    v = (v ?? '').toString().trim();
+    return v === '' ? 0 : Math.max(0, parseInt(v, 10) || 0);
+  };
+
+  // Find the product container that wraps the qty input + delivery summary
+  function findProductRoot(el) {
+    return el.closest('[data-product-block]')  // if you have a product wrapper
+        || el.closest('.product-card')         // or your own wrapper
+        || el.closest('.card');                // fallback
+  }
+
+  // Sum all delivery quantities inside this product
+  function sumDeliveries(root) {
+    let sum = 0;
+    root.querySelectorAll('.del-qty').forEach(inp => sum += toInt(inp.value));
+    return sum;
+  }
+
+  // Update the Delivery Breakdown labels using your IDs
+  function renderCounts(root) {
+    // qty input (use name$ to avoid depending on the #totalQty id being unique)
+    const totalInp = root.querySelector('input[name$="[qty_total]"]') || root.querySelector('#totalQty');
+    const total    = toInt(totalInp?.value);
+    const planned  = sumDeliveries(root);
+
+    // find the summary block and its children by prefix
+    const summary   = root.querySelector('[id^="del-summary-"]');
+    const totalEl   = summary ? summary.querySelector('[id^="del-sum-total-"]') : null;
+    const remainEl  = summary ? summary.querySelector('[id^="del-sum-remaining-"]') : null;
+
+    if (totalEl)  totalEl.textContent  = total;
+    if (remainEl) remainEl.textContent = Math.max(0, total - planned);
+  }
+
+  function onTotalChange(inp) {
+    const root = findProductRoot(inp);
+    if (root) renderCounts(root);
+  }
+  function onDeliveryQtyChange(inp) {
+    const root = findProductRoot(inp);
+    if (root) renderCounts(root);
+  }
+
+  // Delegate for dynamic rows too
+  document.addEventListener('input', function (e) {
+    if (e.target.matches('input[name$="[qty_total]"], #totalQty')) onTotalChange(e.target);
+    if (e.target.matches('.del-qty')) onDeliveryQtyChange(e.target);
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.matches('input[name$="[qty_total]"], #totalQty')) onTotalChange(e.target);
+    if (e.target.matches('.del-qty')) onDeliveryQtyChange(e.target);
+  });
+
+  // Initial sync on load
+  function initAll() {
+    document.querySelectorAll('input[name$="[qty_total]"], #totalQty').forEach(onTotalChange);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll);
+  } else {
+    initAll();
+  }
 })();
 </script>
 @endpush

@@ -216,6 +216,7 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
         Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'storeAssign'])->middleware('role:head-artist')->name('artist.orders.assign.store');
         Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show');
         Route::post('/artist/orders/{order}/products', [ArtistOrderController::class, 'storeProduct'])->name('artist.orders.products.store');
+        Route::delete('/artist/orders/{order}/products/{product}', [ArtistController::class, 'destroyProduct'])->name('artist.orders.products.destroy');
 
         Route::get('/artist/fulfillment', [FulfillmentController::class, 'index'])->name('artist.fulfillment.index');
         Route::get('/artist/fulfillment/products/{product}', [FulfillmentController::class, 'show'])->name('artist.fulfillment.product.show');

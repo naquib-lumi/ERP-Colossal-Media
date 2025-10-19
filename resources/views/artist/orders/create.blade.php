@@ -531,11 +531,11 @@ $(function () {
         <div class="col-md-3">
           <select class="form-select remark-op">
             <option value="">— Select —</option>
-            <option value="printing"     ${op==='printing'?'selected':''}>Printing</option>
-            <option value="furnishing"   ${op==='furnishing'?'selected':''}>Furnishing</option>
-            <option value="installation" ${op==='installation'?'selected':''}>Delivery & Installation</option>
-            <option value="courier"      ${op==='courier'?'selected':''}>Courier</option>
-            <option value="self_pickup"  ${op==='self_pickup'?'selected':''}>Self Pickup</option>
+            <option value="printing"     ${op==='printing'?'selected':''}>To Printing</option>
+            <option value="furnishing"   ${op==='furnishing'?'selected':''}>To Furnishing</option>
+            <option value="installation" ${op==='installation'?'selected':''}>To Delivery & Installation</option>
+            <option value="courier"      ${op==='courier'?'selected':''}>To Courier</option>
+            <option value="self_pickup"  ${op==='self_pickup'?'selected':''}>To Self Pickup</option>
           </select>
         </div>
         <div class="col-md-8">
