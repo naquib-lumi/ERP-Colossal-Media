@@ -433,7 +433,7 @@
             <div class="vstack gap-2">
                 @foreach($p->remarks as $rm)
                 <div class="d-flex align-items-start gap-2 p-2 border rounded">
-                    <span class="badge bg-secondary me-2">{{ $opLabel($rm->operation) }}</span>
+                    <span class="badge bg-secondary me-2">To {{ $opLabel($rm->operation) }}</span>
                     <div class="flex-grow-1">{{ $rm->remark ?? '—' }}</div>
                 </div>
                 @endforeach
