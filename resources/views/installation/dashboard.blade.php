@@ -308,7 +308,7 @@
       </div>
     </div>
     <div class="col-12 col-lg-6">
-      <div class="stat-card">
+      <div class="stat-card cursor-pointer" data-go-status="completed">
         <div>
           <div class="label mb-1" style="color:seagreen;">Completed</div>
           <div class="num" style="color:seagreen;">{{ $completed }}</div>
@@ -694,5 +694,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+(function () {
+  // base route to history page (Laravel route)
+  const base = "{{ route('installation.history') }}";
+
+  document.querySelectorAll('[data-go-status]').forEach(function (tile) {
+    tile.addEventListener('click', function () {
+      const status = tile.getAttribute('data-go-status')?.trim();
+      if (!status) return;
+
+      // Build target URL with query param
+      const url = new URL(base, window.location.origin);
+      url.searchParams.set('status', status);
+
+      // Redirect to ?status=completed
+      window.location.href = url.toString();
+    });
+  });
+})();
 </script>
 @endsection

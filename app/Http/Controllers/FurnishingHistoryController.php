@@ -17,6 +17,7 @@ class FurnishingHistoryController extends Controller
         $sort = (string) $request->get('sort', 'completed');      // fixed key
         $dir  = strtolower((string) $request->get('dir', 'desc')); // default DESC
         $dir  = $dir === 'asc' ? 'asc' : 'desc';
+        $onlyStatus = strtolower((string) $request->query('status', ''));
 
         // mm/dd/yyyy or any parseable → yyyy-mm-dd
         $toYmd = function (?string $v): ?string {
@@ -40,6 +41,8 @@ class FurnishingHistoryController extends Controller
             ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
             ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
             ->where('fp.stage', 'furnishing')
+            ->when($onlyStatus === 'completed', fn($q) => $q->where('fp.status', 'completed'))
+            ->when($onlyStatus === 'rejected',  fn($q) => $q->where('fp.status', 'rejected'))
             ->where(function ($w) {
                 $w->whereIn('fp.status', ['completed', 'rejected'])
                 ->orWhereNotNull('fp.completedAt');

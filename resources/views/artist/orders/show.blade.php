@@ -152,7 +152,7 @@
                             <div class="w-100 d-flex flex-wrap gap-3">
                                 <div class="me-auto">
                                     <strong>Product</strong>
-                                    <span class="fw-semibold">{{ $pidLabel }}</span>
+                                    <span class="fw-semibold">{{ $pidLabel }} — {{ data_get($product,'productName','-') }}</span>
                                 </div>
                                 <div>
                                     <small class="text-muted">Qty:</small>
@@ -310,7 +310,7 @@
             }
         @endphp
         <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
-            Product {{ $pidLabel }}
+            Product {{ $pidLabel }} — {{ data_get($product,'productName','-') }}
         </div>
 
         @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
@@ -424,7 +424,7 @@
         @forelse($remarkProducts as $p)
         <div class="mb-3">
             <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
-            {{ $productCode($p) }}
+            {{ $productCode($p) }} — {{ data_get($product,'productName','-') }}
             </div>
 
             @if(($p->remarks ?? collect())->isEmpty())
@@ -478,8 +478,5 @@
         </div>
     </div>
 
-    <div class="text-end">
-        <button type="button" onclick="history.back()" class="btn btn-secondary mt-6">Back</button>
-    </div>
 </div>
 @endsection

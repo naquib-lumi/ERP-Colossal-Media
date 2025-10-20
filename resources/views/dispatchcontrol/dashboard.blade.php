@@ -293,7 +293,7 @@
 
   {{-- KPIs --}}
   <div class="row g-3 mb-4">
-    <div class="col-12 col-lg-6">
+    <div class="col-12 col-lg-6 cursor-pointer" data-go-status="in_progress">
       <div class="stat-card">
         <div>
           <div class="label mb-1" style="color: #635bff;">In Progress</div>
@@ -302,7 +302,7 @@
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
     </div>
-    <div class="col-12 col-lg-6">
+    <div class="col-12 col-lg-6 cursor-pointer" data-go-status="completed">
       <div class="stat-card">
         <div>
           <div class="label mb-1" style="color:seagreen;">Completed</div>
@@ -674,5 +674,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+(function () {
+    const base = "{{ route('dispatchcontrol.job-order') }}";
+    document.querySelectorAll('[data-go-status]').forEach(function (tile) {
+        tile.addEventListener('click', function () {
+        const s = tile.getAttribute('data-go-status');
+        const url = new URL(base, window.location.origin);
+        if (s) url.searchParams.set('status', s);
+        window.location.href = url.toString();
+        });
+    });
+    })();
 </script>
 @endsection

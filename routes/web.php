@@ -300,9 +300,9 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
     Route::middleware(['web','auth','role:operations-furnishing'])->group(function () {
         Route::get('/furnishing/dashboard', [FurnishingController::class, 'dashboard'])->name('furnishing.dashboard');
         Route::patch('/furnishing/jobs/{product}/complete', [FurnishingController::class, 'markComplete'])->name('furnishing.jobs.complete');
-        Route::get('/jobs/{product}', [FurnishingProductOrderController::class, 'show'])->name('furnishing.orders.show');
-        Route::post('/jobs/{product}/accept', [FurnishingProductOrderController::class, 'accept'])->name('furnishing.orders.accept');
-        Route::post('/jobs/{product}/reject', [FurnishingProductOrderController::class, 'reject'])->name('furnishing.orders.reject');
+        Route::get('/furnishing/jobs/{product}', [FurnishingProductOrderController::class, 'show'])->name('furnishing.orders.show');
+        Route::post('/furnishing/jobs/{product}/accept', [FurnishingProductOrderController::class, 'accept'])->name('furnishing.orders.accept');
+        Route::post('/furnishing/jobs/{product}/reject', [FurnishingProductOrderController::class, 'reject'])->name('furnishing.orders.reject');
         Route::get('/furnishing/product-order', [FurnishingProductOrderController::class, 'productorder'])->name('furnishing.product-order');
         Route::get('/furnishing/history', [FurnishingHistoryController::class, 'index'])->name('furnishing.history');
         Route::get('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'index'])->name('furnishing.profile');

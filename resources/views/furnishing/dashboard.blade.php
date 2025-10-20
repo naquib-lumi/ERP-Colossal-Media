@@ -319,7 +319,7 @@
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card cursor-pointer" data-go-status="completed">
         <div>
           <div class="kpi-title mb-1" style="color:seagreen;">Completed</div>
           <div class="kpi-value" id="kpiCompleted" style="color:seagreen;">{{ $completed }}</div>
@@ -341,13 +341,13 @@
             <span class="text-muted small ms-2">Filter &amp; search</span>
           </div>
 
-          <form class="row g-3 align-items-end" method="GET" action="{{ route('furnishing.dashboard') }}">
+          <form class="row g-3 align-items-end" method="GET" action="{{ route('furnishing.history') }}">
             {{-- Client-side Product ID (page only) --}}
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label">Search Product ID</label>
               <div class="input-group input-group-sm has-icon">
                 <span class="input-group-text"><i class="bi bi-hash"></i></span>
-                <input id="pidFilter" type="text" class="form-control" placeholder="Enter product ID">
+                <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="Enter product ID">
               </div>
             </div>
 
@@ -695,6 +695,23 @@
     if (url) window.location.href = url;
   });
 
-  
+(function () {
+  // base route to history page (Laravel route)
+  const base = "{{ route('furnishing.history') }}";
+
+  document.querySelectorAll('[data-go-status]').forEach(function (tile) {
+    tile.addEventListener('click', function () {
+      const status = tile.getAttribute('data-go-status')?.trim();
+      if (!status) return;
+
+      // Build target URL with query param
+      const url = new URL(base, window.location.origin);
+      url.searchParams.set('status', status);
+
+      // Redirect to ?status=completed
+      window.location.href = url.toString();
+    });
+  });
+})();
 </script>
 @endsection

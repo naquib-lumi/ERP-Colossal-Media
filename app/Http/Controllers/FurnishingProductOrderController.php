@@ -286,6 +286,21 @@ class FurnishingProductOrderController extends Controller
             return trim($label ? "{$label}: {$row->remark}" : $row->remark);
         })->filter()->unique()->values()->all();
 
+        $remarks = DB::table('product_remarks as pr')
+            ->leftJoin('users as u', 'u.id', '=', 'pr.user_id')
+            ->where('pr.ProductID', $productId)              // $product is the ProductID you already have
+            ->orderBy('pr.created_at', 'desc')
+            ->select([
+                'pr.RemarkID',
+                'pr.ProductID',
+                'pr.operation',
+                'pr.remark',
+                'pr.created_at',
+                'u.name as author_name',
+            ])
+            ->get();
+        $remarksByOp = $remarks->groupBy('operation');
+
         // Attachments (from orders.orderAttachment)
         $attachments = [];
         $rawAtt = (string)($headerRow->orderAttachment ?? '');
@@ -366,6 +381,8 @@ class FurnishingProductOrderController extends Controller
             'product_header' => $productHeader,
             'blocks'         => $blocks,
             'canEdit' => $canEdit,
+            'remarksByOp' => $remarksByOp,
+            'remarks' => $remarks,
         ]);
     }
 
@@ -634,6 +651,7 @@ class FurnishingProductOrderController extends Controller
 
         $cutters = (array) $request->input('cutters', []);
         $remarks = (array) $request->input('remarks', []);
+        $userId   = Auth::id();
 
         // Preload existing specs for change detection
         $itemIds = array_keys($cutters);
@@ -653,7 +671,8 @@ class FurnishingProductOrderController extends Controller
             $remarks,
             $existingSpecs,  
             &$cutterDiffs,   
-            &$remarksAdded
+            &$remarksAdded,
+            $userId,
         ) {
             // 1) Save cutters to specifications (by ItemID)
             foreach ($cutters as $itemId => $cutter) {
@@ -718,6 +737,7 @@ class FurnishingProductOrderController extends Controller
                     'ProductID'  => $product,
                     'operation'  => $op,   // exactly one of the 5 keys
                     'remark'     => $text,
+                    'user_id'    => $userId,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

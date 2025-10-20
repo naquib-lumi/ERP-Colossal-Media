@@ -16,112 +16,235 @@ use Illuminate\Support\Facades\Auth;
 
 class FulfillmentController extends Controller
 {
-    public function index(Request $request)
-    {
-        $user   = Auth::user();
-        $userId = (int) $user->id;
+public function index(Request $request)
+{
+    $user   = Auth::user();
+    $userId = (int) $user->id;
+    $isHead = (string)($user->role ?? '') === 'head-artist';
 
-        // ✅ Head Artist = role 'head-artist'
-        $isHead = (string)($user->role ?? '') === 'head-artist';
+    // big limit so DT can paginate client-side if you use it
+    $limit   = (int) $request->query('limit', 10000000000);
 
-        $limit  = (int) $request->query('limit', 100);
-        $q      = trim((string) $request->query('q', ''));
-        $task   = strtolower(trim((string) $request->query('task', '')));
-        $status = strtolower(trim((string) $request->query('status', '')));
+    $q       = trim((string) $request->query('q', ''));
+    $task    = strtolower(trim((string) $request->query('task', '')));
+    $status  = strtolower(trim((string) $request->query('status', '')));
 
-        // Base query (active orders only)
-        $query = DB::table('products as p')
-            ->join('orders as o', 'o.id', '=', 'p.OrderID')
-            ->leftJoin('products as op', 'op.ProductID', '=', 'p.redoOf')
-            ->leftJoin('orders   as oo', 'oo.id',        '=', 'op.OrderID')
-            ->leftJoin('delivery_breakdowns as dd', 'dd.ProductID', '=', 'p.ProductID')
-            ->where(function ($w) {
-                $w->whereNull('o.status')->orWhere('o.status', 0);
+    // NEW: extra filters (names consistent with your UI)
+    $codeStr   = trim((string) $request->query('code', ''));     // product code search
+    // Accept either "assignees" (dropdown name) or "assignee" (older param) from the request
+    $assigneeParam = $request->query('assignees', $request->query('assignee', null));
+    $assigneeId    = $assigneeParam !== null ? (int) $assigneeParam : 0;
+
+    $dateFrom  = trim((string) $request->query('from', ''));     // YYYY-MM-DD
+    $dateTo    = trim((string) $request->query('to', ''));       // YYYY-MM-DD
+    $nearSort  = trim((string) $request->query('deliv_sort', ''));// nearest | furthest
+
+    // ---------------- Base query you already have (UNCHANGED shape) ----------------
+    $query = DB::table('products as p')
+        ->join('orders as o', 'o.id', '=', 'p.OrderID')
+        ->leftJoin('products as op', 'op.ProductID', '=', 'p.redoOf')
+        ->leftJoin('orders   as oo', 'oo.id',        '=', 'op.OrderID')
+        ->leftJoin('delivery_breakdowns as dd', 'dd.ProductID', '=', 'p.ProductID')
+        ->where(function ($w) {
+            $w->whereNull('o.status')->orWhere('o.status', 0);
+        });
+
+    // Permission: non head-artist only sees own orders
+    if (!$isHead) {
+        $query->where(function ($w) use ($userId) {
+            $w->where('o.artist_id', $userId)
+              ->orWhere('o.salesperson_id', $userId);
+        });
+    }
+
+    // ---------------- ADD-ON filters (non-breaking) ----------------
+
+    // (1) Free-text: product name + order title + company
+    if ($q !== '') {
+        $query->where(function ($w) use ($q) {
+            $w->where('p.productName', 'like', "%{$q}%")
+              ->orWhere('o.orderTitle',  'like', "%{$q}%")
+              ->orWhere('o.companyName','like', "%{$q}%");
+        });
+    }
+
+    // (2) Product Code search (digits-only fuzzy OR full #ORD-YYYY-XXXX-P0001[R])
+    if ($codeStr !== '') {
+        if (preg_match('/^\d+$/', $codeStr)) {
+            // digits only → fuzzy match ProductID / redoOf / numeric order number part
+            $query->where(function ($w) use ($codeStr) {
+                $w->where('p.ProductID', 'like', "%{$codeStr}%")
+                  ->orWhere('p.redoOf',   'like', "%{$codeStr}%")
+                  ->orWhere(
+                      DB::raw('REPLACE(REPLACE(COALESCE(oo.order_number, o.order_number), "ORD-", ""), "-", "")'),
+                      'like',
+                      "%{$codeStr}%"
+                  );
             });
+        } else {
+            if (preg_match('/^#?(ORD-\d{4}-\d{3,4})-P0*([1-9]\d*)(R)?$/i', $codeStr, $m)) {
+                $orderStr = strtoupper($m[1]);
+                $pidNum   = (int) $m[2];
 
-        // Permission: Head Artist sees ALL. Others only their own orders.
-        if (!$isHead) {
-            $query->where(function ($w) use ($userId) {
-                $w->where('o.artist_id', $userId)
-                    ->orWhere('o.salesperson_id', $userId);
-            });
+                if (preg_match('/^ORD-\d{4}-(\d{3,4})$/', $orderStr, $mm)) {
+                    $last  = $mm[1];
+                    $orderStrPad = sprintf(
+                        'ORD-%s-%s',
+                        substr($orderStr, 4, 4),
+                        str_pad($last, 4, '0', STR_PAD_LEFT)
+                    );
+                } else {
+                    $orderStrPad = $orderStr;
+                }
+
+                $query->where(function ($w) use ($orderStr, $orderStrPad, $pidNum) {
+                    $w->where(function ($x) use ($orderStr, $orderStrPad) {
+                          $x->where(DB::raw('UPPER(COALESCE(oo.order_number, o.order_number))'), $orderStr)
+                            ->orWhere(DB::raw('UPPER(COALESCE(oo.order_number, o.order_number))'), $orderStrPad);
+                      })
+                      ->where(function ($x) use ($pidNum) {
+                          $x->where('p.ProductID', '=', $pidNum)
+                            ->orWhere('p.redoOf',   '=', $pidNum);
+                      });
+                });
+            }
         }
+    }
 
-        // Search / filters
-        if ($q !== '')      $query->where('p.productName', 'like', "%{$q}%");
-        if ($task !== '')   $query->whereRaw('LOWER(p.taskType) = ?', [$task]);
-        if ($status !== '') $query->whereRaw('LOWER(p.status) = ?', [$status]);
+    // (3) Task filter:
+    // Printing / Furnishing → match taskType directly (your original)
+    // Dispatch Control      → DB status 'delivery'
+    // Delivery & Installation → DB status 'installation'
+    $taskNorm = preg_replace('/\s+/', ' ', trim($task)); // normalize spaces
+    if ($taskNorm !== '') {
+        if (in_array($taskNorm, ['printing','furnishing'], true)) {
+            $query->whereRaw('LOWER(p.taskType) = ?', [$taskNorm]);
+        } elseif (in_array($taskNorm, ['dispatch control','dispatch_control'], true)) {
+            $query->whereRaw('LOWER(p.status) = ?', ['delivery']);
+        } elseif (in_array($taskNorm, ['delivery & installation','delivery_installation'], true)) {
+            $query->whereRaw('LOWER(p.status) = ?', ['installation']);
+        } else {
+            // fallback to original behaviour
+            $query->whereRaw('LOWER(p.taskType) = ?', [$taskNorm]);
+        }
+    }
 
-        // Select fields
-        $query->select([
-            'p.ProductID as pid',
-            'p.redoOf',                                   // redo origin (0/null if original)
-            'p.editable',                                 // 1 only for selected redo products
-            'p.productName as name',
-            DB::raw('LOWER(p.taskType) as task'),
-            'p.OrderID as order_id_current',              // for edit/report links
-            DB::raw('COALESCE(oo.id, o.id) as order_id_for_display'),
-            DB::raw("DATE_FORMAT(o.deadline, '%Y-%m-%d') as deadline"),
-            DB::raw('LOWER(p.status) as status'),
-            DB::raw("DATE_FORMAT(dd.date, '%Y-%m-%d') as deliv_date"),
-            DB::raw("DATE_FORMAT(dd.time, '%H:%i')     as deliv_time"),
-            'dd.location as deliv_loc',
-        ]);
+    // (4) Status filter (kept)
+    if ($status !== '') {
+        $query->whereRaw('LOWER(p.status) = ?', [$status]);
+    }
 
-        // Default sort: closest delivery first (nulls last), then order deadline
+    // (5) Artist dropdown filter → order belongs to this artist
+    $assignees = DB::table('users')
+        ->whereIn('role', ['artist', 'head-artist'])
+        ->orderBy('name')
+        ->select('id','name','role')
+        ->get();
+
+    if ($assigneeId > 0) {
+        $query->where('o.artist_id', $assigneeId);
+    }
+
+    // (6) Delivery date range
+    if ($dateFrom !== '' && $dateTo !== '') {
+        $query->whereBetween('dd.date', [$dateFrom, $dateTo]);
+    } elseif ($dateFrom !== '') {
+        $query->whereDate('dd.date', '>=', $dateFrom);
+    } elseif ($dateTo !== '') {
+        $query->whereDate('dd.date', '<=', $dateTo);
+    }
+
+    // (7) Nearest / furthest by delivery date (NULLs last)
+    if (in_array($nearSort, ['nearest','furthest'], true)) {
+        $query->orderByRaw('CASE WHEN dd.date IS NULL THEN 1 ELSE 0 END ASC')
+              ->orderByRaw('ABS(DATEDIFF(dd.date, CURDATE())) ' . ($nearSort === 'furthest' ? 'DESC' : 'ASC'))
+              ->orderByRaw('COALESCE(dd.time, "23:59:59") ASC')
+              ->orderBy('o.deadline', 'ASC');
+    }
+
+    // ---------------- Select / default order / pagination ----------------
+    $query->select([
+        'p.ProductID as pid',
+        'p.redoOf',
+        'p.editable',
+        'p.productName as name',
+        DB::raw('LOWER(p.taskType) as task'),
+        'p.OrderID as order_id_current',
+        DB::raw('COALESCE(oo.id, o.id) as order_id_for_display'),
+        DB::raw("DATE_FORMAT(o.deadline, '%Y-%m-%d') as deadline"),
+        DB::raw('LOWER(p.status) as status'),
+        DB::raw("DATE_FORMAT(dd.date, '%Y-%m-%d') as deliv_date"),
+        DB::raw("DATE_FORMAT(dd.time, '%H:%i')     as deliv_time"),
+        'dd.location as deliv_loc',
+        DB::raw('COALESCE(oo.order_number, o.order_number) as order_no_display'),
+    ]);
+
+    // default ordering if no explicit delivery sort requested
+    if ($nearSort === '') {
         $query->orderByRaw("
             COALESCE(dd.date, '9999-12-31') ASC,
             COALESCE(dd.time, '23:59:59') ASC,
             o.deadline ASC
         ");
-
-        // Paginate + keep filters; reset to page 1 if user is on a stale page
-        $paginator = $query->paginate($limit)->withQueryString();
-        if ($paginator->isEmpty() && $paginator->currentPage() > 1) {
-            $paginator = $query->paginate($limit, ['*'], 'page', 1)->withQueryString();
-        }
-
-        // Build display code; R only when (redo && editable)
-        $rows = $paginator->through(function ($r) {
-            $isRedo     = !is_null($r->redoOf);
-            $isEditable = ((int) $r->editable === 1);
-
-            $pidForDisplay = $r->redoOf ?: $r->pid;             // show original PID if redo, else own PID
-            $oidForDisplay = $r->order_id_for_display;          // original order id if redo, else current
-            $suffixR       = ($isRedo && $isEditable) ? 'R' : '';
-
-            $r->code       = sprintf('#ORD-%s-P%04d%s', $oidForDisplay, $pidForDisplay, $suffixR);
-            $r->id         = $r->pid;
-            $r->edit_url   = route('artist.orders.edit',        $r->order_id_current);
-            $r->assign_url = route('artist.orders.redo.create', $r->order_id_current);
-            return $r;
-        });
-
-        $taskTypes = ['printing', 'furnishing', 'installation'];
-        $statuses = DB::table('products')
-            ->whereNotNull('status')
-            ->selectRaw('LOWER(status) as status')
-            ->distinct()
-            ->orderBy('status')
-            ->pluck('status')
-            ->toArray();
-
-        if ($request->ajax()) {
-            return view('artist.fulfillment._table', compact('rows'))->render();
-        }
-
-        return view('artist.fulfillment.index', [
-            'rows'      => $rows,
-            'taskTypes' => $taskTypes,
-            'statuses'  => $statuses,
-            'filters'   => [
-                'q'      => $q,
-                'task'   => $task,
-                'status' => $status,
-                'limit'  => $limit,
-            ],
-        ]);
     }
+
+    $paginator = $query->paginate($limit)->withQueryString();
+    if ($paginator->isEmpty() && $paginator->currentPage() > 1) {
+        $paginator = $query->paginate($limit, ['*'], 'page', 1)->withQueryString();
+    }
+
+    // Build display code and routes
+    $rows = $paginator->through(function ($r) {
+        $isRedo     = !is_null($r->redoOf);
+        $isEditable = ((int) $r->editable === 1);
+
+        $orderNo = ltrim((string) $r->order_no_display, '#'); // e.g. ORD-2025-0044
+        $pidForDisplay = $r->redoOf ?: $r->pid;
+        $suffixR       = ($isRedo && $isEditable) ? 'R' : '';
+
+        $r->code       = sprintf('#%s-P%04d%s', $orderNo, $pidForDisplay, $suffixR);
+
+        $r->id         = $r->pid;
+        $r->view_url   = route('artist.fulfillment.product.show',        $r->order_id_current);
+        $r->edit_url   = route('artist.orders.edit',        $r->order_id_current);
+        $r->assign_url = route('artist.orders.redo.create', $r->order_id_current);
+        return $r;
+    });
+
+    // Show DB values for taskType + aliases in the UI filter
+    $taskTypes = ['printing','furnishing','installation','dispatch_control','delivery_installation'];
+
+    $statuses = DB::table('products')
+        ->whereNotNull('status')
+        ->selectRaw('LOWER(status) as status')
+        ->distinct()
+        ->orderBy('status')
+        ->pluck('status')
+        ->toArray();
+
+    if ($request->ajax()) {
+        return view('artist.fulfillment._table', compact('rows'))->render();
+    }
+
+    return view('artist.fulfillment.index', [
+        'rows'       => $rows,
+        'taskTypes'  => $taskTypes,
+        'statuses'   => $statuses,
+        'assignees'  => $assignees,
+        'filters'    => [
+            'q'          => $q,
+            'code'       => $codeStr,
+            'task'       => $task,
+            'status'     => $status,
+            'assignees'  => $assigneeId,   // ← keep selected value for the dropdown
+            'from'       => $dateFrom,
+            'to'         => $dateTo,
+            'deliv_sort' => $nearSort,
+            'limit'      => $limit,
+        ],
+    ]);
+}
+
 
     public function show(Request $request, Product $product)
     {

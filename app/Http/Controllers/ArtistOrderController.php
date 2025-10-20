@@ -254,6 +254,7 @@ class ArtistOrderController extends Controller
             }
 
             // Persist products
+            $authorId = (int) auth()->id();
             foreach ($request->input('products', []) as $p) {
                 if (empty($p['product_name']) || empty($p['quantity'])) {
                     continue;
@@ -277,6 +278,7 @@ class ArtistOrderController extends Controller
                             'ProductID'   => $product->getKey(), 
                             'operation'   => $r['operation'],   
                             'remark'      => $r['remark'],
+                            'user_id'    => $authorId,
                             'created_at'  => $now,
                             'updated_at'  => $now,
                         ];

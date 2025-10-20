@@ -5,6 +5,22 @@
 @section('content')
 @push('styles')
 <style>
+  .redo-reason{
+    display:inline-flex;
+    align-items:center;
+    max-width: 48ch;             /* stays on one line */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: .20rem .55rem;
+    border-radius: 999px;
+    font-size: .875rem;
+    font-weight: 500;
+    background: #F4F6FF;         /* gentle indigo tint */
+    color: #3842b0;
+    border: 1px solid #E3E7FF;
+  }
+
   .remove-item {
     display: flex;
     align-items: center;
@@ -413,6 +429,17 @@
                     Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
                     @if ($selectedForRedo)
                       <span class="badge bg-primary ms-2">REDO</span>
+                      @if (!empty($redoReason))
+                        <span
+                          class="redo-reason ms-2"
+                          data-bs-toggle="tooltip"
+                          data-bs-placement="top"
+                          title="{{ $redoReason }}"
+                        >
+                          <i class="bi bi-chat-left-text me-1"></i>
+                          {{ Str::limit($redoReason, 60) }}
+                        </span>
+                      @endif
                     @endif
                   </button>
 

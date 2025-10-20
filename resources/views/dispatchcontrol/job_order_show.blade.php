@@ -4,6 +4,18 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
+  .remark-list{display:flex;flex-direction:column;gap:.5rem}
+  .remark-item{padding:.6rem .8rem;border:1px dashed #E5E7EB;border-radius:.75rem;background:#FBFCFE}
+  .remark-head{display:flex;gap:.5rem;align-items:center;margin-bottom:.25rem}
+  .op-badge{display:inline-block;padding:.15rem .5rem;font-size:.75rem;font-weight:700}
+  .op-printing{background:#EEF2FF;color:#4F46E5}
+  .op-furnishing{background:#FFF7ED;color:#C2410C}
+  .op-installation{background:#ECFEFF;color:#0E7490}
+  .op-courier{background:#ECFDF5;color:#047857}
+  .op-self_pickup{background:#F3F4F6;color:#111827}
+  .remark-meta{color:#6B7280;font-size:.8rem}
+  .remark-text{white-space:pre-wrap}
+
   /* ===== 基础布局与卡片 ===== */
   .page-wrap {
     max-width: 1180px;
@@ -788,27 +800,43 @@
             </dl>
           </div>
         </div>
-
+        @php
+          $opLabel = [
+            'printing'     => 'To Printing',
+            'furnishing'   => 'To Furnishing',
+            'installation' => 'To Delivery & Installation',
+            'courier'      => 'To Courier',
+            'self_pickup'  => 'To Self Pickup',
+          ];
+        @endphp
         <div class="mt-3">
           <div class="section-hd" style="margin-bottom:8px"><i class="bi bi-chat-square-text"></i> Product Remarks</div>
           <div class="chips">
             @if(!empty($remarkLabels) && count($remarkLabels))
               <div class="remarks-block mt-2">
                 <ul class="remarks-list">
-                  @foreach ($remarkLabels as $line)
+                  @forelse($remarks ?? [] as $r)
                     @php
-                      // Optional: split "operation: message" → <span class="op">operation</span> message
-                      $op = null; $msg = $line;
-                      if (str_contains($line, ':')) {
-                        [$op, $msg] = explode(':', $line, 2);
-                        $op = trim($op); $msg = trim($msg);
-                      }
+                      $op = strtolower((string)$r->operation);
+                      $badgeClass = 'op-'.($op ?: 'furnishing');
+                      $label = $opLabel[$op] ?? ucfirst($op);
                     @endphp
-                    <li>
-                      @if($op)<span class="op">{{ $op }}:</span>@endif
-                      <span>{{ $msg }}</span>
-                    </li>
-                  @endforeach
+
+                    <div class="remark-item">
+                      <div class="remark-head">
+                        <span class="op-badge {{ $badgeClass }}">{{ $label }}</span>
+                        <span class="remark-meta">
+                          by <strong>{{ $r->author_name ?: 'Unknown' }}</strong>
+                          · {{ \Carbon\Carbon::parse($r->created_at)->format('Y-m-d') }}
+                        </span>
+                      </div>
+                      <div class="remark-text">{{ $r->remark }}</div>
+                    </div>
+                  @empty
+                    <div class="remark-item">
+                      <div class="remark-text text-muted">No remarks yet.</div>
+                    </div>
+                  @endforelse
                 </ul>
               </div>
             @else
@@ -984,11 +1012,11 @@
             @php
               // keep this right above the select, or define it once earlier and reuse
               $ops = [
-                'printing'     => 'Printing',
-                'furnishing'   => 'Furnishing',
-                'installation' => 'Delivery & Installation',
-                'courier'      => 'Courier',
-                'self_pickup'  => 'Self Pickup',
+                'printing'     => 'To Printing',
+                'furnishing'   => 'To Furnishing',
+                'installation' => 'To Delivery & Installation',
+                'courier'      => 'To Courier',
+                'self_pickup'  => 'To Self Pickup',
               ];
             @endphp
             <select class="form-select form-select-sm remark-cat" style="max-width:180px">
@@ -1247,11 +1275,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Match backend $ops
     const ops = {
-      'printing': 'Printing',
-      'furnishing': 'Furnishing',
-      'installation': 'Delivery & Installation',
-      'courier': 'Courier',
-      'self_pickup': 'Self Pickup'
+      'printing': 'To Printing',
+      'furnishing': 'To Furnishing',
+      'installation': 'To Delivery & Installation',
+      'courier': 'To Courier',
+      'self_pickup': 'To Self Pickup'
     };
 
     function makeRow(){

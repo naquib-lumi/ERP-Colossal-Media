@@ -357,12 +357,12 @@
       <h6 class="mb-3">Product Remarks</h6>
 
       @php
-      $label = ['printing'=>'Printing','furnishing'=>'Furnishing','installation'=>'Installation','delivery'=>'Delivery'];
+      $label = ['printing'=>'To Printing','furnishing'=>'To Furnishing','installation'=>'To Installation','delivery'=>'To Delivery'];
       @endphp
       @forelse($product->remarks as $r)
       <div class="mb-2 border rounded p-2 bg-white">
         @if(!empty($r->operation))
-        <span class="text-muted me-2">{{ $label[$r->operation] ?? ucfirst($r->operation) }}:</span>
+        <span class="text-muted me-2" style="font-weight: bold;">{{ $label[$r->operation] ?? ucfirst($r->operation) }}:</span>
         @endif
         {{ $r->remark }}
       </div>

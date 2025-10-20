@@ -20,6 +20,7 @@ class InstallationHistoryController extends Controller
     $end     = trim((string)$request->query('end', ''));      // mm/dd/yyyy or yyyy-mm-dd
     $sortBy  = $request->query('sort_by', 'completed');       // only "completed" for this page
     $sortDir = strtolower($request->query('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+    $onlyStatus = strtolower((string) $request->query('status', ''));
 
     // Parse date -> Y-m-d (accepts mm/dd/yyyy too)
     $toYmd = static function (?string $v): ?string {
@@ -44,6 +45,8 @@ class InstallationHistoryController extends Controller
     $base = DB::table('fulfillment_progress as fp')
         ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
         ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+        ->when($onlyStatus === 'completed', fn($q) => $q->where('fp.status', 'completed'))
+        ->when($onlyStatus === 'rejected',  fn($q) => $q->where('fp.status', 'rejected'))
         ->select([
             'p.ProductID',
             'p.productName',

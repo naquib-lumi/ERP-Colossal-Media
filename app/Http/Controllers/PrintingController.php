@@ -16,6 +16,8 @@ class PrintingController extends Controller
         // --- read raw inputs
         $q        = trim((string) $request->get('q', ''));            // unified keyword search
         $artistId = trim((string) $request->get('artist', ''));       // artist filter
+        $pid      = trim((string) $request->query('pid', ''));        // Product ID / code (all pages)
+        $sort     = (string) $request->get('sort', 'deadline_nearest');
 
         $readDate = function (?string $v): ?string {
             if (!$v) return null;
@@ -44,10 +46,10 @@ class PrintingController extends Controller
             ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
             ->whereNotExists(function ($q2) {
                 $q2->select(DB::raw(1))
-                    ->from('fulfillment_progress as fp')
-                    ->whereColumn('fp.ProductID', 'p.ProductID')
-                    ->where('fp.stage', 'printing')
-                    ->where('fp.status', 'completed');
+                ->from('fulfillment_progress as fp')
+                ->whereColumn('fp.ProductID', 'p.ProductID')
+                ->where('fp.stage', 'printing')
+                ->where('fp.status', 'completed');
             })
 
             // Unified keyword search: printer, order title, company name, product name
@@ -74,7 +76,34 @@ class PrintingController extends Controller
             ->when($sbStart && !$sbEnd, fn($q) => $q->whereDate('p.updated_at', '>=', $sbStart))
             ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
 
-            ->groupBy('p.ProductID', 'p.updated_at', 'p.status', 'p.taskType', 'o.id', 'o.order_number', 'o.deadline', 'o.orderDate', 'o.created_at', 'p.accepted')
+            // NEW: Product ID / code filter (server-side, all pages)
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = '%'.$pid.'%';
+                $qb->where(function ($w) use ($pid, $like) {
+                    // numeric fast-path matches
+                    if (ctype_digit($pid)) {
+                        $w->where('p.ProductID', (int) $pid)
+                        ->orWhere('o.id', (int) $pid);
+                    }
+                    // general fallback: LIKE on product/order IDs & order_number
+                    $w->orWhere('p.ProductID', 'like', $like)
+                    ->orWhere('o.id', 'like', $like)
+                    ->orWhere('o.order_number', 'like', $like);
+                });
+            })
+
+            ->groupBy(
+                'p.ProductID',
+                'p.updated_at',
+                'p.status',
+                'p.taskType',
+                'o.id',
+                'o.order_number',
+                'o.deadline',
+                'o.orderDate',
+                'o.created_at',
+                'p.accepted'
+            )
             ->select([
                 'p.ProductID',
                 'p.updated_at as submission_date',
@@ -85,7 +114,7 @@ class PrintingController extends Controller
                 'o.deadline',
                 DB::raw("$sqExpr as sq_inch"),
                 DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
-                // New product code: #ORD-YYYY-OOO-PPPP
+                // New product code: #ORD-YYYY-OOO-PXXXX
                 DB::raw("
                     CONCAT(
                         '#ORD-',
@@ -99,44 +128,40 @@ class PrintingController extends Controller
                 DB::raw('COALESCE(p.accepted, 0) as accepted'),
             ]);
 
-            $sort = (string) $request->get('sort', 'deadline_nearest');
+        // Sorting
+        switch ($sort) {
+            case 'deadline_furthest':
+                $jobs->orderByRaw('o.deadline IS NULL')
+                    ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) DESC')
+                    ->orderBy('o.deadline', 'asc')
+                    ->orderBy('o.id')->orderBy('p.ProductID');
+                break;
 
-            switch ($sort) {
-                case 'deadline_furthest':
-                    // Furthest deadline from today (NULLs last)
-                    $jobs->orderByRaw('o.deadline IS NULL')
-                        ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) DESC')
-                        ->orderBy('o.deadline', 'asc')
-                        ->orderBy('o.id')->orderBy('p.ProductID');
-                    break;
+            case 'submitted_nearest':
+                $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
+                    ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) ASC')
+                    ->orderBy('p.updated_at', 'asc')
+                    ->orderBy('o.id')->orderBy('p.ProductID');
+                break;
 
-                case 'submitted_nearest':
-                    // Nearest submission date to today
-                    $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
-                        ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) ASC')
-                        ->orderBy('p.updated_at', 'asc')
-                        ->orderBy('o.id')->orderBy('p.ProductID');
-                    break;
+            case 'submitted_furthest':
+                $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
+                    ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) DESC')
+                    ->orderBy('p.updated_at', 'asc')
+                    ->orderBy('o.id')->orderBy('p.ProductID');
+                break;
 
-                case 'submitted_furthest':
-                    // Furthest submission date from today
-                    $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
-                        ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) DESC')
-                        ->orderBy('p.updated_at', 'asc')
-                        ->orderBy('o.id')->orderBy('p.ProductID');
-                    break;
+            case 'deadline_nearest':
+            default:
+                $jobs->orderByRaw('o.deadline IS NULL')
+                    ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) ASC')
+                    ->orderBy('o.deadline', 'asc')
+                    ->orderBy('o.id')->orderBy('p.ProductID');
+                break;
+        }
 
-                case 'deadline_nearest':
-                default:
-                    // Nearest deadline to today (default)
-                    $jobs->orderByRaw('o.deadline IS NULL')
-                        ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) ASC')
-                        ->orderBy('o.deadline', 'asc')
-                        ->orderBy('o.id')->orderBy('p.ProductID');
-                    break;
-            }
-
-            $jobs = $jobs->paginate(10)->appends($request->query());
+        // paginate AFTER all filters → searches across all pages
+        $jobs = $jobs->paginate(10)->appends($request->query());
 
         // KPI blocks (unchanged)
         $inProgress = DB::table('products')
@@ -149,7 +174,7 @@ class PrintingController extends Controller
             ->where('status', 'completed')
             ->count();
 
-        // Build artist dropdown (only artists who appear in orders related to printable products)
+        // Artist dropdown (as-is)
         $artists = DB::table('users as u')
             ->select('u.id', 'u.name')
             ->whereIn('u.id', function ($sub) {
@@ -160,7 +185,22 @@ class PrintingController extends Controller
             ->orderBy('u.name')
             ->get();
 
-        return view('printing.dashboard', compact('jobs', 'inProgress', 'completed', 'artists'));
+        return view('printing.dashboard', [
+            'jobs'       => $jobs,
+            'inProgress' => $inProgress,
+            'completed'  => $completed,
+            'artists'    => $artists,
+
+            // return current filters so inputs keep values
+            'q'          => $q,
+            'artist'     => $artistId,
+            'pid'        => $pid,
+            'sort'       => $sort,
+            'deadline_from'   => $dlStart,
+            'deadline_to'     => $dlEnd,
+            'submitted_from'  => $sbStart,
+            'submitted_to'    => $sbEnd,
+        ]);
     }
 
     /**

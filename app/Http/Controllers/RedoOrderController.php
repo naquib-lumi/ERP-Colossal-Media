@@ -51,7 +51,14 @@ class RedoOrderController extends Controller
 
         $selectedCurrentIds = collect($validated['products'] ?? [])->filter()->unique()->values();
 
-        DB::transaction(function () use ($order, $validated, $selectedCurrentIds) {
+        // === Normalize reason so "Others" never gets stored ===
+        $reasonRaw  = trim((string)($validated['reason'] ?? ''));
+        $reasonAlt  = trim((string)($validated['reason_alt'] ?? ''));
+        $reasonText = (strtolower($reasonRaw) === 'others')
+            ? $reasonAlt
+            : ($reasonRaw !== '' ? $reasonRaw : $reasonAlt);
+
+        DB::transaction(function () use ($order, $validated, $selectedCurrentIds, $reasonText) {
 
             // Figure out base order & whether a redo bucket already exists
             $baseId    = $order->redo ? (int) $order->redo : (int) $order->id;
@@ -60,7 +67,7 @@ class RedoOrderController extends Controller
             $redoOrder = Order::lockForUpdate()->where('redo', $baseId)->first();
             $redoExistedBefore = (bool) $redoOrder;
 
-            $reasonText = trim(($validated['reason'] ?? '') . ' ' . ($validated['reason_alt'] ?? ''));
+            // $reasonText = trim(($validated['reason'] ?? '') . ' ' . ($validated['reason_alt'] ?? ''));
 
             if (!$redoOrder) {
                 // --- FIRST REDO: create the single redo order ---

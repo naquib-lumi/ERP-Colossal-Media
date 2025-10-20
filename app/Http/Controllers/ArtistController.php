@@ -552,9 +552,17 @@ class ArtistController extends Controller
             ];
         });
 
+        $sourceOrderId = (int) ($order->redo ?: $order->id);
+
+        // Latest reason from report_redo for that order
+        $redoReason = DB::table('report_redo')
+            ->where('OrderID', $sourceOrderId)
+            ->orderByDesc('created_at')
+            ->value('reason');
+
         return view('artist.orders.edit', compact(
             'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
-        'orderFiles',
+            'orderFiles', 'redoReason'
         ));
 
         return view('artist.orders.edit', [
@@ -806,7 +814,8 @@ class ArtistController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $order, $product) {
+            $authorId = (int) auth()->id();
+            DB::transaction(function () use ($request, $order, $product, $authorId) {
 
                 // ----- 1) Order core -----
                 $submitted = $request->boolean('submit'); 
@@ -1062,6 +1071,7 @@ class ArtistController extends Controller
                         if (!$remark) {
                             $remark = new ProductRemark();
                             $remark->ProductID = $productRow->ProductID;
+                            $remark->user_id   = $authorId;
                         }
 
                         $remark->operation = $row['operation'] ?: null;
