@@ -205,7 +205,7 @@ public function index(Request $request)
         $r->code       = sprintf('#%s-P%04d%s', $orderNo, $pidForDisplay, $suffixR);
 
         $r->id         = $r->pid;
-        $r->view_url   = route('artist.fulfillment.product.show',        $r->order_id_current);
+        $r->view_url   = route('artist.fulfillment.product.show',        $r->pid);
         $r->edit_url   = route('artist.orders.edit',        $r->order_id_current);
         $r->assign_url = route('artist.orders.redo.create', $r->order_id_current);
         return $r;
@@ -302,7 +302,26 @@ public function index(Request $request)
             }
         }
 
-        $productCode = sprintf('#ORD-%s-P%04d%s', $displayOrderId, $pidForDisplay, $showR ? 'R' : '');
+        $displayOrderYear = null;
+        if ($displayOrderId) {
+            $ordDates = DB::table('orders')
+                ->where('id', $displayOrderId)
+                ->select(['orderDate', 'created_at'])
+                ->first();
+
+            $dateForYear = $ordDates->orderDate ?? $ordDates->created_at ?? now();
+            $displayOrderYear = \Carbon\Carbon::parse($dateForYear)->format('Y');
+        } else {
+            $displayOrderYear = now()->format('Y');
+        }
+
+        $productCode = sprintf(
+            '#ORD-%s-%04d-P%04d%s',
+            $displayOrderYear,
+            $displayOrderId,
+            $pidForDisplay,
+            $showR ? 'R' : ''
+        );
 
         // ---------- Lead attachments ----------
         $toPublicUrl = function (string $p): string {

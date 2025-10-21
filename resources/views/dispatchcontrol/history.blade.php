@@ -251,6 +251,14 @@
         </div>
 
         <div class="table-responsive">
+          @php
+            $qAll = request()->query();
+            $urlWith = function(array $overrides) use ($qAll) {
+              return route('dispatchcontrol.history', array_filter(array_merge($qAll, $overrides), fn($v)=>$v!==null && $v!==''));
+            };
+            $dir     = request('dir','desc') === 'asc' ? 'asc' : 'desc';
+            $nextDir = $dir === 'asc' ? 'desc' : 'asc';
+          @endphp
           <table class="table align-middle">
             <colgroup>
               <col class="col-id">
@@ -264,13 +272,11 @@
                 <th>PRODUCT ID</th>
                 <th>PRODUCT NAME</th>
                 <th>
-                  @php
-                    $cur = request('sort','desc');
-                    $next = $cur === 'asc' ? 'desc' : 'asc';
-                  @endphp
+                  
                   <a class="text-decoration-none text-dark"
-                    href="{{ request()->fullUrlWithQuery(['sort' => $next, 'page' => 1]) }}">
+                    href="{{ $urlWith(['sort'=>'completed','dir'=>$nextDir]) }}">
                     COMPLETED DATE
+                    <span class="sort-caret">{{ $dir === 'asc' ? '↑' : '↓' }}</span>
                   </a>
                 </th>
                 <th>PROOF FILE</th>

@@ -229,7 +229,7 @@ default => \Illuminate\Support\Str::title($t),
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-xl-2 cursor-pointer" data-go-method="self_pickup">
+    <div class="col-6 col-md-4 col-xl-2">
       <div class="stat card-soft">
         <i class="bi bi-bag-check text-secondary"></i>
         <div>
@@ -237,7 +237,7 @@ default => \Illuminate\Support\Str::title($t),
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-xl-2 cursor-pointer" data-go-method="courier">
+    <div class="col-6 col-md-4 col-xl-2">
       <div class="stat card-soft">
         <i class="bi bi-bicycle text-success"></i>
         <div>

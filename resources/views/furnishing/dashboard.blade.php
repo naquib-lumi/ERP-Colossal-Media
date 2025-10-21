@@ -341,7 +341,7 @@
             <span class="text-muted small ms-2">Filter &amp; search</span>
           </div>
 
-          <form class="row g-3 align-items-end" method="GET" action="{{ route('furnishing.history') }}">
+          <form class="row g-3 align-items-end" method="GET" action="{{ route('furnishing.dashboard') }}">
             {{-- Client-side Product ID (page only) --}}
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label">Search Product ID</label>
@@ -473,7 +473,9 @@
     class="js-row-open"
     data-href="{{ route('furnishing.job.show', $j->ProductID) }}"
     style="cursor:pointer;">
-  <td class="fw-semibold">{{ $j->product_code }}</td>
+  <td class="whitespace-nowrap font-medium">
+                {{ $j->display_product_id }}
+              </td>
   <td>{{ ($j->cutter ?? '-') === '-' ? '—' : $j->cutter }}</td>
   <td>{{ is_numeric($j->sq_inch ?? null) ? number_format((float)$j->sq_inch, 0).' sq in' : '0 sq in' }}</td>
 

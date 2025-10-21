@@ -94,6 +94,9 @@ class InstallationProductOrderController extends Controller
                 'p.productName as productName',
                 'p.totalQuantity',
                 'p.materialRemark',
+                'p.redoOf as redo_product_of',     
+                'o.redo   as redo_order',
+                'p.editable',
                 'o.order_number',
                 'o.orderTitle',
                 'o.companyName',
@@ -109,12 +112,20 @@ class InstallationProductOrderController extends Controller
 
         if (!$headerRow) abort(404);
 
-        // Helper to build a product code like #ORD-2025-003-P0110
-        $orderCodeFor = function ($orderId, $orderNumber) {
-            return $orderNumber ?: sprintf('ORD-%03d', (int)$orderId);
-        };
-        $orderCode   = $orderCodeFor($headerRow->OrderID, $headerRow->order_number);
-        $productCode = sprintf('%s-P%04d', $orderCode, (int)$productId);
+        $baseOrderId   = $headerRow->redo_order      ?: $headerRow->OrderID;
+        $baseProductId = $headerRow->redo_product_of ?: $productId;
+        $year          = $headerRow->orderDate ? \Carbon\Carbon::parse($headerRow->orderDate)->format('Y') : date('Y');
+
+        // R only if this is a redo product AND editable = 1
+        $rFlag = ($headerRow->redo_product_of && (int)$headerRow->editable === 1) ? 'R' : '';
+
+        $displayProductCode = sprintf(
+            '#ORD-%s-%03d-P%04d%s',
+            $year,
+            (int)$baseOrderId,
+            (int)$baseProductId,
+            $rFlag
+        );
 
         // Header object used by your current blade
         $header = (object)[
@@ -136,11 +147,13 @@ class InstallationProductOrderController extends Controller
             'order_date' => $headerRow->orderDate,
             'deadline'   => $headerRow->deadline,
         ];
+        
+        $productCode = $displayProductCode;
 
         // ---- compact product header (for the selected product) ----
         $productHeader = [
             'name'     => trim((string)($headerRow->productName ?? '')),
-            'code'     => $productCode,
+            'code'     => $displayProductCode,
             'qty'      => (int)($headerRow->totalQuantity ?? 0),
             'material' => trim((string)($headerRow->materialRemark ?? '')),
         ];
@@ -318,7 +331,18 @@ class InstallationProductOrderController extends Controller
             $p = DB::table('products')->where('ProductID', $pid)->first();
             if (!$p) continue;
 
-            $code = sprintf('%s-P%04d', $orderCodeFor($headerRow->OrderID, $headerRow->order_number), (int)$pid);
+            $yearForBlocks        = $headerRow->orderDate ? \Carbon\Carbon::parse($headerRow->orderDate)->format('Y') : date('Y');
+            $baseOrderIdForBlocks = $headerRow->redo_order ?: $headerRow->OrderID;
+
+            $rFlagBlock = ($p->redoOf && (int)$p->editable === 1) ? 'R' : '';
+
+            $code = sprintf(
+                '#ORD-%s-%03d-P%04d%s',
+                $yearForBlocks,
+                (int)$baseOrderIdForBlocks,
+                (int)($p->redoOf ?: $p->ProductID),
+                $rFlagBlock
+            );
 
             $ph = [
                 'name'     => (string)($p->productName ?? ''),
