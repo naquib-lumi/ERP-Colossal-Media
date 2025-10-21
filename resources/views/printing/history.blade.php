@@ -149,7 +149,7 @@
           {{-- Quick Product ID (page filter) --}}
           <div class="with-icon grow">
             <i class="bi bi-hash"></i>
-            <input id="pidFilter" type="text" class="form-control" placeholder="Enter Product ID">
+            <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="Enter Product ID">
           </div>
 
           {{-- Main search --}}

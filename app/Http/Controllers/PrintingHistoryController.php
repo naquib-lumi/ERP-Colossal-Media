@@ -14,6 +14,7 @@ class PrintingHistoryController extends Controller
     public function index(Request $request)
     {
         $q      = trim((string) $request->get('q', ''));
+        $pid      = trim((string) $request->query('pid', ''));
         $start  = trim((string) $request->get('start', ''));
         $end    = trim((string) $request->get('end', ''));
         $artist = trim((string) $request->get('artist', ''));
@@ -24,10 +25,11 @@ class PrintingHistoryController extends Controller
 
         $toYmd = function (?string $v): ?string {
             if (!$v) return null;
-            try { return \Carbon\Carbon::parse($v)->toDateString(); }
-            catch (\Throwable $e) {
+            try {
+                return \Carbon\Carbon::parse($v)->toDateString();
+            } catch (\Throwable $e) {
                 if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $v, $m)) {
-                    return "{$m[3]}-".str_pad($m[1],2,'0',STR_PAD_LEFT)."-".str_pad($m[2],2,'0',STR_PAD_LEFT);
+                    return "{$m[3]}-" . str_pad($m[1], 2, '0', STR_PAD_LEFT) . "-" . str_pad($m[2], 2, '0', STR_PAD_LEFT);
                 }
                 return null;
             }
@@ -47,69 +49,135 @@ class PrintingHistoryController extends Controller
         $startYmd = $toYmd($start);
         $endYmd   = $toYmd($end);
 
-        $base = DB::table('fulfillment_progress as fp')
-            ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
-            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-            ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
-            ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
-            ->where('fp.stage', 'printing')
-            ->when($onlyStatus === 'completed', fn($q) => $q->where('fp.status', 'completed'))
-            ->when($onlyStatus === 'rejected',  fn($q) => $q->where('fp.status', 'rejected'))
+        $fpLatest = DB::table('fulfillment_progress')
+            ->selectRaw('ProductID, MAX(completedAt) AS completed_date')
+            ->where('stage', 'printing')
             ->where(function ($w) {
-                $w->whereIn('fp.status', ['completed', 'rejected'])
-                ->orWhereNotNull('fp.completedAt');
+                $w->whereIn('status', ['completed', 'rejected'])
+                    ->orWhereNotNull('completedAt');
+            })
+            ->groupBy('ProductID');
+
+        // editable redo children (for trailing R)
+        $redoChildren = DB::raw('(
+    SELECT DISTINCT redoOf
+    FROM products
+    WHERE editable = 1 AND redoOf IS NOT NULL
+) rr');
+
+        $base = DB::table('products as p')
+            ->joinSub($fpLatest, 'fpx', function ($j) {
+                $j->on('fpx.ProductID', '=', 'p.ProductID');
+            })
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->leftJoin($redoChildren, 'rr.redoOf', '=', 'p.ProductID')
+            ->where(function ($w) {
+                $w->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = "%{$pid}%";
+                $qb->where(function ($w) use ($pid, $like) {
+                    // numeric fast path
+                    if (ctype_digit($pid)) {
+                        $w->orWhere('o.id', (int)$pid)        // new order id
+                        ->orWhere('o.redo', (int)$pid)      // original order id
+                        ->orWhere('p.ProductID', (int)$pid) // new product id
+                        ->orWhere('p.redoOf', (int)$pid);   // original product id
+                    }
+                    // fuzzy
+                    $w->orWhere('o.id', 'like', $like)
+                    ->orWhere('o.redo', 'like', $like)
+                    ->orWhere('p.ProductID', 'like', $like)
+                    ->orWhere('p.redoOf', 'like', $like)
+                    ->orWhere('o.order_number', 'like', $like)
+                    // formatted code WITHOUT trailing R
+                    ->orWhere(DB::raw("
+                        CONCAT(
+                            '#ORD-',
+                            LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
+                            '-',
+                            LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                            '-P',
+                            LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+                        )
+                    "), 'like', $like);
+                });
             })
             ->select([
                 'p.ProductID',
                 'p.productName as product_name',
                 'p.materialRemark',
-                DB::raw('fp.completedAt as completed_date'),
+                DB::raw('fpx.completed_date'),
                 'o.id as order_id',
                 'o.order_number',
                 DB::raw("
-                    CONCAT(
-                        '#ORD-',
-                        LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
-                        '-',
-                        LPAD(o.id, 3, '0'),
-                        '-P',
-                        LPAD(p.ProductID, 4, '0')
-                    ) as product_code
-                "),
+            CONCAT(
+                '#ORD-',
+                LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
+                '-',
+                LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                '-P',
+                LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                CASE
+                    WHEN ((p.redoOf IS NOT NULL AND p.editable = 1) OR rr.redoOf IS NOT NULL) THEN 'R'
+                    ELSE ''
+                END
+            ) AS product_code
+        "),
             ]);
 
-        // 🔎 unified keyword search (order title/company/product/printer/etc.)
+        // unified keyword search (use EXISTS for printer to avoid dupes)
         if ($q !== '') {
             $like = "%{$q}%";
             $base->where(function ($w) use ($q, $like) {
                 $w->where('o.orderTitle', 'like', $like)
-                ->orWhere('o.companyName', 'like', $like)
-                ->orWhere('p.productName', 'like', $like)
-                ->orWhere('s.printer', 'like', $like)
-                ->orWhere('o.order_number', 'like', $like)
-                ->orWhere('p.materialRemark', 'like', $like);
+                    ->orWhere('o.companyName', 'like', $like)
+                    ->orWhere('p.productName', 'like', $like)
+                    ->orWhere('o.order_number', 'like', $like)
+                    ->orWhere('p.materialRemark', 'like', $like);
+
                 if (preg_match('/^\d+$/', $q)) $w->orWhere('p.ProductID', (int)$q);
-                else $w->orWhere('p.ProductID', 'like', $like);
+                else                           $w->orWhere('p.ProductID', 'like', $like);
+
+                $w->orWhereExists(function ($sub) use ($like) {
+                    $sub->from('product_items as pi')
+                        ->join('specifications as s', 's.ItemID', '=', 'pi.ItemID')
+                        ->whereColumn('pi.ProductID', 'p.ProductID')
+                        ->where('s.printer', 'like', $like);
+                });
+
+                $w->orWhere(DB::raw("
+            CONCAT(
+                '#ORD-',
+                LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
+                '-',
+                LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                '-P',
+                LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+            )
+        "), 'like', $like);
             });
         }
 
-        // 🎯 artist filter (orders.artist_id)
+        // artist filter
         if ($artist !== '') {
             $base->where('o.artist_id', (int)$artist);
         }
 
-        // 📅 completedAt range
-        if ($startYmd) $base->whereDate('fp.completedAt', '>=', $startYmd);
-        if ($endYmd)   $base->whereDate('fp.completedAt', '<=', $endYmd);
+        // completed range uses fpx alias
+        if ($startYmd) $base->whereDate('fpx.completed_date', '>=', $startYmd);
+        if ($endYmd)   $base->whereDate('fpx.completed_date', '<=', $endYmd);
 
-        $base->orderByRaw('fp.completedAt IS NULL')   // NULLs last
-            ->orderBy('fp.completedAt', $dir)        // ASC or DESC
-            ->orderBy('o.id')                        // stable tiebreakers
+        // ordering uses fpx alias too
+        $base->orderByRaw('fpx.completed_date IS NULL')
+            ->orderBy('fpx.completed_date', $dir)
+            ->orderBy('o.id')
             ->orderBy('p.ProductID');
 
         $orders = $base->paginate(10)->withQueryString();
 
         return view('printing.history', [
+            'pid'        => $pid,
             'orders'  => $orders,
             'q'       => $q,
             'start'   => $start,

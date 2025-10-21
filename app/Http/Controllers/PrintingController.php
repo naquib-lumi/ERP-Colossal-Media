@@ -43,6 +43,10 @@ class PrintingController extends Controller
             ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
             ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
             ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
+            ->leftJoin('products as r', function ($j) {
+                $j->on('r.redoOf', '=', 'p.ProductID')
+                ->where('r.editable', '=', 1);
+            })
             ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
             ->whereNotExists(function ($q2) {
                 $q2->select(DB::raw(1))
@@ -62,6 +66,9 @@ class PrintingController extends Controller
                     ->orWhere('p.productName', 'like', $like);
                 });
             })
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
 
             // Artist filter
             ->when($artistId !== '', fn($qb) => $qb->where('o.artist_id', (int) $artistId))
@@ -79,16 +86,32 @@ class PrintingController extends Controller
             // NEW: Product ID / code filter (server-side, all pages)
             ->when($pid !== '', function ($qb) use ($pid) {
                 $like = '%'.$pid.'%';
+
                 $qb->where(function ($w) use ($pid, $like) {
-                    // numeric fast-path matches
+                    // Fast exact matches for numeric input
                     if (ctype_digit($pid)) {
-                        $w->where('p.ProductID', (int) $pid)
-                        ->orWhere('o.id', (int) $pid);
+                        $w->orWhere('o.id', (int)$pid)         // new order id
+                        ->orWhere('o.redo', (int)$pid)       // original order id
+                        ->orWhere('p.ProductID', (int)$pid)  // new product id
+                        ->orWhere('p.redoOf', (int)$pid);    // original product id
                     }
-                    // general fallback: LIKE on product/order IDs & order_number
-                    $w->orWhere('p.ProductID', 'like', $like)
-                    ->orWhere('o.id', 'like', $like)
-                    ->orWhere('o.order_number', 'like', $like);
+
+                    // Fuzzy matches (strings / partials)
+                    $w->orWhere('o.id', 'like', $like)
+                    ->orWhere('o.redo', 'like', $like)
+                    ->orWhere('p.ProductID', 'like', $like)
+                    ->orWhere('p.redoOf', 'like', $like)
+                    ->orWhere('o.order_number', 'like', $like)
+
+                    // match the formatted code WITHOUT the trailing R (no aggregates in WHERE)
+                    ->orWhere(DB::raw("
+                        CONCAT(
+                            '#ORD-',
+                            YEAR(o.orderDate), '-',
+                            LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                            '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+                        )
+                    "), 'like', $like);
                 });
             })
 
@@ -102,30 +125,46 @@ class PrintingController extends Controller
                 'o.deadline',
                 'o.orderDate',
                 'o.created_at',
-                'p.accepted'
+                'p.accepted','p.redoOf','p.editable', 'o.redo'
             )
             ->select([
                 'p.ProductID',
                 'p.updated_at as submission_date',
-                'p.status',
+                'p.OrderID',
+                'p.status as product_status',
+                'o.orderDate',
+                'o.status as order_status',
                 'p.taskType',
                 'o.id as order_id',
                 'o.order_number',
                 'o.deadline',
+                'p.redoOf',
+                'p.editable',
                 DB::raw("$sqExpr as sq_inch"),
                 DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
-                // New product code: #ORD-YYYY-OOO-PXXXX
+                DB::raw('MAX(r.ProductID) as redo_product_id'),
                 DB::raw("
-                    CONCAT(
-                        '#ORD-',
-                        LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
-                        '-',
-                        LPAD(o.id, 3, '0'),
-                        '-P',
-                        LPAD(p.ProductID, 4, '0')
-                    ) as product_code
+                CONCAT(
+                    '#ORD-',
+                    YEAR(o.orderDate), '-',
+                    LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                    '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                    CASE
+                    WHEN ( (p.redoOf IS NOT NULL AND p.editable = 1) OR COUNT(r.ProductID) > 0 )
+                        THEN 'R'
+                    ELSE ''
+                    END
+                ) AS display_product_id
+                "),
+
+                DB::raw("
+                CASE 
+                    WHEN (p.redoOf IS NOT NULL OR COUNT(r.ProductID) > 0) 
+                    THEN 1 ELSE 0 
+                END as is_redo_product
                 "),
                 DB::raw('COALESCE(p.accepted, 0) as accepted'),
+                
             ]);
 
         // Sorting
@@ -164,14 +203,23 @@ class PrintingController extends Controller
         $jobs = $jobs->paginate(10)->appends($request->query());
 
         // KPI blocks (unchanged)
-        $inProgress = DB::table('products')
-            ->where('status', 'in_progress')
-            ->where('taskType', 'printing')
+        $inProgress = DB::table('products as p')
+            ->join('orders as o', 'o.id', '=', 'p.OrderID')
+            ->where('p.status', 'in_progress')
+            ->where('p.taskType', 'printing')
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
             ->count();
 
-        $completed = DB::table('fulfillment_progress')
-            ->where('stage', 'printing')
-            ->where('status', 'completed')
+        $completed = DB::table('fulfillment_progress as fp')
+            ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
+            ->join('orders as o', 'o.id', '=', 'p.OrderID')
+            ->where('fp.stage', 'printing')
+            ->where('fp.status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
             ->count();
 
         // Artist dropdown (as-is)

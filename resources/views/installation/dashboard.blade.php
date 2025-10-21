@@ -522,7 +522,7 @@
                 
               @endphp
 
-              <tr data-id="{{ $r['ProductID'] }}" class="clickable-row" style="cursor: pointer;">
+              <tr data-id="{{ $r['ProductID'] }}" data-code="{{ $r['product_code'] }}" class="clickable-row" style="cursor: pointer;">
                 <td>{{ $r['product_code'] }}</td>
                 <td colspan="4">
                   <div class="pipeline" style="--start:{{ $start }}%; --end:{{ $end }}%;">

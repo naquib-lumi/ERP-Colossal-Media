@@ -21,6 +21,8 @@ class InstallationHistoryController extends Controller
     $sortBy  = $request->query('sort_by', 'completed');       // only "completed" for this page
     $sortDir = strtolower($request->query('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
     $onlyStatus = strtolower((string) $request->query('status', ''));
+    $dir  = strtolower((string) $request->get('dir', 'desc'));
+    $dir  = $dir === 'asc' ? 'asc' : 'desc';
 
     // Parse date -> Y-m-d (accepts mm/dd/yyyy too)
     $toYmd = static function (?string $v): ?string {
@@ -31,8 +33,8 @@ class InstallationHistoryController extends Controller
             } return null;
         }
     };
-    $startY = $toYmd($start);
-    $endY   = $toYmd($end);
+    $startYmd = $toYmd($start);
+    $endYmd   = $toYmd($end);
 
     // Artists dropdown (same as printing)
     $artists = DB::table('users')
@@ -41,85 +43,132 @@ class InstallationHistoryController extends Controller
     ->orderBy('name')
     ->get();
 
+    $fpLatest = DB::table('fulfillment_progress')
+            ->selectRaw('ProductID, MAX(completedAt) AS completed_date')
+            ->where('stage', 'installation')
+            ->where(function ($w) {
+                $w->whereIn('status', ['completed', 'rejected'])
+                    ->orWhereNotNull('completedAt');
+            })
+            ->groupBy('ProductID');
+
+        // editable redo children (for trailing R)
+        $redoChildren = DB::raw('(
+    SELECT DISTINCT redoOf
+    FROM products
+    WHERE editable = 1 AND redoOf IS NOT NULL
+) rr');
+
     // ---------- YOUR ORIGINAL BASE QUERY (keep proof-related fields) ----------
-    $base = DB::table('fulfillment_progress as fp')
-        ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
-        ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-        ->when($onlyStatus === 'completed', fn($q) => $q->where('fp.status', 'completed'))
-        ->when($onlyStatus === 'rejected',  fn($q) => $q->where('fp.status', 'rejected'))
-        ->select([
-            'p.ProductID',
-            'p.productName',
-            'p.materialRemark',
-            'o.id as order_id',
-            'o.order_number',
-            'o.orderTitle',
-            'o.companyName',
-            'o.artist_id',
-            DB::raw('fp.completedAt as completed_date'),
-
-            // Your page wants the printed style code like #ORD-YYYY-OOO-PXXXX
-            DB::raw("
-                CONCAT('#ORD-',
-                       LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
-                       '-', LPAD(o.id, 3, '0'),
-                       '-P', LPAD(p.ProductID, 4, '0')
-                ) as product_code
-            "),
-
-            // ⬇️ keep any extra proof columns you already had (e.g. URLs, counts, etc.)
-        ])
-        ->where('fp.stage', 'installation')
-        ->where(function ($w) {
-            $w->whereIn('fp.status', ['completed','rejected'])
-              ->orWhereNotNull('fp.completedAt');
-        });
+    $base = DB::table('products as p')
+            ->joinSub($fpLatest, 'fpx', function ($j) {
+                $j->on('fpx.ProductID', '=', 'p.ProductID');
+            })
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->leftJoin($redoChildren, 'rr.redoOf', '=', 'p.ProductID')
+            ->where(function ($w) {
+                $w->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = "%{$pid}%";
+                $qb->where(function ($w) use ($pid, $like) {
+                    // numeric fast path
+                    if (ctype_digit($pid)) {
+                        $w->orWhere('o.id', (int)$pid)        // new order id
+                        ->orWhere('o.redo', (int)$pid)      // original order id
+                        ->orWhere('p.ProductID', (int)$pid) // new product id
+                        ->orWhere('p.redoOf', (int)$pid);   // original product id
+                    }
+                    // fuzzy
+                    $w->orWhere('o.id', 'like', $like)
+                    ->orWhere('o.redo', 'like', $like)
+                    ->orWhere('p.ProductID', 'like', $like)
+                    ->orWhere('p.redoOf', 'like', $like)
+                    ->orWhere('o.order_number', 'like', $like)
+                    // formatted code WITHOUT trailing R
+                    ->orWhere(DB::raw("
+                        CONCAT(
+                            '#ORD-',
+                            LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
+                            '-',
+                            LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                            '-P',
+                            LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+                        )
+                    "), 'like', $like);
+                });
+            })
+            ->select([
+                'p.ProductID',
+                'p.productName as product_name',
+                'p.materialRemark',
+                DB::raw('fpx.completed_date'),
+                'o.id as order_id',
+                'o.order_number',
+                DB::raw("
+            CONCAT(
+                '#ORD-',
+                LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
+                '-',
+                LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                '-P',
+                LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                CASE
+                    WHEN ((p.redoOf IS NOT NULL AND p.editable = 1) OR rr.redoOf IS NOT NULL) THEN 'R'
+                    ELSE ''
+                END
+            ) AS product_code
+        "),
+            ]);
 
     // 🔎 keyword filter (Order Title / Company / Product / Remarks / ProductID)
     if ($q !== '') {
-        $like = "%{$q}%";
-        $base->where(function ($w) use ($like, $q) {
-            $w->where('o.orderTitle', 'like', $like)
-              ->orWhere('o.companyName', 'like', $like)
-              ->orWhere('p.productName', 'like', $like)
-              ->orWhere('p.materialRemark', 'like', $like);
+            $like = "%{$q}%";
+            $base->where(function ($w) use ($q, $like) {
+                $w->where('o.orderTitle', 'like', $like)
+                    ->orWhere('o.companyName', 'like', $like)
+                    ->orWhere('p.productName', 'like', $like)
+                    ->orWhere('o.order_number', 'like', $like)
+                    ->orWhere('p.materialRemark', 'like', $like);
 
-            if (preg_match('/^\d+$/', $q)) $w->orWhere('p.ProductID', (int)$q);
-            else $w->orWhere('p.ProductID', 'like', $like);
-        });
-    }
+                if (preg_match('/^\d+$/', $q)) $w->orWhere('p.ProductID', (int)$q);
+                else                           $w->orWhere('p.ProductID', 'like', $like);
 
-    // 🔎 product id/code (search all pages)
-    if ($pid !== '') {
-        $like = '%'.strtolower($pid).'%';
-        $base->where(function ($w) use ($like) {
-            $w->whereRaw('LOWER(p.ProductID) LIKE ?', [$like])
-              ->orWhereRaw("
-                LOWER(CONCAT('#ORD-',
-                       LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
-                       '-', LPAD(o.id, 3, '0'),
-                       '-P', LPAD(p.ProductID, 4, '0')
-                )) LIKE ?", [$like]);
-        });
-    }
+                $w->orWhereExists(function ($sub) use ($like) {
+                    $sub->from('product_items as pi')
+                        ->join('specifications as s', 's.ItemID', '=', 'pi.ItemID')
+                        ->whereColumn('pi.ProductID', 'p.ProductID')
+                        ->where('s.printer', 'like', $like);
+                });
+
+                $w->orWhere(DB::raw("
+            CONCAT(
+                '#ORD-',
+                LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
+                '-',
+                LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                '-P',
+                LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+            )
+        "), 'like', $like);
+            });
+        }
 
     // 🔎 artist
     if ($artist !== '') $base->where('o.artist_id', $artist);
 
     // 🔎 completed range
-    if ($startY) $base->whereDate('fp.completedAt', '>=', $startY);
-    if ($endY)   $base->whereDate('fp.completedAt', '<=', $endY);
+    if ($startYmd) $base->whereDate('fpx.completed_date', '>=', $startYmd);
+    if ($endYmd)   $base->whereDate('fpx.completed_date', '<=', $endYmd);
 
-    // ⏱ sort (ASC/DESC) on completed date
-    if ($sortBy === 'completed') $base->orderBy('fp.completedAt', $sortDir)->orderBy('p.ProductID');
-
-    $orders = $base->paginate(10)->withQueryString();
+    $base->orderByRaw('fpx.completed_date IS NULL')
+            ->orderBy('fpx.completed_date', $dir)
+            ->orderBy('o.id')
+            ->orderBy('p.ProductID');
 
     // (Optional) Attach details URL used by row double-click
-    $orders->getCollection()->transform(function ($r) {
-        $r->details_url = route('installation.job.show', $r->ProductID);
-        return $r;
-    });
+    $orders = $base->paginate(10)->withQueryString();
+
 
     return view('installation.history', [
         'orders'   => $orders,

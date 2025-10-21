@@ -13,162 +13,215 @@ class FurnishingController extends Controller
 {
 
     public function dashboard(Request $request)
-{
-    // Filters (same pattern as printing)
-    $q       = trim((string) $request->get('q', ''));          // unified keyword (cutter/order/company/product)
-    $artist  = trim((string) $request->get('artist', ''));     // artist dropdown
-    $pid     = trim((string) $request->get('pid', ''));        // NEW: product id / code (all pages)
+    {
+        // Filters (same pattern as printing)
+        $q       = trim((string) $request->get('q', ''));          // unified keyword (cutter/order/company/product)
+        $artist  = trim((string) $request->get('artist', ''));     // artist dropdown
+        $pid     = trim((string) $request->get('pid', ''));        // NEW: product id / code (all pages)
 
-    $readDate = function (?string $v): ?string {
-        if (!$v) return null;
-        try { return \Carbon\Carbon::parse($v)->toDateString(); }
-        catch (\Throwable $e) {
-            if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $v, $m)) {
-                return "{$m[3]}-".str_pad($m[1],2,'0',STR_PAD_LEFT)."-".str_pad($m[2],2,'0',STR_PAD_LEFT);
-            }
-            return null;
-        }
-    };
-
-    $dlStart = $readDate($request->get('deadline_from'));
-    $dlEnd   = $readDate($request->get('deadline_to'));
-    $sbStart = $readDate($request->get('submitted_from'));
-    $sbEnd   = $readDate($request->get('submitted_to'));
-
-    $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))'; // display only
-
-    $jobs = DB::table('products as p')
-        ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
-        ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
-        ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
-        ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
-        // exclude already completed furnishing
-        ->whereNotExists(function ($q2) {
-            $q2->select(DB::raw(1))
-               ->from('fulfillment_progress as fp')
-               ->whereColumn('fp.ProductID', 'p.ProductID')
-               ->where('fp.stage', 'furnishing')
-               ->where('fp.status', 'completed');
-        })
-
-        // Unified keyword search: cutter + order title + company name + product name
-        ->when($q !== '', function ($qb) use ($q) {
-            $like = '%'.$q.'%';
-            $qb->where(function ($w) use ($like) {
-                $w->where('s.cutter', 'like', $like)
-                  ->orWhere('o.orderTitle', 'like', $like)
-                  ->orWhere('o.companyName', 'like', $like)
-                  ->orWhere('p.productName', 'like', $like);
-            });
-        })
-
-        // NEW: Product ID / Product code (server-side; all pages)
-        ->when($pid !== '', function ($qb) use ($pid) {
-            $like = '%'.$pid.'%';
-            $qb->where(function ($w) use ($pid, $like) {
-                // If purely numeric, try exact fast matches first
-                if (ctype_digit($pid)) {
-                    $w->where('p.ProductID', (int)$pid)
-                      ->orWhere('o.id', (int)$pid);
+        $readDate = function (?string $v): ?string {
+            if (!$v) return null;
+            try { return \Carbon\Carbon::parse($v)->toDateString(); }
+            catch (\Throwable $e) {
+                if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $v, $m)) {
+                    return "{$m[3]}-".str_pad($m[1],2,'0',STR_PAD_LEFT)."-".str_pad($m[2],2,'0',STR_PAD_LEFT);
                 }
-                // Fallback / partials
-                $w->orWhere('p.ProductID', 'like', $like)
-                  ->orWhere('o.id', 'like', $like)
-                  ->orWhere('o.order_number', 'like', $like);
-            });
-        })
+                return null;
+            }
+        };
 
-        // Artist filter (orders.artist_id)
-        ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', (int) $artist))
+        $dlStart = $readDate($request->get('deadline_from'));
+        $dlEnd   = $readDate($request->get('deadline_to'));
+        $sbStart = $readDate($request->get('submitted_from'));
+        $sbEnd   = $readDate($request->get('submitted_to'));
 
-        // Deadline (DATE)
-        ->when($dlStart && $dlEnd, fn($q) => $q->whereBetween('o.deadline', [$dlStart, $dlEnd]))
-        ->when($dlStart && !$dlEnd, fn($q) => $q->whereDate('o.deadline', '>=', $dlStart))
-        ->when(!$dlStart && $dlEnd, fn($q) => $q->whereDate('o.deadline', '<=', $dlEnd))
+        $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))'; // display only
 
-        // Submission (DATE(p.updated_at))
-        ->when($sbStart && $sbEnd, fn($q) => $q->whereBetween(DB::raw('DATE(p.updated_at)'), [$sbStart, $sbEnd]))
-        ->when($sbStart && !$sbEnd, fn($q) => $q->whereDate('p.updated_at', '>=', $sbStart))
-        ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
+        $jobs = DB::table('products as p')
+            ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
+            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+            ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
+            ->leftJoin('products as r', function ($j) {
+                $j->on('r.redoOf', '=', 'p.ProductID')
+                ->where('r.editable', '=', 1);
+            })
+            ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
+            // exclude already completed furnishing
+            ->whereNotExists(function ($q2) {
+                $q2->select(DB::raw(1))
+                ->from('fulfillment_progress as fp')
+                ->whereColumn('fp.ProductID', 'p.ProductID')
+                ->where('fp.stage', 'furnishing')
+                ->where('fp.status', 'completed');
+            })
 
-        ->groupBy(
-            'p.ProductID', 'p.updated_at', 'p.status', 'p.taskType',
-            'o.id', 'o.order_number', 'o.deadline', 'o.orderDate', 'o.created_at', 'p.accepted'
-        )
+            // Unified keyword search: cutter + order title + company name + product name
+            ->when($q !== '', function ($qb) use ($q) {
+                $like = '%'.$q.'%';
+                $qb->where(function ($w) use ($like) {
+                    $w->where('s.cutter', 'like', $like)
+                    ->orWhere('o.orderTitle', 'like', $like)
+                    ->orWhere('o.companyName', 'like', $like)
+                    ->orWhere('p.productName', 'like', $like);
+                });
+            })
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
 
-        ->select([
-            'p.ProductID',
-            'p.updated_at as submission_date',
-            'p.status',
-            'p.taskType',
-            'o.id as order_id',
-            'o.order_number',
-            'o.deadline',
-            DB::raw("$sqExpr as sq_inch"),
-            DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.cutter, '')), ''), '—') as cutter"),
-            // New format: #ORD-YYYY-OOO-PXXXX
-            DB::raw("
+            // Artist filter (orders.artist_id)
+            ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', (int) $artist))
+
+            // Deadline (DATE)
+            ->when($dlStart && $dlEnd, fn($q) => $q->whereBetween('o.deadline', [$dlStart, $dlEnd]))
+            ->when($dlStart && !$dlEnd, fn($q) => $q->whereDate('o.deadline', '>=', $dlStart))
+            ->when(!$dlStart && $dlEnd, fn($q) => $q->whereDate('o.deadline', '<=', $dlEnd))
+
+            // Submission (DATE(p.updated_at))
+            ->when($sbStart && $sbEnd, fn($q) => $q->whereBetween(DB::raw('DATE(p.updated_at)'), [$sbStart, $sbEnd]))
+            ->when($sbStart && !$sbEnd, fn($q) => $q->whereDate('p.updated_at', '>=', $sbStart))
+            ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
+
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = '%'.$pid.'%';
+
+                $qb->where(function ($w) use ($pid, $like) {
+                    // Fast exact matches for numeric input
+                    if (ctype_digit($pid)) {
+                        $w->orWhere('o.id', (int)$pid)         // new order id
+                        ->orWhere('o.redo', (int)$pid)       // original order id
+                        ->orWhere('p.ProductID', (int)$pid)  // new product id
+                        ->orWhere('p.redoOf', (int)$pid);    // original product id
+                    }
+
+                    // Fuzzy matches (strings / partials)
+                    $w->orWhere('o.id', 'like', $like)
+                    ->orWhere('o.redo', 'like', $like)
+                    ->orWhere('p.ProductID', 'like', $like)
+                    ->orWhere('p.redoOf', 'like', $like)
+                    ->orWhere('o.order_number', 'like', $like)
+
+                    // match the formatted code WITHOUT the trailing R (no aggregates in WHERE)
+                    ->orWhere(DB::raw("
+                        CONCAT(
+                            '#ORD-',
+                            YEAR(o.orderDate), '-',
+                            LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                            '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+                        )
+                    "), 'like', $like);
+                });
+            })
+
+            ->groupBy(
+                'p.ProductID', 'p.updated_at', 'p.status', 'p.taskType',
+                'o.id', 'o.order_number', 'o.deadline', 'o.orderDate', 'o.created_at', 'p.accepted', 'p.redoOf','p.editable', 'o.redo'
+            )
+
+            ->select([
+                'p.ProductID',
+                'p.updated_at as submission_date',
+                'p.OrderID',
+                'p.status as product_status',
+                'o.orderDate',
+                'o.status as order_status',
+                'p.taskType',
+                'o.id as order_id',
+                'o.order_number',
+                'o.deadline',
+                'p.redoOf',
+                'p.editable',
+                DB::raw("$sqExpr as sq_inch"),
+                DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.cutter, '')), ''), '—') as cutter"),
+                DB::raw('MAX(r.ProductID) as redo_product_id'),
+                DB::raw("
                 CONCAT(
                     '#ORD-',
-                    LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
-                    '-',
-                    LPAD(o.id, 3, '0'),
-                    '-P',
-                    LPAD(p.ProductID, 4, '0')
-                ) as product_code
-            "),
-            DB::raw('COALESCE(p.accepted, 0) as accepted'),
-        ]);
+                    YEAR(o.orderDate), '-',
+                    LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                    '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                    CASE
+                    WHEN ( (p.redoOf IS NOT NULL AND p.editable = 1) OR COUNT(r.ProductID) > 0 )
+                        THEN 'R'
+                    ELSE ''
+                    END
+                ) AS display_product_id
+                "),
 
-    $sort = (string) $request->get('sort', 'deadline_nearest');
+                DB::raw("
+                CASE 
+                    WHEN (p.redoOf IS NOT NULL OR COUNT(r.ProductID) > 0) 
+                    THEN 1 ELSE 0 
+                END as is_redo_product
+                "),
+                DB::raw('COALESCE(p.accepted, 0) as accepted'),
+            ]);
 
-    switch ($sort) {
-        case 'deadline_furthest':
-            $jobs->orderByRaw('o.deadline IS NULL')
-                 ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) DESC')
-                 ->orderBy('o.deadline', 'asc')
-                 ->orderBy('o.id')->orderBy('p.ProductID');
-            break;
+        $sort = (string) $request->get('sort', 'deadline_nearest');
 
-        case 'submitted_nearest':
-            $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
-                 ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) ASC')
-                 ->orderBy('p.updated_at', 'asc')
-                 ->orderBy('o.id')->orderBy('p.ProductID');
-            break;
+        switch ($sort) {
+            case 'deadline_furthest':
+                $jobs->orderByRaw('o.deadline IS NULL')
+                    ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) DESC')
+                    ->orderBy('o.deadline', 'asc')
+                    ->orderBy('o.id')->orderBy('p.ProductID');
+                break;
 
-        case 'submitted_furthest':
-            $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
-                 ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) DESC')
-                 ->orderBy('p.updated_at', 'asc')
-                 ->orderBy('o.id')->orderBy('p.ProductID');
-            break;
+            case 'submitted_nearest':
+                $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
+                    ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) ASC')
+                    ->orderBy('p.updated_at', 'asc')
+                    ->orderBy('o.id')->orderBy('p.ProductID');
+                break;
 
-        case 'deadline_nearest':
-        default:
-            $jobs->orderByRaw('o.deadline IS NULL')
-                 ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) ASC')
-                 ->orderBy('o.deadline', 'asc')
-                 ->orderBy('o.id')->orderBy('p.ProductID');
-            break;
+            case 'submitted_furthest':
+                $jobs->orderByRaw('DATE(p.updated_at) IS NULL')
+                    ->orderByRaw('ABS(DATEDIFF(DATE(p.updated_at), CURDATE())) DESC')
+                    ->orderBy('p.updated_at', 'asc')
+                    ->orderBy('o.id')->orderBy('p.ProductID');
+                break;
+
+            case 'deadline_nearest':
+            default:
+                $jobs->orderByRaw('o.deadline IS NULL')
+                    ->orderByRaw('ABS(DATEDIFF(o.deadline, CURDATE())) ASC')
+                    ->orderBy('o.deadline', 'asc')
+                    ->orderBy('o.id')->orderBy('p.ProductID');
+                break;
+        }
+
+        $jobs = $jobs->paginate(10)->appends($request->query());
+
+        // KPIs
+        $inProgress = DB::table('products as p')
+            ->join('orders as o', 'o.id', '=', 'p.OrderID')
+            ->where('p.status', 'in_progress')
+            ->where('p.taskType', 'furnishing')
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
+            ->count();
+
+        $completed = DB::table('fulfillment_progress as fp')
+            ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
+            ->join('orders as o', 'o.id', '=', 'p.OrderID')
+            ->where('fp.stage', 'furnishing')
+            ->where('fp.status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
+            ->count();
+
+        // Artist dropdown (same approach as printing)
+        $artists = DB::table('users as u')
+            ->select('u.id','u.name')
+            ->whereIn('u.id', function ($sub) {
+                $sub->from('orders as o')->select('o.artist_id')->whereNotNull('o.artist_id');
+            })
+            ->orderBy('u.name')->get();
+
+        return view('furnishing.dashboard', compact('jobs','inProgress','completed','artists'));
     }
-
-    $jobs = $jobs->paginate(10)->appends($request->query());
-
-    // KPIs
-    $inProgress = DB::table('products')->where('status','in_progress')->where('taskType','furnishing')->count();
-    $completed  = DB::table('fulfillment_progress')->where('stage','furnishing')->where('status','completed')->count();
-
-    // Artist dropdown (same approach as printing)
-    $artists = DB::table('users as u')
-        ->select('u.id','u.name')
-        ->whereIn('u.id', function ($sub) {
-            $sub->from('orders as o')->select('o.artist_id')->whereNotNull('o.artist_id');
-        })
-        ->orderBy('u.name')->get();
-
-    return view('furnishing.dashboard', compact('jobs','inProgress','completed','artists'));
-}
 
     // Dashboard 勾确认：把该产品置为 completed（保持 taskType=furnishing）
     public function markComplete($product)

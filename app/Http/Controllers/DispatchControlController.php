@@ -50,6 +50,44 @@ class DispatchControlController extends Controller
         $rows = DB::table('products as p')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
             ->leftJoin('fulfillment_progress as fp', 'fp.ProductID', '=', 'p.ProductID')
+            ->leftJoin(DB::raw('(
+                SELECT DISTINCT redoOf
+                FROM products
+                WHERE editable = 1 AND redoOf IS NOT NULL
+            ) rr'), 'rr.redoOf', '=', 'p.ProductID')
+             ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = '%'.$pid.'%';
+
+                $qb->where(function ($w) use ($pid, $like) {
+                    // Fast exact matches for numeric input
+                    if (ctype_digit($pid)) {
+                        $w->orWhere('o.id', (int)$pid)         // new order id
+                        ->orWhere('o.redo', (int)$pid)       // original order id
+                        ->orWhere('p.ProductID', (int)$pid)  // new product id
+                        ->orWhere('p.redoOf', (int)$pid);    // original product id
+                    }
+
+                    // Fuzzy matches (strings / partials)
+                    $w->orWhere('o.id', 'like', $like)
+                    ->orWhere('o.redo', 'like', $like)
+                    ->orWhere('p.ProductID', 'like', $like)
+                    ->orWhere('p.redoOf', 'like', $like)
+                    ->orWhere('o.order_number', 'like', $like)
+
+                    // match the formatted code WITHOUT the trailing R (no aggregates in WHERE)
+                    ->orWhere(DB::raw("
+                        CONCAT(
+                            '#ORD-',
+                            YEAR(o.orderDate), '-',
+                            LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                            '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+                        )
+                    "), 'like', $like);
+                });
+            })
             ->select([
                 'p.ProductID',
                 'p.productName',
@@ -67,6 +105,33 @@ class DispatchControlController extends Controller
                 'fp.acceptedAt',
                 'fp.completedAt',
                 'fp.created_at as fp_created_at',
+                'o.redo',                    
+                'rr.redoOf as redo_marker',   
+                'p.redoOf',
+                'p.editable',
+                'o.id as order_id',
+                'o.orderDate',
+                DB::raw("
+                CONCAT(
+                    '#ORD-',
+                    YEAR(o.orderDate), '-',
+                    LPAD(COALESCE(o.redo, o.id), 3, '0'),
+                    '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                    CASE
+                    WHEN ((p.redoOf IS NOT NULL AND p.editable = 1) OR rr.redoOf IS NOT NULL)
+                        THEN 'R'
+                    ELSE ''
+                    END
+                ) AS display_product_id
+                "),
+
+                // boolean flag for ‘redo related’
+                DB::raw("
+                CASE
+                    WHEN (p.redoOf IS NOT NULL OR rr.redoOf IS NOT NULL) THEN 1
+                    ELSE 0
+                END AS is_redo_product
+                "),
                 DB::raw('COALESCE(p.accepted, 0) as accepted'),
             ])
             ->orderBy('p.ProductID')
@@ -95,6 +160,11 @@ class DispatchControlController extends Controller
                     'current_stage'   => $curStage  ? strtolower($curStage)  : null,
                     'current_status'  => $curStatus ? strtolower($curStatus) : null,
                     'accepted'        => (int)($r->accepted ?? 0),
+
+                    'order_base_id'    => $r->redo ?? $r->order_id,                 // COALESCE(o.redo, o.id)
+                    'product_base_id'  => $r->redoOf ?? $r->ProductID,              // COALESCE(p.redoOf, p.ProductID)
+                    'append_R'         => ((isset($r->redoOf) && (int)$r->editable === 1)  // own redoOf + editable=1
+                                        || !is_null($r->redo_marker)), 
                 ];
             }
 
@@ -136,22 +206,39 @@ class DispatchControlController extends Controller
             return 100; // all done
         };
 
-        $inProgress = 0;
-        $completed  = 0;
+        $inProgress = DB::table('products as p')
+            ->join('orders as o', 'o.id', '=', 'p.OrderID')
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);   // exclude deleted/cancelled orders
+            })
+            ->where('p.taskType', 'delivery')
+            ->where('p.status', 'in_progress')
+            ->count();
+
+        // Completed = fulfillment_progress says installation completed (distinct products)
+        $completed = DB::table('fulfillment_progress as fp')
+            ->join('products as p', 'p.ProductID', '=', 'fp.ProductID')
+            ->join('orders as o', 'o.id', '=', 'p.OrderID')
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', '!=', 1);   // exclude deleted/cancelled orders
+            })
+            ->where('fp.stage', 'delivery')
+            ->where('fp.status', 'completed')
+            ->distinct('fp.ProductID')
+            ->count('fp.ProductID');
+
         $list = [];
         foreach ($byProduct as $p) {
-            $p['product_code'] = ($p['order_number'] ?: ('ORD-' . $p['OrderID']))
-                . '-P' . str_pad((string)$p['ProductID'], 4, '0', STR_PAD_LEFT);
+            $year = $p['orderDate'] ? substr($p['orderDate'], 0, 4) : date('Y');
+            $ord  = str_pad((string)$p['order_base_id'],   3, '0', STR_PAD_LEFT);
+            $prod = str_pad((string)$p['product_base_id'], 4, '0', STR_PAD_LEFT);
+
+            $p['product_code'] = "#ORD-{$year}-{$ord}-P{$prod}" . ($p['append_R'] ? 'R' : '');
+
 
             $p['progress'] = $progressWidth($p);
-
-            // installation completed flag for UI
             $instStatus = $p['stages']['delivery']['status'] ?? null;
             $p['delivery_completed'] = $instStatus === 'completed' ? 1 : 0;
-
-            // KPI: (installation completed => completed)
-            if ($instStatus === 'completed') $completed++;
-            else $inProgress++;
 
             $list[] = $p;
         }

@@ -501,8 +501,10 @@
             $isPrinting = strtolower((string)($row->taskType ?? '')) === 'printing';
             $accepted = (int)($row->accepted ?? 0) === 1;
             @endphp
-            <tr id="job-{{ $row->ProductID }}" class="js-row-open" data-href="{{ route('printing.orders.show', $row->ProductID) }}" style="cursor: pointer;">
-              <td>{{ $row->product_code }}</td>
+            <tr id="job-{{ $row->ProductID }}" class="js-row-open" data-code="{{ $row->display_product_id }}" data-href="{{ route('printing.orders.show', $row->ProductID) }}" style="cursor: pointer;">
+              <td class="whitespace-nowrap font-medium">
+                {{ $row->display_product_id }}
+              </td>
               <td>{{ ($row->printer ?? '-') === '-' ? '—' : $row->printer }}</td>
               <td>{{ is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0).' sq in' : '0 sq in' }}</td>
               <td class="td-deadline" data-date="{{ $row->deadline ?: '' }}">
