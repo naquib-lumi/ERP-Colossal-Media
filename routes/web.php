@@ -216,6 +216,7 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
         Route::post('/artist/orders/{order}/assign', [ArtistController::class, 'storeAssign'])->middleware('role:head-artist')->name('artist.orders.assign.store');
         Route::get('/artist/orders/{order}', [ArtistController::class, 'show'])->name('artist.orders.show');
         Route::post('/artist/orders/{order}/products', [ArtistOrderController::class, 'storeProduct'])->name('artist.orders.products.store');
+        Route::delete('/artist/orders/{order}/products/{product}', [ArtistController::class, 'destroyProduct'])->name('artist.orders.products.destroy');
 
         Route::get('/artist/fulfillment', [FulfillmentController::class, 'index'])->name('artist.fulfillment.index');
         Route::get('/artist/fulfillment/products/{product}', [FulfillmentController::class, 'show'])->name('artist.fulfillment.product.show');
@@ -249,7 +250,7 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
 
         // AJAX search for artists (head-artist assigning)
         Route::get('/artist/orders/assignees/search', [ArtistOrderController::class, 'searchArtists'])->name('artist.orders.assignees.search');
-        Route::post('/artist/orders/{order}/assign', [ArtistOrderController::class, 'assign'])->name('artist.orders.assigns');
+        Route::post('/artist/orders/{order}/edit', [ArtistOrderController::class, 'assign'])->name('artist.orders.assigns');
 
         // optional AJAX search (also head-only if you want)
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])
@@ -299,9 +300,9 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
     Route::middleware(['web','auth','role:operations-furnishing'])->group(function () {
         Route::get('/furnishing/dashboard', [FurnishingController::class, 'dashboard'])->name('furnishing.dashboard');
         Route::patch('/furnishing/jobs/{product}/complete', [FurnishingController::class, 'markComplete'])->name('furnishing.jobs.complete');
-        Route::get('/jobs/{product}', [FurnishingProductOrderController::class, 'show'])->name('furnishing.orders.show');
-        Route::post('/jobs/{product}/accept', [FurnishingProductOrderController::class, 'accept'])->name('furnishing.orders.accept');
-        Route::post('/jobs/{product}/reject', [FurnishingProductOrderController::class, 'reject'])->name('furnishing.orders.reject');
+        Route::get('/furnishing/jobs/{product}', [FurnishingProductOrderController::class, 'show'])->name('furnishing.orders.show');
+        Route::post('/furnishing/jobs/{product}/accept', [FurnishingProductOrderController::class, 'accept'])->name('furnishing.orders.accept');
+        Route::post('/furnishing/jobs/{product}/reject', [FurnishingProductOrderController::class, 'reject'])->name('furnishing.orders.reject');
         Route::get('/furnishing/product-order', [FurnishingProductOrderController::class, 'productorder'])->name('furnishing.product-order');
         Route::get('/furnishing/history', [FurnishingHistoryController::class, 'index'])->name('furnishing.history');
         Route::get('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'index'])->name('furnishing.profile');

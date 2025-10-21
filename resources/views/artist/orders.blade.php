@@ -3,6 +3,16 @@
 @section('content')
 @push('styles')
 <style>
+    .bg-light .input-group-text { border-color:#e9ecef; }
+    .bg-light .form-control, .bg-light .form-select { border-color:#e9ecef; }
+    .bg-light.border { border-color:#e9ecef !important; }
+
+    #ordersFilterForm .form-control,
+    #ordersFilterForm .form-select,
+    #ordersFilterForm .input-group-text { height: 42px; }
+
+    /* Compact select for entries-per-page */
+    #pageLength { min-width: 72px; }
     /* Table look like Figma */
     .table-modern thead th {
         background: #fbfbfc;
@@ -27,7 +37,7 @@
         padding: .35rem .6rem;
         font-weight: 600;
         border-radius: 999px;
-        font-size: .75rem;
+        font-size: .95rem;
     }
 
     /* Tiny icon buttons */
@@ -128,6 +138,8 @@
     .card-datatable .dataTables_wrapper .row {
         margin: 0
     }
+
+    div.dataTables_wrapper .dataTables_length { display: none; }
 </style>
 @endpush
 
@@ -143,163 +155,163 @@
                 <div class="card-widget-separator-wrapper">
                     <div class="card-body card-widget-separator">
                         @if(!empty($isHead) && $isHead)
-                            <div class="row gy-4 gy-sm-1">
-                                {{-- To assign --}}
-                                <div class="col-sm-6 col-lg">
+                        <div class="row gy-4 gy-sm-1">
+                            {{-- To assign --}}
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="to_assign">
                                 <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
                                     <div>
-                                    <p class="mb-1">To assign</p>
-                                    <h4 class="mb-1">{{ $metrics['to_assign'] ?? 0 }}</h4>
+                                        <p class="mb-1">To assign</p>
+                                        <h4 class="mb-1">{{ $metrics['to_assign'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-share-alt icon-lg text-heading"></i>
-                                    </span>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-share-alt icon-lg text-heading"></i>
+                                        </span>
                                     </span>
                                 </div>
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
+                            </div>
 
-                                {{-- Assigned --}}
-                                <div class="col-sm-6 col-lg">
+                            {{-- Assigned --}}
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="assigned">
                                 <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
                                     <div>
-                                    <p class="mb-1">Assigned</p>
-                                    <h4 class="mb-1">{{ $metrics['assigned'] ?? 0 }}</h4>
+                                        <p class="mb-1">Assigned</p>
+                                        <h4 class="mb-1">{{ $metrics['assigned'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-user-check icon-lg text-heading"></i>
-                                    </span>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-user-check icon-lg text-heading"></i>
+                                        </span>
                                     </span>
                                 </div>
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
+                            </div>
 
-                                {{-- In progress --}}
-                                <div class="col-sm-6 col-lg">
+                            {{-- In progress --}}
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="in_progress">
                                 <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
                                     <div>
-                                    <p class="mb-1">In Progress</p>
-                                    <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
+                                        <p class="mb-1">In Progress</p>
+                                        <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-gift icon-lg text-heading"></i>
-                                    </span>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-gift icon-lg text-heading"></i>
+                                        </span>
                                     </span>
                                 </div>
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
+                            </div>
 
-                                {{-- Completed --}}
-                                <div class="col-sm-6 col-lg">
+                            {{-- Completed --}}
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="completed">
                                 <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
                                     <div>
-                                    <p class="mb-1">Completed</p>
-                                    <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
+                                        <p class="mb-1">Completed</p>
+                                        <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
-                                    </span>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
+                                        </span>
                                     </span>
                                 </div>
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
+                            </div>
 
-                                {{-- Rejected --}}
-                                <div class="col-sm-6 col-lg">
+                            {{-- Rejected --}}
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="rejected">
                                 <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
                                     <div>
-                                    <p class="mb-1">Rejected</p>
-                                    <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
+                                        <p class="mb-1">Rejected</p>
+                                        <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-x-circle icon-lg text-heading"></i>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-x-circle icon-lg text-heading"></i>
+                                        </span>
                                     </span>
-                                    </span>
-                                </div>
                                 </div>
                             </div>
+                        </div>
                         @else
-                            {{-- Normal artist (your current block) --}}
-                            <div class="row gy-4 gy-sm-1">
-                                <div class="col-sm-6 col-lg">
+                        {{-- Normal artist (your current block) --}}
+                        <div class="row gy-4 gy-sm-1">
+                            <div class="col-sm-6 col-lg">
                                 <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
                                     <div>
-                                    <p class="mb-1">Total Order</p>
-                                    <h4 class="mb-1">{{ $metrics['total'] ?? 0 }}</h4>
+                                        <p class="mb-1">Total Order</p>
+                                        <h4 class="mb-1">{{ $metrics['total'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-store-alt icon-lg text-heading"></i>
-                                    </span>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-store-alt icon-lg text-heading"></i>
+                                        </span>
                                     </span>
                                 </div>
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
+                            </div>
 
-                                <div class="col-sm-6 col-lg">
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="pending">
                                 <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
                                     <div>
-                                    <p class="mb-1">Pending</p>
-                                    <h4 class="mb-1">{{ $metrics['pending'] ?? 0 }}</h4>
+                                        <p class="mb-1">Pending</p>
+                                        <h4 class="mb-1">{{ $metrics['pending'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-laptop icon-lg text-heading"></i>
-                                    </span>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-laptop icon-lg text-heading"></i>
+                                        </span>
                                     </span>
                                 </div>
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
+                            </div>
 
-                                <div class="col-sm-6 col-lg">
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="in_progress">
                                 <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
                                     <div>
-                                    <p class="mb-1">In Progress</p>
-                                    <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
+                                        <p class="mb-1">In Progress</p>
+                                        <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-gift icon-lg text-heading"></i>
-                                    </span>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-gift icon-lg text-heading"></i>
+                                        </span>
                                     </span>
                                 </div>
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
+                            </div>
 
-                                <div class="col-sm-6 col-lg">
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="completed">
                                 <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
                                     <div>
-                                    <p class="mb-1">Completed</p>
-                                    <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
+                                        <p class="mb-1">Completed</p>
+                                        <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
-                                    </span>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
+                                        </span>
                                     </span>
                                 </div>
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
+                            </div>
 
-                                <div class="col-sm-6 col-lg">
+                            <div class="col-sm-6 col-lg cursor-pointer" data-go-status="rejected">
                                 <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
                                     <div>
-                                    <p class="mb-1">Rejected</p>
-                                    <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
+                                        <p class="mb-1">Rejected</p>
+                                        <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
                                     </div>
                                     <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-x-circle icon-lg text-heading"></i>
+                                        <span class="avatar-initial rounded w-px-44 h-px-44">
+                                            <i class="icon-base bx bx-x-circle icon-lg text-heading"></i>
+                                        </span>
                                     </span>
-                                    </span>
-                                </div>
                                 </div>
                             </div>
+                        </div>
                         @endif
                     </div>
                 </div>
@@ -311,35 +323,101 @@
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <h5 class="mb-0">Job Orders</h5>
 
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <div class="input-group" style="width:260px;">
-                                <span class="input-group-text bg-white border-end-0"><i class="bx bx-search"></i></span>
-                                <input id="jobSearch" type="text" class="form-control border-start-0" placeholder="Search orders…">
-                            </div>
+                        @php $statusVal = request('status', $statusRaw ?? ''); @endphp
+                        <div class="w-100"></div>
+                        <div class="w-100 border rounded-3 px-3 py-3">
+                            <form id="ordersFilterForm" method="GET" action="{{ route('artist.orders') }}">
+                            <div class="row g-2 align-items-center">
 
-                            <select id="statusFilter" class="form-select w-auto">
-                                <option value="">All statuses</option>
-                                @if(!$isHead ?? false)
-                                <option value="pending">Pending</option>
+                                {{-- Order ID (client-side, column 0 only) --}}
+                                <div class="col-12 col-lg-2">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bx bx-hash"></i></span>
+                                    <input id="orderIdSearch" type="text" class="form-control" placeholder="Search Order ID">
+                                </div>
+                                </div>
+
+                                {{-- Artist name --}}
+                                <div class="col-12 col-lg-3">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bx bx-user"></i></span>
+                                    <input type="text"
+                                        name="artist"
+                                        class="form-control"
+                                        placeholder="{{ ($isHead ?? false) ? 'Search artist name…' : 'Search salesperson name…' }}"
+                                        value="{{ request('artist') }}">
+                                </div>
+                                </div>
+
+                                {{-- Global order/product search (server) --}}
+                                <div class="col-12 col-lg-3">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bx bx-search"></i></span>
+                                    <input name="q" type="text" class="form-control" placeholder="Search orders or product details" value="{{ request('q') }}">
+                                </div>
+                                </div>
+                                
+                                {{-- Date from --}}
+                                <div class="col-6 col-lg-2">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
+                                    <input type="date" name="from" class="form-control" value="{{ request('from') }}" placeholder="YYYY-MM-DD">
+                                </div>
+                                </div>
+
+                                {{-- Date to --}}
+                                <div class="col-6 col-lg-2">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
+                                    <input type="date" name="to" class="form-control" value="{{ request('to') }}" placeholder="YYYY-MM-DD">
+                                </div>
+                                </div>
+
+                                {{-- Status --}}
+                                <div class="col-12 col-lg-2">
+                                <select name="status" class="form-select">
+                                    <option value="">All statuses</option>
+                                    @if(!($isHead ?? false))
+                                    <option value="pending"     {{ $statusVal==='pending' ? 'selected' : '' }}>Pending</option>
+                                    @endif
+                                    <option value="in_progress" {{ $statusVal==='in_progress' ? 'selected' : '' }}>In progress</option>
+                                    <option value="completed"   {{ $statusVal==='completed' ? 'selected' : '' }}>Completed</option>
+                                    <option value="rejected"    {{ $statusVal==='rejected' ? 'selected' : '' }}>Rejected</option>
+                                    @if($isHead ?? false)
+                                    <option value="to_assign" {{ $statusVal==='to_assign' ? 'selected' : '' }}>To assign</option>
+                                    <option value="assigned"  {{ $statusVal==='assigned'  ? 'selected' : '' }}>Assigned</option>
+                                    @endif
+                                </select>
+                                </div>
+
+                                {{-- Keep deadline sort if set --}}
+                                @if(request('deadline_sort'))
+                                <input type="hidden" name="deadline_sort" value="{{ request('deadline_sort') }}">
                                 @endif
-                                <option value="in_progress">In progress</option>
-                                <option value="completed">Completed</option>
-                                <option value="rejected">Rejected</option>
 
-                                {{-- head artist only --}}
-                                @if($isHead ?? false)
-                                <option value="to_assign">To assign</option>
-                                <option value="assigned">Assigned</option>
-                                @endif
-                            </select>
-
-                            <button id="exportExcel" class="btn btn-dark">
-                                <i class="bx bx-export me-1"></i> Export
-                            </button>
-
-                            <h5 style="margin-bottom: 0;" class="text-white pb-2 pt-2 d-flex justify-content-between align-items-center">
+                                {{-- Actions (right aligned) --}}
+                                <div class="col-12 col-lg d-flex gap-2 justify-content-lg-end">
+                                <button type="submit" class="btn btn-primary px-4">Filter</button>
+                                <a href="{{ route('artist.orders') }}" class="btn btn-outline-secondary">Reset</a>
+                                <button id="exportExcel" type="button" class="btn btn-dark">
+                                    <i class="bx bx-export me-1"></i> Export
+                                </button>
                                 <a href="{{ route('artist.orders.create') }}" class="btn btn-light text-primary">Add Order</a>
-                            </h5>
+                                </div>
+
+                            </div>
+                            </form>
+
+                            <!-- {{-- Second row: Order ID search (client-only, Column 0) + Export/Add --}}
+                            <div class="row g-2 mt-3 align-items-center">
+                                <div class="col-12 col-md d-flex gap-2 mt-2 mt-md-0 justify-content-md-end">
+                                    <button id="exportExcel" class="btn btn-dark">
+                                    <i class="bx bx-export me-1"></i> Export
+                                    </button>
+                                    <a href="{{ route('artist.orders.create') }}" class="btn btn-light text-primary">Add Order</a>
+                                </div>
+                            </div> -->
+
                         </div>
                     </div>
 
@@ -355,14 +433,108 @@
 @push('scripts')
 
 <script>
+    const LEN_KEY = 'orders.pageLength.v2';  // new versioned key
+
+    function getSavedLen() {
+        const raw = localStorage.getItem(LEN_KEY);
+        if (raw == null) {
+            localStorage.setItem(LEN_KEY, '5');  // first time → default 5
+            return 5;
+        }
+        const v = parseInt(raw, 10);
+        return [5,10,20,30].includes(v) ? v : 5;
+    }
+
+    function bindPageLengthControl(dt) {
+        const sel = document.getElementById('pageLength');
+        if (!sel || !dt) return;
+
+        // reflect current DT length
+        sel.value = String(dt.page.len());
+
+        sel.onchange = function () {
+            const v = parseInt(sel.value, 10) || 5;
+            localStorage.setItem(LEN_KEY, String(v));
+            dt.page.len(v).draw();
+        };
+    }
+
+    (function preloadOrderIdFromUrl(){
+    const box = document.getElementById('orderIdSearch');
+    if (!box) return;
+    const oid = new URLSearchParams(location.search).get('oid') || '';
+    box.value = oid;
+    })();
+
+    (function persistOidOnSubmit(){
+    const form = document.getElementById('ordersFilterForm');
+    const box  = document.getElementById('orderIdSearch');
+    if (!form || !box) return;
+
+    form.addEventListener('submit', () => {
+        let hid = form.querySelector('input[name="oid"]');
+        if (!hid) {
+        hid = document.createElement('input');
+        hid.type = 'hidden';
+        hid.name = 'oid';
+        form.appendChild(hid);
+        }
+        hid.value = box.value.trim(); // carry current Order ID into the URL
+    });
+    })();
+
+    (function syncOidWhileTyping(){
+    const box = document.getElementById('orderIdSearch');
+    if (!box) return;
+
+    const debounce = (fn, ms=200) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+    const setQuery = (k,v)=>{
+        const u = new URL(location.href);
+        if (v) u.searchParams.set(k, v); else u.searchParams.delete(k);
+        history.replaceState(null, '', u);
+    };
+
+    box.addEventListener('input', debounce(() => {
+        setQuery('oid', box.value.trim());
+    }, 200));
+    })();
+
+    function bindOrderIdFilter(dt) {
+    const input = document.getElementById('orderIdSearch');
+    if (!input || !dt || !$.fn || !$.fn.dataTable) return;
+
+    let term = (input.value || '').trim().toLowerCase();
+
+    // register a single global DT filter that only checks column 0
+    const orderIdFilterFn = function(settings, data) {
+        if (!term) return true;
+        const col0 = (data[0] || '').toString().toLowerCase();
+        return col0.includes(term);
+    };
+    orderIdFilterFn._orderIdFilter = true;
+    $.fn.dataTable.ext.search = $.fn.dataTable.ext.search
+        .filter(fn => !fn._orderIdFilter) // avoid duplicates on re-init
+        .concat(orderIdFilterFn);
+
+    // re-draw when typing
+    const debounce = (fn, ms=200) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+    input.addEventListener('input', debounce(function(){
+        term = (this.value || '').trim().toLowerCase();
+        dt.draw();
+    }, 200));
+
+    if (term) dt.draw(); // apply initial value (from URL) on init
+    }
+
     (function() {
         let dt = null;
 
         // remove previous custom filter if any
         function clearDtFilters() {
             if (!$.fn || !$.fn.dataTable) return;
-            $.fn.dataTable.ext.search = $.fn.dataTable.ext.search
-                .filter(fn => !fn._ordersStatusFilter);
+            $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(fn =>
+                !fn._ordersStatusFilter && !fn._orderIdFilter
+            );
         }
         const wrap = document.getElementById('orders-table-wrapper');
         const status = document.getElementById('statusFilter');
@@ -425,13 +597,10 @@
 
             // IMPORTANT: assign to outer 'dt', don't redeclare with 'const' or 'let' here
             dt = $('#jobOrdersTable').DataTable({
-                dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
+                dom: 'Brt<"d-flex justify-content-between align-items-center mt-3"ip>',
                 paging: true,
-                pageLength: 5,
-                lengthMenu: [
-                    [5, 10, 20, 30],
-                    [5, 10, 20, 30]
-                ],
+                pageLength: getSavedLen(),           // ← use saved/default length
+                lengthMenu: [[5,10,20,30],[5,10,20,30]],
                 autoWidth: false,
                 responsive: true,
                 order: [],
@@ -439,14 +608,19 @@
                     extend: 'excel',
                     title: 'Job Orders',
                     className: 'd-none',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5]
-                    }
+                    exportOptions: { columns: [0,1,2,3,4,5] }
                 }],
-                columnDefs: [
-                    { targets: -1, orderable: false, searchable: false, className: 'text-end' },
+                columnDefs: [{
+                        targets: -1,
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-end'
+                    },
                     // (optional) safety: fill blanks instead of warning if a cell is missing
-                    { targets: '_all', defaultContent: '' }
+                    {
+                        targets: '_all',
+                        defaultContent: ''
+                    }
                 ],
                 language: {
                     lengthMenu: 'Show _MENU_',
@@ -454,12 +628,18 @@
                     zeroRecords: 'No matching records found',
                     info: 'Showing _START_ to _END_ of _TOTAL_ results',
                     infoEmpty: 'Showing 0 to 0 of 0 results',
-                    paginate: { previous: 'Previous', next: 'Next' }
+                    paginate: {
+                        previous: 'Previous',
+                        next: 'Next'
+                    }
                 },
                 drawCallback: function() {
                     this.api().columns.adjust().responsive.recalc();
                 }
             });
+
+            bindPageLengthControl(dt);
+            bindOrderIdFilter(dt);
 
             // --- custom filter by data-status-code
             const filterFn = function(settings, data, dataIndex) {
@@ -526,7 +706,7 @@
         }
 
         // initial render
-        load(true);
+        // load(true);
 
         // status -> change (fetch new HTML, then DT paginates client-side)
         status?.addEventListener('change', () => {
@@ -584,14 +764,14 @@
             };
 
             // ===== DataTables init (guarded) =====
-            let dt;
             try {
                 if (!$.fn.DataTable) throw new Error('DataTables plugin not loaded');
 
                 dt = $('#jobOrdersTable').DataTable({
-                    dom: 'Brt<"d-flex justify-content-between align-items-center mt-3"ip>',
+                    dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
                     paging: true,
-                    pageLength: 5,
+                    pageLength: getSavedLen(),           // ← use saved/default length
+                    lengthMenu: [[5,10,20,30],[5,10,20,30]],
                     autoWidth: false,
                     responsive: true,
                     order: [],
@@ -599,9 +779,7 @@
                         extend: 'excel',
                         title: 'Job Orders',
                         className: 'd-none',
-                        exportOptions: {
-                            columns: [0, 1, 2, 3, 4, 5]
-                        }
+                        exportOptions: { columns: [0,1,2,3,4,5] }
                     }],
                     columnDefs: [{ // status pill
                             targets: 4,
@@ -627,6 +805,9 @@
                         this.api().columns.adjust().responsive.recalc();
                     }
                 });
+                
+                bindPageLengthControl(dt);
+                bindOrderIdFilter(dt);
 
                 // External controls
                 $('#jobSearch').on('keyup', function() {
@@ -651,6 +832,88 @@
 
 
         });
+    })();
+
+    (function() {
+        const form = document.getElementById('ordersFilterForm');
+        if (!form) return;
+
+        // Submit on change for quick UX
+        form.addEventListener('change', function(e) {
+            const el = e.target;
+            if (['SELECT', 'INPUT'].includes(el.tagName)) {
+                // skip text inputs so typing doesn't submit; Enter will submit
+                if (el.tagName === 'INPUT' && el.type === 'text') return;
+                form.submit();
+            }
+        });
+
+        // Submit when pressing Enter in text inputs
+        form.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.id !== 'orderIdSearch') {
+            form.submit();
+        }
+        });
+    })();
+
+    (function() {
+        // Format a Date/string to YYYY-MM-DD safely
+        function toISODateString(val) {
+            if (!val) return '';
+            // already ISO?
+            if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+
+            // Try parsing common local formats; fall back to invalid => ''
+            const d = new Date(val);
+            if (isNaN(d.getTime())) return '';
+
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // Normalize date inputs before submit (so server always receives YYYY-MM-DD)
+        const form = document.getElementById('ordersFilterForm') || document.querySelector('form[action*="artist/orders"]');
+        if (!form) return;
+
+        function normalizeDates() {
+            const from = form.querySelector('input[name="from"]');
+            const to = form.querySelector('input[name="to"]');
+            if (from) {
+                const iso = toISODateString(from.value);
+                if (iso) from.value = iso;
+            }
+            if (to) {
+                const iso = toISODateString(to.value);
+                if (iso) to.value = iso;
+            }
+        }
+
+        // On submit, force-normalize
+        form.addEventListener('submit', function() {
+            normalizeDates();
+        });
+
+        // Also normalize immediately when user changes the date, so what they see is YYYY-MM-DD
+        form.querySelectorAll('input[name="from"], input[name="to"]').forEach(function(inp) {
+            inp.addEventListener('change', function() {
+                const iso = toISODateString(inp.value);
+                if (iso) inp.value = iso;
+            });
+        });
+    })();
+
+    (function () {
+    const base = "{{ route('artist.orders') }}";
+    document.querySelectorAll('[data-go-status]').forEach(function (tile) {
+        tile.addEventListener('click', function () {
+        const s = tile.getAttribute('data-go-status');
+        const url = new URL(base, window.location.origin);
+        if (s) url.searchParams.set('status', s);
+        window.location.href = url.toString();
+        });
+    });
     })();
 </script>
 @endpush

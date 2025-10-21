@@ -407,7 +407,7 @@
             </div>
             <div class="col-12">
               <label class="form-label">Material Remark</label>
-              <textarea class="form-control" id="p_material" rows="2" placeholder="Optional"></textarea>
+              <textarea class="form-control" id="p_material" rows="2" placeholder="Backlit Fabric"></textarea>
             </div>
           </div>
 
@@ -531,11 +531,11 @@ $(function () {
         <div class="col-md-3">
           <select class="form-select remark-op">
             <option value="">— Select —</option>
-            <option value="printing"     ${op==='printing'?'selected':''}>Printing</option>
-            <option value="furnishing"   ${op==='furnishing'?'selected':''}>Furnishing</option>
-            <option value="installation" ${op==='installation'?'selected':''}>Delivery & Installation</option>
-            <option value="courier"      ${op==='courier'?'selected':''}>Courier</option>
-            <option value="self_pickup"  ${op==='self_pickup'?'selected':''}>Self Pickup</option>
+            <option value="printing"     ${op==='printing'?'selected':''}>To Printing</option>
+            <option value="furnishing"   ${op==='furnishing'?'selected':''}>To Furnishing</option>
+            <option value="installation" ${op==='installation'?'selected':''}>To Delivery & Installation</option>
+            <option value="courier"      ${op==='courier'?'selected':''}>To Courier</option>
+            <option value="self_pickup"  ${op==='self_pickup'?'selected':''}>To Self Pickup</option>
           </select>
         </div>
         <div class="col-md-8">

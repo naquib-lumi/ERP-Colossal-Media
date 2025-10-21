@@ -282,6 +282,21 @@ class PrintingProductOrderController extends Controller
             return trim($label ? "{$label}: {$row->remark}" : $row->remark);
         })->filter()->unique()->values()->all();
 
+        $remarks = DB::table('product_remarks as pr')
+            ->leftJoin('users as u', 'u.id', '=', 'pr.user_id')
+            ->where('pr.ProductID', $productId)              // $product is the ProductID you already have
+            ->orderBy('pr.created_at', 'desc')
+            ->select([
+                'pr.RemarkID',
+                'pr.ProductID',
+                'pr.operation',
+                'pr.remark',
+                'pr.created_at',
+                'u.name as author_name',
+            ])
+            ->get();
+        $remarksByOp = $remarks->groupBy('operation');
+
         // Attachments (from orders.orderAttachment)
         $attachments = [];
         $rawAtt = (string)($headerRow->orderAttachment ?? '');
@@ -362,6 +377,8 @@ class PrintingProductOrderController extends Controller
             'product_header' => $productHeader,
             'blocks'         => $blocks,
             'canEdit' => $canEdit,
+            'remarksByOp' => $remarksByOp,
+            'remarks' => $remarks,
         ]);
     }
 
@@ -638,6 +655,7 @@ class PrintingProductOrderController extends Controller
 
         $printers = (array) $request->input('printers', []);
         $remarks  = (array) $request->input('remarks', []);
+        $userId   = Auth::id();
 
         // Preload existing specs for change detection
         $itemIds = array_keys($printers);
@@ -657,7 +675,8 @@ class PrintingProductOrderController extends Controller
             $remarks,
             $existingSpecs,  
             &$printerDiffs,   
-            &$remarksAdded    
+            &$remarksAdded,
+            $userId,    
         ) {
             // 1) Save printers + detect diffs
             foreach ($printers as $itemId => $printer) {
@@ -716,6 +735,7 @@ class PrintingProductOrderController extends Controller
                     'ProductID'  => $product,
                     'operation'  => $op,
                     'remark'     => $text,
+                    'user_id'    => $userId,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

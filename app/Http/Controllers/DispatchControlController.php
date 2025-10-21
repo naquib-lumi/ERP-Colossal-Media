@@ -24,8 +24,27 @@ class DispatchControlController extends Controller
             'issue'       => 'Issue',
         ];
 
-        $search  = trim((string) $request->query('q', ''));
+        $pid     = trim((string)$request->query('pid', ''));    // product id/code (all pages)
+        $q       = trim((string)$request->query('q', ''));      // keyword
+        $artist  = trim((string)$request->query('artist', '')); // orders.artist_id
+        $dFrom   = trim((string)$request->query('deadline_from', ''));
+        $dTo     = trim((string)$request->query('deadline_to', ''));
+
+        $search  = $q;
         $status  = $request->query('status', 'all');
+
+        $toYmd = static function (?string $v): ?string {
+            if (!$v) return null;
+            try { return \Carbon\Carbon::parse($v)->toDateString(); } catch (\Throwable $e) { return null; }
+        };
+        $dFromY = $toYmd($dFrom);
+        $dToY   = $toYmd($dTo);
+
+         $artists = DB::table('users')
+            ->select('id', 'name')
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->orderBy('name')
+            ->get();
 
         // 1) Pull all rows we need
         $rows = DB::table('products as p')
@@ -40,6 +59,9 @@ class DispatchControlController extends Controller
                 'o.order_number',
                 'o.orderDate',
                 'o.deadline',
+                'o.orderTitle',      // NEW
+                'o.companyName',     // NEW
+                'o.artist_id',
                 'fp.stage',
                 'fp.status as stage_status',
                 'fp.acceptedAt',
@@ -53,19 +75,22 @@ class DispatchControlController extends Controller
         // 2) Reduce to "latest row per stage" for each product
         $byProduct = [];
         foreach ($rows as $r) {
-            $pid = $r->ProductID;
-            if (!isset($byProduct[$pid])) {
+            $pidKey = $r->ProductID;
+            if (!isset($byProduct[$pidKey])) {
                 // null-safe lowercasing for current stage/status
                 $curStage  = $r->current_stage ?? null;
                 $curStatus = $r->current_status ?? null;
 
-                $byProduct[$pid] = [
-                    'ProductID'       => $pid,
+                $byProduct[$pidKey] = [
+                    'ProductID'       => $pidKey,
                     'productName'     => $r->productName,
                     'OrderID'         => $r->OrderID,
                     'order_number'    => $r->order_number,
                     'orderDate'       => $r->orderDate,
                     'deadline'        => $r->deadline,
+                    'orderTitle'      => $r->orderTitle,     // keep for search
+                    'companyName'     => $r->companyName,    // keep for search
+                    'artist_id'       => $r->artist_id,      // keep for filter
                     'stages'          => [],
                     'current_stage'   => $curStage  ? strtolower($curStage)  : null,
                     'current_status'  => $curStatus ? strtolower($curStatus) : null,
@@ -79,10 +104,10 @@ class DispatchControlController extends Controller
 
             $k    = strtolower(trim($r->stage)); // printing|furnishing|delivery|installation
             $rank = $r->completedAt ?? $r->acceptedAt ?? $r->fp_created_at;
-            $cur  = $byProduct[$pid]['stages'][$k]['_rank'] ?? null;
+            $cur  = $byProduct[$pidKey]['stages'][$k]['_rank'] ?? null;
 
             if (!$cur || $rank > $cur) {
-                $byProduct[$pid]['stages'][$k] = [
+                $byProduct[$pidKey]['stages'][$k] = [
                     'status' => strtolower((string)$r->stage_status), // completed|rejected|in_progress|null
                     'done'   => $r->completedAt,
                     '_rank'  => $rank,
@@ -131,18 +156,85 @@ class DispatchControlController extends Controller
             $list[] = $p;
         }
 
-        // 4) Search filter (optional)
-        if ($search !== '') {
-            $needle = mb_strtolower($search);
+        // Product ID / code (searches across pages)
+        if ($pid !== '') {
+            $needle = mb_strtolower($pid);
             $list = array_values(array_filter($list, function ($p) use ($needle) {
-                return str_contains(mb_strtolower($p['productName'] ?? ''), $needle)
-                    || str_contains(mb_strtolower($p['order_number'] ?? ''), $needle)
-                    || str_contains((string)$p['ProductID'], $needle);
+                $code = mb_strtolower((string)($p['product_code'] ?? ''));
+                return str_contains((string)($p['ProductID'] ?? ''), $needle) || str_contains($code, $needle);
             }));
         }
 
+        // Keyword: order title / company / product name
+        if ($q !== '') {
+            $needle = mb_strtolower($q);
+            $list = array_values(array_filter($list, function ($p) use ($needle) {
+                return str_contains(mb_strtolower($p['orderTitle']  ?? ''), $needle)
+                    || str_contains(mb_strtolower($p['companyName'] ?? ''), $needle)
+                    || str_contains(mb_strtolower($p['productName'] ?? ''), $needle);
+            }));
+        }
+
+        // Artist filter
+        if ($artist !== '') {
+            $list = array_values(array_filter($list, fn($p) => (string)($p['artist_id'] ?? '') === (string)$artist));
+        }
+
+        // Deadline range
+        if ($dFromY || $dToY) {
+            $fromTS = $dFromY ? strtotime($dFromY) : null;
+            $toTS   = $dToY   ? strtotime($dToY)   : null;
+            $list = array_values(array_filter($list, function ($p) use ($fromTS, $toTS) {
+                $raw = $p['deadline'] ?? null;
+                if (!$raw) return false;
+                $ts = strtotime($raw);
+                if ($fromTS && $ts < $fromTS) return false;
+                if ($toTS   && $ts > $toTS)   return false;
+                return true;
+            }));
+        }
+
+        // 4) Search filter (optional)
+        // if ($search !== '') {
+        //     $needle = mb_strtolower($search);
+        //     $list = array_values(array_filter($list, function ($p) use ($needle) {
+        //         return str_contains(mb_strtolower($p['productName'] ?? ''), $needle)
+        //             || str_contains(mb_strtolower($p['order_number'] ?? ''), $needle)
+        //             || str_contains((string)$p['ProductID'], $needle);
+        //     }));
+        // }
+
         // 5) Sort by lesser progress FIRST (ascending)
         usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
+
+        $sortBy   = $request->query('sort_by', '');       // 'deadline' | 'date_in' | ''
+        $sortMode = $request->query('sort_mode', 'near'); // 'near' | 'far'
+
+        if (in_array($sortBy, ['deadline', 'date_in'], true)) {
+            $today = new \DateTimeImmutable('today');
+            $key   = $sortBy === 'deadline' ? 'deadline' : 'orderDate';
+
+            $getDate = static function(array $row, string $key) {
+                $raw = $row[$key] ?? null;
+                if (!$raw) return null;
+                try { return new \DateTimeImmutable($raw); } catch (\Throwable $e) { return null; }
+            };
+            $distance = static function (? \DateTimeImmutable $d, \DateTimeImmutable $t): int {
+                if (!$d) return PHP_INT_MAX; // missing dates go last
+                return abs((int)$d->format('U') - (int)$t->format('U'));
+            };
+
+            usort($list, function ($a, $b) use ($today, $getDate, $distance, $key, $sortMode) {
+                $ad = $getDate($a, $key); $bd = $getDate($b, $key);
+                $da = $distance($ad, $today);
+                $db = $distance($bd, $today);
+                $cmp = $da <=> $db;
+                return $sortMode === 'far' ? -$cmp : $cmp;
+            });
+        } else {
+            // your original "least progress first" sort stays the default
+            usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
+        }
 
         // 6) Paginate manually (10 per page)
         $perPage = 10; // <-- was 1000
@@ -165,6 +257,12 @@ class DispatchControlController extends Controller
             'inProgress' => $inProgress,
             'completed'  => $completed,
             'rows'       => $rowsPaginated,
+            'pid'           => $pid,
+            'q'             => $q,
+            'artist'        => $artist,
+            'deadline_from' => $dFromY,
+            'deadline_to'   => $dToY,
+            'artists'       => $artists,
         ]);
     }
 
@@ -323,118 +421,146 @@ class DispatchControlController extends Controller
 
     public function index(Request $request)
     {
-        $q        = trim((string) $request->get('q', ''));
-        $taskType = strtolower((string) $request->get('task_type', ''));
-        $status   = strtolower((string) $request->get('status', ''));
+        // ---------- FILTER INPUTS ----------
+        $pid       = trim((string)$request->query('pid', ''));              // Product ID/code (all pages)
+        $q         = trim((string)$request->query('q', ''));                // keyword: order title/company/product/remarks
+        $artist    = trim((string)$request->query('artist', ''));           // orders.artist_id
+        $taskType  = trim((string)$request->query('task_type', $request->query('type',''))); // keep old 'type'
+        $status    = trim((string)$request->query('status', ''));
 
-        // ---- Stats (for the top cards)
+        // Nearest/furthest sort
+        $sortBy    = trim((string)$request->query('sort_by', ''));          // 'deadline' | 'delivery_date' | ''
+        $sortMode  = trim((string)$request->query('sort_mode', 'near'));    // 'near' | 'far'
+
+        // ---------- OVERVIEW TILES (unchanged & safe) ----------
         $stats = [
-            'printing'                    => $this->countByType('printing'),
-            'furnishing'                  => $this->countByType('furnishing'),
-            'delivery_needing_permit'     => DB::table('delivery_breakdowns')
-                                               ->where(DB::raw('LOWER(deliver_install_type)'), 'delivery')
-                                               ->count(),
-            'installation_needing_permit' => DB::table('delivery_breakdowns')
-                                               ->where(DB::raw('LOWER(deliver_install_type)'), 'installation')
-                                               ->count(),
-            'self_pickup'                 => DB::table('delivery_breakdowns')
-                                               ->where(DB::raw('LOWER(method)'), 'self pickup')
-                                               ->orWhere(DB::raw('LOWER(method)'), 'self_pickup')
-                                               ->count(),
-            'courier'                     => DB::table('delivery_breakdowns')
-                                               ->where(DB::raw('LOWER(method)'), 'courier')
-                                               ->count(),
+            'printing'                 => DB::table('products')->whereRaw('LOWER(taskType)="printing"')->count(),
+            'furnishing'               => DB::table('products')->whereRaw('LOWER(taskType)="furnishing"')->count(),
+            'delivery_needing_permit'  => DB::table('delivery_breakdowns')->whereRaw('LOWER(deliver_install_type)="delivery"')->count(),
+            'installation_needing_permit' => DB::table('delivery_breakdowns')->whereRaw('LOWER(deliver_install_type)="installation"')->count(),
+            'self_pickup'              => DB::table('delivery_breakdowns')
+                                            ->whereRaw('LOWER(method)="self pickup"')
+                                            ->orWhereRaw('LOWER(method)="self_pickup"')->count(),
+            'courier'                  => DB::table('delivery_breakdowns')->whereRaw('LOWER(method)="courier"')->count(),
         ];
 
-        // ---- Main list
+        // ---------- ARTIST DROPDOWN (artist & head-artist only) ----------
+        $artists = DB::table('users')
+            ->select('id','name')
+            ->whereIn(DB::raw('LOWER(role)'), ['artist','head-artist'])
+            ->orderBy('name')
+            ->get();
+
+        // ---------- TABLE QUERY ----------
         $orders = DB::table('products as p')
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
             ->leftJoin('delivery_breakdowns as db', 'db.ProductID', '=', 'p.ProductID')
-            ->select([
-                'p.ProductID as product_id',
-                'p.OrderID   as order_id',
-                'p.productName as product_name',
-                'p.taskType as task_type',
-                'p.status',
-                DB::raw('COALESCE(p.accepted, 0) as accepted'),
-                DB::raw("DATE_FORMAT(p.updated_at, '%Y-%m-%d') as deadline"),
-                DB::raw("DATE_FORMAT(db.date, '%Y-%m-%d') as delivery_date"),
-                'db.location as delivery_location',
-                // product code like #ORD-27-P0007
-                DB::raw("CONCAT('#ORD-', p.OrderID, '-P', LPAD(p.ProductID, 4, '0')) as product_code"),
-            ])
-            ->when($q !== '', function ($qb) use ($q) {
-                $qb->where(function ($w) use ($q) {
-                    $like = '%'.$q.'%';
-                    $w->where('p.productName', 'like', $like)
-                      ->orWhere('p.ProductID', 'like', $like)
-                      ->orWhere('p.OrderID',   'like', $like);
+            ->selectRaw("
+                p.ProductID,
+                p.productName                                     as product_name,
+                p.taskType                                        as task_type,
+                p.status                                          as status,
+                -- If you have a real deadline on orders, keep o.deadline; fallback to p.updated_at
+                DATE_FORMAT(COALESCE(o.deadline, p.updated_at), '%Y-%m-%d') as deadline,
+                DATE_FORMAT(db.date, '%Y-%m-%d')                  as delivery_date,
+                db.location                                       as delivery_location,
+                o.id                                              as order_id,
+                o.orderTitle,
+                o.companyName,
+                o.artist_id,
+                CONCAT(
+                '#ORD-',
+                LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
+                '-',
+                LPAD(COALESCE(o.id,0), 3, '0'),
+                '-P',
+                LPAD(p.ProductID, 4, '0')
+                ) as product_code
+            ")
+
+            // PRODUCT ID / CODE search (works across all pages)
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = "%{$pid}%";
+                $qb->where(function ($w) use ($pid, $like) {
+                    // numeric id convenience
+                    if (ctype_digit($pid)) {
+                        $w->where('p.ProductID', (int) $pid)
+                        ->orWhere('o.id', (int) $pid);
+                    } else {
+                        $w->where('p.ProductID', 'like', $like)
+                        ->orWhere('o.id', 'like', $like);
+                    }
+
+                    // also match the formatted product code: #ORD-YYYY-OOO-PXXXX
+                    $w->orWhereRaw("
+                        CONCAT(
+                        '#ORD-',
+                        LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
+                        '-',
+                        LPAD(COALESCE(o.id,0), 3, '0'),
+                        '-P',
+                        LPAD(p.ProductID, 4, '0')
+                        ) LIKE ?
+                    ", [$like]);
                 });
             })
-            ->when($taskType !== '', function ($qb) use ($taskType) {
-                $qb->where(DB::raw('LOWER(p.taskType)'), $taskType);
+
+            // KEYWORD: order title / company name / product name / breakdown remarks
+            ->when($q !== '', function ($qb) use ($q) {
+                $like = "%{$q}%";
+                $qb->where(function ($w) use ($like) {
+                    $w->where('o.orderTitle',   'like', $like)
+                    ->orWhere('o.companyName','like', $like)
+                    ->orWhere('p.productName','like', $like)
+                    ->orWhere('db.location',  'like', $like); // << keep this, remove db.remarks
+                });
             })
-            ->when($status !== '', function ($qb) use ($status) {
-                $qb->where(DB::raw('LOWER(p.status)'), $status);
-            })
-            ->orderByRaw('db.date IS NULL, db.date ASC, COALESCE(db.time, "23:59:59") ASC')
-            ->paginate(1000)
-            ->appends($request->query());
+
+            // ARTIST filter (orders.artist_id)
+            ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', $artist))
+
+            // TASK TYPE & STATUS (keep behavior)
+            ->when($taskType !== '', fn($qb) => $qb->whereRaw('LOWER(p.taskType)=?', [strtolower($taskType)]))
+            ->when($status   !== '', fn($qb) => $qb->where('p.status', $status));
+
+        // SORTING: nearest/furthest by date, or default latest updated
+        if (in_array($sortBy, ['deadline', 'delivery_date'], true)) {
+            // Use a SQL string, not DB::raw(Expression)
+            $colSql = $sortBy === 'deadline'
+                ? 'COALESCE(o.deadline, p.updated_at)'
+                : 'db.date';
+
+            // nearest = ASC distance from today, furthest = DESC
+            $dir = ($sortMode === 'far') ? 'DESC' : 'ASC';
+
+            // 1) Put NULLs last
+            $orders->orderByRaw("CASE WHEN {$colSql} IS NULL THEN 1 ELSE 0 END ASC")
+                // 2) Sort by proximity to TODAY
+                ->orderByRaw("ABS(DATEDIFF({$colSql}, CURDATE())) {$dir}");
+        } else {
+            $orders->orderByDesc('p.updated_at');
+        }
+
+        // PAGINATION: 10 rows/page
+        $orders = $orders->paginate(10)->appends($request->query());
 
         $orders->getCollection()->transform(function ($r) {
-            // Link to the detailed job page
-            $r->details_url = route('dispatchcontrol.job.show', (int)$r->product_id);
-
-            // When to show the "edit" icon from the list:
-            // - this stage is "delivery" (dispatch control)
-            // - product is not completed/rejected yet
-            // - product has been accepted (your show page already re-checks permissions)
-            $stage   = strtolower((string)($r->task_type ?? ''));
-            $status  = strtolower((string)($r->status ?? ''));
-            $accepted = (int)($r->accepted ?? 0);
-
-            $r->can_edit =
-                ($stage === 'delivery') &&
-                ($status !== 'completed') &&
-                ($status !== 'rejected') &&
-                ($accepted === 1);
-
-            // Optional: open the page in edit mode via ?edit=1
-            $r->edit_url = $r->details_url.'?edit=1';
-
+            $r->details_url = route('dispatchcontrol.job.show', $r->ProductID);
             return $r;
         });
 
-        // Optional CSV export when ?export=1 and there are results
-        if ($request->boolean('export') && $orders->total() > 0) {
-            $rows = collect($orders->items())->map(function ($r) {
-                return [
-                    'Product ID'        => $r->product_code,
-                    'Product Name'      => $r->product_name,
-                    'Task Type'         => $this->mapTaskLabel($r->task_type), 
-                    'Deadline'          => $r->deadline,
-                    'Status'            => $r->status,
-                    'Delivery Date'     => $r->delivery_date,
-                    'Delivery Location' => $r->delivery_location,
-                ];
-            });
-
-            $filename = 'job-orders-'.now()->format('Ymd_His').'.csv';
-            $handle   = fopen('php://temp', 'r+');
-            if ($rows->isNotEmpty()) {
-                fputcsv($handle, array_keys($rows->first()));
-                foreach ($rows as $line) { fputcsv($handle, $line); }
-            }
-            rewind($handle);
-            $csv = stream_get_contents($handle);
-            fclose($handle);
-
-            return response($csv, 200, [
-                'Content-Type'        => 'text/csv; charset=UTF-8',
-                'Content-Disposition' => "attachment; filename=\"$filename\"",
-            ]);
-        }
-
-        return view('dispatchcontrol.job-order', compact('orders', 'stats'));
+        return view('dispatchcontrol.job-order', [
+            'stats'      => $stats,
+            'orders'     => $orders,
+            'q'          => $q,
+            'pid'        => $pid,
+            'artist'     => $artist,
+            'task_type'  => $taskType,
+            'status'     => $status,
+            'artists'    => $artists,
+            'sort_by'    => $sortBy,
+            'sort_mode'  => $sortMode,
+        ]);
     }
 
     private function countByType(string $type): int

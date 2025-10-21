@@ -325,6 +325,10 @@
   .js-sortable::after { content: " ↕"; opacity: .5; font-size: .9em; }
   .js-sortable[data-order="asc"]::after  { content: " ↑"; }
   .js-sortable[data-order="desc"]::after { content: " ↓"; }
+
+  .th-sort { text-decoration:none; color:inherit; user-select:none; }
+  .th-sort:hover { text-decoration:underline; }
+  .th-sort.is-active { font-weight:700; }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -345,7 +349,7 @@
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card cursor-pointer" data-go-status="completed">
         <div>
           <div class="kpi-title mb-1" style="color:seagreen;">Completed</div>
           <div class="kpi-value" data-kpi="completed" style="color:seagreen;">{{ $completed }}</div>
@@ -374,7 +378,7 @@
               <label class="form-label">Search Product ID</label>
               <div class="input-group input-group-sm has-icon">
                 <span class="input-group-text"><i class="bi bi-hash"></i></span>
-                <input id="pidFilter" type="text" class="form-control" placeholder="Enter product ID">
+                <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="Enter product ID">
               </div>
             </div>
 
@@ -441,13 +445,48 @@
 
       <div class="table-wrapper">
         <table class="table align-middle mb-0">
+          @php
+            $q = request()->query();
+            $urlWith = function(array $overrides) use ($q) {
+              return route('printing.dashboard', array_filter(array_merge($q, $overrides), fn($v)=>$v!==null && $v!==''));
+            };
+
+            $sort = request('sort','deadline_nearest');
+
+            $dlNext   = $sort === 'deadline_furthest' ? 'deadline_nearest' : 'deadline_furthest';
+            $dlLabel  = $sort === 'deadline_furthest' ? 'furthest' : ($sort === 'deadline_nearest' ? 'nearest' : '');
+
+            $sbNext   = $sort === 'submitted_furthest' ? 'submitted_nearest' : 'submitted_furthest';
+            $sbLabel  = str_starts_with($sort,'submitted_') ? ($sort==='submitted_furthest'?'furthest':'nearest') : '';
+          @endphp
           <thead>
             <tr>
               <th>PRODUCT ID</th>
               <th>PRINTER</th>
               <th>SQ INCH</th>
-              <th class="js-sortable" data-sortkey="deadline">DEADLINE</th>
-              <th class="js-sortable" data-sortkey="submitted">SUBMISSION DATE</th>
+
+              {{-- DEADLINE: toggle nearest <-> furthest --}}
+              <th>
+                <a class="th-sort {{ str_starts_with($sort,'deadline_') ? 'is-active' : '' }}"
+                  href="{{ $urlWith(['sort' => $dlNext]) }}">
+                  DEADLINE
+                  @if($dlLabel)
+                    <span class="badge bg-light text-dark ms-1">{{ $dlLabel }}</span>
+                  @endif
+                </a>
+              </th>
+
+              {{-- SUBMISSION DATE: toggle nearest <-> furthest --}}
+              <th>
+                <a class="th-sort {{ str_starts_with($sort,'submitted_') ? 'is-active' : '' }}"
+                  href="{{ $urlWith(['sort' => $sbNext]) }}">
+                  SUBMISSION DATE
+                  @if($sbLabel)
+                    <span class="badge bg-light text-dark ms-1">{{ $sbLabel }}</span>
+                  @endif
+                </a>
+              </th>
+
               <th class="col-actions">ACTIONS</th>
             </tr>
           </thead>
@@ -739,5 +778,24 @@
       });
     });
   })();
+
+(function () {
+  // base route to history page (Laravel route)
+  const base = "{{ route('printing.history') }}";
+
+  document.querySelectorAll('[data-go-status]').forEach(function (tile) {
+    tile.addEventListener('click', function () {
+      const status = tile.getAttribute('data-go-status')?.trim();
+      if (!status) return;
+
+      // Build target URL with query param
+      const url = new URL(base, window.location.origin);
+      url.searchParams.set('status', status);
+
+      // Redirect to ?status=completed
+      window.location.href = url.toString();
+    });
+  });
+})();
 </script>
 @endsection

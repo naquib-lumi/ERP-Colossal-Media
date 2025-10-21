@@ -266,6 +266,21 @@ class InstallationProductOrderController extends Controller
             return trim($label ? "{$label}: {$row->remark}" : $row->remark);
         })->filter()->unique()->values()->all();
 
+        $remarks = DB::table('product_remarks as pr')
+            ->leftJoin('users as u', 'u.id', '=', 'pr.user_id')
+            ->where('pr.ProductID', $productId)              // $product is the ProductID you already have
+            ->orderBy('pr.created_at', 'desc')
+            ->select([
+                'pr.RemarkID',
+                'pr.ProductID',
+                'pr.operation',
+                'pr.remark',
+                'pr.created_at',
+                'u.name as author_name',
+            ])
+            ->get();
+        $remarksByOp = $remarks->groupBy('operation');
+
         // Attachments (from orders.orderAttachment)
         $attachments = [];
         $rawAtt = (string)($headerRow->orderAttachment ?? '');
@@ -346,6 +361,8 @@ class InstallationProductOrderController extends Controller
             'product_header' => $productHeader,
             'blocks'         => $blocks,
             'canEdit' => $canEdit,
+            'remarksByOp' => $remarksByOp,
+            'remarks' => $remarks,
         ]);
     }
 
@@ -622,10 +639,11 @@ class InstallationProductOrderController extends Controller
 
         $cutters = (array) $request->input('cutters', []);
         $remarks = (array) $request->input('remarks', []);
+        $userId   = Auth::id();
 
         $remarksAdded = [];
 
-        DB::transaction(function () use ($product, $cutters, $remarks, &$remarksAdded ) {
+        DB::transaction(function () use ($product, $cutters, $remarks, &$remarksAdded, $userId) {
             // 1) Save cutters to specifications (by ItemID)
             foreach ($cutters as $itemId => $cutter) {
                 $cutter = trim((string)$cutter);
@@ -678,6 +696,7 @@ class InstallationProductOrderController extends Controller
                     'ProductID'  => $product,
                     'operation'  => $op,   // exactly one of the 5 keys
                     'remark'     => $text,
+                    'user_id'    => $userId,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

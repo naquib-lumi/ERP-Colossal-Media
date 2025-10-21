@@ -126,6 +126,12 @@ class ArtistController extends Controller
             SUM(CASE WHEN status='canceled'  THEN 1 ELSE 0 END) AS canceled
         ")->first();
 
+        $status = $request->query('status');
+        $allowed = ['to_assign','assigned','in_progress','completed','rejected'];
+        if ($status && in_array($status, $allowed, true)) {
+            $query->where('orderStatus', $status);
+        }
+
         return view('artist.dashboard', [
             'orders'        => $ordersForTop5,
             'metrics'       => $metrics,
@@ -205,6 +211,7 @@ class ArtistController extends Controller
 
         $query = clone $base;
 
+        // existing status logic preserved
         if ($raw !== '') {
             if ($raw === 'pending') {
                 $query->where('orderStatus', 'assigned')
@@ -224,12 +231,69 @@ class ArtistController extends Controller
             }
         }
 
+        // -------- NEW: artist name filter --------
+        if ($person = trim((string) $request->query('artist', ''))) {
+            if ($isHead) {
+                // Head-artist searches the assigned artist
+                $query->whereHas('artist', function ($aq) use ($person) {
+                    $aq->where('name', 'like', "%{$person}%");
+                });
+            } else {
+                // Normal artist searches the salesperson instead
+                $query->whereHas('salesperson', function ($sq) use ($person) {
+                    $sq->where('name', 'like', "%{$person}%");
+                });
+            }
+        }
+
+        // -------- NEW: date range by deadline --------
+        $from = $request->query('from');
+        $to   = $request->query('to');
+        if ($from && $to) {
+            $query->whereBetween('deadline', [$from, $to]);
+        } elseif ($from) {
+            $query->whereDate('deadline', '>=', $from);
+        } elseif ($to) {
+            $query->whereDate('deadline', '<=', $to);
+        }
+
+        // -------- UPDATED: global search (also search products.productName) --------
         if ($s = trim($request->query('q', ''))) {
             $query->where(function ($q) use ($s) {
-                $q->where('orderTitle',  'like', "%{$s}%")
+                $q->where('orderTitle',   'like', "%{$s}%")
+                ->orWhere('order_number','like', "%{$s}%")
                 ->orWhere('companyName','like', "%{$s}%")
-                ->orWhere('leadName',   'like', "%{$s}%");
+                ->orWhere('leadName',   'like', "%{$s}%")
+                ->orWhereHas('products', function ($p) use ($s) {
+                    $p->where('productName', 'like', "%{$s}%");
+                });
             });
+        }
+
+        // -------- Date range (Deadline filter using YYYY-MM-DD) --------
+        $from = $request->query('from');
+        $to   = $request->query('to');
+
+        if ($from && $to) {
+            $query->whereBetween(DB::raw('CAST(deadline AS DATE)'), [$from, $to]);
+        } elseif ($from) {
+            $query->whereDate('deadline', '>=', $from);
+        } elseif ($to) {
+            $query->whereDate('deadline', '<=', $to);
+        }
+
+        // -------- Deadline nearest / furthest --------
+        if ($sort = $request->query('deadline_sort')) {
+            $sort = in_array($sort, ['nearest', 'furthest']) ? $sort : 'nearest';
+            // push NULL deadlines last
+            $query->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END ASC');
+
+            // distance from today
+            $query->orderByRaw(
+                'ABS(DATEDIFF(deadline, CURDATE())) ' . ($sort === 'furthest' ? 'DESC' : 'ASC')
+            );
+            // fallback for same distance
+            $query->orderBy('deadline', $sort === 'furthest' ? 'DESC' : 'ASC');
         }
 
         // Metrics from the same base, excluding archived/redone (status=1)
@@ -251,7 +315,8 @@ class ArtistController extends Controller
 
         // Rows
         $orders = $query->with(['artist:id,name', 'salesperson:id,name'])
-                        ->latest('orderDate')
+                        // keep your default when no deadline_sort was requested
+                        ->when(!$request->filled('deadline_sort'), fn($q) => $q->latest('orderDate'))
                         ->paginate(1000)
                         ->withQueryString();
 
@@ -487,9 +552,17 @@ class ArtistController extends Controller
             ];
         });
 
+        $sourceOrderId = (int) ($order->redo ?: $order->id);
+
+        // Latest reason from report_redo for that order
+        $redoReason = DB::table('report_redo')
+            ->where('OrderID', $sourceOrderId)
+            ->orderByDesc('created_at')
+            ->value('reason');
+
         return view('artist.orders.edit', compact(
             'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
-        'orderFiles',
+            'orderFiles', 'redoReason'
         ));
 
         return view('artist.orders.edit', [
@@ -741,7 +814,8 @@ class ArtistController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $order, $product) {
+            $authorId = (int) auth()->id();
+            DB::transaction(function () use ($request, $order, $product, $authorId) {
 
                 // ----- 1) Order core -----
                 $submitted = $request->boolean('submit'); 
@@ -997,6 +1071,7 @@ class ArtistController extends Controller
                         if (!$remark) {
                             $remark = new ProductRemark();
                             $remark->ProductID = $productRow->ProductID;
+                            $remark->user_id   = $authorId;
                         }
 
                         $remark->operation = $row['operation'] ?: null;
@@ -1497,5 +1572,41 @@ class ArtistController extends Controller
         return back()->with('success', 'Profile updated.');
     }
 
+    public function destroyProduct(Request $request, Order $order, Product $product)
+    {
+        $user = Auth::user();
+        if (!$user || !($user->hasRole('artist') || $user->hasRole('head-artist'))) {
+            return $request->expectsJson()
+                ? response()->json(['ok' => false, 'message' => 'Unauthorized'], 401)
+                : back()->with('error', 'Unauthorized');
+        }
 
+        // Ensure this product belongs to the given order
+        // (your products table uses "OrderID" per earlier code)
+        if ((int) $product->OrderID !== (int) $order->id) {
+            // not found to avoid leaking existence
+            abort(404);
+        }
+
+        // If artist (not head-artist), only allow deleting within own order
+        if ($user->hasRole('artist') && (int) $order->artist_id !== (int) $user->id) {
+            return $request->expectsJson()
+                ? response()->json(['ok' => false, 'message' => 'Forbidden'], 403)
+                : back()->with('error', 'Forbidden');
+        }
+
+        DB::transaction(function () use ($product) {
+            // Clean up dependent rows you already use
+            DB::table('product_remarks')->where('ProductID', $product->getKey())->delete();
+            // If you have other child tables (deliveries, etc.), delete them here similarly.
+
+            $product->delete();
+        });
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'deleted_product_id' => $product->getKey()]);
+        }
+
+        return back()->with('success', 'Product deleted.');
+    }
 }

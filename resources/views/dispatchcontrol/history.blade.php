@@ -106,7 +106,6 @@
   .toolbar .form-control {
     border-radius: 6px;
     font-size: 14px;
-    width: auto !important;
     display: inline-block;
   }
 
@@ -158,6 +157,27 @@
   .cx-footer .btn.btn-back {
     background:#f3f4f6; border:1px solid #e5e7eb; color:#374151; font-weight:600; border-radius:10px; min-width:120px; padding:10px 14px;
   }
+
+  .history-filter.card{border:0;border-radius:14px;box-shadow:0 3px 14px rgba(18,23,42,.06)}
+  .history-filter .toolbar{display:flex;flex-wrap:wrap;gap:.75rem 1rem;align-items:center;padding:14px 16px}
+  .history-filter .form-control{height:42px;border-radius:10px;border-color:#e6e8f0;box-shadow:none}
+  .history-filter .form-control:focus{border-color:#bfc6ff;box-shadow:0 0 0 .15rem rgba(99,91,255,.12)}
+  .history-filter .grow{flex:1 1 340px;min-width:260px}
+  .history-filter .dates{display:flex;align-items:center;gap:.5rem}
+  .history-filter .date-input{width:180px}
+  .history-filter .actions{margin-left:auto;display:flex;gap:.5rem}
+  .history-filter .btn{height:42px;border-radius:10px}
+  .history-filter .btn-light{border-color:#e6e8f0;background:#f6f7fb;color:#111827}
+  .history-filter .btn-light:hover{background:#eef0f8}
+  .history-filter .btn-dark{background:#1f2233;border-color:#1f2233}
+  .history-filter .btn-dark:hover{background:#2a2f47}
+  .history-filter .with-icon{position:relative}
+  .history-filter .with-icon>i{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:#7b8191;pointer-events:none}
+  .history-filter .with-icon>.form-control{padding-left:36px}
+
+  .artist-select{flex:0 1 220px}
+  .artist-select select{height:42px;border-radius:10px;border-color:#e6e8f0;background:#fff;padding-left:36px}
+  .artist-select i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#7b8191;pointer-events:none}
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -165,54 +185,61 @@
     <h1 class="fw-bold mb-3" style="font-size:28px;letter-spacing:-.2px;">Order History</h1>
 
     {{-- Toolbar --}}
-    <div class="card shadow-soft mb-3">
-      <div class="card-body toolbar py-3">
-        <form class="d-flex align-items-center flex-wrap gap-2 w-100" method="GET" action="{{ route('dispatchcontrol.history') }}">
-          
-          {{-- Search box --}}
-          <input
-            type="text"
-            name="q"
-            value="{{ $q ?? '' }}"
-            class="form-control flex-grow-1"
-            placeholder="Search by Product Name, Completed Date or Remark"
-            style="min-width: 220px; height:42px;">
+    <div class="card history-filter shadow-soft mb-3">
+      
+      <form method="GET" action="{{ route('dispatchcontrol.history') }}" class="row g-3 align-items-end">
+        <div class="card-body toolbar">  
+          {{-- Product ID (all pages) --}}
+          <div class="with-icon grow">
+            <i class="bi bi-hash"></i>
+              <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control"
+                    placeholder="Enter Product ID">
+          </div>
 
-          {{-- Start date --}}
-          <input
-            id="startDate"
-            type="text"
-            name="start"
-            value="{{ $start ?? '' }}"
-            class="form-control js-date"
-            placeholder="mm/dd/yyyy"
-            autocomplete="off"
-            style="width:150px; height:42px;">
+          {{-- Keyword --}}
+          <div class="with-icon grow">
+            <i class="bi bi-search"></i>
+              <input type="text" name="q" value="{{ request('q', $q ?? '') }}" class="form-control"
+                    placeholder="Order Title, Company, Product, Remarks">
+          </div>
 
-          <span class="text-muted">to</span>
+          {{-- Artist (artist / head-artist only) --}}
+          <div class="with-icon artist-select">
+            <i class="bi bi-person-badge"></i>
+            <select name="artist" class="form-select">
+              <option value="">All artists</option>
+              @foreach (($artists ?? []) as $a)
+                <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist', $artist ?? '') ? 'selected' : '' }}>
+                  {{ $a->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
 
-          {{-- End date --}}
-          <input
-            id="endDate"
-            type="text"
-            name="end"
-            value="{{ $end ?? '' }}"
-            class="form-control js-date"
-            placeholder="mm/dd/yyyy"
-            autocomplete="off"
-            style="width:150px; height:42px;">
+          {{-- Date range (Completed Date) --}}
+          <div class="dates">
+            <div class="with-icon">
+              <i class="bi bi-calendar-event"></i>
+              <input type="text" name="start" value="{{ request('start', $start ?? '') }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
+            </div>
+            <span class="text-muted">to</span>
+            <div class="with-icon">
+              <i class="bi bi-calendar-check"></i>
+              <input type="text" name="end" value="{{ request('end', $end ?? '') }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy" autocomplete="off">
+            </div>
+          </div>
 
-          {{-- Buttons --}}
-          <a href="{{ route('dispatchcontrol.history') }}" class="btn btn-light border d-flex align-items-center" style="height:42px;">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
-          </a>
-
-          <button type="submit" class="btn btn-dark d-flex align-items-center" style="height:42px;">
-            <i class="bi bi-funnel me-1"></i>Apply Filter
-          </button>
-
-        </form>
-      </div>
+          {{-- Actions --}}
+          <div class="actions">
+            <a href="{{ route('dispatchcontrol.history') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+            </a>
+            <button class="btn btn-dark">
+              <i class="bi bi-funnel me-1"></i> Apply Filter
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
 
     {{-- Table --}}
@@ -225,14 +252,30 @@
 
         <div class="table-responsive">
           <table class="table align-middle">
-            <thead>
+            <colgroup>
+              <col class="col-id">
+              <col class="col-name">
+              <col class="col-date">
+              <col class="col-remarks">
+              <col class="col-actions">
+            </colgroup>
+            <thead class="table-light">
               <tr>
                 <th>PRODUCT ID</th>
                 <th>PRODUCT NAME</th>
-                <th>COMPLETED DATE</th>
+                <th>
+                  @php
+                    $cur = request('sort','desc');
+                    $next = $cur === 'asc' ? 'desc' : 'asc';
+                  @endphp
+                  <a class="text-decoration-none text-dark"
+                    href="{{ request()->fullUrlWithQuery(['sort' => $next, 'page' => 1]) }}">
+                    COMPLETED DATE
+                  </a>
+                </th>
                 <th>PROOF FILE</th>
                 <th>REMARKS</th>
-                <th>PRODUCT DETAILS</th>
+                <th class="text-center">PRODUCT DETAILS</th>
               </tr>
             </thead>
             <tbody>
@@ -243,14 +286,15 @@
               $code = $orderPart.'-P'.str_pad($row->ProductID, 4, '0', STR_PAD_LEFT);
 
               $prodName = $row->product_name ?? '—';
-              $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
-              $remarks = $row->remarks ?: '–';
+              
+
+              $date = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
+              $remarks = $row->materialRemark ?: '–';
               @endphp
-              <tr>
-                {{-- formatted code like #ORD-12-P0001 --}}
-                <td class="fw-semibold">{{ $code  }}</td>
-                <td>{{ $row->product_name }}</td>
-                <td>{{ $row->completed_date }}</td>
+              <tr class="js-row-open" data-href="{{ $row->details_url }}" style="cursor:pointer;">
+                <td class="fw-semibold">{{ $row->product_code }}</td>
+                <td><span class="truncate" title="{{ $row->product_name }}">{{ $row->product_name }}</span></td>
+                <td>{{ $date }}</td>
 
                 {{-- === PROOF FILE (pill “View” exactly like your screenshot) === --}}
                 <td>
@@ -265,7 +309,7 @@
                 </td>
                 {{-- === /PROOF FILE === --}}
 
-                <td>{{ $row->remarks }}</td>
+                <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
 
                 {{-- Square icon button for details --}}
                 <td class="text-center">
@@ -511,6 +555,65 @@
     loadProofs(url);
   });
 });
+
+(() => {
+  const ymdToUs = v => /^\d{4}-\d{2}-\d{2}$/.test(v) ? (v.slice(5,7)+'/'+v.slice(8,10)+'/'+v.slice(0,4)) : v;
+  const usToYmd = v => {
+    const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return '';
+    const [,mm,dd,yy] = m;
+    return `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+  };
+
+  document.querySelectorAll('.js-date').forEach(input => {
+    // lock width so the switch text/date doesn't resize
+    const rect = input.getBoundingClientRect();
+    input.style.width = rect.width + 'px';
+
+    function openPicker(){
+      if (input.type !== 'date') {
+        const prev = input.value.trim();          // mm/dd/yyyy (text)
+        input.type = 'date';
+        input.value = usToYmd(prev) || '';
+        input.showPicker?.();
+      }
+    }
+
+    // ✅ convert immediately when the user picks a date
+    function onChange(){
+      if (input.type === 'date' && input.value) {
+        const us = ymdToUs(input.value);          // yyyy-mm-dd → mm/dd/yyyy
+        input.type = 'text';
+        input.value = us;
+        // bubble a change for forms/filters that listen to it
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+
+    // Fallback if user focuses then clicks away without picking
+    function closePicker(){
+      if (input.type === 'date') {
+        input.value = input.value ? ymdToUs(input.value) : '';
+        input.type = 'text';
+      }
+    }
+
+    input.addEventListener('focus', openPicker);
+    input.addEventListener('click', openPicker);
+    input.addEventListener('change', onChange);   // ← important
+    input.addEventListener('blur', closePicker);
+  });
+
+  // double-click row to view
+  document.addEventListener('dblclick', e => {
+    const tr = e.target.closest('tr.js-row-open');
+    if (!tr) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+    const url = tr.dataset.href;
+    if (url) window.location.href = url;
+  });
+})();
 </script>
 @endpush
 @endsection

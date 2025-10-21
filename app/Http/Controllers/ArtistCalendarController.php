@@ -62,9 +62,9 @@ class ArtistCalendarController extends Controller
         ->get();
 
     // ---- REMINDERS: any due_date in range (table has no user_id) ----
-    $reminders = DB::table('reminders')->select([
-        'id','title','due_date','status','recurrence_type','recurrence_time','end_date','lead_id',
-    ])->whereBetween('due_date', [$start, $end])->get();
+    // $reminders = DB::table('reminders')->select([
+    //     'id','title','due_date','status','recurrence_type','recurrence_time','end_date','lead_id',
+    // ])->whereBetween('due_date', [$start, $end])->get();
 
     // Map to FullCalendar events
     $events = [];

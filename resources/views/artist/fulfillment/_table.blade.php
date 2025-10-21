@@ -1,5 +1,14 @@
+<style>
+  #fulfillTable_wrapper .dataTables_length {
+    display: block !important;
+  }
+
+  .badge.bg-purple {
+    background: #6f42c1;
+  }
+</style>
 <div class="table-responsive">
-  <table id="ff-table" class="table table-modern w-100">
+  <table class="table table-modern table-hover w-100" id="fulfillTable">
     <thead>
       <tr>
         <th>Product ID</th>
@@ -7,84 +16,94 @@
         <th>Task Type</th>
         <th>Deadline</th>
         <th>Status</th>
-        <th>Delivery Date</th>
+        @php
+        $current = request('deliv_sort', '');
+        $next = $current === 'nearest' ? 'furthest' : 'nearest';
+        $q = request()->all(); $q['deliv_sort'] = $next;
+        @endphp
+
+        <th>
+          <a href="{{ route('artist.fulfillment.index', $q) }}" class="text-decoration-none">
+            Delivery Date {!! $current === 'nearest' ? '↑' : ($current === 'furthest' ? '↓' : '') !!}
+          </a>
+        </th>
         <th>Delivery Location</th>
         <th class="text-end">Action</th>
       </tr>
     </thead>
     <tbody>
-    @forelse ($rows as $r)
-      @php
-        // Prefer values precomputed by the controller/SQL:
-        $showR = (int)($r->show_r ?? 0) === 1
-                 ? true
-                 // fallback if controller hasn't been updated yet
-                 : ((isset($r->redoOf) && $r->redoOf) && (int)($r->editable ?? 0) === 1);
-
-        $oid = $r->oid_for_display
-              ?? $r->order_id_for_display
-              ?? $r->order_id_current
-              ?? $r->order_id
-              ?? null;
-
-        $pid = $r->pid_for_display
-              ?? ($r->redoOf ?? null)
-              ?? ($r->pid ?? $r->ProductID ?? null);
-
-        $code = $r->code
-              ?? ($oid && $pid ? sprintf('#ORD-%s-P%04d%s', $oid, $pid, $showR ? 'R' : '') : '');
-      @endphp
-
-      <tr>
-        <td>{{ $code }}</td>
+      @foreach ($rows as $r)
+      <tr style="cursor:pointer" data-href="{{ $r->view_url }}" ondblclick="location.href=this.dataset.href">
+        <td>{{ $r->code }}</td>
         <td>{{ $r->name }}</td>
-        <td>{{ $r->task }}</td>
-        <td>{{ $r->deadline }}</td>
 
-        <td>
-          <span class="badge-pill
-            {{ $r->status === 'completed' ? 'badge-completed' :
-               ($r->status === 'rejected' ? 'badge-rejected' :
-               ($r->status === 'pending'  ? 'badge-pending'  : 'badge-progress')) }}">
-            {{ $r->status }}
-          </span>
-        </td>
+        {{-- TASK TYPE (friendly label) --}}
+        @php
+        $taskLabel = match (strtolower($r->task)) {
+        'delivery' => 'Dispatch Control',
+        'installation' => 'Delivery & Installation',
+        default => \Illuminate\Support\Str::of($r->task ?? '')->replace('_',' ')->title(),
+        };
 
-        {{-- Delivery date & time --}}
-        <td>
-          @if(!empty($r->deliv_date))
-            {{ $r->deliv_date }}@if(!empty($r->deliv_time)) {{ $r->deliv_time }}@endif
-          @else
-            <span></span>
-            <i class="bx bx-error-circle text-warning" title="Missing delivery date"></i>
-          @endif
-        </td>
+        $taskClass = match (strtolower($taskLabel)) {
+        'printing' => 'bg-secondary',
+        'furnishing' => 'bg-purple',
+        'dispatch control' => 'bg-warning text-dark',
+        'delivery & installation' => 'bg-primary',
+        default => 'bg-light text-dark',
+        };
 
-        {{-- Delivery location --}}
-        <td>
-          @if(!empty($r->deliv_loc))
-            {{ $r->deliv_loc }}
-          @else
-            <span></span>
-            <i class="bx bx-error-circle text-warning" title="Missing delivery location"></i>
-          @endif
-        </td>
+        $statusLabel = \Illuminate\Support\Str::of($r->status ?? '')->replace('_',' ')->title();
+        $statusClass = match (strtolower($r->status)) {
+        'completed' => 'bg-success',
+        'rejected' => 'bg-danger',
+        'in_progress' => 'bg-info',
+        default => 'bg-light text-dark',
+        };
+        @endphp
 
+        <td><span class="badge {{ $taskClass }}">{{ $taskLabel }}</span></td>
+        <td>{{ $r->deadline ?: '-' }}</td>
+        <td><span class="badge {{ $statusClass }}">{{ $statusLabel }}</span></td>
+        <td>{{ $r->deliv_date ?: '-' }}</td>
+        <td>{{ $r->deliv_loc ?: '-' }}</td>
+
+        {{-- Actions: View / Edit / Report (your original) --}}
         <td class="text-end">
-          <a href="{{ route('artist.fulfillment.product.show', $r->id ?? $r->pid ?? $r->ProductID) }}" class="text-secondary" title="View">
-            <i class="bx bx-show fs-5"></i>
-          </a>
-          <a href="{{ $r->edit_url }}" class="text-secondary" title="Edit">
-            <i class="bx bx-edit-alt fs-5"></i>
-          </a>
-          <a href="{{ $r->assign_url }}" class="text-secondary" title="Report">
-            <i class="bx bx-error-alt fs-5"></i>
-          </a>
+          <a class="text-secondary me-2" title="View" href="{{ $r->view_url }}"><i class="bx bx-show fs-5"></i></a>
+          <a class="text-secondary me-2" title="Edit" href="{{ $r->edit_url }}"><i class="bx bx-edit-alt fs-5"></i></a>
+          <a class="text-secondary" title="Report" href="{{ $r->assign_url }}"><i class="bx bx-error-alt fs-5"></i></a>
         </td>
       </tr>
-    @empty
-      {{-- Optional: empty state --}}
-    @endforelse
+      @endforeach
     </tbody>
   </table>
 </div>
+<script>
+  document.querySelectorAll('#fulfillTable tbody tr').forEach(tr => {
+    tr.addEventListener('dblclick', () => {
+      const url = tr.getAttribute('data-href');
+      if (url) window.location = url;
+    });
+  });
+
+  $(function() {
+    const dt = $('#fulfillTable').DataTable({
+      dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
+      paging: true,
+      pageLength: 10,
+      lengthMenu: [
+        [10, 20, 30, 50, 100],
+        [10, 20, 30, 50, 100]
+      ],
+      order: [], // server handles delivery sort via ?deliv_sort
+      autoWidth: false,
+      responsive: true,
+      buttons: [{
+        extend: 'excel',
+        className: 'd-none',
+        title: 'Fulfillment'
+      }]
+    });
+  });
+</script>

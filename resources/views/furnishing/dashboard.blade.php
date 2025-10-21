@@ -295,6 +295,15 @@
     .filter-card form .col-lg-2 { min-width: 220px; }
     .filter-card form .col-lg-3 { min-width: 260px; }
   }
+
+  .js-sort-deadline { cursor: pointer; user-select: none; }
+  .js-sort-deadline::after { content: " ↕"; opacity: .5; font-size: .9em; }
+  .js-sort-deadline[data-order="asc"]::after  { content: " ↑"; }
+  .js-sort-deadline[data-order="desc"]::after { content: " ↓"; }
+
+  .th-sort { text-decoration:none; color:inherit; user-select:none; }
+  .th-sort:hover { text-decoration:underline; }
+  .th-sort.is-active { font-weight:700; }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -310,7 +319,7 @@
         </div>
         <div class="kpi-icon"><i class="bi bi-clock"></i></div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card cursor-pointer" data-go-status="completed">
         <div>
           <div class="kpi-title mb-1" style="color:seagreen;">Completed</div>
           <div class="kpi-value" id="kpiCompleted" style="color:seagreen;">{{ $completed }}</div>
@@ -332,43 +341,43 @@
             <span class="text-muted small ms-2">Filter &amp; search</span>
           </div>
 
-          <form class="row g-3 align-items-end" method="GET" action="{{ route('furnishing.dashboard') }}">
-            {{-- Cutter --}}
-            <div class="col-12 col-md-4 col-lg-2">
-              <label class="form-label">Cutter</label>
+          <form class="row g-3 align-items-end" method="GET" action="{{ route('furnishing.history') }}">
+            {{-- Client-side Product ID (page only) --}}
+            <div class="col-12 col-md-6 col-lg-3">
+              <label class="form-label">Search Product ID</label>
               <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-scissors"></i></span>
-                <input type="text"
-                      name="cutter"
-                      value="{{ request('cutter') }}"
-                      class="form-control"
-                      placeholder="e.g. AOL 5x10 Flatbed">
+                <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="Enter product ID">
               </div>
             </div>
 
-            {{-- Sq Inch (min) --}}
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Sq Inch (Min)</label>
+            {{-- Unified keyword: cutter / order title / company / product name --}}
+            <div class="col-12 col-md-6 col-lg-4">
+              <label class="form-label">Search</label>
               <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-arrow-down-left"></i></span>
-                <input type="number" step="1" min="0"
-                      name="sq_min" value="{{ request('sq_min') }}"
-                      class="form-control" placeholder="0">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" value="{{ request('q') }}" class="form-control"
+                      placeholder="Cutter, Order title, Company name, or Product name">
               </div>
             </div>
 
-            {{-- Sq Inch (max) --}}
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Sq Inch (Max)</label>
+            {{-- Artist --}}
+            <div class="col-12 col-md-6 col-lg-3">
+              <label class="form-label">Artist</label>
               <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-arrow-up-right"></i></span>
-                <input type="number" step="1" min="0"
-                      name="sq_max" value="{{ request('sq_max') }}"
-                      class="form-control" placeholder="Any">
+                <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                <select name="artist" class="form-select">
+                  <option value="">All artists</option>
+                  @foreach (($artists ?? []) as $a)
+                    <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist') ? 'selected' : '' }}>
+                      {{ $a->name }}
+                    </option>
+                  @endforeach
+                </select>
               </div>
             </div>
 
-            {{-- Deadline range --}}
+            {{-- Deadline --}}
             <div class="col-6 col-md-4 col-lg-2">
               <label class="form-label">Deadline From</label>
               <div class="input-group input-group-sm has-icon">
@@ -384,30 +393,12 @@
               </div>
             </div>
 
-            {{-- Submitted range --}}
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Submitted From</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-upload"></i></span>
-                <input type="date" name="submitted_from" value="{{ request('submitted_from') }}" class="form-control">
-              </div>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Submitted To</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-check2-square"></i></span>
-                <input type="date" name="submitted_to" value="{{ request('submitted_to') }}" class="form-control">
-              </div>
-            </div>
-
             {{-- Actions --}}
             <div class="col-12 col-lg-4 ms-auto d-flex gap-2 justify-content-end">
               <a href="{{ route('furnishing.dashboard') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
               </a>
-              <button class="btn btn-dark">
-                <i class="bi bi-funnel me-1"></i> Apply Filter
-              </button>
+              <button class="btn btn-dark"><i class="bi bi-funnel me-1"></i> Apply Filter</button>
             </div>
           </form>
         </div>
@@ -415,13 +406,48 @@
 
       <div class="table-wrapper">
         <table class="table align-middle mb-0">
+          @php
+            $q = request()->query();
+            $urlWith = function(array $overrides) use ($q) {
+              return route('furnishing.dashboard', array_filter(array_merge($q, $overrides), fn($v)=>$v!==null && $v!==''));
+            };
+
+            $sort = request('sort','deadline_nearest');
+
+            $dlNext   = $sort === 'deadline_furthest' ? 'deadline_nearest' : 'deadline_furthest';
+            $dlLabel  = $sort === 'deadline_furthest' ? 'furthest' : ($sort === 'deadline_nearest' ? 'nearest' : '');
+
+            $sbNext   = $sort === 'submitted_furthest' ? 'submitted_nearest' : 'submitted_furthest';
+            $sbLabel  = str_starts_with($sort,'submitted_') ? ($sort==='submitted_furthest'?'furthest':'nearest') : '';
+          @endphp
           <thead>
             <tr>
               <th>PRODUCT ID</th>
               <th>CUTTER</th>
               <th>SQ INCH</th>
-              <th>DEADLINE</th>
-              <th>SUBMISSION DATE</th>
+
+              {{-- DEADLINE: toggle nearest <-> furthest --}}
+              <th>
+                <a class="th-sort {{ str_starts_with($sort,'deadline_') ? 'is-active' : '' }}"
+                  href="{{ $urlWith(['sort' => $dlNext]) }}">
+                  DEADLINE
+                  @if($dlLabel)
+                    <span class="badge bg-light text-dark ms-1">{{ $dlLabel }}</span>
+                  @endif
+                </a>
+              </th>
+
+              {{-- SUBMISSION DATE: toggle nearest <-> furthest --}}
+              <th>
+                <a class="th-sort {{ str_starts_with($sort,'submitted_') ? 'is-active' : '' }}"
+                  href="{{ $urlWith(['sort' => $sbNext]) }}">
+                  SUBMISSION DATE
+                  @if($sbLabel)
+                    <span class="badge bg-light text-dark ms-1">{{ $sbLabel }}</span>
+                  @endif
+                </a>
+              </th>
+
               <th class="col-actions">ACTIONS</th>
             </tr>
           </thead>
@@ -443,30 +469,42 @@
                 $isFurnishing = strtolower((string)($j->taskType ?? '')) === 'furnishing';
                 $accepted = (int)($j->accepted ?? 0) === 1;
               @endphp
-              <tr id="job-{{ $j->ProductID }}">
-                <td class="fw-semibold">{{ $code }}</td>
-                <td>{{ $cutter }}</td>
-                <td>{{ number_format($sqIn, 2) }} sq in</td>
-                <td>{{ $j->deadline ?: '—' }}</td>
-                <td>{{ \Carbon\Carbon::parse($j->submission_date)->format('Y-m-d') }}</td>
-                <td>
-                  <div class="d-flex align-items-center gap-2">
-                    @if (!$accepted || !$isFurnishing)
-                      <a class="icon-btn icon-pill" href="{{ $viewUrl }}" title="View">
-                        <i class="bi bi-eye"></i>
-                      </a>
-                    @endif
-                    @if ($isFurnishing && $accepted)
-                      <button class="icon-pill js-mark" data-id="{{ $j->ProductID }}" title="Mark Completed">
-                        <i class="bi bi-check2"></i>
-                      </button>
-                      <a href="{{ route('furnishing.orders.show', $j->ProductID) }}" class="icon-pill" title="Edit">
-                        <i class="bi bi-pencil"></i>
-                      </a>
-                    @endif
-                  </div>
-                </td>
-              </tr>
+              <tr id="job-{{ $j->ProductID }}"
+    class="js-row-open"
+    data-href="{{ route('furnishing.job.show', $j->ProductID) }}"
+    style="cursor:pointer;">
+  <td class="fw-semibold">{{ $j->product_code }}</td>
+  <td>{{ ($j->cutter ?? '-') === '-' ? '—' : $j->cutter }}</td>
+  <td>{{ is_numeric($j->sq_inch ?? null) ? number_format((float)$j->sq_inch, 0).' sq in' : '0 sq in' }}</td>
+
+  {{-- sortable date cells with raw ISO in data-date --}}
+  <td class="td-deadline" data-date="{{ $j->deadline ?: '' }}">
+    {{ $j->deadline ? \Carbon\Carbon::parse($j->deadline)->format('Y-m-d') : '—' }}
+  </td>
+  <td class="td-submitted" data-date="{{ $j->submission_date ?: '' }}">
+    {{ $j->submission_date ? \Carbon\Carbon::parse($j->submission_date)->format('Y-m-d') : '—' }}
+  </td>
+
+  <td class="text-nowrap">
+    @php
+      $isFurnishing = strtolower((string)($j->taskType ?? '')) === 'furnishing';
+      $accepted = (int)($j->accepted ?? 0) === 1;
+    @endphp
+    @if (!$accepted || !$isFurnishing)
+      <a class="icon-pill" href="{{ route('furnishing.job.show', $j->ProductID) }}" title="View">
+        <i class="bi bi-eye"></i>
+      </a>
+    @endif
+    @if ($isFurnishing && $accepted)
+      <button class="icon-pill js-mark" data-id="{{ $j->ProductID }}" title="Mark Completed">
+        <i class="bi bi-check2"></i>
+      </button>
+      <a href="{{ route('furnishing.orders.show', $j->ProductID) }}" class="icon-pill" title="Edit">
+        <i class="bi bi-pencil"></i>
+      </a>
+    @endif
+  </td>
+</tr>
             @empty
               <tr>
                 <td colspan="7" class="text-center text-muted">No jobs found.</td>
@@ -633,5 +671,47 @@
       }
     });
   })();
+
+  (() => {
+    const input = document.getElementById('pidFilter');
+    const tbody = document.querySelector('.table tbody');
+    if (!input || !tbody) return;
+    input.addEventListener('input', function () {
+      const q = (this.value || '').toLowerCase().trim();
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const text = (tr.querySelector('td')?.textContent || '').toLowerCase();
+        tr.style.display = q && !text.includes(q) ? 'none' : '';
+      });
+    });
+  })();
+
+  // Row double-click to open
+  document.addEventListener('dblclick', (e) => {
+    const tr = e.target.closest('tr.js-row-open');
+    if (!tr) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+    const url = tr.dataset.href;
+    if (url) window.location.href = url;
+  });
+
+(function () {
+  // base route to history page (Laravel route)
+  const base = "{{ route('furnishing.history') }}";
+
+  document.querySelectorAll('[data-go-status]').forEach(function (tile) {
+    tile.addEventListener('click', function () {
+      const status = tile.getAttribute('data-go-status')?.trim();
+      if (!status) return;
+
+      // Build target URL with query param
+      const url = new URL(base, window.location.origin);
+      url.searchParams.set('status', status);
+
+      // Redirect to ?status=completed
+      window.location.href = url.toString();
+    });
+  });
+})();
 </script>
 @endsection

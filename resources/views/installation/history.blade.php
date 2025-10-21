@@ -106,7 +106,6 @@
   .toolbar .form-control {
     border-radius: 6px;
     font-size: 14px;
-    width: auto !important;
     display: inline-block;
   }
 
@@ -158,6 +157,26 @@
   .cx-footer .btn.btn-back {
     background:#f3f4f6; border:1px solid #e5e7eb; color:#374151; font-weight:600; border-radius:10px; min-width:120px; padding:10px 14px;
   }
+.history-filter.card{border:0;border-radius:14px;box-shadow:0 3px 14px rgba(18,23,42,.06)}
+  .history-filter .toolbar{display:flex;flex-wrap:wrap;gap:.75rem 1rem;align-items:center;padding:14px 16px}
+  .history-filter .form-control{height:42px;border-radius:10px;border-color:#e6e8f0;box-shadow:none}
+  .history-filter .form-control:focus{border-color:#bfc6ff;box-shadow:0 0 0 .15rem rgba(99,91,255,.12)}
+  .history-filter .grow{flex:1 1 340px;min-width:260px}
+  .history-filter .dates{display:flex;align-items:center;gap:.5rem}
+  .history-filter .date-input{width:180px}
+  .history-filter .actions{margin-left:auto;display:flex;gap:.5rem}
+  .history-filter .btn{height:42px;border-radius:10px}
+  .history-filter .btn-light{border-color:#e6e8f0;background:#f6f7fb;color:#111827}
+  .history-filter .btn-light:hover{background:#eef0f8}
+  .history-filter .btn-dark{background:#1f2233;border-color:#1f2233}
+  .history-filter .btn-dark:hover{background:#2a2f47}
+  .history-filter .with-icon{position:relative}
+  .history-filter .with-icon>i{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:#7b8191;pointer-events:none}
+  .history-filter .with-icon>.form-control{padding-left:36px}
+
+  .artist-select{flex:0 1 220px}
+  .artist-select select{height:42px;border-radius:10px;border-color:#e6e8f0;background:#fff;padding-left:36px}
+  .artist-select i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#7b8191;pointer-events:none}
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -165,54 +184,54 @@
     <h1 class="fw-bold mb-3" style="font-size:28px;letter-spacing:-.2px;">Order History</h1>
 
     {{-- Toolbar --}}
-    <div class="card shadow-soft mb-3">
-      <div class="card-body toolbar py-3">
-        <form class="d-flex align-items-center flex-wrap gap-2 w-100" method="GET" action="{{ route('installation.history') }}">
-          
-          {{-- Search box --}}
-          <input
-            type="text"
-            name="q"
-            value="{{ $q ?? '' }}"
-            class="form-control flex-grow-1"
-            placeholder="Search by Product Name, Completed Date or Remark"
-            style="min-width: 220px; height:42px;">
+    <div class="card history-filter shadow-soft mb-3">
+      <form method="GET" action="{{ route('installation.history') }}">
+        <div class="card-body toolbar">
+          <div class="with-icon grow">
+            <i class="bi bi-hash"></i>
+            <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="Enter Product ID">
+          </div>
 
-          {{-- Start date --}}
-          <input
-            id="startDate"
-            type="text"
-            name="start"
-            value="{{ $start ?? '' }}"
-            class="form-control js-date"
-            placeholder="mm/dd/yyyy"
-            autocomplete="off"
-            style="width:150px; height:42px;">
+          <div class="with-icon grow">
+            <i class="bi bi-search"></i>
+            <input type="text" name="q" value="{{ request('q', $q ?? '') }}" class="form-control"
+                  placeholder="Search by Order Title, Company, Product, Remarks">
+          </div>
 
-          <span class="text-muted">to</span>
+          <div class="with-icon artist-select">
+            <i class="bi bi-person-badge"></i>
+            <select name="artist" class="form-select">
+              <option value="">All artists</option>
+              @foreach(($artists ?? []) as $a)
+                <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist', $artist ?? '') ? 'selected' : '' }}>
+                  {{ $a->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
 
-          {{-- End date --}}
-          <input
-            id="endDate"
-            type="text"
-            name="end"
-            value="{{ $end ?? '' }}"
-            class="form-control js-date"
-            placeholder="mm/dd/yyyy"
-            autocomplete="off"
-            style="width:150px; height:42px;">
+          <div class="dates">
+            <div class="with-icon">
+              <i class="bi bi-calendar-event"></i>
+              <input type="text" name="start" value="{{ request('start', $start ?? '') }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy">
+            </div>
+            <span class="text-muted">to</span>
+            <div class="with-icon">
+              <i class="bi bi-calendar-check"></i>
+              <input type="text" name="end" value="{{ request('end', $end ?? '') }}" class="form-control date-input js-date" placeholder="mm/dd/yyyy">
+            </div>
+          </div>
 
-          {{-- Buttons --}}
-          <a href="{{ route('installation.history') }}" class="btn btn-light border d-flex align-items-center" style="height:42px;">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
-          </a>
-
-          <button type="submit" class="btn btn-dark d-flex align-items-center" style="height:42px;">
-            <i class="bi bi-funnel me-1"></i>Apply Filter
-          </button>
-
-        </form>
-      </div>
+          <div class="actions">
+            <a href="{{ route('installation.history') }}" class="btn btn-light border">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+            </a>
+            <button class="btn btn-dark btn-apply">
+              <i class="bi bi-funnel me-1"></i> Apply Filter
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
 
     {{-- Table --}}
@@ -225,66 +244,61 @@
 
         <div class="table-responsive">
           <table class="table align-middle">
-            <thead>
-              <tr>
-                <th>PRODUCT ID</th>
-                <th>PRODUCT NAME</th>
-                <th>COMPLETED DATE</th>
-                <th>PROOF FILE</th>
-                <th>REMARKS</th>
-                <th>PRODUCT DETAILS</th>
-              </tr>
-            </thead>
+            <thead class="table-light">
+  <tr>
+    <th>PRODUCT ID</th>
+    <th>PRODUCT NAME</th>
+    <th>
+      @php
+        $isCompleted = request('sort_by') === 'completed';
+        $nextDir     = $isCompleted && request('sort_dir') === 'asc' ? 'desc' : 'asc';
+      @endphp
+      <a class="text-decoration-none text-dark"
+         href="{{ request()->fullUrlWithQuery(['sort_by' => 'completed', 'sort_dir' => $nextDir, 'page' => 1]) }}">
+        COMPLETED DATE
+      </a>
+    </th>
+    <th>PROOF FILE</th>   {{-- 👈 keep this column exactly as in your original --}}
+    <th>REMARKS</th>
+    <th class="text-center">PRODUCT DETAILS</th>
+  </tr>
+</thead>
             <tbody>
-              @forelse ($orders as $row)
-              @php
-              // Build code like: #ORD-2025-011-P0001
-              $orderPart = $row->order_number ?: ('ORD-'.$row->order_id);
-              $code = $orderPart.'-P'.str_pad($row->ProductID, 4, '0', STR_PAD_LEFT);
+@forelse($orders as $row)
+  @php
+    $code      = $row->product_code ?? (($row->order_number ?: ('ORD'.$row->order_id)).'-P'.str_pad((string)$row->ProductID, 4, '0', STR_PAD_LEFT));
+    $prodName  = $row->productName ?? '—';
+    $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
+    $remarks   = $row->materialRemark ?: '–';
+    $viewUrl   = $row->details_url ?? route('installation.job.show', $row->ProductID);
+  @endphp
+  <tr class="js-row-open" data-href="{{ $viewUrl }}" style="cursor:pointer;">
+    <td class="fw-semibold">{{ $code }}</td>
+    <td><span class="truncate" title="{{ $prodName }}">{{ $prodName }}</span></td>
+    <td>{{ $completed }}</td>
 
-              $prodName = $row->product_name ?? '—';
-              $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
-              $remarks = $row->remarks ?: '–';
-              @endphp
-              <tr>
-                {{-- formatted code like #ORD-12-P0001 --}}
-                <td class="fw-semibold">{{ $code  }}</td>
-                <td>{{ $row->product_name }}</td>
-                <td>{{ $row->completed_date }}</td>
+    {{-- 🔒 Keep your existing proof button/logic here --}}
+    <td>
+      <button
+        type="button"
+        class="btn btn-light border btn-sm js-view-proofs"
+        data-product="{{ $row->ProductID ?? $row['ProductID'] }}"
+        data-url="{{ route('installation.history.proofs', ['product' => $row->ProductID ?? $row['ProductID']]) }}"
+      >
+        <i class="bi bi-eye me-1"></i> View
+      </button>
+    </td>
 
-                {{-- === PROOF FILE (pill “View” exactly like your screenshot) === --}}
-                <td>
-                  <button
-                    type="button"
-                    class="btn btn-light border btn-sm js-view-proofs"
-                    data-product="{{ $row->ProductID ?? $row['ProductID'] }}"
-                    data-url="{{ route('installation.history.proofs', ['product' => $row->ProductID ?? $row['ProductID']]) }}"
-                  >
-                    <i class="bi bi-eye me-1"></i> View
-                  </button>
-                </td>
-                {{-- === /PROOF FILE === --}}
 
-                <td>{{ $row->remarks }}</td>
-
-                {{-- Square icon button for details --}}
-                <td class="text-center">
-                  @php
-                  // If you have a details route, drop it here:
-                  $detailsUrl = $row->details_url ?? '#';
-                  @endphp
-                  <a href="{{ route('installation.history.show', $row->ProductID) }}"
-                    class="icon-btn" title="View details">
-                    <i class="bi bi-eye"></i> {{-- or your existing eye icon --}}
-                  </a>
-                </td>
-              </tr>
-              @empty
-              <tr>
-                <td colspan="6" class="text-center text-muted py-4">No records</td>
-              </tr>
-              @endforelse
-            </tbody>
+    <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
+    <td class="text-center">
+      <a href="{{ $viewUrl }}" class="icon-btn" title="View details"><i class="bi bi-eye"></i></a>
+    </td>
+  </tr>
+@empty
+  <tr><td colspan="6" class="text-center text-muted">No records found.</td></tr>
+@endforelse
+</tbody>
           </table>
         </div>
 
@@ -510,6 +524,29 @@
     openModal();
     loadProofs(url);
   });
+});
+
+(() => {
+  const y2us=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?(v.slice(5,7)+'/'+v.slice(8,10)+'/'+v.slice(0,4)):v;
+  const us2y=v=>{const m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!m)return'';const[,mm,dd,yy]=m;return `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`};
+  function attachNativeDate(input){
+    const open=()=>{if(input.type!=='date'){const y=us2y(input.value.trim());input.type='date';if(y)input.value=y;input.showPicker?input.showPicker():input.focus();}};
+    const close=()=>{if(input.type==='date'){if(input.value)input.value=y2us(input.value);input.type='text';}};
+    input.addEventListener('focus',open); input.addEventListener('click',open);
+    input.addEventListener('change',()=>{if(input.type==='date' && input.value){input.type='text';input.value=y2us(input.value);input.dispatchEvent(new Event('change',{bubbles:true}));}});
+    input.addEventListener('blur',close);
+  }
+  document.querySelectorAll('.js-date').forEach(attachNativeDate);
+})();
+
+/* Double-click row → view */
+document.addEventListener('dblclick', e => {
+  const tr = e.target.closest('tr.js-row-open');
+  if (!tr) return;
+  const tag = (e.target.tagName||'').toLowerCase();
+  if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+  const url = tr.dataset.href;
+  if (url) location.href = url;
 });
 </script>
 @endpush

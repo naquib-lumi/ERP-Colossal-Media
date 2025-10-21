@@ -254,6 +254,7 @@ class ArtistOrderController extends Controller
             }
 
             // Persist products
+            $authorId = (int) auth()->id();
             foreach ($request->input('products', []) as $p) {
                 if (empty($p['product_name']) || empty($p['quantity'])) {
                     continue;
@@ -277,6 +278,7 @@ class ArtistOrderController extends Controller
                             'ProductID'   => $product->getKey(), 
                             'operation'   => $r['operation'],   
                             'remark'      => $r['remark'],
+                            'user_id'    => $authorId,
                             'created_at'  => $now,
                             'updated_at'  => $now,
                         ];
@@ -580,12 +582,12 @@ class ArtistOrderController extends Controller
         }
 
         $request->validate([
-            'product_name'        => ['required','string','max:255'],
-            'quantity'            => ['required','integer','min:1'],
+            'product_name'        => ['nullable','string','max:255'],
+            'quantity'            => ['nullable','integer','min:1'],
             'material_info'       => ['nullable','string'],
             'remarks'             => ['nullable','array'],
-            'remarks.*.operation' => ['required_with:remarks.*.remark','in:printing,furnishing,installation,courier,self_pickup'],
-            'remarks.*.remark'    => ['required_with:remarks.*.operation','string'],
+            'remarks.*.operation' => ['nullable','in:printing,furnishing,installation,courier,self_pickup'],
+            'remarks.*.remark'    => ['nullable','string'],
         ]);
 
         // Create product (columns match your products table)
@@ -660,10 +662,26 @@ class ArtistOrderController extends Controller
             'user_id' => ['nullable','integer','exists:users,id'],
         ]);
 
-        $order->artist_id = $validated['user_id'] ?? null; // allow unassign
+        $assignee = isset($validated['user_id']) ? User::find($validated['user_id']) : null;
+
+        if (!$assignee) {
+            $newStatus = 'to_assign';
+        } elseif ($assignee->role === 'head-artist') {
+            $newStatus = 'in_progress';
+        } else {
+            $newStatus = 'assigned';
+        }
+
+        $order->artist_id   = $assignee?->id;   // allow unassign (null)
+        $order->orderStatus = $newStatus;
         $order->save();
 
-        return response()->json(['ok' => true, 'artist_id' => $order->artist_id]);
+        return response()->json([
+            'ok'          => true,
+            'artist_id'   => $order->artist_id,
+            'orderStatus' => $order->orderStatus,
+            'assigneeRole'=> $assignee?->role,
+        ]);
     }
 
 }

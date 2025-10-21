@@ -176,7 +176,7 @@
                         @if(!empty($isHead) && $isHead)
                             <div class="row gy-4 gy-sm-1">
                                 {{-- To assign --}}
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="to_assign">
                                 <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
                                     <div>
                                     <p class="mb-1">To assign</p>
@@ -192,7 +192,7 @@
                                 </div>
 
                                 {{-- Assigned --}}
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="assigned">
                                 <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
                                     <div>
                                     <p class="mb-1">Assigned</p>
@@ -208,7 +208,7 @@
                                 </div>
 
                                 {{-- In progress --}}
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="in_progress">
                                 <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
                                     <div>
                                     <p class="mb-1">In Progress</p>
@@ -224,7 +224,7 @@
                                 </div>
 
                                 {{-- Completed --}}
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="completed">
                                 <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
                                     <div>
                                     <p class="mb-1">Completed</p>
@@ -240,7 +240,7 @@
                                 </div>
 
                                 {{-- Rejected --}}
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="rejected">
                                 <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
                                     <div>
                                     <p class="mb-1">Rejected</p>
@@ -272,7 +272,7 @@
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
                                 </div>
 
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="pending">
                                 <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
                                     <div>
                                     <p class="mb-1">Pending</p>
@@ -287,7 +287,7 @@
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
                                 </div>
 
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="in_progress">
                                 <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
                                     <div>
                                     <p class="mb-1">In Progress</p>
@@ -302,7 +302,7 @@
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
                                 </div>
 
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="completed">
                                 <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
                                     <div>
                                     <p class="mb-1">Completed</p>
@@ -317,7 +317,7 @@
                                 <hr class="d-none d-sm-block d-lg-none me-6" />
                                 </div>
 
-                                <div class="col-sm-6 col-lg">
+                                <div class="col-sm-6 col-lg cursor-pointer" data-go-status="rejected">
                                 <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
                                     <div>
                                     <p class="mb-1">Rejected</p>
@@ -342,51 +342,7 @@
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <h5 class="mb-0">Job Orders</h5>
 
-                        {{-- HORIZONTAL FILTER STRIP --}}
-                        <div class="filters-hz mb-3">
-                        @if(auth()->user()->role === 'head-artist')
-                            {{-- Artist --}}
-                            <div class="hz-field">
-                            <i class="bx bx-user"></i>
-                            <input id="artistFilter" type="text" class="hz-input" placeholder="Search artist name…">
-                            </div>
-
-                            {{-- Date range --}}
-                            <div class="hz-field">
-                            <i class="bx bx-calendar"></i>
-                            <input id="dateFrom" type="date" class="hz-input">
-                            </div>
-                            <span class="hz-sep">–</span>
-                            <div class="hz-field">
-                            <i class="bx bx-calendar"></i>
-                            <input id="dateTo" type="date" class="hz-input">
-                            </div>
-                        @endif
-
-                        {{-- Search orders --}}
-                        <div class="hz-field hz-grow">
-                            <i class="bx bx-search"></i>
-                            <input id="jobSearch" type="text" class="hz-input" placeholder="Search orders…">
-                        </div>
-
-                        {{-- Status --}}
-                        <div class="hz-field">
-                            <select id="statusFilter" class="hz-select">
-                            <option value="">All statuses</option>
-                            <option value="to_assign">To Assign</option>
-                            <option value="assigned">Assigned</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="pending">Pending</option>
-                            <option value="completed">Completed</option>
-                            <option value="rejected">Rejected</option>
-                            </select>
-                        </div>
-
-                        {{-- Export --}}
-                        <button id="exportExcel" type="button" class="btn btn-sm btn-dark hz-btn">
-                            <i class="bx bx-export me-1"></i> Export
-                        </button>
-                        </div>
+                        
                     </div>
 
                     <div class="table-responsive" id="orders-table-wrapper-top5" data-dashboard>
@@ -955,6 +911,17 @@
       }
     });
   })();
+  (function () {
+    const base = "{{ route('artist.orders') }}";
+    document.querySelectorAll('[data-go-status]').forEach(function (tile) {
+        tile.addEventListener('click', function () {
+        const s = tile.getAttribute('data-go-status');
+        const url = new URL(base, window.location.origin);
+        if (s) url.searchParams.set('status', s);
+        window.location.href = url.toString();
+        });
+    });
+    })();
 </script>
 @endpush
 @endsection
