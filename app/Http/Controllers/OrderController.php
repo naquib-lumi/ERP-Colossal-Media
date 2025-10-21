@@ -112,17 +112,17 @@ class OrderController extends Controller
             //                 View Products
             //             </button>';
             // })
-         ->addColumn('actions', function ($order) {
-    $editRoute = route('orders.edit', $order->id);
-    $leadViewRoute = route('orders.show', $order->id);
-    $html = '<div class="actions-cell d-flex gap-2">';
-    if ($order->orderStatus == 'to_assign') {
-        $html .= '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>';
-    }
-    $html .= '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
-    $html .= '</div>';
-    return $html;
-})
+                    ->addColumn('actions', function ($order) {
+                $editRoute = route('orders.edit', $order->id);
+                $leadViewRoute = route('orders.show', $order->id);
+                $html = '<div class="actions-cell d-flex gap-2">';
+                if ($order->orderStatus == 'to_assign') {
+                    $html .= '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>';
+                }
+                $html .= '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
+                $html .= '</div>';
+                return $html;
+            })
             ->rawColumns(['company_info', 'lead_details', 'status', 'products', 'actions'])
             ->toJson();
     }
@@ -265,11 +265,12 @@ class OrderController extends Controller
             ]);
 
             foreach ($productData['remarks'] ?? [] as $remarkData) {
-                ProductRemark::create([
-                    'ProductID' => $product->ProductID,
-                    'operation' => $remarkData['operation'],
-                    'remark' => $remarkData['remark'] ?? null,
-                ]);
+           ProductRemark::create([
+        'ProductID' => $product->ProductID,
+        'operation' => $remarkData['operation'],
+        'remark' => $remarkData['remark'] ?? null,
+        'user_id' => $user->id, 
+    ]);
             }
         }
 

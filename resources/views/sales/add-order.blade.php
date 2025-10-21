@@ -280,11 +280,11 @@
                                                         @foreach ($product['remarks'] ?? [] as $rindex => $remark)
                                                             <div class="remark-row">
                                                                 <select name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                                                    <option value="printing" {{ $remark['operation'] == 'printing' ? 'selected' : '' }}>Printing</option>
-                                                                    <option value="furnishing" {{ $remark['operation'] == 'furnishing' ? 'selected' : '' }}>Furnishing</option>
-                                                                    <option value="installation" {{ $remark['operation'] == 'installation' ? 'selected' : '' }}>Installation</option>
-                                                                    <option value="self_pickup" {{ $remark['operation'] == 'self_pickup' ? 'selected' : '' }}>Self Pickup</option>
-                                                                    <option value="courier" {{ $remark['operation'] == 'courier' ? 'selected' : '' }}>Courier</option>
+                                                                    <option value="printing" {{ $remark['operation'] == 'printing' ? 'selected' : '' }}>To Printing</option>
+                                                                    <option value="furnishing" {{ $remark['operation'] == 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
+                                                                    <option value="installation" {{ $remark['operation'] == 'installation' ? 'selected' : '' }}>To Installation</option>
+                                                                    <option value="self_pickup" {{ $remark['operation'] == 'self_pickup' ? 'selected' : '' }}>To Self Pickup</option>
+                                                                    <option value="courier" {{ $remark['operation'] == 'courier' ? 'selected' : '' }}>To Courier</option>
                                                                 </select>
                                                                 <input type="text" name="products[{{ $index }}][remarks][{{ $rindex }}][remark]" class="form-control" value="{{ $remark['remark'] ?? '' }}" placeholder="Write a note…">
                                                                 <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -508,11 +508,11 @@
                 <div class="remark-row mb-2">
                     <select name="remark_operation" class="form-select w-auto" style="min-width:160px;">
                         <option value="">— Select —</option>
-                        <option value="printing" ${operation === 'printing' ? 'selected' : ''}>Printing</option>
-                        <option value="furnishing" ${operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
-                        <option value="installation" ${operation === 'installation' ? 'selected' : ''}>Installation</option>
-                        <option value="self_pickup" ${operation === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
-                        <option value="courier" ${operation === 'courier' ? 'selected' : ''}>Courier</option>
+                        <option value="printing" ${operation === 'printing' ? 'selected' : ''}>To Printing</option>
+                        <option value="furnishing" ${operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
+                        <option value="installation" ${operation === 'installation' ? 'selected' : ''}>To Installation</option>
+                        <option value="self_pickup" ${operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
+                        <option value="courier" ${operation === 'courier' ? 'selected' : ''}>To Courier</option>
                     </select>
                     <input type="text" name="remark_text" class="form-control" placeholder="Write a note…" value="${escapeHtml(remark)}">
                     <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">

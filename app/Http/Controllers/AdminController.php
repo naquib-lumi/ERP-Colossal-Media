@@ -11,6 +11,8 @@ use Carbon\Carbon;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 
 class AdminController extends Controller
 {
@@ -241,15 +243,32 @@ class AdminController extends Controller
     }
 
  
-    public function manageUser()
-    {
-        $user = Auth::user();
-        if (!$user->hasRole('admin')) {
-            abort(403, 'Unauthorized');
-        }
-        $users = User::paginate(10);
-        return view('admin.manageuser', compact('users'));
+   public function manageUser(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->hasRole('admin')) {
+        abort(403, 'Unauthorized');
     }
+    
+    $query = User::query();
+    
+    if ($request->filled('search')) {
+        $query->where('name', 'like', '%' . $request->search . '%')
+              ->orWhere('email', 'like', '%' . $request->search . '%');
+    }
+    
+    if ($request->filled('role')) {
+        $query->where('role', $request->role);
+    }
+    
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+    
+    $users = $query->paginate(10);
+    
+    return view('admin.manageuser', compact('users'));
+}
     
        public function manageUserTable(Request $request)
     {
@@ -337,7 +356,8 @@ class AdminController extends Controller
 
         $user->save();
 
-        return response()->json(['success' => 'User updated successfully.']);
+        return back()->with('success', 'User updated successfully.');
+
     }
 
     public function disableUser(Request $request, User $user)
@@ -350,7 +370,7 @@ class AdminController extends Controller
         $user->status = $user->status === 'active' ? 'inactive' : 'active';
         $user->save();
 
-        return response()->json(['success' => 'User status updated successfully.']);
+        return back()->with('success', 'User status updated successfully.');
     }
 
 
@@ -363,8 +383,122 @@ class AdminController extends Controller
             abort(403, 'Unauthorized');
         }
         $orders = Order::latest()->get();
-        return view('admin.orders', compact('orders'));
+        return view('admin.order.index');
     }
+
+
+    public function getOrders(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('admin')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $orders = Order::with('lead', 'salesperson', 'products', 'originalOrder')->orderBy('created_at', 'desc');
+
+        if (!$user->hasRole('admin')) {
+            $orders->where('salesperson_id', $user->id);
+        } else {
+            if ($request->has('salesperson') && $request->salesperson) {
+                $orders->where('salesperson_id', $request->salesperson);
+            }
+        }
+
+        if ($request->has('status') && $request->status) {
+            $orders->where('orderStatus', $request->status);
+        }
+
+        if ($request->has('search') && $request->input('search')['value']) {
+            $search = $request->input('search')['value'];
+            $orders->where(function ($query) use ($search) {
+                $query->where('orderTitle', 'like', "%{$search}%")
+                      ->orWhere('order_number', 'like', "%{$search}%")
+                      ->orWhereHas('lead', function ($q) use ($search) {
+                          $q->where('company_name', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%");
+                      });
+            });
+        }
+
+        $orders->whereNotExists(function ($query) {
+            $query->select(DB::raw(1))
+                ->from('orders as child')
+                ->whereColumn('child.redo', 'orders.id');
+        });
+
+        return DataTables::of($orders)
+            ->addColumn('order_id', function ($order) {
+                if ($order->originalOrder) {
+                    return $order->originalOrder->order_number . 'R';
+                }
+                return $order->order_number ?? $order->id;
+            })
+            ->addColumn('order_name', function ($order) {
+                return $order->orderTitle;
+            })
+            ->addColumn('company_info', function ($order) {
+                $lead = $order->lead;
+                return '<div class="company-info-cell text-secondary">' .
+                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-building me-2"></i>' . ($lead->company_name ?? 'N/A') . '</div>' .
+                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->company_phone ?? 'N/A') . '</div>' .
+                       '</div>';
+            })
+            ->addColumn('lead_details', function ($order) {
+                $lead = $order->lead;
+                $assignedTo = $order->artist?->name ?? 'Unassigned';
+                return '<div class="lead-details-cell text-secondary">' .
+                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . ($lead->name ?? 'N/A') . '</div>' .
+                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
+                       '<div class="d-flex align-items-center mb-1"><i class="bx bx-envelope me-2"></i>' . ($lead->email ?? 'N/A') . '</div>' .
+                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-id-card me-2"></i>Assigned To: ' . $assignedTo . '</div>' .
+                   '</div>';
+            })
+            ->addColumn('status', function ($order) {
+                $color = match($order->orderStatus) {
+                    'to_assign'   => 'danger',
+                    'assigned'    => 'primary',
+                    'pending'     => 'warning',
+                    'in_progress' => 'info',
+                    'completed'   => 'success',
+                    'rejected'    => 'danger',
+                    default       => 'secondary',
+                };
+                return '<span class="btn btn-sm btn-label-' . $color . '" 
+                         style="white-space: nowrap; min-width:120px; text-align:center;">'
+                    . ucwords(str_replace('_', ' ', $order->orderStatus)) .
+                    '</span>';
+            })
+       
+                    ->addColumn('actions', function ($order) {
+                $editRoute = route('orders.edit', $order->id);
+                $leadViewRoute = route('admin.orders.show', $order->id);
+                $html = '<div class="actions-cell d-flex gap-2">';
+                // if ($order->orderStatus == 'to_assign') {
+                //     $html .= '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>';
+                // }
+                $html .= '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
+                $html .= '</div>';
+                return $html;
+            })
+            ->rawColumns(['company_info', 'lead_details', 'status', 'products', 'actions'])
+            ->toJson();
+    }
+
+    public function showOrder($id)
+{
+    $order = Order::with('lead.attachments', 'salesperson', 'products', 'artist')->findOrFail($id);
+    $attachments = $order->getAttachmentPathsAttribute()->map(function ($path) {
+        return ['url' => Storage::url($path), 'name' => basename($path), 'size' => Storage::size($path)];
+    });
+    $leadAttachments = $order->lead ? $order->lead->attachments->map(function ($attachment) {
+        return [
+            'url' => asset('storage/' . $attachment->file_location),
+            'name' => basename($attachment->file_location),
+            'size' => $attachment->file_size
+        ];
+    }) : collect();
+    return view('admin.order.view', compact('order', 'attachments', 'leadAttachments'));
+}
 
     public function coasingData()
     {

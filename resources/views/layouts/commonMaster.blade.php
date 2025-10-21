@@ -287,13 +287,19 @@
     @endif
 
   {{-- Update this @if block in the layout --}}
-@if (Request::is('artist/*') || Request::is('admin/*') || Request::is('dashboard') || Request::is('dashboard/') || Request::is('artist/calendar') || Request::is('calendar/*') )
+@if (Request::is('artist/*') || Request::is('dashboard') || Request::is('dashboard/') || Request::is('artist/calendar') || Request::is('calendar/*') )
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/chartjs/chartjs.js') }}"></script>
     <script src="{{ asset('assets/js/artist-app-calendar.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
     <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
+@endif
+
+@if(Request::is('admin/*'))
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/chartjs/chartjs.js') }}"></script>
 @endif
 
     @if (Request::is('installation/*') || Request::is('installation/calendar') || Request::is('calendar/*') )

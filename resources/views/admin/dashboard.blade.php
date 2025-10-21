@@ -18,7 +18,7 @@
         </div>
     </div>
 
-   <div class="row mb-4 g-3">
+<div class="row mb-4 g-3">
     <div class="col-md-3">
         <div class="card h-100 border-0 shadow-sm text-center bg-white rounded-3">
             <div class="card-body d-flex justify-content-between align-items-center p-3">
@@ -26,8 +26,8 @@
                     <h6 class="mb-1 text-muted">Orders to Assign</h6>
                     <h3 class="mb-0 text-dark">{{ $ordersToAssign }}</h3>
                 </div>
-                <div class="bg-light rounded-circle p-2">
-                    <i class="fas fa-puzzle-piece text-dark"></i>
+                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="bx bx-puzzle text-dark"></i>
                 </div>
             </div>
         </div>
@@ -39,8 +39,8 @@
                     <h6 class="mb-1 text-muted">Total Orders</h6>
                     <h3 class="mb-0 text-dark">{{ $totalOrders }}</h3>
                 </div>
-                <div class="bg-light rounded-circle p-2">
-                    <i class="fas fa-clipboard text-dark"></i>
+                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="bx bx-clipboard text-dark"></i>
                 </div>
             </div>
         </div>
@@ -52,8 +52,8 @@
                     <h6 class="mb-1 text-muted">In Progress Orders</h6>
                     <h3 class="mb-0 text-dark">{{ $inProgressCount }}</h3>
                 </div>
-                <div class="bg-light rounded-circle p-2">
-                    <i class="fas fa-spinner text-dark"></i>
+                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="bx bx-loader-alt text-dark"></i>
                 </div>
             </div>
         </div>
@@ -65,35 +65,15 @@
                     <h6 class="mb-1 text-muted">Completed Orders</h6>
                     <h3 class="mb-0 text-dark">{{ $completedCount }}</h3>
                 </div>
-                <div class="bg-light rounded-circle p-2">
-                    <i class="fas fa-check text-dark"></i>
+                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="bx bx-check text-dark"></i>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-  <div class="row g-4 mb-4">
-    <div class="col-md-6 d-flex">
-        <div class="card flex-fill h-100">
-            <div class="card-body">
-                <h6>Monthly Leads Performance</h6>
-                <div id="leadsChart"></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 d-flex">
-        <div class="card flex-fill h-100">
-            <div class="card-body">
-                <h6>Job Order Fulfillment Report</h6>
-                <div id="fulfillmentChart"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-    <div class="row g-4">
+<div class="row g-4">
         <div class="col-lg-6">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-header text-white">
@@ -151,6 +131,27 @@
             </div>
         </div>
     </div>
+    
+  <div class="row g-4 mb-4">
+    <div class="col-md-6 d-flex">
+        <div class="card flex-fill h-100">
+            <div class="card-body">
+                <h6>Monthly Performance</h6>
+                <div id="leadsChart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 d-flex">
+        <div class="card flex-fill h-100">
+            <div class="card-body">
+                <h6>Job Order Fulfillment</h6>
+                <div id="fulfillmentChart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {

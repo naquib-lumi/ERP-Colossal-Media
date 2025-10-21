@@ -158,6 +158,8 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
+       
+        
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
         Route::post('/orders/get', [OrderController::class, 'getOrders'])->name('orders.get');
         Route::get('/orders/leads/search', [OrderController::class, 'searchLeads'])->name('orders.leads.search');
@@ -363,12 +365,16 @@ Route::middleware('role:admin')->group(function () {
     Route::get('/admin/leads-breakdown', [AdminController::class, 'leadsBreakdown'])->name('admin.leadsBreakdown');
     Route::get('/admin/fulfillment-counts', [AdminController::class, 'fulfillmentCounts'])->name('admin.fulfillmentCounts');
     Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
-     Route::get('/admin/manageuser-table', [AdminController::class, 'manageUserTable'])->name('admin.manageuserTable');
+    //  Route::get('/admin/manageuser-table', [AdminController::class, 'manageUserTable'])->name('admin.manageuserTable');
     
     Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
     Route::put('/admin/user/{user}', [AdminController::class, 'updateUser'])->name('admin.user.update');
     Route::patch('/admin/user/{user}/disable', [AdminController::class, 'disableUser'])->name('admin.user.disable');
+    
     Route::get('/admin/orders', [AdminController::class, 'orders'])->name('admin.orders');
+     Route::get('/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
+    Route::post('/admin/orders/data', [AdminController::class, 'getOrders'])->name('admin.orders.data');
+
     Route::get('/admin/coasing-data', [AdminController::class, 'coasingData'])->name('admin.coasing-data');
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
     Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
