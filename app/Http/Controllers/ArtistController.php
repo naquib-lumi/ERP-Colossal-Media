@@ -341,9 +341,9 @@ class ArtistController extends Controller
         ]);
 
         // Normal artists to assign to
-        $artists = User::where('role', 'artist')
+        $artists = User::whereIn('role', ['artist', 'head-artist'])
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'role']);
 
         return view('artist.orders.assign', compact('order', 'artists'));
     }
@@ -354,14 +354,26 @@ class ArtistController extends Controller
             'artist_id' => ['required', 'exists:users,id'],
         ]);
 
+        $assignee = User::select('id', 'role')->find($data['artist_id']);
+
+        if (!$assignee) {
+            return back()->with('error', 'Selected artist not found.');
+        }
+
+        if ($assignee->role === 'head-artist') {
+            $order->orderStatus = 'in_progress';
+            $order->pending     = 0;
+        } else {
+            $order->orderStatus = 'assigned';
+            $order->pending     = 1;
+        }
+
         $order->artist_id   = $data['artist_id'];
-        $order->orderStatus = 'assigned'; // becomes “Pending” for normal artists
-        $order->pending     = 1;          // your business rule
         $order->save();
 
         return redirect()
-        ->route('artist.dashboard', $order)
-        ->with('ok', 'Artist assigned successfully.');
+        ->route('artist.dashboard')
+        ->with('ok', "Order assigned to {$assignee->name} ({$assignee->role}) successfully.");
     }
 
     public function show(Order $order)
@@ -457,6 +469,12 @@ class ArtistController extends Controller
                 // select only real columns – no "id" here
                 $q->select('BreakdownID', 'ProductID', 'method', 'deliver_install_type', 'outsource_cost', 'location', 'quantity', 'date', 'time')
                 ->orderBy('BreakdownID');
+            },
+            'remarks' => function ($q) {
+                $q->with('user:id,name')
+                ->orderByRaw("FIELD(operation,'printing','furnishing','installation','courier','self_pickup','artist')")
+                ->orderBy('created_at')
+                ->orderBy('RemarkID');
             },
         ])->where('OrderID', $order->id)->with(['remarks'])->first();
 
@@ -742,7 +760,7 @@ class ArtistController extends Controller
             'products.*.remarks.*.id'           => ['nullable','integer'],
             'products.*.remarks.*.operation'    => [
                 'nullable',
-                Rule::in(['printing','furnishing','installation','courier','self_pickup']),
+                Rule::in(['printing','furnishing','installation','courier','self_pickup', 'artist']),
             ],            
             'products.*.remarks.*.remark'       => ['nullable','string'],
             'products.*.delete_remarks'         => ['array'],
@@ -813,6 +831,23 @@ class ArtistController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
+        $validator->after(function ($v) use ($request, $order) {
+            if (empty($order->artist_id)) {
+                $products = (array) $request->input('products', []);
+                foreach ($products as $pi => $g) {
+                    foreach ((array)($g['remarks'] ?? []) as $ri => $row) {
+                        $op = strtolower(trim((string)($row['operation'] ?? '')));
+                        if ($op === 'artist') {
+                            $v->errors()->add(
+                                "products.$pi.remarks.$ri.operation",
+                                'You can only choose “To Artist” after assigning an artist to this order.'
+                            );
+                        }
+                    }
+                }
+            }
+        });
+
         try {
             $authorId = (int) auth()->id();
             DB::transaction(function () use ($request, $order, $product, $authorId) {
@@ -822,15 +857,16 @@ class ArtistController extends Controller
 
                 if ($submitted) {
                     $order->submit = 1;         
-                    $order->draft  = 0;       
+                    $order->draft  = 0;     
+                    $order->approval    = $request->boolean('design_confirmed');
+                    $order->orderStatus = 'completed';  
                 } else {
                     $order->submit = 0;        
                     $order->draft  = (int) $request->input('is_draft', 0);
+                    $order->approval    = $request->boolean('design_confirmed');
                 }
 
-                $order->draft       = (int) $request->input('is_draft', 0);
-                $order->approval    = $request->boolean('design_confirmed');
-                $order->orderStatus = 'completed';
+                
                 $order->save();
 
                 // ----- 2) Attachments -----
@@ -1059,8 +1095,16 @@ class ArtistController extends Controller
                     $keepRemarkIds = [];
 
                     foreach (collect($group['remarks'] ?? [])->filter(fn ($v) => is_array($v)) as $row) {
-                        $isEmpty = trim($row['operation'] ?? '') === '' && trim($row['remark'] ?? '') === '';
-                        if ($isEmpty) continue;
+                        $op = strtolower(trim((string)($row['operation'] ?? '')));
+                        $txt = trim((string)($row['remark'] ?? ''));
+
+                        if ($op === '' && $txt === '') {
+                            continue;
+                        }
+
+                        if ($op === 'artist' && empty($order->artist_id)) {
+                            continue;
+                        }
 
                         $remark = null;
                         if (!empty($row['id'])) {
@@ -1071,11 +1115,13 @@ class ArtistController extends Controller
                         if (!$remark) {
                             $remark = new ProductRemark();
                             $remark->ProductID = $productRow->ProductID;
-                            $remark->user_id   = $authorId;
                         }
 
-                        $remark->operation = $row['operation'] ?: null;
-                        $remark->remark    = $row['remark'] ?: null;
+                        $remark->user_id   = $authorId;
+
+                        $remark->operation = $op ?: null;
+                        $remark->remark    = $txt ?: null;
+
                         $remark->save();
 
                         $keepRemarkIds[] = $remark->RemarkID;
@@ -1238,7 +1284,9 @@ class ArtistController extends Controller
             if ($request->expectsJson()) {
                 return response()->json(['ok' => true, 'message' => $message]);
             }
-            return back()->with('success', $message);
+            return redirect()
+                ->route('artist.orders')
+                ->with('success', $message);
 
         } catch (\Throwable $e) {
             Log::error('Artist update failed', [

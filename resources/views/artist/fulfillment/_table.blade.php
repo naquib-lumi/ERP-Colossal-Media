@@ -68,11 +68,8 @@
         <td>{{ $r->deliv_date ?: '-' }}</td>
         <td>{{ $r->deliv_loc ?: '-' }}</td>
 
-        {{-- Actions: View / Edit / Report (your original) --}}
         <td class="text-end">
           <a class="text-secondary me-2" title="View" href="{{ $r->view_url }}"><i class="bx bx-show fs-5"></i></a>
-          <a class="text-secondary me-2" title="Edit" href="{{ $r->edit_url }}"><i class="bx bx-edit-alt fs-5"></i></a>
-          <a class="text-secondary" title="Report" href="{{ $r->assign_url }}"><i class="bx bx-error-alt fs-5"></i></a>
         </td>
       </tr>
       @endforeach

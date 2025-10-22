@@ -29,11 +29,17 @@
     // Yes/No from tinyint/nullable
     function yn($v) { return ((int)$v) === 1 ? 'Yes' : 'No'; }
 @endphp
+<style>
+    .btn-purple:hover {
+        background: #5a4cd9 !important;
+        transform: translateY(-1px);
+    }
+</style>
 <div class="container-xxl py-3">
 
     {{-- Header & Export --}}
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h4 class="mb-0">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h4 class="mb-0 flex-grow-1">
             @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
                 @php
                 $order->loadMissing('originalOrder:id,order_number');
@@ -42,10 +48,21 @@
             @endif
         </h4>
 
-        {{-- hook up to your existing export if available --}}
-        <a href="{{ route('artist.orders.edit', $order->id) }}?export=pdf" class="btn btn-dark">
-            <i class="bx bx-printer me-1"></i> Export PDF
+        <div class="d-flex align-items-center gap-2">
+        <a href="#" 
+           class="btn btn-dark d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
+           style="border:none; border-radius:8px;">
+            <i class="bx bx-printer fs-5"></i>
+            <span>Export PDF</span>
         </a>
+
+        <a href="{{ route('artist.orders.edit', $order->id) }}" 
+           class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
+           style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+            <i class="bx bx-edit-alt fs-5"></i>
+            <span>Edit Order</span>
+        </a>
+    </div>
     </div>
 
     {{-- Job order information --}}
@@ -477,6 +494,13 @@
             @endif
         </div>
     </div>
-
+    <div class="d-flex justify-content-end mt-4">
+        <a href="{{ route('artist.orders.edit', $order->id) }}" 
+        class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
+        style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+            <i class="bx bx-edit-alt fs-5"></i>
+            <span>Edit Order</span>
+        </a>
+    </div>
 </div>
 @endsection
