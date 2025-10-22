@@ -15,27 +15,31 @@ class RedoOrderController extends Controller
 {
     public function create(Order $order)
     {
-        $baseOrder = $order->redo ? Order::findOrFail($order->redo) : $order;
+        // Base order = original source (even if you came from a redo)
+        $baseOrder = $order->redo ? Order::findOrFail((int) $order->redo) : $order;
 
-        $products = Product::where('OrderID', $baseOrder->id)
-            ->select('ProductID', 'productName', 'totalQuantity', 'taskType', 'status')
+        // Products to pick
+        $products = Product::where('OrderID', $order->id)
             ->orderBy('ProductID')
-            ->get();
+            ->get(['ProductID','productName','totalQuantity','taskType']);
 
-        $redoOrder = Order::where('redo', $baseOrder->id)->first();
-        $alreadyInRedo = $redoOrder
-            ? Product::where('OrderID', $redoOrder->id)->pluck('redoOf')->filter()->unique()->values()->toArray()
-            : [];
-            
-        $hasRedo = (bool) $redoOrder;
-        $displayOrderNumber = ($order->redo || $hasRedo)
-            ? ($baseOrder->order_number . 'R')
-            : $baseOrder->order_number;
+        // Latest reason for this base
+        $latestRedoReason = DB::table('report_redo')
+            ->where('OrderID', $baseOrder->id)
+            ->orderByDesc('created_at')
+            ->value('reason');
 
-        return view('artist.orders.redo', compact('order','products') + [
-            'baseOrder'          => $baseOrder,
-            'alreadyInRedo'      => $alreadyInRedo,
-            'displayOrderNumber' => $displayOrderNumber,
+        // How many redo orders already exist for this base
+        $existingCount = Order::where('redo', $baseOrder->id)->count();
+
+        // This is the **next** redo number we will create if user submits
+        $displayOrderNumber = $this->nextRedoNumber($baseOrder->order_number);
+
+        return view('artist.orders.redo', [
+            'order'               => $order,            // current order (may be a redo)
+            'products'            => $products,
+            'latestRedoReason'    => $latestRedoReason,
+            'displayOrderNumber'  => $displayOrderNumber, // <-- use this in Blade
         ]);
     }
 
@@ -43,117 +47,76 @@ class RedoOrderController extends Controller
     public function store(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'reason'     => ['nullable', 'string', 'max:255'],
-            'reason_alt' => ['nullable', 'string', 'max:2000'],
+            'reason'     => ['required', 'string', 'max:255'],
+            'reason_alt' => ['nullable', 'string', 'max:2000', 'required_if:reason,Others'],
             'products'   => ['nullable', 'array'],
             'products.*' => ['integer'],
         ]);
 
         $selectedCurrentIds = collect($validated['products'] ?? [])->filter()->unique()->values();
 
-        // === Normalize reason so "Others" never gets stored ===
-        $reasonRaw  = trim((string)($validated['reason'] ?? ''));
-        $reasonAlt  = trim((string)($validated['reason_alt'] ?? ''));
-        $reasonText = (strtolower($reasonRaw) === 'others')
-            ? $reasonAlt
-            : ($reasonRaw !== '' ? $reasonRaw : $reasonAlt);
+        // Build final reason text
+        $reasonRaw = trim((string)($validated['reason'] ?? ''));
+        $reasonAlt = trim((string)($validated['reason_alt'] ?? ''));
+        $isOthers  = strcasecmp($reasonRaw, 'Others') === 0;
+        $reasonText = $isOthers ? $reasonAlt : ($reasonAlt !== '' ? "{$reasonRaw}: {$reasonAlt}" : $reasonRaw);
 
-        DB::transaction(function () use ($order, $validated, $selectedCurrentIds, $reasonText) {
+        DB::transaction(function () use ($order, $selectedCurrentIds, $reasonText) {
 
-            // Figure out base order & whether a redo bucket already exists
             $baseId    = $order->redo ? (int) $order->redo : (int) $order->id;
             $baseOrder = $order->redo ? Order::findOrFail($baseId) : $order;
 
-            $redoOrder = Order::lockForUpdate()->where('redo', $baseId)->first();
-            $redoExistedBefore = (bool) $redoOrder;
+            // 🔴 Archive ALL existing redos for this base so they’re hidden in lists
+            Order::where('redo', $baseId)->update(['status' => 1]);
 
-            // $reasonText = trim(($validated['reason'] ?? '') . ' ' . ($validated['reason_alt'] ?? ''));
+            // Count again (after archiving is fine too; count is only for numbering)
+            $existingCount = Order::lockForUpdate()->where('redo', $baseId)->count();
 
-            if (!$redoOrder) {
-                // --- FIRST REDO: create the single redo order ---
-                $redoOrder = $baseOrder->replicate([
-                    'id','order_number','created_at','updated_at','submit','draft','status','redo','orderStatus'
-                ]);
-                $redoOrder->order_number = $this->nextRedoNumber($baseOrder->order_number); // e.g. #ORD-xxxxR
-                $redoOrder->redo         = $baseId;
-                $redoOrder->draft        = 1;
-                $redoOrder->submit       = 0;
-                $redoOrder->orderStatus  = 'in_progress';
-                $redoOrder->status       = 0;
-                $redoOrder->created_at   = now();
-                $redoOrder->updated_at   = now();
+            // Create a brand-new redo order
+            $redoOrder = $baseOrder->replicate([
+                'id','order_number','created_at','updated_at','submit','draft','status','redo','orderStatus'
+            ]);
+            $redoOrder->order_number = $this->nextRedoNumber($baseOrder->order_number);
+            $redoOrder->redo         = $baseId;
+            $redoOrder->draft        = 1;
+            $redoOrder->submit       = 0;
+            $redoOrder->orderStatus  = 'in_progress';
+            $redoOrder->status       = 0;          // 🔵 keep the latest redo visible
+            $redoOrder->created_at   = now();
+            $redoOrder->updated_at   = now();
 
-                if ($reasonText !== '') {
-                    $redoOrder->orderDetail = trim(($baseOrder->orderDetail ? $baseOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
-                }
-                $redoOrder->save();
-
-            } else {
-                // --- SUBSEQUENT REDO: reuse the existing redo order; don't touch statuses ---
-                if (in_array(strtolower((string)$redoOrder->orderStatus), ['completed', 'complete'])) {
-                    $redoOrder->orderStatus = 'in_progress';
-                    $redoOrder->draft       = 1;
-                    $redoOrder->submit      = 0;
-                    $redoOrder->updated_at  = now();
-                }
-
-                if ($reasonText !== '') {
-                    $redoOrder->orderDetail = trim(($redoOrder->orderDetail ? $redoOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
-                }
-
-                // Save only if anything changed
-                if ($redoOrder->isDirty()) {
-                    $redoOrder->save();
-                }
+            if ($reasonText !== '') {
+                $redoOrder->orderDetail = trim(($baseOrder->orderDetail ? $baseOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
             }
+            $redoOrder->save();
 
-            // Optional reason log (unchanged)
             if ($reasonText !== '') {
                 DB::table('report_redo')->insert([
-                    'OrderID'    => $order->id,   // or $baseId if you prefer
+                    'OrderID'    => $baseId,
                     'reason'     => $reasonText,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
             }
 
-            // --- PRODUCTS ---
-            // Always base on ALL products from the *base* order
+            // Duplicate products/items/specs/remarks/deliveries/progress from BASE
             $baseProducts = Product::with(['items.spec','remarks','deliveryBreakdowns','progress'])
                 ->where('OrderID', $baseOrder->id)
                 ->orderBy('ProductID')
                 ->get();
 
-            // Normalize selection to origin ids
             $selectedOriginIds = collect();
             if ($selectedCurrentIds->isNotEmpty()) {
                 $selectedOriginIds = Product::whereIn('ProductID', $selectedCurrentIds)
                     ->pluck(DB::raw('COALESCE(redoOf, ProductID)'))
-                    ->unique()->values();
+                    ->unique()
+                    ->values();
             }
 
             foreach ($baseProducts as $origin) {
                 $originId = $origin->ProductID;
-
-                $redoProduct = Product::where('OrderID', $redoOrder->id)
-                    ->where('redoOf', $originId)
-                    ->first();
-
                 $editable = $selectedOriginIds->contains($originId) ? 1 : 0;
 
-                if ($redoProduct) {
-                    // PROMOTION-ONLY: once editable => always editable
-                    // If user selected this product now and it's not yet editable, set to 1.
-                    if ($selectedOriginIds->contains($originId) && (int) $redoProduct->editable !== 1) {
-                        $redoProduct->editable   = 1;
-                        $redoProduct->updated_at = now();
-                        $redoProduct->save();
-                    }
-                    // If not selected this time, LEAVE AS-IS (do not demote to 0)
-                    continue;
-                }
-
-                // Not copied yet → copy now (even if not selected; just mark editable accordingly)
                 $np = $origin->replicate(['ProductID','OrderID','created_at','updated_at']);
                 $np->OrderID    = $redoOrder->id;
                 $np->redoOf     = $originId;
@@ -193,19 +156,17 @@ class RedoOrderController extends Controller
                 }
                 foreach ($origin->progress as $pg) {
                     $npgr = $pg->replicate(['ProgressID','ProductID','created_at','updated_at']);
-                    $npgr->ProductID = $np->ProductID;
+                    $npgr->ProductID  = $np->ProductID;
                     $npgr->created_at = now();
                     $npgr->updated_at = now();
                     $npgr->save();
                 }
             }
 
-            // --- STATUS UPDATE RULE ---
-            // Only for the very first redo, and only for the *base* order we started from.
-            if (!$redoExistedBefore && $order->id === $baseOrder->id) {
+            // First redo on the base order → bump status (optional rule)
+            if ($existingCount === 0 && $order->id === $baseOrder->id) {
                 $order->forceFill(['status' => 1])->save();
             }
-            // On subsequent redoes → do nothing (leave statuses as-is).
         });
 
         $actor      = auth()->user();
@@ -221,10 +182,10 @@ class RedoOrderController extends Controller
             : '-';
 
         $selectedCurrentIds  = collect($request->input('products', []))->filter()->unique()->values();
-        $baseProductsQuery   = Product::with(['items.spec','remarks','deliveryBreakdowns','progress'])
-                                ->where('OrderID', $baseId);
+        $baseProductsQuery   = Product::with(['items.spec', 'remarks', 'deliveryBreakdowns', 'progress'])
+            ->where('OrderID', $baseId);
 
-        $allBaseProducts     = $baseProductsQuery->clone()->get(['ProductID','productName']);
+        $allBaseProducts     = $baseProductsQuery->clone()->get(['ProductID', 'productName']);
         $affectedOriginIds   = $selectedCurrentIds->isNotEmpty()
             ? Product::whereIn('ProductID', $selectedCurrentIds)->pluck(DB::raw('COALESCE(redoOf, ProductID)'))->unique()
             : $allBaseProducts->pluck('ProductID');
@@ -233,14 +194,14 @@ class RedoOrderController extends Controller
         $productCount        = $affectedProducts->count();
 
         // ------- Business recipients (head-artist, head-salesperson, admin, boss) -------
-        $businessRecipients = User::whereIn('role', ['head-artist','head-salesperson','admin','boss'])->get();
+        $businessRecipients = User::whereIn('role', ['head-artist', 'head-salesperson', 'admin', 'boss'])->get();
 
         // Role-aware order URL (point them to the redo order container)
         $orderUrlFor = function (User $u) use ($redoOrder, $baseOrder) {
             $orderId = $redoOrder?->id ?? $baseOrder?->id ?? 0;
             return match (strtolower($u->role)) {
-                'artist','head-artist'            => url("/artist/orders/{$orderId}"),
-                'salesperson','head-salesperson'  => url("/orders/{$orderId}"),
+                'artist', 'head-artist'            => url("/artist/orders/{$orderId}"),
+                'salesperson', 'head-salesperson'  => url("/orders/{$orderId}"),
                 'admin'                           => url("/admin/orders/{$orderId}"),
                 'boss'                            => url("/boss/orders/{$orderId}"),
                 default                           => url('/'),
@@ -248,16 +209,16 @@ class RedoOrderController extends Controller
         };
 
         // One concise message for business roles
-        $reasonText   = trim((string)$request->input('reason','') . ' ' . (string)$request->input('reason_alt',''));
+        // $reasonText   = trim((string)$request->input('reason','') . ' ' . (string)$request->input('reason_alt',''));
         $idsPreview   = $affectedProducts->pluck('ProductID')->take(5)->implode(', ');
         $orderNoBase  = (string)($baseOrder?->order_number ?? '');
         $orderNoRedo  = (string)($redoOrder?->order_number ?? '');
 
         $businessMsg = "Redo for Order {$orderNoBase} → **{$orderNoRedo}** by {$actorName} ({$actorRole}). "
-                    . "{$productCount} product(s)"
-                    . ($idsPreview ? " (#{$idsPreview})" : '')
-                    . ". Deadline: {$deadline}"
-                    . ($reasonText ? ". Reason: {$reasonText}" : ".");
+            . "{$productCount} product(s)"
+            . ($idsPreview ? " (#{$idsPreview})" : '')
+            . ". Deadline: {$deadline}"
+            . ($reasonText ? ". Reason: {$reasonText}" : ".");
 
         // Send to business recipients (deduped by id)
         $businessRecipients->unique('id')->each(function (User $u) use ($businessMsg, $orderUrlFor) {
@@ -265,21 +226,27 @@ class RedoOrderController extends Controller
         });
 
         // ------- Assigned operations users (per affected product) -------
-        $opsUsersById = collect();         
+        $opsUsersById = collect();
         foreach ($affectedProducts as $p) {
             $candidateUserId = null;
 
             // Try common direct columns (adjust if your schema names differ)
-            foreach (['assigned_user_id','operator_user_id','printing_user_id','furnishing_user_id'] as $col) {
-                if (isset($p->{$col}) && $p->{$col}) { $candidateUserId = (int)$p->{$col}; break; }
+            foreach (['assigned_user_id', 'operator_user_id', 'printing_user_id', 'furnishing_user_id'] as $col) {
+                if (isset($p->{$col}) && $p->{$col}) {
+                    $candidateUserId = (int)$p->{$col};
+                    break;
+                }
             }
 
             // Fallback: latest progress row with any of these columns
             if (!$candidateUserId && $p->relationLoaded('progress')) {
                 $latest = $p->progress->sortByDesc('created_at')->first();
                 if ($latest) {
-                    foreach (['user_id','operator_id','assigned_to'] as $col) {
-                        if (isset($latest->{$col}) && $latest->{$col}) { $candidateUserId = (int)$latest->{$col}; break; }
+                    foreach (['user_id', 'operator_id', 'assigned_to'] as $col) {
+                        if (isset($latest->{$col}) && $latest->{$col}) {
+                            $candidateUserId = (int)$latest->{$col};
+                            break;
+                        }
                     }
                 }
             }
@@ -311,9 +278,9 @@ class RedoOrderController extends Controller
             $firstPid   = (int)($pids[0] ?? 0);
             $prodList   = implode(', ', array_slice($pids, 0, 5));
             $msgOps = "Redo requested in Order {$orderNoBase} by {$actorName} ({$actorRole}). "
-                    . "Your assigned product"
-                    . (count($pids) > 1 ? "s (IDs: {$prodList}) have" : " (ID: {$prodList}) has")
-                    . " been sent for **redo**. Deadline: {$deadline}.";
+                . "Your assigned product"
+                . (count($pids) > 1 ? "s (IDs: {$prodList}) have" : " (ID: {$prodList}) has")
+                . " been sent for **redo**. Deadline: {$deadline}.";
 
             Helpers::notify($opsUser, $msgOps, $mapOpsUrl($opsUser, $firstPid), ['database']);
         }
@@ -325,14 +292,13 @@ class RedoOrderController extends Controller
      * Generate a redo order number:
      *  Try "<old>R"; if taken, "<old>R2", "<old>R3", ...
      */
-    private function nextRedoNumber(string $old): string
+    protected function nextRedoNumber(string $baseOrderNo): string
     {
-        $try = $old.'R';
-        $i = 1;
-        while (Order::where('order_number', $try)->exists()) {
-            $i++;
-            $try = $old.'R'.$i;
-        }
-        return $try;
+        // remove leading '#' and any existing R or R1/R2 etc.
+        $base = ltrim($baseOrderNo, '#');
+        $base = preg_replace('/R\d*$/i', '', $base);
+
+        // always return one R only
+        return '#' . $base . 'R';
     }
 }
