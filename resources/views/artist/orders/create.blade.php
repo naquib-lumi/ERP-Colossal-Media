@@ -529,12 +529,13 @@ $(function () {
       <div class="row g-2 align-items-center remark-row">
         <div class="col-md-3">
           <select class="form-select remark-op">
-            <option value="">— Select —</option>
+            <option value="">— Select Department —</option>
             <option value="printing"     ${op==='printing'?'selected':''}>To Printing</option>
             <option value="furnishing"   ${op==='furnishing'?'selected':''}>To Furnishing</option>
             <option value="installation" ${op==='installation'?'selected':''}>To Delivery & Installation</option>
             <option value="courier"      ${op==='courier'?'selected':''}>To Courier</option>
             <option value="self_pickup"  ${op==='self_pickup'?'selected':''}>To Self Pickup</option>
+            <option value="artist"  ${op==='artist'?'selected':''}>To Artist</option>
           </select>
         </div>
         <div class="col-md-8">
@@ -561,7 +562,8 @@ $(function () {
       furnishing:   'warning',
       installation: 'secondary',
       courier:      'info',
-      self_pickup:  'dark'
+      self_pickup:  'dark',
+      artist     :  'success'
     };
 
     const labels = {
@@ -569,7 +571,8 @@ $(function () {
       furnishing:   'Furnishing',
       installation: 'Delivery & Installation',
       courier:      'Courier',
-      self_pickup:  'Self Pickup'
+      self_pickup:  'Self Pickup',
+      artist     :  'Artist'
     };
 
     if (prod.remarks && prod.remarks.length) {

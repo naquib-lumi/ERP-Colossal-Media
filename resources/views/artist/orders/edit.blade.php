@@ -1358,31 +1358,33 @@
 
           {{-- Head-artist only: Assign Artist --}}
           @if(auth()->user()->role === 'head-artist')
-            <div class="card mt-4" id="assign-artist-card">
-              <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>Assign Artist</strong>
-                
-              </div>
-              <div class="card-body">
-                <div class="d-flex align-items-end gap-2">
-                  <div class="flex-grow-1">
-                    <label for="assignee_artist_id" class="form-label mb-1 fw-semibold">Artist</label>
-                    <select id="assignee_artist_id" class="form-select" style="width:100%">
-                      @if(!empty($order->artist_id) && !empty($order->artist))
-                        <option value="{{ $order->artist_id }}" selected>
-                          {{ $order->artist->name }} ({{ $order->artist->role }})
-                        </option>
-                      @endif
-                    </select>
-                  </div>
-                  <div class="pb-1">
-                    <button id="btn-assign-artist" type="button" class="btn btn-primary btn-sm">
-                      Assign Artist
-                    </button>
+            @if(!$isSubmitted)
+              <div class="card mt-4" id="assign-artist-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <strong>Assign Artist</strong>
+                  
+                </div>
+                <div class="card-body">
+                  <div class="d-flex align-items-end gap-2">
+                    <div class="flex-grow-1">
+                      <label for="assignee_artist_id" class="form-label mb-1 fw-semibold">Artist</label>
+                      <select id="assignee_artist_id" class="form-select" style="width:100%">
+                        @if(!empty($order->artist_id) && !empty($order->artist))
+                          <option value="{{ $order->artist_id }}" selected>
+                            {{ $order->artist->name }} ({{ $order->artist->role }})
+                          </option>
+                        @endif
+                      </select>
+                    </div>
+                    <div class="pb-1">
+                      <button id="btn-assign-artist" type="button" class="btn btn-primary btn-sm">
+                        Assign Artist
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            @endif
           @endif
 
           <div id="form-errors" class="mt-3 text-red-600 text-sm"></div>
@@ -3643,6 +3645,100 @@
   } else {
     initAll();
   }
+})();
+
+(function () {
+  const form = document.getElementById('order-form');
+  if (!form) return;
+
+  let isDirty = false;
+  let killBeforeUnload = null;
+
+  // Mark page as dirty on *any* form input/change (captures dynamic rows too)
+  const markDirty = () => { isDirty = true; };
+  form.addEventListener('input',  markDirty, true);
+  form.addEventListener('change', markDirty, true);
+
+  // When we really save/submit, call this to silence the guard
+  function markClean() { isDirty = false; }
+
+  // Expose so your existing code can call it
+  window.__markFormClean = markClean;
+
+  // Browser-level leave prompt
+  function beforeUnload(e) {
+    if (!isDirty) return;
+    e.preventDefault();
+    // Chrome/Edge/Firefox require returnValue to be set
+    e.returnValue = '';
+    return '';
+  }
+  killBeforeUnload = () => window.removeEventListener('beforeunload', beforeUnload);
+  window.addEventListener('beforeunload', beforeUnload);
+
+  // Intercept in-app link clicks (e.g., sidebar, tabs, back to list)
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    if (!a) return;
+
+    const href = a.getAttribute('href') || '';
+    // ignore anchors, JS, and modal toggles
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    if (a.hasAttribute('target')) return;
+
+    if (!isDirty) return; // safe to navigate
+    e.preventDefault();
+
+    const proceed = (ok) => {
+      if (!ok) return;
+      markClean();
+      killBeforeUnload();
+      window.location.href = a.href;
+    };
+
+    if (window.Swal) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Leave this page?',
+        text: 'You have unsaved changes. If you leave now, your changes will be lost.',
+        showCancelButton: true,
+        confirmButtonText: 'Leave page',
+        cancelButtonText: 'Stay'
+      }).then(r => proceed(r.isConfirmed));
+    } else {
+      proceed(confirm('You have unsaved changes. Leave this page?'));
+    }
+  });
+
+  // If you use browser Back/Forward buttons, the beforeunload handler above will handle it.
+
+  // --- Integrate with your existing save functions ---
+  // Call markClean() right before you actually POST, so leaving (redirect/reload) won’t prompt.
+  // You already have a send(isDraft, options) function; patch it once here.
+  const _send = window.send;
+  if (typeof _send === 'function') {
+    window.send = async function wrappedSend(isDraft, options) {
+      // silence the guard for this intentional navigation
+      markClean();
+      killBeforeUnload();
+      try {
+        const ok = await _send.call(this, isDraft, options);
+        return ok;
+      } finally {
+        // If we stayed on page (e.g., validation error), re-arm the guard
+        if (document.body.contains(form)) {
+          window.addEventListener('beforeunload', beforeUnload);
+        }
+      }
+    };
+  }
+
+  // Also clear the guard explicitly on the two main buttons (belt & suspenders)
+  document.getElementById('btn-draft')?.addEventListener('click', () => { markClean(); killBeforeUnload(); }, { once:false });
+  document.getElementById('btn-submit')?.addEventListener('click', () => { markClean(); killBeforeUnload(); }, { once:false });
+
+  // If you programmatically redirect anywhere else, do:
+  //   window.__markFormClean?.();
 })();
 </script>
 @endpush
