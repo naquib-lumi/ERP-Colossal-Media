@@ -114,17 +114,17 @@ class FurnishingController extends Controller
             })
 
             ->groupBy(
-                'p.ProductID', 'p.updated_at', 'p.status', 'p.taskType',
+                'p.OrderID',
+                'o.status','p.ProductID', 'p.updated_at', 'p.status', 'p.taskType',
                 'o.id', 'o.order_number', 'o.deadline', 'o.orderDate', 'o.created_at', 'p.accepted', 'p.redoOf','p.editable', 'o.redo'
             )
 
             ->select([
                 'p.ProductID',
                 'p.updated_at as submission_date',
-                'p.OrderID',
                 'p.status as product_status',
                 'o.orderDate',
-                'o.status as order_status',
+                DB::raw('MAX(o.status) as order_status'),
                 'p.taskType',
                 'o.id as order_id',
                 'o.order_number',

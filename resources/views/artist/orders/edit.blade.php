@@ -5,6 +5,7 @@
 @section('content')
 @push('styles')
 <style>
+  .ti-disabled { opacity: 0.6; }
   .redo-reason{
     display:inline-flex;
     align-items:center;
@@ -489,7 +490,6 @@
                             <input id="totalQty"
                               name="products[{{ $pIndex }}][qty_total]"
                               type="number"
-                              min="0"
                               class="form-control"
                               placeholder="1000"
                               onkeydown="return !['e','E','+','-'].includes(event.key)"
@@ -609,7 +609,7 @@
                                       data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
                                       data-suggestions='@json($materialSuggestions)'
                                       data-values='@json($materialVal)'
-                                      data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
+                                      data-allow-custom="1" data-max-tags="5"  data-readonly="{{ $order->submit ? '1' : '0' }}">
                                     </div>
                                   </div>
 
@@ -631,15 +631,17 @@
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Width</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -655,31 +657,33 @@
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Top</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -827,7 +831,7 @@
                                       data-name="products[__PINDEX__][items][__INDEX__][material][]"
                                       data-suggestions='@json($allMaterials ?? [])'
                                       data-values='[]'
-                                      data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
+                                      data-allow-custom="1" data-max-tags="5" data-readonly="{{ $order->submit ? '1' : '0' }}">
                                     </div>
                                   </div>
 
@@ -843,15 +847,16 @@
 
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Width</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="" 
+                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="" 
+                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                     {{ $readonly }}>
                                   </div>
 
@@ -866,30 +871,30 @@
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Top</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="" 
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="" 
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="" 
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="" 
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                     {{ $readonly }}>
                                   </div>
 
@@ -977,7 +982,7 @@
                             <span> <strong>Total:</strong>
                               <span id="del-sum-total-{{ $pIndex }}">{{ $pTotal }}</span>
                             </span>
-                            <span> <strong>Delivered:</strong>
+                            <span> <strong>Delivery Plan:</strong>
                               <span id="del-sum-delivered-{{ $pIndex }}">{{ $pDelivered }}</span>
                             </span>
                             <span> <strong>Remaining:</strong>
@@ -1210,17 +1215,37 @@
                             'installation' => 'To Delivery & Installation',
                             'courier' => 'To Courier',
                             'self_pickup' => 'To Self Pickup',
+                            'artist'       => 'To Artist',
                             ];
+                            $noArtistAssigned = empty($order->artist_id);
                             $rows = $product->remarks ?? collect();
                             @endphp
 
-                            @forelse($rows as $r)
+                            @php
+                            $orderMap = ['printing', 'furnishing', 'installation', 'courier', 'self_pickup', 'artist'];
+                            $rank = array_flip($orderMap);
+
+                            // sort by our operation order, then by created_at asc, then id (stable)
+                            $rowsSorted = ($product->remarks ?? collect())->sortBy(function ($r) use ($rank) {
+                                $op = strtolower((string) $r->operation);
+                                $opRank = $rank[$op] ?? 999;
+                                return [$opRank, $r->created_at ?? now(), $r->RemarkID];
+                            })->values();
+                            @endphp
+                            @php $errKey = "products.$pIndex.remarks.$loop->index.operation"; @endphp
+                            @forelse($rowsSorted as $r)
                             <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
                               <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
-                              <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
-                                <option value="">— Select —</option>
+                              <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]"
+                                      class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
+                                <option value="">— Select Department —</option>
                                 @foreach($ops as $k => $label)
-                                <option value="{{ $k }}" @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)>{{ $label }}</option>
+                                  @php $isArtist = $k === 'artist'; @endphp
+                                  <option value="{{ $k }}"
+                                          @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)
+                                          {{ $isArtist && $noArtistAssigned ? 'disabled' : '' }}>
+                                    {{ $label }}{{ $isArtist && $noArtistAssigned ? ' (assign artist first)' : '' }}
+                                  </option>
                                 @endforeach
                               </select>
                               <input type="text"
@@ -1228,6 +1253,10 @@
                                 class="form-control"
                                 placeholder="Write a note…" {{ $readonly }} data-optional="true"
                                 value="{{ old("products.$pIndex.remarks.$loop->index.remark", $r->remark) }}">
+                              <small class="text-muted ms-1">
+                                by {{ $r->user?->name ?? 'Unknown' }}
+                                @if($r->created_at)@endif
+                              </small>
                               @if ($submitted)
                               <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                 <i class="bx bx-trash fs-5"></i>
@@ -1235,20 +1264,16 @@
                               @endif
                             </div>
                             @empty
-                            <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
-                              <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
-                                <option value="">— Select —</option>
-                                @foreach($ops as $k => $label)
-                                <option value="{{ $k }}">{{ $label }}</option>
-                                @endforeach
-                              </select>
-                              <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }} data-optional="true">
-                              @if ($submitted)
-                              <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                <i class="bx bx-trash fs-5"></i>
-                              </button>
-                              @endif
-                            </div>
+                            <select name="products[{{ $pIndex }}][remarks][0][operation]"
+                                    class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
+                              <option value="">— Select Department —</option>
+                              @foreach($ops as $k => $label)
+                                @php $isArtist = $k === 'artist'; @endphp
+                                <option value="{{ $k }}" {{ $isArtist && $noArtistAssigned ? 'disabled' : '' }}>
+                                  {{ $label }}{{ $isArtist && $noArtistAssigned ? ' (assign artist first)' : '' }}
+                                </option>
+                              @endforeach
+                            </select>
                             @endforelse
                           </div>
                           @if ($submitted)
@@ -1271,8 +1296,9 @@
 
           {{-- Attachments (bottom) --}}
           <div class="card mt-4">
-            <div class="card-header">
-              <h5 class="card-title mb-0">Attachments</h5>
+            <div class="card-header" style="display: flex; align-items: center;">
+              <h5 class="card-title mb-0" style="margin: 0;">Attachments</h5>
+              <span style="color: red; font-size: 12px; margin-left: 6px;">*required</span>
             </div>
 
             <div class="card-body">
@@ -1408,32 +1434,34 @@
 
         <div class="col-12 col-md-3">
           <label class="form-label">Width</label>
-          <input name="items[IDX][size][w]" type="text" class="form-control">
+          <input name="items[IDX][size][w]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Height</label>
-          <input name="items[IDX][size][h]" type="text" class="form-control">
-        </div>
-        <div class="col-12 col-md-3">
-          <label class="form-label">Length</label>
-          <input name="items[IDX][size][l]" type="text" class="form-control">
+          <input name="items[IDX][size][h]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
 
         <div class="col-12 col-md-3">
           <label class="form-label">Top</label>
-          <input name="items[IDX][bleed][top]" type="text" class="form-control">
+          <input name="items[IDX][bleed][top]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Bottom</label>
-          <input name="items[IDX][bleed][bottom]" type="text" class="form-control">
+          <input name="items[IDX][bleed][bottom]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Left</label>
-          <input name="items[IDX][bleed][left]" type="text" class="form-control">
+          <input name="items[IDX][bleed][left]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Right</label>
-          <input name="items[IDX][bleed][right]" type="text" class="form-control">
+          <input name="items[IDX][bleed][right]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"class="form-control">
         </div>
 
         <div class="col-md-3">
@@ -1622,6 +1650,7 @@
       <option value="installation">To Delivery & Installation</option>
       <option value="courier">To Courier</option>
       <option value="self_pickup">To Self Pickup</option>
+      <option value="artist">To Artist</option>
     </select>
     <input class="form-control" name="remarks[__IDX__][remark]" placeholder="Remark…">
     <button type="button" class="btn btn-outline-danger remove-remark">&times;</button>
@@ -1658,6 +1687,7 @@
       const initial = JSON.parse(container.dataset.values || '[]');
       const allowCustom = container.dataset.allowCustom === '1';
       const isReadonly = container.dataset.readonly === '1';
+      const maxTags     = parseInt(container.dataset.maxTags || '5', 10);
 
       // build UI
       container.innerHTML = '';
@@ -1693,6 +1723,19 @@
         return h;
       };
 
+      function enforceLimit() {
+        const atLimit = selected.size >= maxTags;
+        // disable typing/clicking when at limit
+        if (!isReadonly) {
+          input.readOnly = atLimit;
+          input.classList.toggle('bg-light', atLimit);
+          input.placeholder = atLimit ? `Limit ${maxTags} reached` : 'Click to select…';
+        }
+        // hide dropdown entirely at/over limit
+        if (atLimit) dd.style.display = 'none';
+        container.classList.toggle('ti-disabled', atLimit);
+      }
+
       function renderChips() {
         [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
         [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
@@ -1718,6 +1761,7 @@
               selected.delete(v);
               renderChips();
               buildList();
+              enforceLimit(); 
             });
             chip.appendChild(btn);
           }
@@ -1743,9 +1787,18 @@
           it.className = 'ti-dd-item';
           it.textContent = v;
           it.addEventListener('click', () => {
+            if (selected.size >= maxTags) {
+              if (window.Swal) {
+                Swal.fire({ icon: 'warning', title: 'Limit reached', text: `You can select up to ${maxTags} materials.`, timer: 1500, showConfirmButton: false });
+              }
+              dd.style.display = 'none';
+              enforceLimit();
+              return;
+            }
             selected.add(v);
             renderChips();
             buildList();
+            enforceLimit();
           });
           dd.appendChild(it);
         });
@@ -1769,6 +1822,7 @@
       }
 
       renderChips(); // ← show chips for initial values from DB
+      enforceLimit();
     }
 
     function initAllTagsInputs(root = document) {
@@ -2175,7 +2229,7 @@
           });
         });
       }
-
+      const ORDER_HAS_ARTIST = @json((bool) $order->artist_id);
       function addRemarkRow() {
         if (!remarksWrap) return;
         const i = remarksWrap.querySelectorAll('[data-remark]').length;
@@ -2183,13 +2237,17 @@
         div.className = 'd-flex align-items-center gap-2 mb-2 remark-row';
         div.setAttribute('data-remark', '');
         div.innerHTML = `
-          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
-            <option value="">— Select —</option>
+          <select name="products[${pIndex}][remarks][${i}][operation]"
+                  class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
+            <option value="">— Select Department —</option>
             <option value="printing">To Printing</option>
             <option value="furnishing">To Furnishing</option>
-            <option value="installation">To Installation</option>
-            <option value="self pickup">To Self Pickup</option>
+            <option value="installation">To Delivery & Installation</option>
+            <option value="self_pickup">To Self Pickup</option>
             <option value="courier">To Courier</option>
+            <option value="artist" ${ORDER_HAS_ARTIST ? '' : 'disabled'}>
+              To Artist${ORDER_HAS_ARTIST ? '' : ' (assign artist first)'}
+            </option>
           </select>
           <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…" {{$readonly}} data-optional="true">
           <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -2670,12 +2728,23 @@
               title: isDraft ? 'Draft saved' : 'Order saved',
               text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
             });
-            window.location.reload();
+
+            // ✅ Only reload if it's a draft
+            if (isDraft) {
+              window.location.reload();
+            } else {
+              // ✅ Redirect to artist.orders when submitted
+              window.location.href = '/artist/orders';
+            }
           }
-          return true;     // <— allow caller to know it succeeded
+          return true; // allow caller to know it succeeded
         } else {
           if (!silent) {
-            await Swal.fire({ icon:'error', title:'Save failed', text: data?.message || `HTTP ${res.status} — please try again` });
+            await Swal.fire({
+              icon: 'error',
+              title: 'Save failed',
+              text: data?.message || `HTTP ${res.status} — please try again`
+            });
           }
           return false;
         }

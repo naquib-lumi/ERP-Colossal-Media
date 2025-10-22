@@ -116,6 +116,8 @@ class PrintingController extends Controller
             })
 
             ->groupBy(
+                'p.OrderID',
+                'o.status',
                 'p.ProductID',
                 'p.updated_at',
                 'p.status',
@@ -130,10 +132,10 @@ class PrintingController extends Controller
             ->select([
                 'p.ProductID',
                 'p.updated_at as submission_date',
-                'p.OrderID',
+                // 'p.OrderID',
                 'p.status as product_status',
                 'o.orderDate',
-                'o.status as order_status',
+                DB::raw('MAX(o.status) as order_status'),
                 'p.taskType',
                 'o.id as order_id',
                 'o.order_number',

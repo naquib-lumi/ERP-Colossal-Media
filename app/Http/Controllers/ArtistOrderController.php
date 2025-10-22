@@ -653,35 +653,43 @@ class ArtistOrderController extends Controller
 
     public function assign(Request $request, \App\Models\Order $order)
     {
-        // Only head-artist can assign
-        if (auth()->user()->role !== 'head-artist') {
-            return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+        try {
+            // Only head-artist can assign
+            if (auth()->user()->role !== 'head-artist') {
+                return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            $validated = $request->validate([
+                'user_id' => ['required','integer','exists:users,id'],
+            ]);
+
+            $assignee = isset($validated['user_id']) ? User::find($validated['user_id']) : null;
+
+            if (!$assignee) {
+                $newStatus = 'to_assign';
+            } elseif ($assignee->role === 'head-artist') {
+                $newStatus = 'in_progress';
+            } else {
+                $newStatus = 'assigned';
+            }
+
+            $order->artist_id   = $assignee?->id;   // allow unassign (null)
+            $order->orderStatus = $newStatus;
+            $order->save();
+
+            return response()->json([
+                'ok'          => true,
+                'artist_id'   => $order->artist_id,
+                'orderStatus' => $order->orderStatus,
+                'assigneeRole'=> $assignee?->role,
+            ]);
+        } catch (\Throwable $e) {
+
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => 'Please select an artist or head artist to assign.'], 500);
+            }
+            return back()->with('error', 'Failed to assign. Please try again.');
         }
-
-        $validated = $request->validate([
-            'user_id' => ['nullable','integer','exists:users,id'],
-        ]);
-
-        $assignee = isset($validated['user_id']) ? User::find($validated['user_id']) : null;
-
-        if (!$assignee) {
-            $newStatus = 'to_assign';
-        } elseif ($assignee->role === 'head-artist') {
-            $newStatus = 'in_progress';
-        } else {
-            $newStatus = 'assigned';
-        }
-
-        $order->artist_id   = $assignee?->id;   // allow unassign (null)
-        $order->orderStatus = $newStatus;
-        $order->save();
-
-        return response()->json([
-            'ok'          => true,
-            'artist_id'   => $order->artist_id,
-            'orderStatus' => $order->orderStatus,
-            'assigneeRole'=> $assignee?->role,
-        ]);
     }
 
 }

@@ -19,4 +19,9 @@ class ProductRemark extends Model
         // product_remarks.ProductID -> products.ProductID
         return $this->belongsTo(\App\Models\Product::class, 'ProductID', 'ProductID');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
+    }
 }
