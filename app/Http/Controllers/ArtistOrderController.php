@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use App\Helpers\Helpers;
+use Illuminate\Validation\Rule;
 
 class ArtistOrderController extends Controller
 {
@@ -167,7 +168,10 @@ class ArtistOrderController extends Controller
                 'products.*.quantity'            => ['required','integer','min:1'],
                 'products.*.material_info'       => ['nullable','string'],
                 'products.*.remarks'             => ['nullable','array'],
-                'products.*.remarks.*.operation' => ['required_with:products.*.remarks.*.remark','in:printing,furnishing,installation,courier,self_pickup'],
+                'products.*.remarks.*.operation' => [
+                'required_with:products.*.remarks.*.remark',
+                Rule::in(['printing','furnishing','installation','courier','self_pickup','artist']),
+                ],
                 'products.*.remarks.*.remark'    => ['required_with:products.*.remarks.*.operation','string'],
 
                 'csv_file'    => 'nullable|file|mimes:csv,txt',
