@@ -5,82 +5,42 @@
 <div class="container-xxl flex-grow-1 container-p-y">
     <!-- Lead Management Table -->
     <div class="card">
-       <h5 class="card-header bg-white text-dark pb-2 pt-2 text-md-start">
-    Lead Management
-</h5>
-
+        <h5 class="card-header bg-primary text-white pb-2 pt-2 text-md-start d-flex justify-content-between align-items-center">
+            Lead Management
+            <a href="{{ route('leads.create') }}" class="btn btn-light text-primary">Add Lead</a>
+        </h5>
         <div class="card-datatable table-responsive p-3">
-            <!-- Filters -->
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <div class="w-100 border rounded-3 px-3 py-3">
-                    <form id="leadsFilterForm" method="GET" action="{{ route('sales.leads') }}">
-                        <div class="row g-2 align-items-center">
-                            {{-- Global search --}}
-                            <div class="col-12 col-lg-3">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bx bx-search"></i></span>
-                                    <input id="globalSearch" type="text" name="q" class="form-control" placeholder="Search leads by ID, Company, or Name..." value="{{ request('q') }}">
-                                </div>
-                            </div>
-
-                            @if(Auth::user()->hasRole('head-salesperson'))
-                            {{-- Salesperson filter --}}
-                            <div class="col-12 col-lg-3">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bx bx-user"></i></span>
-                                    <select id="salespersonFilter" name="salesperson_id" class="form-control">
-                                        <option value="">All Salespersons</option>
-                                        @foreach($salespeople as $salesperson)
-                                        <option value="{{ $salesperson->id }}" {{ request('salesperson_id') == $salesperson->id ? 'selected' : '' }}>{{ $salesperson->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            @endif
-
-                            {{-- Status --}}
-                            <div class="col-12 col-lg-2">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bx bx-filter-alt"></i></span>
-                                    <select id="statusFilter" name="status" class="form-control">
-                                        <option value="">All Status</option>
-                                        <option value="accept" {{ request('status') == 'accept' ? 'selected' : '' }}>Accept</option>
-                                        <option value="reject" {{ request('status') == 'reject' ? 'selected' : '' }}>Reject</option>
-                                        <option value="followup" {{ request('status') == 'followup' ? 'selected' : '' }}>Followup</option>
-                                        <option value="new" {{ request('status') == 'new' ? 'selected' : '' }}>New</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            {{-- Date from --}}
-                            <div class="col-6 col-lg-2">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
-                                    <input type="date" id="fromDate" name="from_date" class="form-control" value="{{ request('from_date') }}">
-                                </div>
-                            </div>
-
-                            {{-- Date to --}}
-                            <div class="col-6 col-lg-2">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
-                                    <input type="date" id="toDate" name="to_date" class="form-control" value="{{ request('to_date') }}">
-                                </div>
-                            </div>
-
-                            {{-- Actions --}}
-                            <div class="col-12 col-lg d-flex gap-2 justify-content-lg-end">
-                         <button type="button" class="btn btn-dark" onclick="exportCsvWithFilters()">
-                            <i class="bx bx-export me-1"></i> Export
-                        </button>
-                                <a href="{{ route('sales.leads') }}" class="btn btn-outline-secondary">Reset</a>
-                                <a href="{{ route('leads.create') }}" class="btn btn-light text-primary">Add Lead</a>
-                            </div>
-                        </div>
-                    </form>
+            <!-- Search Input -->
+            <div class="row mb-3 mx-0">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="globalSearch" placeholder="Search leads by ID, Company, or Name..." aria-label="Search leads">
+                </div>
+                @if(Auth::user()->hasRole('head-salesperson'))
+                <div class="col-md-3">
+                    <select id="salespersonFilter" class="form-control">
+                        <option value="">All Salespersons</option>
+                        @foreach($salespeople as $salesperson)
+                        <option value="{{ $salesperson->id }}">{{ $salesperson->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+                <div class="col-md-2">
+                    <select id="statusFilter" class="form-control">
+                        <option value="">All Status</option>
+                        <option value="accept">Accept</option>
+                        <option value="reject">Reject</option>
+                        <option value="followup">Followup</option>
+                        <option value="new">New</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" id="fromDate" class="form-control" placeholder="From Date">
+                </div>
+                <div class="col-md-3">
+                    <input type="date" id="toDate" class="form-control" placeholder="To Date">
                 </div>
             </div>
-
             <table class="datatables-ajax table table-striped table-hover" id="leadTable" style="width: 100%;">
                 <thead class="table-light sticky-top">
                     <tr>
@@ -178,7 +138,14 @@
                 { data: 'reminder', name: 'reminder', orderable: true },
                 { data: 'actions', name: 'actions', orderable: false, searchable: false }
             ],
-            dom: 'rtip',
+            dom: 'Brtip',
+            buttons: [
+                { extend: 'copy', className: 'btn btn-outline-secondary btn-sm' },
+                { extend: 'csv', className: 'btn btn-outline-secondary btn-sm' },
+                { extend: 'excel', className: 'btn btn-outline-secondary btn-sm' },
+                { extend: 'pdf', className: 'btn btn-outline-secondary btn-sm' },
+                { extend: 'print', className: 'btn btn-outline-secondary btn-sm' }
+            ],
             layout: {
                 topStart: {
                     rowClass: 'row mx-3 my-2 justify-content-between align-items-center',
@@ -188,7 +155,8 @@
                                 menu: [7, 10, 25, 50, 100],
                                 text: '<span class="text-muted">Show</span> <select class="form-select form-select-sm ms-2"><option value="7">7</option><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> <span class="text-muted">entries</span>'
                             }
-                        }
+                        },
+                        'buttons'
                     ]
                 },
                 topEnd: null,
@@ -212,27 +180,23 @@
             },
             order: [[0, 'desc']],
             initComplete: function() {
-                $('#leadsFilterForm').on('submit', function(e) {
-                    e.preventDefault();
-                    table.draw();
-                });
-                $('#statusFilter, #fromDate, #toDate, #salespersonFilter').on('change', function() {
-                    table.draw();
-                });
-                $('#globalSearch').on('keyup', function() {
-                    table.search(this.value).draw();
-                });
-            },
-            drawCallback: function() {
-                $('.dataTables_paginate .pagination').addClass('pagination-sm');
-            }
-        });
-        // Add after DataTable initialization, inside $(document).ready
-    $('#leadTable').on('dblclick', 'tbody tr', function(e) {
-        if ($(e.target).closest('select, button, a, i').length) return;
-        const leadId = $(this).find('.lead-id').text();
-        window.location.href = `/leads/${leadId}/view`;
+    $('#globalSearch').on('keyup', function() {
+        table.search(this.value).draw();
     });
+    $('#statusFilter, #fromDate, #toDate, #salespersonFilter').on('change', function() {
+        table.draw();
+    });
+},
+drawCallback: function() {
+    $('.dataTables_paginate .pagination').addClass('pagination-sm');
+}
+});
+// Add after DataTable initialization, inside $(document).ready
+$('#leadTable').on('click', 'tbody tr', function(e) {
+    if ($(e.target).closest('select, button, a, i').length) return;
+    const leadId = $(this).find('.lead-id').text();
+    window.location.href = `/leads/${leadId}/view`;
+});
 
         $('#leadTable').on('change', '.status-dropdown', function(e) {
             e.stopPropagation();
@@ -303,79 +267,79 @@
         });
 
         $(document).on('click', '#confirmReminderDoneBtn', function() {
-            let leadId = $('#reminderConfirmModal').data('lead-id');
-            let reminderId = $('#reminderConfirmModal').data('reminder-id');
+    let leadId = $('#reminderConfirmModal').data('lead-id');
+    let reminderId = $('#reminderConfirmModal').data('reminder-id');
 
+    $.ajax({
+        url: '{{ route('leads.confirm.reminder.status', ['id' => ':leadId', 'reminderId' => ':reminderId']) }}'.replace(':leadId', leadId).replace(':reminderId', reminderId),
+        type: 'POST',
+        data: {
+            _token: $('meta[name="csrf-token"]').attr('content'),
+            confirm: 'yes'
+        },
+        success: function(response) {
+            console.log('Reminder confirmed:', response);
+            $('#reminderConfirmModal').modal('hide');
+            let $link = $(`a.confirm-reminder[data-reminder-id="${reminderId}"]`);
+            if ($link.length) {
+                let $li = $link.closest('li');
+                $li.addClass('text-secondary text-decoration-line-through').fadeOut(2500, function() {
+                    $li.remove();
+                    let $ul = $li.parent('ul');
+                    if ($ul.children('li').length === 0) {
+                        $ul.replaceWith('<span class="text-muted">No Reminders</span>');
+                    }
+                });
+            }
+        },
+        error: function(xhr) {
+            console.error('Reminder confirm error:', xhr.status, xhr.responseText);
+            alert('Error confirming reminder: ' + xhr.responseText);
+        }
+    });
+});
+
+        $('#leadTable').on('click', '.view-attachments', function(e) {
+        e.stopPropagation();
+        let id = $(this).data('id');
+        $.ajax({
+            url: '{{ route('leads.attachments', ['id' => ':id']) }}'.replace(':id', id),
+            type: 'GET',
+            success: function(response) {
+                $('#attachmentBody').html(response);
+                $('#attachmentModal').modal('show');
+            },
+            error: function(xhr) {
+                alert('Error loading attachments: ' + xhr.responseText);
+            }
+        });
+    });
+
+// Bind delete events after modal load
+$('#attachmentModal').on('shown.bs.modal', function() {
+    $('#attachmentBody').on('click', '.delete-attachment', function(e) {
+        e.preventDefault();
+        if (confirm('Are you sure you want to delete this attachment?')) {
+            let url = $(this).attr('href');
             $.ajax({
-                url: '{{ route('leads.confirm.reminder.status', ['id' => ':leadId', 'reminderId' => ':reminderId']) }}'.replace(':leadId', leadId).replace(':reminderId', reminderId),
-                type: 'POST',
+                url: url,
+                type: 'DELETE',
                 data: {
-                    _token: $('meta[name="csrf-token"]').attr('content'),
-                    confirm: 'yes'
+                    _token: '{{ csrf_token() }}'
                 },
                 success: function(response) {
-                    console.log('Reminder confirmed:', response);
-                    $('#reminderConfirmModal').modal('hide');
-                    let $link = $(`a.confirm-reminder[data-reminder-id="${reminderId}"]`);
-                    if ($link.length) {
-                        let $li = $link.closest('li');
-                        $li.addClass('text-secondary text-decoration-line-through').fadeOut(2500, function() {
-                            $li.remove();
-                            let $ul = $li.parent('ul');
-                            if ($ul.children('li').length === 0) {
-                                $ul.replaceWith('<span class="text-muted">No Reminders</span>');
-                            }
-                        });
+                    $(e.target).closest('tr').remove();
+                    if ($('#attachmentBody tbody tr').length === 0) {
+                        $('#attachmentModal').modal('hide');
                     }
                 },
                 error: function(xhr) {
-                    console.error('Reminder confirm error:', xhr.status, xhr.responseText);
-                    alert('Error confirming reminder: ' + xhr.responseText);
+                    alert('Error deleting attachment: ' + xhr.responseText);
                 }
             });
-        });
-
-        $('#leadTable').on('click', '.view-attachments', function(e) {
-            e.stopPropagation();
-            let id = $(this).data('id');
-            $.ajax({
-                url: '{{ route('leads.attachments', ['id' => ':id']) }}'.replace(':id', id),
-                type: 'GET',
-                success: function(response) {
-                    $('#attachmentBody').html(response);
-                    $('#attachmentModal').modal('show');
-                },
-                error: function(xhr) {
-                    alert('Error loading attachments: ' + xhr.responseText);
-                }
-            });
-        });
-
-        // Bind delete events after modal load
-        $('#attachmentModal').on('shown.bs.modal', function() {
-            $('#attachmentBody').on('click', '.delete-attachment', function(e) {
-                e.preventDefault();
-                if (confirm('Are you sure you want to delete this attachment?')) {
-                    let url = $(this).attr('href');
-                    $.ajax({
-                        url: url,
-                        type: 'DELETE',
-                        data: {
-                            _token: '{{ csrf_token() }}'
-                        },
-                        success: function(response) {
-                            $(e.target).closest('tr').remove();
-                            if ($('#attachmentBody tbody tr').length === 0) {
-                                $('#attachmentModal').modal('hide');
-                            }
-                        },
-                        error: function(xhr) {
-                            alert('Error deleting attachment: ' + xhr.responseText);
-                        }
-                    });
-                }
-            });
-        });
+        }
+    });
+});
 
         $('#leadTable').on('submit', 'form', function(e) {
             e.preventDefault();
@@ -400,17 +364,5 @@
             });
         });
     });
-
-    function exportCsvWithFilters() {
-    var params = new URLSearchParams();
-    params.append('search[value]', $('#globalSearch').val());
-    params.append('status', $('#statusFilter').val());
-    params.append('from_date', $('#fromDate').val());
-    params.append('to_date', $('#toDate').val());
-    if ($('#salespersonFilter').length) {
-        params.append('salesperson_id', $('#salespersonFilter').val());
-    }
-    window.location.href = '{{ route('leads.export-csv') }}?' + params.toString();
-}
 </script>
 @endsection

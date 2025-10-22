@@ -280,7 +280,6 @@
                                                         @foreach ($product['remarks'] ?? [] as $rindex => $remark)
                                                             <div class="remark-row">
                                                                 <select name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                                                    <option value="artist" {{ $remark['operation'] == 'artist' ? 'selected' : '' }}>To Artist</option>
                                                                     <option value="printing" {{ $remark['operation'] == 'printing' ? 'selected' : '' }}>To Printing</option>
                                                                     <option value="furnishing" {{ $remark['operation'] == 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
                                                                     <option value="installation" {{ $remark['operation'] == 'installation' ? 'selected' : '' }}>To Installation</option>
@@ -509,7 +508,6 @@
                 <div class="remark-row mb-2">
                     <select name="remark_operation" class="form-select w-auto" style="min-width:160px;">
                         <option value="">— Select —</option>
-                        <option value="artist" ${operation === 'artist' ? 'selected' : ''}>To Artist</option>
                         <option value="printing" ${operation === 'printing' ? 'selected' : ''}>To Printing</option>
                         <option value="furnishing" ${operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
                         <option value="installation" ${operation === 'installation' ? 'selected' : ''}>To Installation</option>
@@ -561,12 +559,11 @@
                         ${data.remarks.map((r, rindex) => `
                             <div class="remark-row">
                                 <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                    <option value="artist" ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                                    <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                                    <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                                    <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                                    <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                                    <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
+                                    <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>Printing</option>
+                                    <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
+                                    <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>Installation</option>
+                                    <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
+                                    <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>Courier</option>
                                 </select>
                                 <input type="text" name="products[${index}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
                                 <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -603,12 +600,11 @@
                                 ${data.remarks.map((r, rindex) => `
                                     <div class="remark-row">
                                         <select name="products[${productIndex}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                            <option value="artist" ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                                            <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                                            <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                                            <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                                            <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                                            <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
+                                            <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>Printing</option>
+                                            <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
+                                            <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>Installation</option>
+                                            <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
+                                            <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>Courier</option>
                                         </select>
                                         <input type="text" name="products[${productIndex}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
                                         <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -683,12 +679,11 @@
                 <div class="remark-row">
                     <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
                         <option value="">— Select —</option>
-                        <option value="artist">To Artist</option>
-                        <option value="printing">To Printing</option>
-                        <option value="furnishing">To Furnishing</option>
-                        <option value="installation">To Installation</option>
-                        <option value="self_pickup">To Self Pickup</option>
-                        <option value="courier">To Courier</option>
+                        <option value="printing">Printing</option>
+                        <option value="furnishing">Furnishing</option>
+                        <option value="installation">Installation</option>
+                        <option value="self_pickup">Self Pickup</option>
+                        <option value="courier">Courier</option>
                     </select>
                     <input type="text" name="products[${index}][remarks][${rindex}][remark]" class="form-control" placeholder="Write a note…">
                     <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -800,12 +795,12 @@
                     };
 
                     // Populate remarks
-                    const remarkColumns = ['Artist_Remark', 'Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
+                    const remarkColumns = ['Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
                     remarkColumns.forEach((col, idx) => {
                         const remarkIdx = headers.indexOf(col);
                         if (remarkIdx !== -1 && data[remarkIdx]) {
                             product.remarks.push({
-                                operation: ['artist', 'printing', 'furnishing', 'installation', 'courier', 'self_pickup'][idx],
+                                operation: ['printing', 'furnishing', 'installation', 'courier', 'self_pickup'][idx],
                                 remark: data[remarkIdx]
                             });
                         }
@@ -821,12 +816,11 @@
                                     ${product.remarks.map((r, rindex) => `
                                         <div class="remark-row">
                                             <select name="products[${productIndex}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                                <option value="artist" ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                                                <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                                                <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                                                <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                                                <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                                                <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
+                                                <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>Printing</option>
+                                                <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>Furnishing</option>
+                                                <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>Installation</option>
+                                                <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
+                                                <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>Courier</option>
                                             </select>
                                             <input type="text" name="products[${productIndex}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
                                             <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">

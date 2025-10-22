@@ -26,7 +26,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="companyPhone" name="company_phone" placeholder="Enter company phone" value="{{ old('company_phone') }}" pattern="[0-9\s\-\+\(\)]*">
+                                    <input type="text" class="form-control" id="companyPhone" name="company_phone" placeholder="Enter company phone" value="{{ old('company_phone') }}">
                                     <label for="companyPhone">Company Phone</label>
                                     @error('company_phone')
                                         <div class="text-danger">{{ $message }}</div>
@@ -34,10 +34,10 @@
                                 </div>
                             </div>
 
-                            <!-- Website and PIC Name -->
+                            <!-- Website and Lead Name -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="website" name="website" placeholder="example.com" value="{{ old('website') }}">
+                                    <input type="url" class="form-control" id="website" name="website" placeholder="http://example.com" value="{{ old('website') }}">
                                     <label for="website">Website</label>
                                     @error('website')
                                         <div class="text-danger">{{ $message }}</div>
@@ -46,8 +46,8 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="picName" name="name" placeholder="Enter PIC name" value="{{ old('name') }}" required>
-                                    <label for="picName">PIC Name</label>
+                                    <input type="text" class="form-control" id="leadName" name="name" placeholder="Enter lead name" value="{{ old('name') }}" required>
+                                    <label for="leadName">Lead Name</label>
                                     @error('name')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
@@ -57,7 +57,7 @@
                             <!-- Lead Phone and Lead Email -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="tel" class="form-control" id="leadPhone" name="phone" placeholder="Enter lead phone" value="{{ old('phone') }}" required pattern="[0-9\s\-\+\(\)]*">
+                                    <input type="text" class="form-control" id="leadPhone" name="phone" placeholder="Enter lead phone" value="{{ old('phone') }}" required>
                                     <label for="leadPhone">Lead Phone</label>
                                     @error('phone')
                                         <div class="text-danger">{{ $message }}</div>
@@ -66,7 +66,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="email" class="form-control" id="leadEmail" name="email" placeholder="Enter lead email" value="{{ old('email') }}">
+                                    <input type="email" class="form-control" id="leadEmail" name="email" placeholder="Enter lead email" value="{{ old('email') }}" required>
                                     <label for="leadEmail">Lead Email</label>
                                     @error('email')
                                         <div class="text-danger">{{ $message }}</div>
@@ -152,7 +152,7 @@
                             @enderror
                         </div>
 
-                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="submit" class="btn btn-primary">Add</button>
                     </form>
                 </div>
             </div>
@@ -199,7 +199,7 @@
         addFiles(fileInput.files);
         //fileInput.value = ''; // Clear input to allow re-selecting same files
     });
-
+s
     function addFiles(files) {
         Array.from(files).forEach(file => {
             if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {

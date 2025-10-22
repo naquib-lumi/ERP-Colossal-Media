@@ -25,107 +25,207 @@ class OrderController extends Controller
         return view('sales.order-management');
     }
 
-    public function getOrders(Request $request)
-    {
-        $user = Auth::user();
-        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $orders = Order::with('lead', 'salesperson', 'products', 'originalOrder')->orderBy('created_at', 'desc');
-
-        if (!$user->hasRole('head-salesperson')) {
-            $orders->where('salesperson_id', $user->id);
-        } else {
-            if ($request->has('salesperson') && $request->salesperson) {
-                $orders->where('salesperson_id', $request->salesperson);
-            }
-        }
-
-        if ($request->has('status') && $request->status) {
-            $orders->where('orderStatus', $request->status);
-        }
-
-        if ($request->has('search') && $request->input('search')['value']) {
-            $search = $request->input('search')['value'];
-            $orders->where(function ($query) use ($search) {
-                $query->where('orderTitle', 'like', "%{$search}%")
-                      ->orWhere('order_number', 'like', "%{$search}%")
-                      ->orWhereHas('lead', function ($q) use ($search) {
-                          $q->where('company_name', 'like', "%{$search}%")
-                            ->orWhere('name', 'like', "%{$search}%");
-                      });
-            });
-        }
-
-        $orders->whereNotExists(function ($query) {
-            $query->select(DB::raw(1))
-                ->from('orders as child')
-                ->whereColumn('child.redo', 'orders.id');
-        });
-
-        return DataTables::of($orders)
-            ->addColumn('order_id', function ($order) {
-                if ($order->originalOrder) {
-                    return $order->originalOrder->order_number . 'R';
-                }
-                return $order->order_number ?? $order->id;
-            })
-            ->addColumn('order_name', function ($order) {
-                return $order->orderTitle;
-            })
-            ->addColumn('company_info', function ($order) {
-                $lead = $order->lead;
-                return '<div class="company-info-cell text-secondary">' .
-                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-building me-2"></i>' . ($lead->company_name ?? 'N/A') . '</div>' .
-                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->company_phone ?? 'N/A') . '</div>' .
-                       '</div>';
-            })
-            ->addColumn('lead_details', function ($order) {
-                $lead = $order->lead;
-                $assignedTo = $order->artist?->name ?? 'Unassigned';
-                return '<div class="lead-details-cell text-secondary">' .
-                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . ($lead->name ?? 'N/A') . '</div>' .
-                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
-                       '<div class="d-flex align-items-center mb-1"><i class="bx bx-envelope me-2"></i>' . ($lead->email ?? 'N/A') . '</div>' .
-                       '<div class="d-flex align-items-center mb-1"><i class="bx bxs-id-card me-2"></i>Assigned To: ' . $assignedTo . '</div>' .
-                   '</div>';
-            })
-            ->addColumn('status', function ($order) {
-                $color = match($order->orderStatus) {
-                    'to_assign'   => 'danger',
-                    'assigned'    => 'primary',
-                    'pending'     => 'warning',
-                    'in_progress' => 'info',
-                    'completed'   => 'success',
-                    'rejected'    => 'danger',
-                    default       => 'secondary',
-                };
-                return '<span class="btn btn-sm btn-label-' . $color . '" 
-                         style="white-space: nowrap; min-width:120px; text-align:center;">'
-                    . ucwords(str_replace('_', ' ', $order->orderStatus)) .
-                    '</span>';
-            })
-            // ->addColumn('products', function ($order) {
-            //     return '<button class="btn view-products" data-id="' . $order->id . '"  style="white-space: nowrap; min-width:120px; text-align:center;">
-            //                 <span class="icon-base bx bxs-show me-2"></span>
-            //                 View Products
-            //             </button>';
-            // })
-                    ->addColumn('actions', function ($order) {
-                $editRoute = route('orders.edit', $order->id);
-                $leadViewRoute = route('orders.show', $order->id);
-                $html = '<div class="actions-cell d-flex gap-2">';
-                if ($order->orderStatus == 'to_assign') {
-                    $html .= '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>';
-                }
-                $html .= '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
-                $html .= '</div>';
-                return $html;
-            })
-            ->rawColumns(['company_info', 'lead_details', 'status', 'products', 'actions'])
-            ->toJson();
+  public function getOrders(Request $request)
+{
+    $user = Auth::user();
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        return response()->json(['error' => 'Unauthorized'], 403);
     }
+
+    $orders = Order::with('lead', 'salesperson', 'products', 'originalOrder')->orderBy('created_at', 'desc');
+
+    if (!$user->hasRole('head-salesperson')) {
+        $orders->where('salesperson_id', $user->id);
+    }
+
+    if ($request->filled('order_id')) {
+        $orders->where('order_number', 'like', "%{$request->order_id}%");
+    }
+
+    if ($request->filled('q')) {
+        $search = $request->q;
+        $orders->where(function ($query) use ($search) {
+            $query->where('orderTitle', 'like', "%{$search}%")
+                  ->orWhere('order_number', 'like', "%{$search}%")
+                  ->orWhereHas('lead', function ($q) use ($search) {
+                      $q->where('company_name', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%");
+                  });
+        });
+    }
+
+    if ($request->filled('salesperson')) { // For head: ID
+        $orders->where('salesperson_id', $request->salesperson);
+    }
+
+    if ($request->filled('lead_name')) { // For regular: lead name search
+        $orders->whereHas('lead', function ($q) use ($request) {
+            $q->where('name', 'like', "%{$request->lead_name}%");
+        });
+    }
+
+    if ($request->filled('from')) {
+        $orders->whereDate('created_at', '>=', $request->from);
+    }
+
+    if ($request->filled('to')) {
+        $orders->whereDate('created_at', '<=', $request->to);
+    }
+
+    if ($request->has('status') && $request->status) {
+        $orders->where('orderStatus', $request->status);
+    }
+
+    $orders->whereNotExists(function ($query) {
+        $query->select(DB::raw(1))
+            ->from('orders as child')
+            ->whereColumn('child.redo', 'orders.id');
+    });
+
+    return DataTables::of($orders)
+        ->addColumn('order_id', function ($order) {
+            if ($order->originalOrder) {
+                return $order->originalOrder->order_number . 'R';
+            }
+            return $order->order_number ?? $order->id;
+        })
+        ->addColumn('order_name', function ($order) {
+            return $order->orderTitle;
+        })
+        ->addColumn('company_info', function ($order) {
+            $lead = $order->lead;
+            return '<div class="company-info-cell text-secondary">' .
+                   '<div class="d-flex align-items-center mb-1"><i class="bx bxs-building me-2"></i>' . ($lead->company_name ?? 'N/A') . '</div>' .
+                   '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->company_phone ?? 'N/A') . '</div>' .
+                   '</div>';
+        })
+        ->addColumn('lead_details', function ($order) {
+            $lead = $order->lead;
+            $assignedTo = $order->artist?->name ?? 'Unassigned';
+            return '<div class="lead-details-cell text-secondary">' .
+                   '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . ($lead->name ?? 'N/A') . '</div>' .
+                   '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
+                   '<div class="d-flex align-items-center mb-1"><i class="bx bx-envelope me-2"></i>' . ($lead->email ?? 'N/A') . '</div>' .
+                   '<div class="d-flex align-items-center mb-1"><i class="bx bxs-id-card me-2"></i>Assigned To: ' . $assignedTo . '</div>' .
+               '</div>';
+        })
+        ->addColumn('status', function ($order) {
+            $color = match($order->orderStatus) {
+                'to_assign'   => 'danger',
+                'assigned'    => 'primary',
+                'pending'     => 'warning',
+                'in_progress' => 'info',
+                'completed'   => 'success',
+                'rejected'    => 'danger',
+                default       => 'secondary',
+            };
+            return '<span class="btn btn-sm btn-label-' . $color . '" 
+                     style="white-space: nowrap; min-width:120px; text-align:center;">'
+                . ucwords(str_replace('_', ' ', $order->orderStatus)) .
+                '</span>';
+        })
+        ->addColumn('actions', function ($order) {
+            $editRoute = route('orders.edit', $order->id);
+            $leadViewRoute = route('orders.show', $order->id);
+            $html = '<div class="actions-cell d-flex gap-2">';
+            if ($order->orderStatus == 'to_assign') {
+                $html .= '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>';
+            }
+            $html .= '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
+            $html .= '</div>';
+            return $html;
+        })
+        ->rawColumns(['company_info', 'lead_details', 'status', 'products', 'actions'])
+        ->toJson();
+}
+
+public function exportCsv(Request $request)
+{
+    $user = Auth::user();
+    if (!$user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
+        abort(403, 'Unauthorized');
+    }
+
+    $orders = Order::with('lead', 'salesperson', 'originalOrder')->orderBy('created_at', 'desc');
+
+    if (!$user->hasRole('head-salesperson')) {
+        $orders->where('salesperson_id', $user->id);
+    }
+
+    if ($request->filled('order_id')) {
+        $orders->where('order_number', 'like', "%{$request->order_id}%");
+    }
+
+    if ($request->filled('q')) {
+        $search = $request->q;
+        $orders->where(function ($query) use ($search) {
+            $query->where('orderTitle', 'like', "%{$search}%")
+                  ->orWhere('order_number', 'like', "%{$search}%")
+                  ->orWhereHas('lead', function ($q) use ($search) {
+                      $q->where('company_name', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%");
+                  });
+        });
+    }
+
+    if ($request->filled('salesperson')) { // For head: ID
+        $orders->where('salesperson_id', $request->salesperson);
+    }
+
+    if ($request->filled('lead_name')) { // For regular: lead name search
+        $orders->whereHas('lead', function ($q) use ($request) {
+            $q->where('name', 'like', "%{$request->lead_name}%");
+        });
+    }
+
+    if ($request->filled('from')) {
+        $orders->whereDate('created_at', '>=', $request->from);
+    }
+
+    if ($request->filled('to')) {
+        $orders->whereDate('created_at', '<=', $request->to);
+    }
+
+    if ($request->filled('status')) {
+        $orders->where('orderStatus', $request->status);
+    }
+
+    $orders->whereNotExists(function ($query) {
+        $query->select(DB::raw(1))
+            ->from('orders as child')
+            ->whereColumn('child.redo', 'orders.id');
+    });
+
+    $orders = $orders->get();
+
+    $filename = 'orders_' . now()->format('Y-m-d') . '.csv';
+    $headers = [
+        'Content-Type' => 'text/csv',
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    ];
+
+    return response()->stream(function () use ($orders) {
+        $handle = fopen('php://output', 'w');
+        fputcsv($handle, ['Order ID', 'Order Name', 'Company Name', 'Lead Name', 'Lead Phone', 'Status', 'Salesperson', 'Created At', 'Deadline']);
+
+        foreach ($orders as $order) {
+            $orderId = $order->originalOrder ? $order->originalOrder->order_number . 'R' : ($order->order_number ?? $order->id);
+            fputcsv($handle, [
+                $orderId,
+                $order->orderTitle,
+                $order->lead->company_name ?? 'N/A',
+                $order->lead->name ?? 'N/A',
+                $order->lead->phone ?? 'N/A',
+                $order->orderStatus,
+                $order->salesperson->name ?? 'N/A',
+                $order->created_at->format('Y-m-d H:i:s'),
+                $order->deadline,
+            ]);
+        }
+
+        fclose($handle);
+    }, 200, $headers);
+}
 
     public function getProducts($id)
     {
@@ -180,7 +280,7 @@ class OrderController extends Controller
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.material_info' => 'nullable|string',
             'products.*.remarks' => 'nullable|array',
-            'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup',
+            'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
             'attachments' => 'nullable|array',

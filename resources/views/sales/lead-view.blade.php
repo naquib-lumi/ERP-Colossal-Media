@@ -149,6 +149,14 @@
                                             $('#addFileForm').slideToggle();
                                         });
 
+                                        $('#addFileForm').on('submit', function(e) {
+                                            const fileInput = $('input[name="attachments[]"]')[0];
+                                            if (!fileInput.files || fileInput.files.length === 0) {
+                                                e.preventDefault();
+                                                alert('Please select at least one file to upload.');
+                                            }
+                                        });
+
                                         $('#attachmentsTableBody').on('click', '.delete-attachment', function(e) {
                                             e.preventDefault();
                                             if (confirm('Are you sure you want to delete this attachment?')) {

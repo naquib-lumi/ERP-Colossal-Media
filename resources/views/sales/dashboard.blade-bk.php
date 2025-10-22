@@ -58,125 +58,48 @@
             </div>
             <!-- Right Column: Upcoming Meetings -->
             <div class="col-md-6 mb-4">
-    <div class="card h-100 shadow-sm">
-        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Upcoming Meetings</h5>
-        </div>
-
-        <div class="card-body">
-            @forelse ($meetings as $meeting)
-                <div class="border rounded p-3 mb-3 bg-light meeting-item" data-meeting-id="{{ $meeting->id }}" style="cursor: pointer;">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <h6 class="mb-1 fw-bold">{{ $meeting->title }}</h6>
-                            <small class="text-muted">{{ $meeting->start_time->format('h:i A') }} -
-                                {{ $meeting->end_time->format('h:i A') }}</small>
-                        </div>
-                        <span class="badge bg-primary">{{ $meeting->start_time->diffForHumans() }}</span>
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Upcoming Meetings</h5>
                     </div>
-                    <p class="mt-2 mb-0 text-muted">
-                        @if ($meeting->location)
-                            @if (filter_var($meeting->location, FILTER_VALIDATE_URL))
-                                <a href="{{ $meeting->location }}" target="_blank" rel="noopener">
-                                    {{ $meeting->location }}
-                                </a>
-                            @else
-                                {{ $meeting->location }}
-                            @endif
-                        @elseif ($meeting->url)
-                            <a href="{{ $meeting->url }}" target="_blank" rel="noopener">
-                                {{ $meeting->url }}
-                            </a>
-                        @else
-                            No Location or URL provided
-                        @endif
-                    </p>
-                </div>
-            @empty
-                <div class="text-center text-muted">
-                    No upcoming meetings.
-                </div>
-            @endforelse
-        </div>
-    </div>
-</div>
 
-<!-- Meeting Details Modal -->
-<div class="modal fade" id="meetingDetailsModal" tabindex="-1" aria-labelledby="meetingDetailsModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="meetingDetailsModalLabel">Meeting Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="meetingDetailsContent">
-                    <!-- Populated by JS -->
+                    <div class="card-body">
+                        @forelse ($meetings as $meeting)
+                            <div class="border rounded p-3 mb-3 bg-light">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1 fw-bold">{{ $meeting->title }}</h6>
+                                        <small class="text-muted">{{ $meeting->start_time->format('h:i A') }} -
+                                            {{ $meeting->end_time->format('h:i A') }}</small>
+                                    </div>
+                                    <span class="badge bg-primary">{{ $meeting->start_time->diffForHumans() }}</span>
+                                </div>
+                           <p class="mt-2 mb-0 text-muted">
+                                @if ($meeting->location)
+                                    @if (filter_var($meeting->location, FILTER_VALIDATE_URL))
+                                        <a href="{{ $meeting->location }}" target="_blank" rel="noopener">
+                                            {{ $meeting->location }}
+                                        </a>
+                                    @else
+                                        {{ $meeting->location }}
+                                    @endif
+                                @elseif ($meeting->url)
+                                    <a href="{{ $meeting->url }}" target="_blank" rel="noopener">
+                                        {{ $meeting->url }}
+                                    </a>
+                                @else
+                                    No Location or URL provided
+                                @endif
+                            </p>
+                            </div>
+                        @empty
+                            <div class="text-center text-muted">
+                                No upcoming meetings.
+                            </div>
+                        @endforelse
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle meeting item click
-    document.querySelectorAll('.meeting-item').forEach(item => {
-        item.addEventListener('click', function() {
-            const meetingId = this.dataset.meetingId;
-            fetch(`/meetings/${meetingId}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to fetch');
-                    return response.json();
-                })
-                .then(data => {
-                    const content = document.getElementById('meetingDetailsContent');
-                    content.innerHTML = `
-                        <h6>${data.title}</h6>
-                        <p><strong>Start:</strong> ${new Date(data.start_time).toLocaleString()}</p>
-                        <p><strong>End:</strong> ${new Date(data.end_time).toLocaleString()}</p>
-                        <p><strong>Status:</strong> <span id="status-display">${data.status}</span></p>
-                        ${data.note ? `<p><strong>Note:</strong> ${data.note}</p>` : ''}
-                        ${data.lead ? `<p><strong>Lead:</strong> ${data.lead.name}</p>` : ''}
-                        <p><strong>Location/URL:</strong> ${data.location || data.url || 'None'}</p>
-                        <select class="form-select mt-2" id="status-select" data-id="${data.id}">
-                            <option value="scheduled" ${data.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
-                            <option value="canceled" ${data.status === 'canceled' ? 'selected' : ''}>Canceled</option>
-                            <option value="postponed" ${data.status === 'postponed' ? 'selected' : ''}>Postponed</option>
-                        </select>
-                    `;
-                    const select = document.getElementById('status-select');
-                    select.addEventListener('change', function() {
-                        const status = this.value;
-                        fetch(`/meetings/${meetingId}/status`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                            },
-                            body: JSON.stringify({ status: status })
-                        })
-                        .then(response => {
-                            if (!response.ok) throw new Error('Failed to update');
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.success) {
-                                document.getElementById('status-display').textContent = status;
-                            }
-                        })
-                        .catch(error => console.error('Error updating status:', error));
-                    });
-                    new bootstrap.Modal(document.getElementById('meetingDetailsModal')).show();
-                })
-                .catch(error => console.error('Error fetching meeting:', error));
-        });
-    });
-});
-</script>
 
         </div>
 
@@ -255,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="meetingsModalLabel">All Meetings this Month</h5>
+                    <h5 class="modal-title" id="meetingsModalLabel">All Meetings</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -499,12 +422,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('DOMContentLoaded', function() {
         function fetchMeetings() {
             fetch('/meetings')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     let html = '<ul class="list-group">';
                     const currentDate = new Date();
@@ -521,8 +439,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </div>
                                     <select class="form-select status-select" data-id="${meeting.id}">
                                         <option value="scheduled" ${meeting.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
-                                        <option value="canceled" ${meeting.status === 'canceled' ? 'selected' : ''}>Canceled</option>
-                                        <option value="postponed" ${meeting.status === 'postponed' ? 'selected' : ''}>Postponed</option>
+                                        <option value="completed" ${meeting.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                        <option value="cancelled" ${meeting.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                                        <option value="missed" ${meeting.status === 'missed' ? 'selected' : ''}>Missed</option>
                                     </select>
                                 </li>`;
                     });
@@ -534,10 +453,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             updateStatus(this.dataset.id, this.value);
                         });
                     });
-                })
-                .catch(error => {
-                    console.error('Error fetching meetings:', error);
-                    document.getElementById('meetingsList').innerHTML = '<p class="text-danger">Error loading meetings.</p>';
                 });
         }
 
@@ -546,23 +461,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                 },
                 body: JSON.stringify({ status: status })
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     document.querySelector(`.status-${id}`).innerText = status;
                 }
-            })
-            .catch(error => {
-                console.error('Error updating status:', error);
             });
         }
 
@@ -570,7 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (meetingsModal) {
             meetingsModal.addEventListener('show.bs.modal', fetchMeetings);
         }
-        });
-     </script>
+    });
+</script>
     @endif
 @endsection

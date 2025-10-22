@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
+
 class MeetingController extends Controller
 {
 
@@ -59,16 +60,32 @@ class MeetingController extends Controller
         return response()->json(['success' => true, 'message' => 'Meeting created successfully', 'meeting' => $meeting]);
     }
 
+
+
     public function index()
     {
         $user = Auth::user();
+        $now = Carbon::now();
+
         if (in_array($user->role, ['head-artist', 'head-salesperson'])) {
-            $meetings = Meeting::with('lead', 'user')->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END, start_time ASC")->get();
+            $meetings = Meeting::with('lead', 'user')
+                ->whereMonth('start_time', $now->month)
+                ->whereYear('start_time', $now->year)
+                ->orderBy('start_time', 'asc')
+                ->get();
         } else {
-            $meetings = Meeting::with('lead', 'user')->where('user_id', $user->id)->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END, start_time ASC")->get();
+            $meetings = Meeting::with('lead', 'user')
+                ->where('user_id', $user->id)
+                ->whereMonth('start_time', $now->month)
+                ->whereYear('start_time', $now->year)
+                ->orderBy('start_time', 'asc')
+                ->get();
         }
+
         return response()->json($meetings);
     }
+
+
 
     public function updateStatus(Request $request, $id)
     {

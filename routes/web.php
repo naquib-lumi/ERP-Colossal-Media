@@ -156,7 +156,7 @@ Route::get('/dashboard', function () {
         Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
-       
+       Route::get('/sales/orders/export', [OrderController::class, 'exportCsv'])->name('orders.export');
         
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
         Route::post('/orders/get', [OrderController::class, 'getOrders'])->name('orders.get');
@@ -166,6 +166,9 @@ Route::get('/dashboard', function () {
 
         // LEAD MANAGEMENT
         Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
+        Route::get('/sales/leads/export', [LeadController::class, 'exportCsv'])->name('leads.export-csv');
+        
+
         Route::post('/api/leads', [LeadController::class, 'getLeads'])->name('leads.get');
         Route::post('/leads/{id}/update-status', [LeadController::class, 'updateStatus'])->name('leads.update.status');
         Route::post('/leads/{id}/update-opportunity', [LeadController::class, 'updateOpportunity'])->name('leads.update.opportunity');

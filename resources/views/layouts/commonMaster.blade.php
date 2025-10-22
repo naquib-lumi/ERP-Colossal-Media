@@ -83,7 +83,7 @@
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
     @endif
 
-    @if (Request::is('sales/leads') || Request::is('sales/calendar') || Request::is('sales/orders'))
+    @if (Request::is('sales/leads') || Request::is('sales/calendar') || Request::is('sales/orders') || Request::is('sales/dashboard'))
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
         <link rel="stylesheet"
