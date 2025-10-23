@@ -60,84 +60,87 @@ $tasks = [
 @php $assignees = $assignees ?? collect(); @endphp
 <div class="card mb-4">
   <div class="card-body">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <form id="ff-filter-form" method="GET" action="{{ route('artist.fulfillment.index') }}" class="row g-2 align-items-center">
+
+    <!-- ===== 顶部标题 + 日期 + 按钮 ===== -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
       <h4 class="mb-0">Fulfillment Overview</h4>
+
+      <!-- 日期 + 按钮组 -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="input-group" style="max-width: 320px;">
+          <input type="date" name="from" class="form-control" value="{{ $filters['from'] ?? '' }}">
+          <span class="input-group-text">~</span>
+          <input type="date" name="to" class="form-control" value="{{ $filters['to'] ?? '' }}">
+        </div>
+        <button type="submit" form="ff-filter-form" class="btn btn-primary px-4">Filter</button>
+        <a href="{{ route('artist.fulfillment.index') }}" class="btn btn-outline-secondary">Reset</a>
+      </div>
     </div>
 
-    <form method="GET" action="{{ route('artist.fulfillment.index') }}" class="row g-2 align-items-center">
-      <!-- Product Code -->
-      <div class="col-12 col-md-3">
+    <!-- ===== 主过滤表单 ===== -->
+
+      <!-- Product Code（短） -->
+      <div class="col-12 col-lg-2">
         <div class="input-group">
           <span class="input-group-text"><i class="bx bx-hash"></i></span>
           <input type="text" name="code" class="form-control" placeholder="Enter Product ID"
-            value="{{ $filters['code'] ?? '' }}">
+                 value="{{ $filters['code'] ?? '' }}">
         </div>
       </div>
 
-      <!-- Artist / Head-artist (name) -->
-      <div class="col-12 col-md-3">
+      <!-- Job Title / Company / Product（较长） -->
+      <div class="col-12 col-lg-4">
+        <div class="input-group">
+          <span class="input-group-text"><i class="bx bx-search"></i></span>
+          <input id="ff-search" type="text" name="q" class="form-control"
+                 placeholder="Search job title, company or product name"
+                 value="{{ $filters['q'] ?? '' }}">
+        </div>
+      </div>
+
+      <!-- All assignees -->
+      <div class="col-12 col-lg-2">
         <select name="assignees" class="form-select">
           <option value="">All assignees</option>
           @foreach($assignees as $u)
-          <option value="{{ $u->id }}"
-            {{ (string)request('assignees')===(string)$u->id ? 'selected' : '' }}>
-            {{ $u->name }} ({{ $u->role }})
-          </option>
-          @endforeach
-        </select>
-      </div>
-
-      <!-- Date range (delivery date) -->
-      <div class="col-6 col-md-2">
-        <input type="date" name="from" class="form-control" value="{{ $filters['from'] ?? '' }}">
-      </div>
-      <div class="col-6 col-md-2">
-        <input type="date" name="to" class="form-control" value="{{ $filters['to'] ?? '' }}">
-      </div>
-
-      <!-- Task types -->
-      <div class="col-6 col-md-2">
-        <select name="task" class="form-select">
-          @foreach($tasks as $val => $label)
-          <option value="{{ $val }}" {{ request('task')===$val ? 'selected' : '' }}>{{ $label }}</option>
+            <option value="{{ $u->id }}" {{ (string)request('assignees')===(string)$u->id ? 'selected' : '' }}>
+              {{ $u->name }} ({{ $u->role }})
+            </option>
           @endforeach
         </select>
       </div>
 
       <!-- Status -->
-      <div class="col-6 col-md-2">
+      <div class="col-6 col-lg-2">
         @php
-        $statusOptions = ['' => 'All Statuses'];
-        foreach ($statuses as $s) {
-        $label = $s === 'in_progress' ? 'In Progress' : \Illuminate\Support\Str::of($s)->replace('_',' ')->title();
-        $statusOptions[$s] = $label;
-        }
+          $statusOptions = ['' => 'All Statuses'];
+          foreach ($statuses as $s) {
+            $label = $s === 'in_progress' ? 'In Progress' : \Illuminate\Support\Str::of($s)->replace('_',' ')->title();
+            $statusOptions[$s] = $label;
+          }
         @endphp
-        <select name="status" class="form-select">
+        <select id="ff-status" name="status" class="form-select">
           @foreach($statusOptions as $val => $label)
-          <option value="{{ $val }}" {{ request('status')===$val ? 'selected' : '' }}>{{ $label }}</option>
+            <option value="{{ $val }}" {{ request('status')===$val ? 'selected' : '' }}>{{ $label }}</option>
           @endforeach
         </select>
       </div>
 
-      <!-- Global search (job title / company / product) -->
-      <div class="col-12 col-md-4">
-        <div class="input-group">
-          <span class="input-group-text"><i class="bx bx-search"></i></span>
-          <input type="text" name="q" class="form-control"
-            placeholder="Search job title, company or product name"
-            value="{{ $filters['q'] ?? '' }}">
-        </div>
+      <!-- Task types -->
+      <div class="col-6 col-lg-2">
+        <select id="ff-task" name="task" class="form-select">
+          @foreach($tasks as $val => $label)
+            <option value="{{ $val }}" {{ request('task')===$val ? 'selected' : '' }}>{{ $label }}</option>
+          @endforeach
+        </select>
       </div>
 
-      <!-- Actions -->
-      <div class="col-12 col-md-auto d-flex gap-2">
-        <button type="submit" class="btn btn-primary">Filter</button>
-        <a href="{{ route('artist.fulfillment.index') }}" class="btn btn-outline-secondary">Reset</a>
-      </div>
     </form>
+
   </div>
 </div>
+
 
 <div id="ff-table-wrap" class="card">
   <div class="card-body">

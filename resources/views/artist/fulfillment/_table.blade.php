@@ -6,6 +6,24 @@
   .badge.bg-purple {
     background: #6f42c1;
   }
+
+  .table-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px; /* 图标之间的间距 */
+  }
+  .table-actions a {
+    color: #6b7280; /* 默认灰色 */
+    transition: all 0.15s ease;
+  }
+  .table-actions a:hover {
+    color: #111827; /* hover 更深色 */
+    opacity: 0.85;
+  }
+  .table-actions i {
+    font-size: 1.25rem; /* 适中大小 */
+  }
 </style>
 <div class="table-responsive">
   <table class="table table-modern table-hover w-100" id="fulfillTable">
@@ -68,8 +86,10 @@
         <td>{{ $r->deliv_date ?: '-' }}</td>
         <td>{{ $r->deliv_loc ?: '-' }}</td>
 
-        <td class="text-end">
-          <a class="text-secondary me-2" title="View" href="{{ $r->view_url }}"><i class="bx bx-show fs-5"></i></a>
+        <td>
+          <div class="table-actions">
+            <a title="View" href="{{ $r->view_url }}"><i class="bx bx-show"></i></a>
+          </div>
         </td>
       </tr>
       @endforeach
@@ -84,23 +104,30 @@
     });
   });
 
-  $(function() {
-    const dt = $('#fulfillTable').DataTable({
-      dom: '<"d-flex justify-content-between align-items-center"lB>rt<"d-flex justify-content-between align-items-center"ip>',
+  $(function () {
+    $('#fulfillTable').DataTable({
+      dom: '<"d-flex justify-content-between align-items-center"B>rt<"d-flex justify-content-between align-items-center"lip>',
       paging: true,
       pageLength: 10,
-      lengthMenu: [
-        [10, 20, 30, 50, 100],
-        [10, 20, 30, 50, 100]
-      ],
-      order: [], // server handles delivery sort via ?deliv_sort
+      lengthMenu: [[10,20,30,50,100],[10,20,30,50,100]],
+      order: [],
       autoWidth: false,
       responsive: true,
       buttons: [{
         extend: 'excel',
         className: 'd-none',
         title: 'Fulfillment'
-      }]
+      }],
+      language: {
+        lengthMenu: ' _MENU_ entries per page',
+        info: 'Showing _START_ to _END_ of _TOTAL_ entries',
+        infoEmpty: 'Showing 0 to 0 of 0 entries',
+        zeroRecords: 'No matching records found',
+        paginate: { previous: 'Previous', next: 'Next' }
+      },
+      drawCallback: function() {
+        this.api().columns.adjust().responsive.recalc();
+      }
     });
   });
 </script>
