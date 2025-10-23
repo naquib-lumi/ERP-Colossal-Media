@@ -360,13 +360,16 @@ Route::get('/dashboard', function () {
         Route::patch('/dispatchcontrol/jobs/{product}/complete', [DispatchControlController::class, 'completeWithProof'])->name('dispatchcontrol.jobs.complete');
     });
 
- Route::middleware('role:admin')->group(function () {
-     Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
-     Route::get('/admin/leads-monthly', [AdminController::class, 'leadsMonthly'])->name('admin.leadsMonthly');
-     Route::get('/admin/leads-breakdown', [AdminController::class, 'leadsBreakdown'])->name('admin.leadsBreakdown');
-     Route::get('/admin/fulfillment-counts', [AdminController::class, 'fulfillmentCounts'])->name('admin.fulfillmentCounts');
-     Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
-     //  Route::get('/admin/manageuser-table', [AdminController::class, 'manageUserTable'])->name('admin.manageuserTable');
+Route::middleware('role:admin')->group(function () {
+    Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::get('/admin/leads-monthly', [AdminController::class, 'leadsMonthly'])->name('admin.leadsMonthly');
+    Route::get('/admin/leads-breakdown', [AdminController::class, 'leadsBreakdown'])->name('admin.leadsBreakdown');
+    Route::get('/admin/fulfillment-counts', [AdminController::class, 'fulfillmentCounts'])->name('admin.fulfillmentCounts');
+    Route::get('/admin/fulfillment', [AdminController::class,'fulfillment'])->name('admin.fulfillment');
+    Route::get('/admin/fulfillment/{id}', [AdminController::class,'fulfillmentShow'])->name('admin.fulfillment.show');
+    Route::get('/admin/fulfillment/{id}/edit', [AdminController::class,'fulfillmentEdit'])->name('admin.fulfillment.edit');
+    Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
+    //  Route::get('/admin/manageuser-table', [AdminController::class, 'manageUserTable'])->name('admin.manageuserTable');
     
      Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
      Route::put('/admin/user/{user}', [AdminController::class, 'updateUser'])->name('admin.user.update');
