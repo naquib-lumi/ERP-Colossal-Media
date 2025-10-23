@@ -5,6 +5,23 @@
 @section('content')
 @push('styles')
 <style>
+  .ti-disabled { opacity: 0.6; }
+  .redo-reason{
+    display:inline-flex;
+    align-items:center;
+    max-width: 48ch;             /* stays on one line */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: .20rem .55rem;
+    border-radius: 999px;
+    font-size: .875rem;
+    font-weight: 500;
+    background: #F4F6FF;         /* gentle indigo tint */
+    color: #3842b0;
+    border: 1px solid #E3E7FF;
+  }
+
   .remove-item {
     display: flex;
     align-items: center;
@@ -258,6 +275,7 @@
 </script>
 @endpush
 @endif
+<meta name="csrf-token" content="{{ csrf_token() }}">
 
 {{-- Loading overlay --}}
 <div id="loading-overlay" class="overlay">
@@ -279,6 +297,11 @@
   $disabled = $isSubmitted ? 'disabled' : '';
 
   $submitted = ((int)($order->draft ?? 0) === 1 || (int)($order->draft ?? 0) === 0) && (int)($order->submit ?? 0) === 0;
+
+  $isRedo = false;
+  if (!empty($order->redo) || (isset($order->order_number) && Str::endsWith($order->order_number, 'R'))) {
+      $isRedo = true;
+  }
   @endphp
   <div class="row g-4">
     <div class="col-12">
@@ -356,7 +379,7 @@
 
                 <div class="col-12">
                   <label class="form-label d-flex align-items-center gap-2">
-                    <span>Attachments</span>
+                    <span>Lead Attachments</span>
                     <span class="text-body-secondary small">(read-only — uploaded by salesperson)</span>
                   </label>
 
@@ -381,6 +404,17 @@
             </div>
           </div>
 
+          <!-- add product btn -->
+          <!-- <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Products</h5>
+            @if(!$isSubmitted && !$isRedo)
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
+              + Add Product
+            </button>
+            @endif
+          </div> -->
+          
+
           <div class="accordion" id="productsAcc">
             @foreach($order->products as $pIndex => $product)
             @php
@@ -389,21 +423,44 @@
             $locked = $isRedo && !$selectedForRedo;
             @endphp
             <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
-            <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}">
+            <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}" data-product-row data-product-id="{{ $product->ProductID }}" data-url="{{ route('artist.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
               <h2 class="accordion-header" id="pHead{{ $pIndex }}">
-                <button
-                  class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
-                  type="button"
-                  data-bs-toggle="collapse"
-                  data-bs-target="#pCollapse{{ $pIndex }}"
-                  aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
-                  aria-controls="pCollapse{{ $pIndex }}">
-                  Product #{{ $product->display_code  ?? $loop->iteration }}
-                  — {{ $product->productName ?? 'Product' }}
-                  @if ($selectedForRedo)
-                  <span class="badge bg-primary ms-2">REDO</span>
+                <div class="d-flex justify-content-between align-items-center w-100">
+                  <button
+                    class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#pCollapse{{ $pIndex }}"
+                    aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
+                    aria-controls="pCollapse{{ $pIndex }}">
+                    Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
+                    @if ($selectedForRedo)
+                      <span class="badge bg-primary ms-2">REDO</span>
+                      @if (!empty($redoReason))
+                        <span
+                          class="redo-reason ms-2"
+                          data-bs-toggle="tooltip"
+                          data-bs-placement="top"
+                          title="{{ $redoReason }}"
+                        >
+                          <i class="bi bi-chat-left-text me-1"></i>
+                          {{ Str::limit($redoReason, 60) }}
+                        </span>
+                      @endif
+                    @endif
+                  </button>
+
+                  @if ($submitted)
+                    <button type="button"
+                            class="btn btn-link text-danger p-0 ms-2 me-3"
+                            data-delete-product
+                            aria-label="Delete product"
+                            title="Delete this product"
+                            style="text-decoration:none;">
+                      <i class="bx bx-trash fs-5"></i>
+                    </button>
                   @endif
-                </button>
+                </div>
               </h2>
 
               <div
@@ -439,9 +496,9 @@
                             <input id="totalQty"
                               name="products[{{ $pIndex }}][qty_total]"
                               type="number"
-                              min="0"
                               class="form-control"
                               placeholder="1000"
+                              onkeydown="return !['e','E','+','-'].includes(event.key)"
                               value="{{ old("products.$pIndex.qty_total", $product->totalQuantity ?? '') }}"
                               {{ $readonly }}>
                           </div>
@@ -492,7 +549,7 @@
                           $materialSuggestions = collect($materials ?? [])
                           ->pluck('materialName')->filter()->values();
                           @endphp
-                          <input type="hidden" name="products[{{ $pIndex }}][items][{{ $i }}][id]" value="{{ data_get($it,'ItemID') }}">
+                          <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
                           <div class="accordion-item mb-3 border rounded" id="item{{ $pIndex }}_{{ $i }}" data-kind="item">
                             <div class="accordion-header d-flex justify-content-between align-items-center px-3 py-2">
                               <div>
@@ -547,6 +604,7 @@
                                     <label class="form-label">Quantity</label>
                                     <input type="number" min="0" class="form-control"
                                       name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}" {{ $readonly }}>
                                   </div>
 
@@ -554,11 +612,10 @@
                                   <div class="col-12">
                                     <label class="form-label">Material</label>
                                     <div class="tags-input"
-                                        data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
-                                        data-suggestions='@json($materialSuggestions)'
-                                        data-values='@json($materialVal)'
-                                        data-allow-custom="1"
-                                        data-readonly="{{ ($order->submit || $locked) ? '1' : '0' }}">
+                                      data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
+                                      data-suggestions='@json($materialSuggestions)'
+                                      data-values='@json($materialVal)'
+                                      data-allow-custom="1" data-max-tags="5"  data-readonly="{{ $order->submit ? '1' : '0' }}">
                                     </div>
                                   </div>
 
@@ -578,15 +635,19 @@
                                     </select>
                                   </div>
                                   <div class="col-12 col-md-4">
-                                    <label class="form-label">Size - Width</label>
+                                    <label class="form-label">Width</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -600,27 +661,35 @@
                                     </select>
                                   </div>
                                   <div class="col-12 col-md-2">
-                                    <label class="form-label">Bleed (Top)</label>
+                                    <label class="form-label">Top</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
-                                      type="number" step="0.01" class="form-control"
+                                      type="number" min="0" step="0.01" class="form-control"
+                                      onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
                                       value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -756,7 +825,10 @@
 
                                   <div class="col-md-6">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" {{ $readonly }}>
+                                    <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12">
@@ -765,7 +837,7 @@
                                       data-name="products[__PINDEX__][items][__INDEX__][material][]"
                                       data-suggestions='@json($allMaterials ?? [])'
                                       data-values='[]'
-                                      data-allow-custom="1" data-readonly="{{ $order->submit ? '1' : '0' }}">
+                                      data-allow-custom="1" data-max-tags="5" data-readonly="{{ $order->submit ? '1' : '0' }}">
                                     </div>
                                   </div>
 
@@ -780,12 +852,18 @@
                                   </div>
 
                                   <div class="col-12 col-md-4">
-                                    <label class="form-label">Size - Width</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <label class="form-label">Width</label>
+                                    <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" min="0" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" min="0" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    {{ $readonly }}>
                                   </div>
 
                                   <div class="col-12 col-md-4">
@@ -798,20 +876,32 @@
                                     </select>
                                   </div>
                                   <div class="col-12 col-md-2">
-                                    <label class="form-label">Bleed (Top)</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <label class="form-label">Top</label>
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" min="0" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" min="0" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" min="0" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
-                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" step="0.01" class="form-control" value="" {{ $readonly }}>
+                                    <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" min="0" step="0.01" class="form-control" value="" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    {{ $readonly }}>
                                   </div>
 
                                   <div class="col-md-3">
@@ -898,7 +988,7 @@
                             <span> <strong>Total:</strong>
                               <span id="del-sum-total-{{ $pIndex }}">{{ $pTotal }}</span>
                             </span>
-                            <span> <strong>Delivered:</strong>
+                            <span> <strong>Delivery Plan:</strong>
                               <span id="del-sum-delivered-{{ $pIndex }}">{{ $pDelivered }}</span>
                             </span>
                             <span> <strong>Remaining:</strong>
@@ -1014,7 +1104,9 @@
                                     name="products[{{ $pIndex }}][deliveries][{{ $i }}][outsource_cost]"
                                     value="{{ $costVal }}"
                                     data-outsource-cost
-                                    {{ $costDisabledAttr }} data-optional="true">
+                                    {{ $costDisabledAttr }} data-optional="true"
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
                                 </div>
 
                                 {{-- Location --}}
@@ -1030,7 +1122,10 @@
                                   <label class="form-label">Quantity</label>
                                   <input type="number" class="form-control del-qty"
                                     name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]"
-                                    value="{{ $d->quantity }}" {{ $readonly }}>
+                                    value="{{ $d->quantity }}" 
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             
+                                    {{ $readonly }}>
                                 </div>
 
                                 {{-- Date & Time --}}
@@ -1088,7 +1183,9 @@
                                     name="products[{{ $pIndex }}][deliveries][__INDEX__][outsource_cost]"
                                     class="form-control"
                                     data-outsource-cost
-                                    disabled data-optional="true">
+                                    disabled data-optional="true"
+                                    onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
                                 </div>
 
                                 <div class="col-12 col-md-4">
@@ -1098,7 +1195,9 @@
 
                                 <div class="col-12 col-md-4">
                                   <label class="form-label">Quantity</label>
-                                  <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty">
+                                  <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty"
+                                  onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
                                 </div>
 
                                 <div class="col-12 col-md-4">
@@ -1117,22 +1216,42 @@
                           <div id="remarks-wrap-{{ $pIndex }}">
                             @php
                             $ops = [
-                            'printing' => 'Printing',
-                            'furnishing' => 'Furnishing',
-                            'installation' => 'Delivery & Installation',
-                            'courier' => 'Courier',
-                            'self_pickup' => 'Self Pickup',
+                            'printing' => 'To Printing',
+                            'furnishing' => 'To Furnishing',
+                            'installation' => 'To Delivery & Installation',
+                            'courier' => 'To Courier',
+                            'self_pickup' => 'To Self Pickup',
+                            'artist'       => 'To Artist',
                             ];
+                            $noArtistAssigned = empty($order->artist_id);
                             $rows = $product->remarks ?? collect();
                             @endphp
 
-                            @forelse($rows as $r)
+                            @php
+                            $orderMap = ['printing', 'furnishing', 'installation', 'courier', 'self_pickup', 'artist'];
+                            $rank = array_flip($orderMap);
+
+                            // sort by our operation order, then by created_at asc, then id (stable)
+                            $rowsSorted = ($product->remarks ?? collect())->sortBy(function ($r) use ($rank) {
+                                $op = strtolower((string) $r->operation);
+                                $opRank = $rank[$op] ?? 999;
+                                return [$opRank, $r->created_at ?? now(), $r->RemarkID];
+                            })->values();
+                            @endphp
+                            @php $errKey = "products.$pIndex.remarks.$loop->index.operation"; @endphp
+                            @forelse($rowsSorted as $r)
                             <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('data-entry.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
                               <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
-                              <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
-                                <option value="">— Select —</option>
+                              <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]"
+                                      class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
+                                <option value="">— Select Department —</option>
                                 @foreach($ops as $k => $label)
-                                <option value="{{ $k }}" @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)>{{ $label }}</option>
+                                  @php $isArtist = $k === 'artist'; @endphp
+                                  <option value="{{ $k }}"
+                                          @selected(old("products.$pIndex.remarks.$loop->index.operation", $r->operation) === $k)
+                                          {{ $isArtist && $noArtistAssigned ? 'disabled' : '' }}>
+                                    {{ $label }}{{ $isArtist && $noArtistAssigned ? ' (assign artist first)' : '' }}
+                                  </option>
                                 @endforeach
                               </select>
                               <input type="text"
@@ -1140,6 +1259,10 @@
                                 class="form-control"
                                 placeholder="Write a note…" {{ $readonly }} data-optional="true"
                                 value="{{ old("products.$pIndex.remarks.$loop->index.remark", $r->remark) }}">
+                              <small class="text-muted ms-1">
+                                by {{ $r->user?->name ?? 'Unknown' }}
+                                @if($r->created_at)@endif
+                              </small>
                               @if ($submitted)
                               <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                 <i class="bx bx-trash fs-5"></i>
@@ -1147,20 +1270,16 @@
                               @endif
                             </div>
                             @empty
-                            <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark>
-                              <select name="products[{{ $pIndex }}][remarks][0][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
-                                <option value="">— Select —</option>
-                                @foreach($ops as $k => $label)
-                                <option value="{{ $k }}">{{ $label }}</option>
-                                @endforeach
-                              </select>
-                              <input type="text" name="products[{{ $pIndex }}][remarks][0][remark]" class="form-control" placeholder="Write a note…" {{ $readonly }} data-optional="true">
-                              @if ($submitted)
-                              <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                <i class="bx bx-trash fs-5"></i>
-                              </button>
-                              @endif
-                            </div>
+                            <!-- <select name="products[{{ $pIndex }}][remarks][0][operation]"
+                                    class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
+                              <option value="">— Select Department —</option>
+                              @foreach($ops as $k => $label)
+                                @php $isArtist = $k === 'artist'; @endphp
+                                <option value="{{ $k }}" {{ $isArtist && $noArtistAssigned ? 'disabled' : '' }}>
+                                  {{ $label }}{{ $isArtist && $noArtistAssigned ? ' (assign artist first)' : '' }}
+                                </option>
+                              @endforeach
+                            </select> -->
                             @endforelse
                           </div>
                           @if ($submitted)
@@ -1183,8 +1302,9 @@
 
           {{-- Attachments (bottom) --}}
           <div class="card mt-4">
-            <div class="card-header">
-              <h5 class="card-title mb-0">Attachments</h5>
+            <div class="card-header" style="display: flex; align-items: center;">
+              <h5 class="card-title mb-0" style="margin: 0;">Attachments</h5>
+              <span style="color: red; font-size: 12px; margin-left: 6px;">*required</span>
             </div>
 
             <div class="card-body">
@@ -1242,6 +1362,43 @@
             </div>
           </div>
 
+          {{-- Head-artist only: Assign Artist --}}
+          @if(auth()->user()->role === 'head-artist')
+            @if(!$isSubmitted)
+              <div class="card mt-4" id="assign-artist-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <strong>Assign Artist</strong>
+                  
+                </div>
+                <div class="card-body">
+                  <div class="d-flex align-items-end gap-2">
+                    <div class="flex-grow-1">
+                      <label for="assignee_artist_id" class="form-label mb-1 fw-semibold">Artist</label>
+                      <select id="assignee_artist_id" class="form-select" style="width:100%">
+                        @if(!empty($order->artist_id) && !empty($order->artist))
+                          <option value="{{ $order->artist_id }}" selected>
+                            {{ $order->artist->name }} ({{ $order->artist->role }})
+                          </option>
+                        @endif
+
+                        @foreach($artists as $artist)
+                          <option value="{{ $artist->id }}">
+                            {{ $artist->name }} ({{ $artist->role }})
+                          </option>
+                        @endforeach
+                      </select>
+                    </div>
+                    <div class="pb-1">
+                      <button id="btn-assign-artist" type="button" class="btn btn-primary btn-sm">
+                        Assign Artist
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            @endif
+          @endif
+
           <div id="form-errors" class="mt-3 text-red-600 text-sm"></div>
 
         </div>
@@ -1252,7 +1409,7 @@
     {{-- Sticky save bar --}}
     <div class="col-12">
       <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
-        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
         <input type="hidden" name="submit" id="submit-input" value="0">
         @if(!$isSubmitted)
         <button type="button" name="is_draft" onclick="document.getElementById('submit-input').value=0" class="btn btn-secondary" id="btn-draft">Save Draft</button>
@@ -1280,7 +1437,9 @@
         </div>
         <div class="col-md-2">
           <label class="form-label">Quantity</label>
-          <input name="items[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty">
+          <input name="items[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
+          onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
         </div>
         <div class="col-md-6">
           <label class="form-label">Material</label>
@@ -1288,33 +1447,35 @@
         </div>
 
         <div class="col-12 col-md-3">
-          <label class="form-label">Size - Width</label>
-          <input name="items[IDX][size][w]" type="text" class="form-control">
+          <label class="form-label">Width</label>
+          <input name="items[IDX][size][w]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Height</label>
-          <input name="items[IDX][size][h]" type="text" class="form-control">
-        </div>
-        <div class="col-12 col-md-3">
-          <label class="form-label">Length</label>
-          <input name="items[IDX][size][l]" type="text" class="form-control">
+          <input name="items[IDX][size][h]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
 
         <div class="col-12 col-md-3">
-          <label class="form-label">Bleed (Top)</label>
-          <input name="items[IDX][bleed][top]" type="text" class="form-control">
+          <label class="form-label">Top</label>
+          <input name="items[IDX][bleed][top]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Bottom</label>
-          <input name="items[IDX][bleed][bottom]" type="text" class="form-control">
+          <input name="items[IDX][bleed][bottom]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Left</label>
-          <input name="items[IDX][bleed][left]" type="text" class="form-control">
+          <input name="items[IDX][bleed][left]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Right</label>
-          <input name="items[IDX][bleed][right]" type="text" class="form-control">
+          <input name="items[IDX][bleed][right]" type="number" type="number" min="0" step="0.01"
+          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"class="form-control">
         </div>
 
         <div class="col-md-3">
@@ -1371,7 +1532,9 @@
         </div>
         <div class="col-12 col-md-2">
           <label class="form-label">Quantity</label>
-          <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty">
+          <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
+          onkeydown="return !['e','E','+','-'].includes(event.key)"
+                             >
         </div>
         <div class="col-12 col-md-4">
           <label class="form-label">Date & Time</label>
@@ -1382,6 +1545,134 @@
   </div>
 </template>
 
+{{-- ===== Submit Modals ===== --}}
+<div class="modal fade" id="modal-submit-ok" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-3">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Submit Job Order</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="display-6 mb-3">✅</div>
+        <p class="mb-0">All required fields are complete. What do you want to do with this order?</p>
+      </div>
+      <div class="modal-footer flex-column gap-2 border-0">
+        <button type="button" class="btn btn-dark w-100" id="btn-confirm-send-printing">Send to Printing</button>
+        <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">← Back to Order Page</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-submit-incomplete" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-3">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Incomplete Order Information</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <div class="display-6 mb-3 text-warning">⚠️</div>
+        <p class="mb-0 fs-5">
+          Your order information is not fully filled up.<br>
+          Please check all required fields and try again.
+        </p>
+      </div>
+      <div class="modal-footer border-0">
+        <button style="display: none;" type="button" class="btn btn-dark w-100" id="btn-open-choose-de">Pass to Data Entry</button>
+        <button type="button" class="btn btn-dark w-100" data-bs-dismiss="modal">← Back to Order Page</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-choose-de-user" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-3">
+      <div class="modal-header">
+        <h5 class="modal-title">Assign to Data Entry</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Select Data Entry User</label>
+        <select id="de-user-select" class="form-select">
+          <option value="">Please select a user</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-dark" id="btn-confirm-assign">Confirm &amp; Assign</button>
+      </div>
+    </div>
+  </div>
+</div>
+{{-- ===== /Submit Modals ===== --}}
+
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Product</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form id="productForm" method="POST" action="{{ route('artist.orders.products.store', ['order' => $order]) }}" autocomplete="off">
+        @csrf
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label">Product Name</label>
+              <input type="text" class="form-control" id="p_name" name="product_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Quantity</label>
+              <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1"
+              onkeydown="return !['e','E','+','-'].includes(event.key)">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Material Remark</label>
+              <textarea class="form-control" id="p_material" name="material_info" rows="2" placeholder="Backlit Fabric"></textarea>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label m-0">Product Remarks</label>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addRemarkRow">+ Add Remarks</button>
+          </div>
+
+          <div id="remarkRows" class="vstack gap-2">
+            {{-- rows injected by JS --}}
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{{-- Template for one remark row --}}
+<script type="text/template" id="remarkRowTpl">
+  <div class="remark-row d-flex gap-2 align-items-start">
+    <select class="form-select" name="remarks[__IDX__][operation]">
+      <option value="" disabled selected>Select operation</option>
+      <option value="printing">To Printing</option>
+      <option value="furnishing">To Furnishing</option>
+      <option value="installation">To Delivery & Installation</option>
+      <option value="courier">To Courier</option>
+      <option value="self_pickup">To Self Pickup</option>
+      <option value="artist">To Artist</option>
+    </select>
+    <input class="form-control" name="remarks[__IDX__][remark]" placeholder="Remark…">
+    <button type="button" class="btn btn-outline-danger remove-remark">&times;</button>
+  </div>
+</script>
 
 @endsection
 
@@ -1413,6 +1704,7 @@
       const initial = JSON.parse(container.dataset.values || '[]');
       const allowCustom = container.dataset.allowCustom === '1';
       const isReadonly = container.dataset.readonly === '1';
+      const maxTags     = parseInt(container.dataset.maxTags || '5', 10);
 
       // build UI
       container.innerHTML = '';
@@ -1448,6 +1740,19 @@
         return h;
       };
 
+      function enforceLimit() {
+        const atLimit = selected.size >= maxTags;
+        // disable typing/clicking when at limit
+        if (!isReadonly) {
+          input.readOnly = atLimit;
+          input.classList.toggle('bg-light', atLimit);
+          input.placeholder = atLimit ? `Limit ${maxTags} reached` : 'Click to select…';
+        }
+        // hide dropdown entirely at/over limit
+        if (atLimit) dd.style.display = 'none';
+        container.classList.toggle('ti-disabled', atLimit);
+      }
+
       function renderChips() {
         [...box.querySelectorAll('.ti-chip')].forEach(n => n.remove());
         [...container.querySelectorAll('input[type=hidden]')].forEach(n => n.remove());
@@ -1473,6 +1778,7 @@
               selected.delete(v);
               renderChips();
               buildList();
+              enforceLimit(); 
             });
             chip.appendChild(btn);
           }
@@ -1498,9 +1804,18 @@
           it.className = 'ti-dd-item';
           it.textContent = v;
           it.addEventListener('click', () => {
+            if (selected.size >= maxTags) {
+              if (window.Swal) {
+                Swal.fire({ icon: 'warning', title: 'Limit reached', text: `You can select up to ${maxTags} materials.`, timer: 1500, showConfirmButton: false });
+              }
+              dd.style.display = 'none';
+              enforceLimit();
+              return;
+            }
             selected.add(v);
             renderChips();
             buildList();
+            enforceLimit();
           });
           dd.appendChild(it);
         });
@@ -1524,6 +1839,7 @@
       }
 
       renderChips(); // ← show chips for initial values from DB
+      enforceLimit();
     }
 
     function initAllTagsInputs(root = document) {
@@ -1899,21 +2215,6 @@
           document.getElementById('btn-draft')?.toggleAttribute('disabled', !ok);
         }
 
-        function updateDeliverySummaryBar() {
-          const totalEl = document.getElementById('del-sum-total-' + pIndex);
-          const delEl   = document.getElementById('del-sum-delivered-' + pIndex);
-          const remEl   = document.getElementById('del-sum-remaining-' + pIndex);
-          if (!totalEl || !delEl || !remEl) return;
-
-          const total = getTotalAllowed();
-          const delivered = sumDeliveryQty();
-          const remaining = Math.max(total - delivered, 0);
-
-          totalEl.textContent = String(total);
-          delEl.textContent   = String(delivered);
-          remEl.textContent   = String(remaining);
-        }
-
         function validateDeliveries() {
           const ok = sumDeliveryQty() <= getTotalAllowed();
           setQtyValidity(ok, ok ? '' : 'Delivery quantities exceed Product Total Quantity.');
@@ -1945,7 +2246,7 @@
           });
         });
       }
-
+      const ORDER_HAS_ARTIST = @json((bool) $order->artist_id);
       function addRemarkRow() {
         if (!remarksWrap) return;
         const i = remarksWrap.querySelectorAll('[data-remark]').length;
@@ -1953,13 +2254,17 @@
         div.className = 'd-flex align-items-center gap-2 mb-2 remark-row';
         div.setAttribute('data-remark', '');
         div.innerHTML = `
-          <select name="products[${pIndex}][remarks][${i}][operation]" class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
-            <option value="">— Select —</option>
-            <option value="printing">Printing</option>
-            <option value="furnishing">Furnishing</option>
-            <option value="installation">Installation</option>
-            <option value="self pickup">Self Pickup</option>
-            <option value="courier">Courier</option>
+          <select name="products[${pIndex}][remarks][${i}][operation]"
+                  class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
+            <option value="">— Select Department —</option>
+            <option value="printing">To Printing</option>
+            <option value="furnishing">To Furnishing</option>
+            <option value="installation">To Delivery & Installation</option>
+            <option value="self_pickup">To Self Pickup</option>
+            <option value="courier">To Courier</option>
+            <option value="artist" ${ORDER_HAS_ARTIST ? '' : 'disabled'}>
+              To Artist${ORDER_HAS_ARTIST ? '' : ' (assign artist first)'}
+            </option>
           </select>
           <input type="text" name="products[${pIndex}][remarks][${i}][remark]" class="form-control" placeholder="Write a note…" {{$readonly}} data-optional="true">
           <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
@@ -2191,6 +2496,38 @@
 
     const selected = new Map();
 
+    const products = document.querySelectorAll('.accordion-collapse[id^="pCollapse"]');
+
+    const productHasAtLeastOneItem = (root) =>
+      !!root.querySelector('input[name^="products["][name*="[items]"], select[name^="products["][name*="[items]"], textarea[name^="products["][name*="[items]"]');
+
+    const productHasAtLeastOneDelivery = (root) =>
+      !!root.querySelector('input[name^="products["][name*="[deliveries]"], select[name^="products["][name*="[deliveries]"], textarea[name^="products["][name*="[deliveries]"]');
+
+    const findBtn = (scope, selector, textRx) => {
+      // Prefer data-attrs if you have them; else fall back to text match
+      let btn = scope.querySelector(selector);
+      if (btn) return btn;
+      return Array.from(scope.querySelectorAll('button,a'))
+        .find(b => textRx.test((b.textContent || '').trim().toLowerCase()));
+    };
+
+    products.forEach((root) => {
+    const scope = root.closest('.accordion-item') || root;
+
+    // Seed 1 Item if none
+    if (!productHasAtLeastOneItem(root)) {
+      const addItemBtn = findBtn(scope, '[data-add-item],[data-action="add-item"]', /\badd\s*item\b/);
+      if (addItemBtn) addItemBtn.click();
+    }
+
+    // Seed 1 Delivery if none
+    if (!productHasAtLeastOneDelivery(root)) {
+      const addDelBtn = findBtn(scope, '[data-add-delivery],[data-action="add-delivery"]', /\badd\s*delivery(\s*breakdown)?\b/);
+      if (addDelBtn) addDelBtn.click();
+    }
+  });
+
     input.addEventListener('change', () => {
       if (!input.files?.length) return;
       const incoming = Array.from(input.files);
@@ -2327,171 +2664,1115 @@
     }
 
     // submit order form
-    const form       = document.getElementById('order-form');
-    const btnDraft   = document.getElementById('btn-draft');
-    const btnSubmit  = document.getElementById('btn-submit');
-    const isDraftEl  = document.getElementById('is_draft');
-    const overlay    = document.getElementById('loading-overlay');
+    const form = document.getElementById('order-form');
+    const btnDraft = document.getElementById('btn-draft');
+    const btnSubmit = document.getElementById('btn-submit');
+    const isDraftEl = document.getElementById('is_draft');
+    const overlay = document.getElementById('loading-overlay');
 
     const action = @json(route('data-entry.orders.update', $order));
-    const csrf   = @json(csrf_token());
+    const csrf = @json(csrf_token());
 
     function getSelectedFiles() {
       return (typeof window.getSelectedFiles === 'function') ? window.getSelectedFiles() : [];
     }
 
     function loading(on) {
-      overlay?.classList.toggle('is-open', !!on);
-      if (btnDraft)  btnDraft.disabled  = !!on;
-      if (btnSubmit) btnSubmit.disabled = !!on;
+      overlay.classList.toggle('is-open', !!on);
+      btnDraft.disabled = btnSubmit.disabled = !!on;
     }
-    const nextPaint = () => new Promise(r => requestAnimationFrame(r));
+    const nextPaint = () => new Promise(r => requestAnimationFrame(() => r()));
 
-    // Treat most fields as required except the ones you marked optional with data-optional="true"
-    function isOptional(el) {
-      const name = (el.getAttribute('name') || '').toLowerCase();
-      if (el.hasAttribute('data-optional')) return true;
-      if (name.includes('[items]') && (name.includes('[lamination]') || name.includes('[printer]') || name.includes('[cutter]'))) return true;
-      if (name.includes('[remarks]')) return true;
-      if (name.includes('[deliveries]') && (name.includes('[deliver_install_type]') || name.includes('[outsource_cost]') || name.includes('[location]') || name.includes('[datetime]'))) return true;
-      return false;
-    }
-
-    function markRequired() {
-      document.querySelectorAll('#order-form input, #order-form select, #order-form textarea')
-        .forEach(el => {
-          if (!el.name || el.disabled) return;
-          if (el.type === 'hidden' || el.type === 'file') return;
-          el.required = !isOptional(el);
-        });
+    // Build FormData but include values from disabled inputs by temporarily enabling them.
+    function buildFormDataIncludingDisabled(formEl) {
+      const disabled = Array.from(formEl.querySelectorAll('[disabled]'));
+      // Temporarily enable everything disabled so FormData sees them
+      disabled.forEach(el => el.removeAttribute('disabled'));
+      const fd = new FormData(formEl);
+      // Restore the disabled state
+      disabled.forEach(el => el.setAttribute('disabled', 'disabled'));
+      return fd;
     }
 
-    function requiredOK() {
-      const nodes = Array.from(document.querySelectorAll('#order-form [required]'))
-        .filter(el => !isOptional(el));
-      return nodes.every(el => {
-        if (el.type === 'checkbox' || el.type === 'radio') {
-          const group = document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`);
-          return Array.from(group).some(x => x.checked);
-        }
-        return (el.value || '').toString().trim().length > 0;
-      });
-    }
+    async function send(isDraft, options = {}) {
+      const silent = !!options.silent;
+      
+      isDraftEl.value = isDraft ? 1 : 0;
 
-    function selectedAttachmentCount() {
-      const newOnes = getSelectedFiles().length;
-      const existing = document.querySelectorAll('[data-file-row]').length;
-      return newOnes + existing;
-    }
-
-// grab hidden fields once
-const submitEl  = document.getElementById('submit-input');
-
-// Save Draft
-btnDraft?.addEventListener('click', (e) => {
-  e.preventDefault();
-  submitEl.value  = '0';   // <— ensure submit=0
-  isDraftEl.value = '1';
-  markRequired();
-  send(true);
-});
-
-// Save & Submit
-btnSubmit?.addEventListener('click', async (e) => {
-  e.preventDefault();
-  submitEl.value  = '1';   // <— ensure submit=1
-  isDraftEl.value = '0';
-  markRequired();
-
-  if (!requiredOK()) {
-    return Swal.fire({ icon: 'error', title: 'Missing info', text: 'Please complete all required fields before submitting.' });
-  }
-  if (selectedAttachmentCount() === 0) {
-    return Swal.fire({ icon: 'error', title: 'Attachment required', text: 'Please upload at least one attachment.' });
-  }
-  await send(false);
-});
-
-async function send(isDraft) {
-  // keep hidden fields in sync
-  isDraftEl.value = isDraft ? '1' : '0';
-  submitEl.value  = isDraft ? '0' : '1';
-
-  const fd = new FormData(form);
-  // be explicit even if hidden inputs were already updated
-  fd.set('is_draft', isDraft ? '1' : '0');
-  fd.set('submit',  isDraft ? '0' : '1');   // <— CRUCIAL
-  fd.append('_method', 'PUT');
-
-  for (const f of getSelectedFiles()) fd.append('attachments[]', f);
-
+      const fd = buildFormDataIncludingDisabled(form);
+      fd.set('is_draft', isDraftEl.value);
+      fd.append('_method', 'PUT');
+      for (const f of getSelectedFiles()) fd.append('attachments[]', f);
+      
+      if (isDraft) {
+        fd.set('submit', '0');
+      } else {
+        // if your real Submit button doesn't include a field named "submit",
+        // keep this line; it makes intent explicit for the controller:
+        fd.set('submit', '1');
+      }
+      
+      // 1) show loading and allow the browser to paint it
       loading(true);
-      await nextPaint();
+      await nextPaint(); // ensures "Saving… please wait" is visible
 
+      let res, data;
       try {
-        const res = await fetch(action, {
+        res = await fetch(action, {
           method: 'POST',
           body: fd,
           credentials: 'same-origin',
           headers: {
             'X-CSRF-TOKEN': csrf,
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
           }
         });
 
         if (res.status === 422) {
-          const data = await res.json().catch(() => ({}));
+          data = await res.json().catch(() => ({}));
+          // 2) hide loading BEFORE showing SweetAlert
           loading(false);
           const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
-          return Swal.fire({ icon: 'error', title: 'Validation error', text: msg });
+          await Swal.fire({
+            icon: 'error',
+            title: 'Validation error',
+            text: msg
+          });
+          return false;
         }
 
-        const data = await res.json().catch(() => ({}));
+        data = await res.json().catch(() => ({}));
+
+        // 2) hide loading BEFORE showing SweetAlert
         loading(false);
 
         if (res.ok && data?.ok) {
-          await Swal.fire({
-            icon: 'success',
-            title: isDraft ? 'Draft saved' : 'Order saved',
-            text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
-          });
-          window.location.reload();
+          if (!silent) {
+            await Swal.fire({
+              icon: 'success',
+              title: isDraft ? 'Draft saved' : 'Order saved',
+              text: data.message || (isDraft ? 'Draft saved successfully.' : 'Order submitted successfully.')
+            });
+
+            // ✅ Only reload if it's a draft
+            if (isDraft) {
+              window.location.reload();
+            } else {
+              // ✅ Redirect to artist.orders when submitted
+              window.location.href = '/data-entry/orders';
+            }
+          }
+          return true; // allow caller to know it succeeded
         } else {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Save failed',
-            text: data?.message || `HTTP ${res.status} — please try again`
-          });
+          if (!silent) {
+            await Swal.fire({
+              icon: 'error',
+              title: 'Save failed',
+              text: data?.message || `HTTP ${res.status} — please try again`
+            });
+          }
+          return false;
         }
       } catch (e) {
-        loading(false);
-        await Swal.fire({ icon: 'error', title: 'Network error', text: 'Could not save. Please try again.' });
+        console.error(e);
+        loading(false); // be sure to hide on network errors too
+        await Swal.fire({
+          icon: 'error',
+          title: 'Network error',
+          text: 'Could not save. Please try again.'
+        });
+        return false;
       }
     }
 
-    // Bind buttons (no modals)
-    if (btnDraft) {
-      btnDraft.addEventListener('click', (e) => {
-        e.preventDefault();
-        markRequired(); // still mark (so drafts can highlight missing if you wish)
-        send(true);
+    const OPTIONAL_NAME_WHITELIST = new Set([
+      'lamination',
+      'printer_id',
+      'cutter_id',
+      'delivery_installation_type',
+      'delivery_cost'
+    ]);
+
+    function isOptional(el) {
+      if (el.hasAttribute('data-optional')) return true;
+
+      const name = (el.getAttribute('name') || '').toLowerCase();
+
+      // Whitelist by plain name
+      for (const k of OPTIONAL_NAME_WHITELIST) {
+        if (name.endsWith(`[${k}]`) || name === k) return true;
+      }
+
+      // Items: lamination / printer / cutter are optional
+      if (name.includes('[items]') && (
+        name.includes('[lamination]') ||
+        name.includes('[printer]') ||
+        name.includes('[cutter]')
+      )) return true;
+
+      // Remarks: free text is optional
+      if (name.includes('[remarks]') && (
+        name.includes('[remark]') ||
+        name.includes('[operation]')
+      )) return true;
+
+      // Deliveries: install type / outsource cost / location / datetime are optional
+      if (name.includes('[deliveries]') && (
+        name.includes('[deliver_install_type]') ||
+        name.includes('[outsource_cost]') ||
+        name.includes('[location]') ||
+        name.includes('[datetime]')
+      )) return true;
+
+      return false;
+    }
+
+    function requiredElements() {
+      // all inputs/selects/textareas with "required" that are NOT optional
+      const all = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
+      return all.filter(el => !isOptional(el));
+    }
+
+    function markRequired() {
+      // your existing styling hook, keep if you had one:
+      requiredElements().forEach(el => el.classList.toggle('is-invalid', !el.checkValidity()));
+    }
+
+    function requiredOK() {
+      return requiredElements().every(el => el.checkValidity());
+    }
+
+    function formComplete() {
+      markRequired();
+      return requiredOK();
+    }
+
+    function selectedAttachmentCount() {
+      const newOnes = (window.getSelectedFiles?.() || []).length;
+      const existing = document.querySelectorAll('[data-file-row]').length;
+      return newOnes + existing;
+    }
+
+    // Intercept Save & Submit
+    document.getElementById('btn-submit')?.addEventListener('click', onSubmitClick);
+
+    // Modal 1 → Send to Printing (now it really submits)
+    document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
+      getModal('#modal-submit-ok').hide();
+      await send(false);   // your existing submit flow
+    });
+
+    // Modal 2 → Pass to Data Entry → open the picker AFTER the modal is fully hidden
+    document.getElementById('btn-open-choose-de').addEventListener('click', () => {
+      const inc = document.getElementById('modal-submit-incomplete');
+      const onHidden = async () => {
+        inc.removeEventListener('hidden.bs.modal', onHidden);
+        const choose = getModal('#modal-choose-de-user');
+        choose.show();
+
+        // load users AFTER it opens (so you always see the modal)
+        const sel = document.getElementById('de-user-select');
+        sel.innerHTML = `<option value="">Loading…</option>`;
+        try {
+          const r = await fetch(@json(route('dataEntry.users')), { headers: { 'X-Requested-With':'XMLHttpRequest' }});
+          const data = await r.json();
+          sel.innerHTML = `<option value="">Please select a user</option>`;
+          (data?.users || []).forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id; opt.textContent = u.name;
+            sel.appendChild(opt);
+          });
+        } catch {
+          sel.innerHTML = `<option value="">Failed to load users</option>`;
+        }
+      };
+      inc.addEventListener('hidden.bs.modal', onHidden, { once:true });
+      getModal(inc).hide();
+    });
+
+    // Choose DE → Confirm & Assign (now it really submits)
+    document.getElementById('btn-confirm-assign').addEventListener('click', async () => {
+      const sel = document.getElementById('de-user-select');
+      if (!sel.value) { sel.focus(); return; }
+
+      getModal('#modal-choose-de-user').hide();
+
+      // NEW: Save current partial work as a Draft FIRST, silently
+      loading(true);
+      const saved = await send(true, { silent: true });   // isDraft = true
+      if (!saved) { 
+        loading(false);
+        (window.Swal ? Swal.fire({icon:'error', title:'Save failed', text:'Could not save current progress before assigning.'}) : alert('Could not save draft.'));
+        return;
+      }
+
+      try {
+        const res = await fetch(@json(route('artist.orders.passToDataEntry', $order)), {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': @json(csrf_token()),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ user_id: sel.value })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok) {
+          window.location.href = @json(route('artist.orders.show', $order));
+        } else {
+          // const msg = data?.message || `HTTP ${res.status}`;
+          // (window.Swal ? Swal.fire({icon:'error', title:'Assign failed', text: msg}) : alert(msg));
+        }
+      } catch {
+        // (window.Swal ? Swal.fire({icon:'error', title:'Network error', text:'Could not assign to Data Entry.'}) : alert('Network error'));
+      } finally {
+        loading(false);
+      }
+    });
+
+    // ===== /Submit UI logic =====
+    const draftBtn = document.getElementById('btn-draft');
+    const submitBtn = document.getElementById('btn-submit');
+
+    if (draftBtn) draftBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      send(true); // Save Draft (no modal)
+    });
+
+    if (submitBtn) submitBtn.addEventListener('click', onSubmitClick);
+
+    function selectedAttachmentCount() {
+      const newOnes = (window.getSelectedFiles?.() || []).length;
+      const existing = document.querySelectorAll('[data-file-row]').length;
+      return newOnes + existing;
+    }
+
+    // Mark everything required EXCEPT: lamination, printer, cutter, install type & cost
+    function markRequired() {
+      document.querySelectorAll('#order-form input, #order-form select, #order-form textarea')
+        .forEach(el => {
+          if (!el.name || el.disabled) return;
+          if (el.type === 'hidden' || el.type === 'file') return;
+          if (isOptional(el)) return; // uses the new robust checker
+          el.required = true;         // enforce required everywhere else
+        });
+    }
+
+    function requiredElements() {
+      const nodes = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
+      return nodes.filter(el => !isOptional(el)); // belt-and-suspenders
+    }
+
+    function requiredOK() {
+      return requiredElements().every(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          const group = document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`);
+          return Array.from(group).some(x => x.checked);
+        }
+        const v = (el.value || '').toString().trim();
+        return v.length > 0;
       });
     }
 
-    if (btnSubmit) {
-      btnSubmit.addEventListener('click', async (e) => {
-        e.preventDefault();
-        markRequired();
+    // Use our strict checker instead of browser's
+    function formComplete() {
+      // make sure required flags are applied before checking
+      markRequired();
+      return requiredOK();
+    }
 
-        if (!requiredOK()) {
-          return Swal.fire({ icon: 'error', title: 'Missing info', text: 'Please complete all required fields before submitting.' });
+    // Returns true if this element is inside the given root node
+    function inside(el, root) {
+      let p = el;
+      while (p) {
+        if (p === root) return true;
+        p = p.parentElement;
+      }
+      return false;
+    }
+
+    // Check one product block: all required fields valid, ≥1 item, ≥1 delivery
+    function productIsComplete(productRoot) {
+      // Required fields scoped to this product, excluding optional ones
+      const req = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'))
+        .filter(el => inside(el, productRoot) && !isOptional(el));
+
+      const reqOK = req.every(el => el.checkValidity());
+
+      // At least one Item row in this product
+      const hasItem = !!productRoot.querySelector('input[name*="[items]"][name$="[itemName]"], select[name*="[items]"][name$="[itemName]"]');
+
+      // At least one Delivery row in this product
+      const hasDelivery = !!productRoot.querySelector('input[name*="[deliveries]"][name$="[quantity]"], select[name*="[deliveries]"][name$="[quantity]"]');
+
+      return reqOK && hasItem && hasDelivery;
+    }
+
+    // Validate all products
+    function validateAllProducts() {
+      const products = Array.from(document.querySelectorAll('.accordion-collapse[id^="pCollapse"]'));
+      if (products.length === 0) return { allComplete: false, count: 0 };
+
+      let allComplete = true;
+      for (const root of products) {
+        const ok = productIsComplete(root);
+        if (!ok) { allComplete = false; break; }
+      }
+      return { allComplete, count: products.length };
+    }
+
+    async function onSubmitClick(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const hasAttach = selectedAttachmentCount() > 0;
+      const complete  = formComplete();
+
+      const hasAtLeastOneItem =
+        !!document.querySelector('input[name^="products["][name*="[items]"][name$="[itemName]"]');
+      const hasAtLeastOneDelivery =
+        !!document.querySelector('input[name^="products["][name*="[deliveries]"][name$="[quantity]"]');
+
+      const strictComplete = complete && hasAtLeastOneItem && hasAtLeastOneDelivery;
+
+      if (strictComplete && hasAttach) {
+        new bootstrap.Modal(document.getElementById('modal-submit-ok')).show();
+        return;
+      }
+      if (!strictComplete && hasAttach) {
+        new bootstrap.Modal(document.getElementById('modal-submit-incomplete')).show();
+        return;
+      }
+      if (!hasAttach) {
+        if (window.Swal) {
+          Swal.fire({icon:'error', title:'Missing info', text:'Please add at least one attachment.'});
+        } else {
+          alert('Please add at least one attachment.');
         }
-        if (selectedAttachmentCount() === 0) {
-          return Swal.fire({ icon: 'error', title: 'Attachment required', text: 'Please upload at least one attachment.' });
+      }
+  
+      // (Optional) complete + NO attachment → block
+      if (formOK && !hasAttach) {
+        if (window.Swal) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Attachment required',
+            text: 'Please upload at least one attachment.'
+          });
+        } else {
+          alert('Please upload at least one attachment.');
         }
+      }
+    }
+
+    // “Send to Printing” actually submits
+    document.getElementById('btn-confirm-send-printing')
+      ?.addEventListener('click', async () => {
+        bootstrap.Modal.getInstance(document.getElementById('modal-submit-ok'))?.hide();
         await send(false);
       });
+
+    // “Pass to Data Entry” → open picker modal and lazy-load users
+    document.getElementById('btn-open-choose-de')
+      ?.addEventListener('click', async () => {
+        bootstrap.Modal.getInstance(document.getElementById('modal-submit-incomplete'))?.hide();
+
+        const sel = document.getElementById('de-user-select');
+        sel.innerHTML = `<option value="">Loading...</option>`;
+        try {
+          const r = await fetch(@json(route('dataEntry.users')), {
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          const data = await r.json();
+          sel.innerHTML = `<option value="">Please select a user</option>`;
+          (data?.users || []).forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.textContent = u.name;
+            sel.appendChild(opt);
+          });
+        } catch {
+          sel.innerHTML = `<option value="">Failed to load users</option>`;
+        }
+
+        new bootstrap.Modal(document.getElementById('modal-choose-de-user')).show();
+      });
+
+    // Confirm & Assign → POST to server then redirect
+    document.getElementById('btn-confirm-assign')
+      ?.addEventListener('click', async () => {
+        const sel = document.getElementById('de-user-select');
+        const userId = sel.value;
+        if (!userId) {
+          sel.focus();
+          return;
+        }
+
+        bootstrap.Modal.getInstance(document.getElementById('modal-choose-de-user'))?.hide();
+
+        loading(true);
+        try {
+          const res = await fetch(@json(route('artist.orders.passToDataEntry', $order)), {
+            method: 'POST',
+            headers: {
+              'X-CSRF-TOKEN': @json(csrf_token()),
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              user_id: userId
+            })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data?.ok) {
+            window.location.href = @json(route('artist.orders.show', $order));
+          } else {
+            // const msg = data?.message || `HTTP ${res.status}`;
+            // if (window.Swal) await Swal.fire({
+            //   icon: 'error',
+            //   title: 'Assign failed',
+            //   text: msg
+            // });
+            // else alert(msg);
+          }
+        } catch {
+          // if (window.Swal) await Swal.fire({
+          //   icon: 'error',
+          //   title: 'Network error',
+          //   text: 'Could not assign to Data Entry.'
+          // });
+          // else alert('Network error');
+        } finally {
+          loading(false);
+        }
+      });
+
+      // --- helpers ---
+      function getModal(el) {
+        const node = (typeof el === 'string') ? document.querySelector(el) : el;
+        return bootstrap.Modal.getInstance(node) || new bootstrap.Modal(node);
+      }
+
+      function cleanupModalArtifacts() {
+        // If no modals are showing, remove any leftover classes/backdrops
+        const anyOpen = document.querySelector('.modal.show');
+        if (!anyOpen) {
+          document.body.classList.remove('modal-open');
+          document.body.style.removeProperty('padding-right');
+          document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+        }
+      }
+
+      // Attach once to all modals present on the page
+      document.querySelectorAll('.modal').forEach(m => {
+        m.addEventListener('hidden.bs.modal', cleanupModalArtifacts);
+      });
+
+  });
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.delete-order-file');
+    if (!btn) return;
+
+    const url = btn.dataset.url;
+    const path = btn.dataset.path;
+    const row = btn.closest('[data-file-row]');
+    if (!url || !path || !row) return;
+
+    // confirm
+    const ok = window.Swal ?
+      (await Swal.fire({
+        icon: 'warning',
+        title: 'Delete this file?',
+        text: 'This will remove it from the order.',
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        confirmButtonColor: '#d33'
+      })).isConfirmed :
+      confirm('Delete this file?');
+
+    if (!ok) return;
+
+    // prevent double click
+    if (btn.disabled) return;
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': window.CSRF_TOKEN || document.querySelector('meta[name=csrf-token]')?.content || ''
+        },
+        body: JSON.stringify({
+          path
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        row.remove();
+        if (window.Swal) Swal.fire({
+          icon: 'success',
+          title: 'Deleted',
+          timer: 1100,
+          showConfirmButton: false
+        });
+      } else {
+        const msg = data?.message || `HTTP ${res.status}`;
+        if (window.Swal) Swal.fire({
+          icon: 'error',
+          title: 'Delete failed',
+          text: msg
+        });
+        else alert('Delete failed: ' + msg);
+        btn.disabled = false;
+      }
+    } catch (err) {
+      if (window.Swal) Swal.fire({
+        icon: 'error',
+        title: 'Network error',
+        text: String(err)
+      });
+      else alert('Network error: ' + err);
+      btn.disabled = false;
     }
+  });
+
+  function setDeliveryRowState(row) {
+    const methodSel = row.querySelector('[data-method-select]');
+    const typeSel = row.querySelector('[data-install-type]');
+    const costInp = row.querySelector('[data-outsource-cost]');
+    if (!methodSel || !typeSel || !costInp) return;
+
+    const method = (methodSel.value || '').toLowerCase();
+    const isDI = (method === 'delivery_installation');
+
+    // Rule 1: only enabled when "Delivery & Installation"
+    typeSel.disabled = !isDI;
+    costInp.disabled = !isDI;
+
+    // Rule 2: cost only enabled when type is outsource/both
+    if (isDI) {
+      const t = (typeSel.value || '').toLowerCase();
+      costInp.disabled = !(t === 'outsource' || t === 'both');
+    }
+  }
+
+  document.addEventListener('change', function(e) {
+    if (e.target.matches('[data-method-select], [data-install-type]')) {
+      const row = e.target.closest('[data-delivery-row]');
+      if (row) setDeliveryRowState(row);
+    }
+  });
+
+  // initialize on load
+  document.querySelectorAll('[data-delivery-row]').forEach(setDeliveryRowState);
+
+  function forceEnableScroll() {
+    // remove Bootstrap locking + any stray styles/backdrops
+    document.documentElement.style.removeProperty('overflow');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('position');
+    document.body.style.removeProperty('top');
+    document.body.style.removeProperty('width');
+    document.body.style.removeProperty('padding-right');
+    document.body.classList.remove('modal-open');
+    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+  }
+
+  // bind to both hide and hidden (covers fast close / race cases)
+  ['#modal-submit-ok', '#modal-submit-incomplete', '#modal-choose-de-user'].forEach(sel => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    el.addEventListener('hide.bs.modal',   forceEnableScroll);
+    el.addEventListener('hidden.bs.modal', forceEnableScroll);
+  });
+
+  // also run after any button with data-bs-dismiss="modal" is clicked
+  document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
+    btn.addEventListener('click', () => setTimeout(forceEnableScroll, 50));
+  });
+
+  // safety: before opening any modal, clear leftovers (optional)
+  function openModalSafe(sel) { forceEnableScroll(); (bootstrap.Modal.getInstance(sel) || new bootstrap.Modal(sel)).show(); }
+
+  (function () {
+    const $rows = document.getElementById('remarkRows');
+    const tpl   = document.getElementById('remarkRowTpl').innerHTML;
+    let rIdx    = 0;
+
+    function addRemarkRow() {
+      const html = tpl.replaceAll('__IDX__', rIdx++);
+      const wrap = document.createElement('div');
+      wrap.innerHTML = html.trim();
+      $rows.appendChild(wrap.firstElementChild);
+    }
+
+    document.getElementById('addRemarkRow').addEventListener('click', addRemarkRow);
+    $rows.addEventListener('click', function (e) {
+      if (e.target.closest('.remove-remark')) {
+        e.target.closest('.remark-row').remove();
+      }
+    });
+
+    // Ensure modal starts with one blank row
+    document.getElementById('addProductModal').addEventListener('shown.bs.modal', function () {
+      if (!$rows.querySelector('.remark-row')) addRemarkRow();
+    });
+
+    // Reset on close (optional)
+    document.getElementById('addProductModal').addEventListener('hidden.bs.modal', function () {
+      $rows.innerHTML = '';
+      rIdx = 0;
+      document.getElementById('p_name').value     = '';
+      document.getElementById('p_qty').value      = '';
+      document.getElementById('p_material').value = '';
+    });
+
+    function toInt(v){ v=String(v??'').trim(); const n=parseInt(v,10); return isNaN(n)?0:n; }
+
+    // Parse pIndex and delivery row index from the input name
+    function parseName(name){
+      const m = name.match(/^products\[(\d+)\]\[deliveries\]\[(\d+)\]\[quantity\]$/);
+      return m ? { pIndex: m[1], dIndex: m[2] } : null;
+    }
+
+
   })();
+
+  document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('assignee_artist_id');
+  const btn = document.getElementById('btn-assign-artist');
+  if (!sel || !btn) return;
+
+  const searchUrl = @json(route('artist.orders.assignees.search'));
+
+  // ---------- Plain SELECT fallback (no Select2) ----------
+  function initPlainSelect() {
+    fetch(searchUrl + '?roles[]=artist&roles[]=head-artist', {
+      headers: { 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(payload => {
+      const list = Array.isArray(payload) ? payload : (payload.results || []);
+      const existing = new Set(Array.from(sel.options).map(o => String(o.value)));
+      list.forEach(u => {
+        const id   = String(u.id);
+        const text = u.text ?? (u.name ? `${u.name} (${u.role})` : id);
+        if (!existing.has(id)) {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = text;
+          sel.appendChild(opt);
+        }
+      });
+    })
+    .catch(() => {});
+  }
+
+  // ---------- Select2 path ----------
+  if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
+    const $s = jQuery(sel);
+
+    // (defensive) destroy if already initialized
+    if ($s.data('select2')) $s.select2('destroy');
+
+    $s.select2({
+      placeholder: 'Select artist...',
+      allowClear: true,
+      width: '100%',
+      minimumInputLength: 0,                               // ← show list without typing
+      ajax: {
+        url: searchUrl,
+        dataType: 'json',
+        delay: 150,
+        data: params => ({
+          q: params.term || '',                            // ← empty term triggers "all"
+          roles: ['artist','head-artist']
+        }),
+        processResults: data => {
+          // support both {results:[{id,text}]} and raw arrays
+          const results = Array.isArray(data) ? data : (data.results || []);
+          return { results };
+        },
+        cache: true
+      }
+    });
+
+    // Force initial fetch when the dropdown opens (so it shows immediately)
+    $s.on('select2:open', () => {
+      const searchInput = document.querySelector('.select2-container--open .select2-search__field');
+      if (searchInput) {
+        // Trigger AJAX with empty query on open
+        const ev = new Event('input', { bubbles: true });
+        searchInput.dispatchEvent(ev);
+      }
+    });
+  } else {
+    // No Select2 present → populate once
+    initPlainSelect();
+  }
+
+  // ---------- Save assignment ----------
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const userId = sel.value || null;
+
+    btn.disabled = true;
+    try {
+      const res = await fetch(@json(route('artist.orders.assigns', $order)), {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': @json(csrf_token()),
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ user_id: userId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        if (window.Swal) {
+          Swal.fire({ icon:'success', title:'Artist Assigned', timer:1200, showConfirmButton:false });
+        }
+      } else {
+        const msg = data?.message || `HTTP ${res.status}`;
+        if (window.Swal) Swal.fire({ icon:'error', title:'Failed to save', text: msg });
+        else alert(msg);
+      }
+    } catch (err) {
+      if (window.Swal) Swal.fire({ icon:'error', title:'Network error', text:'Please try again.' });
+      else alert('Network error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+});
+
+(function () {
+  // Utility: set value + fire events (supports Select2 if present)
+  function setValueAndTrigger(el, val) {
+    if (!el) return;
+    const isSelect = el.tagName === 'SELECT';
+    const old = el.value;
+    if (old === String(val)) return;
+    el.value = val;
+    // native events
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    // select2 support (if used)
+    if (isSelect && window.jQuery && jQuery(el).data('select2')) {
+      jQuery(el).val(val).trigger('change.select2');
+    }
+  }
+
+  function syncRow(row, cause) {
+    if (!row) return;
+    const methodSel = row.querySelector('[data-method-select]');
+    const typeSel   = row.querySelector('[data-install-type]');
+    const costInp   = row.querySelector('[data-outsource-cost]');
+
+    if (!methodSel || !typeSel || !costInp) return;
+
+    const isDI      = methodSel.value === 'delivery_installation';
+    const needsCost = isDI && (typeSel.value === 'outsource' || typeSel.value === 'both');
+
+    // When switching AWAY from DI → clear type + cost before disabling
+    if (!isDI) {
+      setValueAndTrigger(typeSel, '');
+      setValueAndTrigger(costInp, '');
+    }
+
+    // Toggle disabled states
+    typeSel.disabled = !isDI;
+
+    // If type changes to in_house or nothing → clear cost
+    if (!needsCost) {
+      setValueAndTrigger(costInp, '');
+    }
+    costInp.disabled = !needsCost;
+
+    // Optional: harden number input (block e/E/+/-)
+    row.querySelectorAll('input[type="number"]').forEach(function (n) {
+      if (n.__boundBlockSci) return;
+      n.addEventListener('keydown', function (e) {
+        if (['e','E','+','-'].includes(e.key)) e.preventDefault();
+      });
+      n.__boundBlockSci = true;
+    });
+  }
+
+  // Event delegation (works for dynamic rows)
+  document.addEventListener('change', function (e) {
+    if (e.target.matches('[data-method-select]') || e.target.matches('[data-install-type]')) {
+      const row = e.target.closest('[data-delivery-row]');
+      syncRow(row, 'change');
+    }
+  });
+
+  // Init existing rows on load
+  function initAll() {
+    document.querySelectorAll('[data-delivery-row]').forEach(function (row) {
+      syncRow(row, 'init');
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll);
+  } else {
+    initAll();
+  }
+
+  // Watch for newly added delivery rows
+  const container = document.querySelector('#deliveries-container') || document.body;
+  const mo = new MutationObserver(function (muts) {
+    muts.forEach(function (m) {
+      m.addedNodes.forEach(function (n) {
+        if (n.nodeType === 1 && n.matches && n.matches('[data-delivery-row]')) {
+          syncRow(n, 'added');
+        }
+        // handle wrappers adding children
+        if (n.nodeType === 1) {
+          n.querySelectorAll && n.querySelectorAll('[data-delivery-row]').forEach(function (row) {
+            syncRow(row, 'added-deep');
+          });
+        }
+      });
+    });
+  });
+  mo.observe(container, { childList: true, subtree: true });
+})();
+
+(function () {
+  function csrfToken() {
+    const el = document.querySelector('meta[name="csrf-token"]');
+    return el ? el.getAttribute('content') : '';
+  }
+
+  document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('[data-delete-product]');
+    if (!btn) return;
+
+    const row = btn.closest('[data-product-row]');
+    const url = row?.dataset?.url;
+    if (!url) return;
+
+    // SweetAlert confirmation dialog
+    const confirm = await Swal.fire({
+      title: 'Delete this product?',
+      text: 'This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    // Perform DELETE request
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'X-CSRF-TOKEN': csrfToken(),
+        'Accept': 'application/json'
+      },
+      credentials: 'same-origin'
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      return Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: data.message || 'Failed to delete product.'
+      });
+    }
+
+    // Remove row visually
+    row.remove();
+
+    // Success message
+    await Swal.fire({
+      icon: 'success',
+      title: 'Deleted!',
+      text: 'The product has been deleted successfully.',
+      timer: 1500,
+      showConfirmButton: false
+    });
+  });
+})();
+
+(function () {
+  const toInt = v => {
+    v = (v ?? '').toString().trim();
+    return v === '' ? 0 : Math.max(0, parseInt(v, 10) || 0);
+  };
+
+  // Find the product container that wraps the qty input + delivery summary
+  function findProductRoot(el) {
+    return el.closest('[data-product-block]')  // if you have a product wrapper
+        || el.closest('.product-card')         // or your own wrapper
+        || el.closest('.card');                // fallback
+  }
+
+  // Sum all delivery quantities inside this product
+  function sumDeliveries(root) {
+    let sum = 0;
+    root.querySelectorAll('.del-qty').forEach(inp => sum += toInt(inp.value));
+    return sum;
+  }
+
+  // Update the Delivery Breakdown labels using your IDs
+  function renderCounts(root) {
+    // qty input (use name$ to avoid depending on the #totalQty id being unique)
+    const totalInp = root.querySelector('input[name$="[qty_total]"]') || root.querySelector('#totalQty');
+    const total    = toInt(totalInp?.value);
+    const planned  = sumDeliveries(root);
+
+    // find the summary block and its children by prefix
+    const summary   = root.querySelector('[id^="del-summary-"]');
+    const totalEl   = summary ? summary.querySelector('[id^="del-sum-total-"]') : null;
+    const remainEl  = summary ? summary.querySelector('[id^="del-sum-remaining-"]') : null;
+
+    if (totalEl)  totalEl.textContent  = total;
+    if (remainEl) remainEl.textContent = Math.max(0, total - planned);
+  }
+
+  function onTotalChange(inp) {
+    const root = findProductRoot(inp);
+    if (root) renderCounts(root);
+  }
+  function onDeliveryQtyChange(inp) {
+    const root = findProductRoot(inp);
+    if (root) renderCounts(root);
+  }
+
+  // Delegate for dynamic rows too
+  document.addEventListener('input', function (e) {
+    if (e.target.matches('input[name$="[qty_total]"], #totalQty')) onTotalChange(e.target);
+    if (e.target.matches('.del-qty')) onDeliveryQtyChange(e.target);
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.matches('input[name$="[qty_total]"], #totalQty')) onTotalChange(e.target);
+    if (e.target.matches('.del-qty')) onDeliveryQtyChange(e.target);
+  });
+
+  // Initial sync on load
+  function initAll() {
+    document.querySelectorAll('input[name$="[qty_total]"], #totalQty').forEach(onTotalChange);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll);
+  } else {
+    initAll();
+  }
+})();
+
+(function () {
+  const form = document.getElementById('order-form');
+  if (!form) return;
+
+  let isDirty = false;
+  let killBeforeUnload = null;
+
+  // Mark page as dirty on *any* form input/change (captures dynamic rows too)
+  const markDirty = () => { isDirty = true; };
+  form.addEventListener('input',  markDirty, true);
+  form.addEventListener('change', markDirty, true);
+
+  // When we really save/submit, call this to silence the guard
+  function markClean() { isDirty = false; }
+
+  // Expose so your existing code can call it
+  window.__markFormClean = markClean;
+  window.__killBeforeUnload = killBeforeUnload;
+
+  // Browser-level leave prompt
+  function beforeUnload(e) {
+    if (!isDirty) return;
+    e.preventDefault();
+    // Chrome/Edge/Firefox require returnValue to be set
+    e.returnValue = '';
+    return '';
+  }
+  killBeforeUnload = () => window.removeEventListener('beforeunload', beforeUnload);
+  window.addEventListener('beforeunload', beforeUnload);
+
+  // Intercept in-app link clicks (e.g., sidebar, tabs, back to list)
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    if (!a) return;
+
+    const href = a.getAttribute('href') || '';
+    // ignore anchors, JS, and modal toggles
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    if (a.hasAttribute('target')) return;
+
+    if (!isDirty) return; // safe to navigate
+    e.preventDefault();
+
+    const proceed = (ok) => {
+      if (!ok) return;
+      markClean();
+      killBeforeUnload();
+      window.location.href = a.href;
+    };
+
+    if (window.Swal) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Leave this page?',
+        text: 'You have unsaved changes. If you leave now, your changes will be lost.',
+        showCancelButton: true,
+        confirmButtonText: 'Leave page',
+        cancelButtonText: 'Stay'
+      }).then(r => proceed(r.isConfirmed));
+    } else {
+      proceed(confirm('You have unsaved changes. Leave this page?'));
+    }
+  });
+
+  // If you use browser Back/Forward buttons, the beforeunload handler above will handle it.
+
+  // --- Integrate with your existing save functions ---
+  // Call markClean() right before you actually POST, so leaving (redirect/reload) won’t prompt.
+  // You already have a send(isDraft, options) function; patch it once here.
+  const _send = window.send;
+  if (typeof _send === 'function') {
+    window.send = async function wrappedSend(isDraft, options) {
+      // silence the guard for this intentional navigation
+      markClean();
+      killBeforeUnload();
+      try {
+        const ok = await _send.call(this, isDraft, options);
+        return ok;
+      } finally {
+        // If we stayed on page (e.g., validation error), re-arm the guard
+        if (document.body.contains(form)) {
+          window.addEventListener('beforeunload', beforeUnload);
+        }
+      }
+    };
+  }
+
+  // Also clear the guard explicitly on the two main buttons (belt & suspenders)
+  document.getElementById('btn-draft')?.addEventListener('click', () => { markClean(); killBeforeUnload(); }, { once:false });
+  document.getElementById('btn-submit')?.addEventListener('click', () => { markClean(); killBeforeUnload(); }, { once:false });
+
+  window.addEventListener('load', () => {
+    setTimeout(() => window.__markFormClean && window.__markFormClean(), 0);
+  });
+})();
+
+
+
 </script>
 @endpush

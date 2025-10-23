@@ -270,7 +270,7 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
         Route::delete('/data-entry/orders/{order}/remarks/{remark}', [DataEntryController::class, 'destroyRemark'])->name('data-entry.orders.remarks.destroy');
         Route::delete('/data-entry/orders/{order}/items/{item}', [DataEntryController::class, 'destroyItem'])->name('data-entry.orders.items.destroy');
         Route::delete('/data-entry/orders/{order}/delivery/{delivery}', [DataEntryController::class, 'deleteDelivery'])->name('data-entry.orders.delivery.destroy');
-        Route::delete('/data-entry/orders/{order}/attachments', [DataEntryController::class, 'deleteAttachment'])->name('data-entry.orders.attachments.destroy');
+        Route::delete('/data-entry/orders/{order}/attachments', [DataEntryController::class, 'destroyAttachment'])->name('data-entry.orders.attachments.destroy');
         Route::patch('/data-entry/orders/{order}/begin', [DataEntryController::class, 'begin'])->name('data-entry.orders.begin');
     });
 

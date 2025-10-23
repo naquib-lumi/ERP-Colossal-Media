@@ -617,20 +617,27 @@ class ArtistController extends Controller
 
     public function passToDataEntry(\Illuminate\Http\Request $request, \App\Models\Order $order)
     {
-        $user = \Illuminate\Support\Facades\Auth::user();
-        if (!$this->isHeadArtist($user) && (int)$order->artist_id !== (int)$user->id) {
+        $user = auth()->user();
+
+        // Only head-artist or the assigned artist can pass the order
+        if (!$this->isHeadArtist($user) && (int) $order->artist_id !== (int) $user->id) {
             abort(403);
         }
 
+        // Must be a data-entry user
         $validated = $request->validate([
-            'user_id' => ['required','integer','exists:users,id'],
+            'user_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where(fn($q) => $q->where('role', 'data-entry')),
+            ],
         ]);
 
-        $order->data_entry_id = (int)$validated['user_id'];
-        $order->orderStatus   = 'completed'; // matches your enum
-        $order->draft         = 0;
-        $order->submit        = 1;
-        $order->pending       = 1;
+        $order->data_entry_id = (int) $validated['user_id'];
+        $order->orderStatus   = 'awaiting_keyin'; // ✅ the new target status
+        $order->draft         = 1;
+        $order->submit        = 0;
+        $order->pending       = 0;                // ✅ make sure it doesn't stay "pending"
         $order->save();
 
         /**
@@ -863,7 +870,10 @@ class ArtistController extends Controller
                     $order->submit = 1;         
                     $order->draft  = 0;     
                     $order->approval    = $request->boolean('design_confirmed');
-                    $order->orderStatus = 'completed';  
+
+                    // if ($order->orderStatus !== 'awaiting_keyin') {
+                        $order->orderStatus = 'completed';
+                    // }                  
                 } else {
                     $order->submit = 0;        
                     $order->draft  = (int) $request->input('is_draft', 0);

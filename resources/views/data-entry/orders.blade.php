@@ -142,83 +142,28 @@
             <div class="card mb-6">
                 <div class="card-widget-separator-wrapper">
                     <div class="card-body card-widget-separator">
-                        
-                            {{-- Normal artist (your current block) --}}
-                            <div class="row gy-4 gy-sm-1">
-                                <div class="col-sm-6 col-lg">
-                                <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
-                                    <div>
-                                    <p class="mb-1">Total Order</p>
-                                    <h4 class="mb-1">{{ $metrics['total'] ?? 0 }}</h4>
-                                    </div>
-                                    <span class="avatar me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-store-alt icon-lg text-heading"></i>
-                                    </span>
-                                    </span>
-                                </div>
-                                <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
-
-                                <div class="col-sm-6 col-lg">
-                                <div class="d-flex justify-content-between align-items-start card-widget-2 border-end pb-4 pb-sm-0">
-                                    <div>
-                                    <p class="mb-1">Pending</p>
-                                    <h4 class="mb-1">{{ $metrics['pending'] ?? 0 }}</h4>
-                                    </div>
-                                    <span class="avatar me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-laptop icon-lg text-heading"></i>
-                                    </span>
-                                    </span>
-                                </div>
-                                <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
-
-                                <div class="col-sm-6 col-lg">
-                                <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0 card-widget-3">
-                                    <div>
-                                    <p class="mb-1">In Progress</p>
-                                    <h4 class="mb-1">{{ $metrics['in_progress'] ?? 0 }}</h4>
-                                    </div>
-                                    <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-gift icon-lg text-heading"></i>
-                                    </span>
-                                    </span>
-                                </div>
-                                <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
-
-                                <div class="col-sm-6 col-lg">
-                                <div class="d-flex justify-content-between align-items-start border-end pb-4 pb-sm-0">
-                                    <div>
-                                    <p class="mb-1">Completed</p>
-                                    <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
-                                    </div>
-                                    <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-wallet icon-lg text-heading"></i>
-                                    </span>
-                                    </span>
-                                </div>
-                                <hr class="d-none d-sm-block d-lg-none me-6" />
-                                </div>
-
-                                <div class="col-sm-6 col-lg">
-                                <div class="d-flex justify-content-between align-items-start pb-4 pb-sm-0">
-                                    <div>
-                                    <p class="mb-1">Rejected</p>
-                                    <h4 class="mb-1">{{ $metrics['rejected'] ?? 0 }}</h4>
-                                    </div>
-                                    <span class="avatar p-2 me-sm-6">
-                                    <span class="avatar-initial rounded w-px-44 h-px-44">
-                                        <i class="icon-base bx bx-x-circle icon-lg text-heading"></i>
-                                    </span>
-                                    </span>
-                                </div>
-                                </div>
+                        <div class="row gy-4 gy-sm-1">
+                        <div class="col-sm-4">
+                            <div class="card p-3 h-100">
+                            <p class="mb-1">Total</p>
+                            <h4 class="mb-1">{{ $metrics['total'] ?? 0 }}</h4>
                             </div>
+                        </div>
+
+                        <div class="col-sm-4">
+                            <div class="card p-3 h-100">
+                            <p class="mb-1">Awaiting Key-in</p>
+                            <h4 class="mb-1">{{ $metrics['awaiting_keyin'] ?? 0 }}</h4>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4">
+                            <div class="card p-3 h-100">
+                            <p class="mb-1">Completed</p>
+                            <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
+                            </div>
+                        </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -229,29 +174,29 @@
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <h5 class="mb-0">Job Orders</h5>
 
-                            <div class="d-flex align-items-center gap-2 mb-3">
-                                <div class="input-group" style="width:260px;">
-                                    <span class="input-group-text bg-white border-end-0"><i class="bx bx-search"></i></span>
-                                    <input id="jobSearch" type="text" class="form-control border-start-0" placeholder="Search orders…">
-                                </div>
-
-                                <select id="statusFilter" class="form-select w-auto">
-                                    <option value="">All statuses</option>
-                                    
-                                    <option value="in_progress">In progress</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="rejected">Rejected</option>
-                                </select>
-
-                                <button id="exportExcel" class="btn btn-dark">
-                                    <i class="bx bx-export me-1"></i> Export
-                                </button>
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <div class="input-group" style="width:260px;">
+                                <span class="input-group-text bg-white border-end-0"><i class="bx bx-search"></i></span>
+                                <input id="jobSearch" type="text" class="form-control border-start-0" placeholder="Search orders…">
                             </div>
+
+                            <select id="statusFilter" class="form-select w-auto">
+                                <option value="">All statuses</option>
+
+                                <option value="in_progress">In progress</option>
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+
+                            <button id="exportExcel" class="btn btn-dark">
+                                <i class="bx bx-export me-1"></i> Export
+                            </button>
+                        </div>
                     </div>
 
                     <div class="table-responsive" id="orders-table-wrapper">
-                    @include('data-entry.partials.orders-table', ['orders' => $orders])
+                        @include('data-entry.partials.orders-table', ['orders' => $orders])
                     </div>
                 </div>
             </div>
@@ -350,10 +295,17 @@
                         columns: [0, 1, 2, 3, 4, 5]
                     }
                 }],
-                columnDefs: [
-                    { targets: -1, orderable: false, searchable: false, className: 'text-end' },
+                columnDefs: [{
+                        targets: -1,
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-end'
+                    },
                     // (optional) safety: fill blanks instead of warning if a cell is missing
-                    { targets: '_all', defaultContent: '' }
+                    {
+                        targets: '_all',
+                        defaultContent: ''
+                    }
                 ],
                 language: {
                     lengthMenu: 'Show _MENU_',
@@ -361,7 +313,10 @@
                     zeroRecords: 'No matching records found',
                     info: 'Showing _START_ to _END_ of _TOTAL_ results',
                     infoEmpty: 'Showing 0 to 0 of 0 results',
-                    paginate: { previous: 'Previous', next: 'Next' }
+                    paginate: {
+                        previous: 'Previous',
+                        next: 'Next'
+                    }
                 },
                 drawCallback: function() {
                     this.api().columns.adjust().responsive.recalc();

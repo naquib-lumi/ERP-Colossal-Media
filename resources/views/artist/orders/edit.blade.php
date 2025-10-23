@@ -1270,7 +1270,7 @@
                               @endif
                             </div>
                             @empty
-                            <select name="products[{{ $pIndex }}][remarks][0][operation]"
+                            <!-- <select name="products[{{ $pIndex }}][remarks][0][operation]"
                                     class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
                               <option value="">— Select Department —</option>
                               @foreach($ops as $k => $label)
@@ -1279,7 +1279,7 @@
                                   {{ $label }}{{ $isArtist && $noArtistAssigned ? ' (assign artist first)' : '' }}
                                 </option>
                               @endforeach
-                            </select>
+                            </select> -->
                             @endforelse
                           </div>
                           @if ($submitted)
@@ -2700,7 +2700,15 @@
       fd.set('is_draft', isDraftEl.value);
       fd.append('_method', 'PUT');
       for (const f of getSelectedFiles()) fd.append('attachments[]', f);
-
+      
+      if (isDraft) {
+        fd.set('submit', '0');
+      } else {
+        // if your real Submit button doesn't include a field named "submit",
+        // keep this line; it makes intent explicit for the controller:
+        fd.set('submit', '1');
+      }
+      
       // 1) show loading and allow the browser to paint it
       loading(true);
       await nextPaint(); // ensures "Saving… please wait" is visible
@@ -2727,7 +2735,7 @@
             title: 'Validation error',
             text: msg
           });
-          return;
+          return false;
         }
 
         data = await res.json().catch(() => ({}));
@@ -2770,6 +2778,7 @@
           title: 'Network error',
           text: 'Could not save. Please try again.'
         });
+        return false;
       }
     }
 

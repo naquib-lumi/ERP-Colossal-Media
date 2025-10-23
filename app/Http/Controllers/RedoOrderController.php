@@ -82,6 +82,7 @@ class RedoOrderController extends Controller
             $redoOrder->submit       = 0;
             $redoOrder->orderStatus  = 'in_progress';
             $redoOrder->status       = 0;          // 🔵 keep the latest redo visible
+            $redoOrder->data_entry_id       = null;          // 🔵 keep the latest redo visible
             $redoOrder->created_at   = now();
             $redoOrder->updated_at   = now();
 

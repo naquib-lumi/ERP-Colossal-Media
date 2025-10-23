@@ -15,21 +15,35 @@
     @forelse($orders as $row)
       @php
         $oid      = $row->getKey() ?? $row->id ?? $row->OrderID ?? null;
-        $status   = strtolower((string)($row->ui_status ?? '-'));
-        $label    = $status === '-' ? '-' : Str::headline(str_replace('_',' ', $status));
+        $showUrl = route('data-entry.orders.show', ['order' => $oid]);
+        $isRedo   = !empty($row->redo);                                    
+        $year = null;
+        if (!empty($row->order_number) && preg_match('/#?ORD-(\d{4})-/', $row->order_number, $m)) {
+            $year = $m[1];
+        }
+        if (!$year) {
+            $year = $row->orderDate
+                ? \Carbon\Carbon::parse($row->orderDate)->format('Y')
+                : \Carbon\Carbon::parse($row->created_at ?? now())->format('Y');
+        }
+
+        $displayId = $isRedo
+            ? sprintf('#ORD-%s-%03dR', $year, (int) $row->redo)
+            : ($row->order_number ?? sprintf('#ORD-%s-%04d', $year, (int) $oid));
+
+        $sortKey = (int) $oid;
         $deadline = $row->deadline ? (\Carbon\Carbon::parse($row->deadline)->format('d/m/Y')) : '-';
         $orderNo  = $row->order_number ?? $row->orderNumber ?? $oid;
+        $status = strtolower((string)($row->orderStatus ?? $row->ui_status ?? ''));
+        $label  = $status === 'awaiting_keyin' ? 'Awaiting Key-in' : \Illuminate\Support\Str::headline(str_replace('_',' ',$status));
         $badgeClass = match ($status) {
-          'pending'      => 'bg-warning text-dark fw-bold',
-          'in_progress'  => 'bg-info',
-          'completed'    => 'bg-success',
-          'rejected'     => 'bg-danger',
-          'assigned', 'to_assign' => 'bg-secondary',
-          default        => 'bg-secondary-subtle text-muted',
+            'awaiting_keyin' => 'bg-warning text-dark fw-bold',
+            'completed'      => 'bg-success',
+            default          => 'bg-secondary-subtle text-muted',
         };
       @endphp
-      <tr>
-        <td>{{ $orderNo }}</td>
+      <tr data-order-id="{{ $oid }}" data-href="{{ $showUrl }}" class="cursor-pointer">
+        <td>{{ $displayId }}</td>
         <td class="text-truncate">{{ $row->orderTitle ?? '-' }}</td>
         <td class="text-truncate">{{ $row->companyName ?? '-' }}</td>
         <td>{{ $row->salesperson->name ?? '-' }}</td>
@@ -57,3 +71,13 @@
     @endforelse
   </tbody>
 </table>
+
+<script>
+document.addEventListener('dblclick', function (e) {
+  // ignore dblclicks on interactive elements inside the row
+  if (e.target.closest('a, button, input, select, textarea, label, [role="button"]')) return;
+
+  const tr = e.target.closest('tr[data-href]');
+  if (tr) window.location = tr.getAttribute('data-href');
+});
+</script>

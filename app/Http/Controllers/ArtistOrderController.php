@@ -557,22 +557,22 @@ class ArtistOrderController extends Controller
     {
         $q = trim((string) $request->query('q', ''));
 
-    $base = \App\Models\User::query()
-        ->whereIn('role', ['artist', 'head-artist'])
-        ->orderBy('name');
+        $base = \App\Models\User::query()
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->orderBy('name');
 
-    if ($q !== '') {
-        $base->where('name', 'like', "%{$q}%");
-    }
+        if ($q !== '') {
+            $base->where('name', 'like', "%{$q}%");
+        }
 
-    $users = $base->limit(100)->get(['id','name','role']);
+        $users = $base->limit(100)->get(['id','name','role']);
 
-    return response()->json([
-        'results' => $users->map(fn($u) => [
-            'id'   => $u->id,
-            'text' => "{$u->name} ({$u->role})",
-        ]),
-    ]);
+        return response()->json([
+            'results' => $users->map(fn($u) => [
+                'id'   => $u->id,
+                'text' => "{$u->name} ({$u->role})",
+            ]),
+        ]);
     }
 
     public function storeProduct(Request $request, \App\Models\Order $order)

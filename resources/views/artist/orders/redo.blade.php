@@ -4,7 +4,7 @@
 <div class="container-fluid">
   <h4 class="mb-3">
     Report Issue – Redo Job Order
-    <span class="text-muted">{{ $displayOrderNumber }}</span>
+    <!-- <span class="text-muted">{{ $displayOrderNumber }}</span> -->
   </h4>
 
   {{-- Latest REDO Reason (if any) --}}
@@ -24,8 +24,8 @@
       <div class="fw-semibold mb-2">Current Order Summary</div>
       <div class="row g-3">
         <div class="col-md-3">
-          <div class="text-muted small">Order ID</div>
-          <div class="fw-semibold">{{ $displayOrderNumber  }}</div>
+          <div class="text-muted small">Job Order Title</div>
+          <div class="fw-semibold">{{ $order->orderTitle  }}</div>
         </div>
         <div class="col-md-3">
           <div class="text-muted small">Client</div>
@@ -138,9 +138,9 @@
         <div class="alert alert-light border">
           <div class="fw-semibold mb-1">What happens next?</div>
           <ul class="mb-0">
-            <li>A new Job Order will be created (R, R2, R3…)</li>
+            <li>A new Job Order ID will be created with <b>{{ $displayOrderNumber }}</b></li>
             <li>Only the selected products will be editable on the new order</li>
-            <li>Status will be auto-set to <b>In Progress</b> for reassignment</li>
+            <li>Status will be auto-set to <b>In Progress</b> for redo</li>
           </ul>
         </div>
 

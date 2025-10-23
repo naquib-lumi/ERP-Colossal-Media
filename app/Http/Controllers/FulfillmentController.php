@@ -47,6 +47,10 @@ public function index(Request $request)
         ->leftJoin('delivery_breakdowns as dd', 'dd.ProductID', '=', 'p.ProductID')
         ->where(function ($w) {
             $w->whereNull('o.status')->orWhere('o.status', 0);
+        })
+        ->where(function ($w) {
+            $w->whereNull('o.orderStatus')
+            ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
         });
 
     // Permission: non head-artist only sees own orders
