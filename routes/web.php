@@ -364,6 +364,9 @@ Route::middleware('role:admin')->group(function () {
     Route::get('/admin/leads-monthly', [AdminController::class, 'leadsMonthly'])->name('admin.leadsMonthly');
     Route::get('/admin/leads-breakdown', [AdminController::class, 'leadsBreakdown'])->name('admin.leadsBreakdown');
     Route::get('/admin/fulfillment-counts', [AdminController::class, 'fulfillmentCounts'])->name('admin.fulfillmentCounts');
+    Route::get('/admin/fulfillment', [AdminController::class,'fulfillment'])->name('admin.fulfillment');
+    Route::get('/admin/fulfillment/{id}', [AdminController::class,'fulfillmentShow'])->name('admin.fulfillment.show');
+    Route::get('/admin/fulfillment/{id}/edit', [AdminController::class,'fulfillmentEdit'])->name('admin.fulfillment.edit');
     Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
     //  Route::get('/admin/manageuser-table', [AdminController::class, 'manageUserTable'])->name('admin.manageuserTable');
     

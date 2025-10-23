@@ -167,7 +167,7 @@ $configData = \App\Helpers\Helpers::appClasses();
             </li>
             <li class="menu-item {{ request()->routeIs('admin.reports') ? 'active' : '' }}">
                 <a href="{{ route('admin.reports') }}" class="menu-link">
-                    <i class="menu-icon tf-icons ti ti-report"></i>
+                    <i class="menu-icon icon-base bx bx-bar-chart-alt"></i>
                     <div data-i18n="Reports">Reports</div>
                 </a>
             </li>
@@ -177,22 +177,10 @@ $configData = \App\Helpers\Helpers::appClasses();
                     <div data-i18n="Fulfillment">Fulfillment</div>
                 </a>
             </li>
-            <li class="menu-item {{ request()->routeIs('admin.user') ? 'active' : '' }}">
-                <a href="{{ route('admin.user') }}" class="menu-link">
-                    <i class="menu-icon icon-base bx bx-user"></i>
-                    <div data-i18n="User">User</div>
-                </a>
-            </li>
             <li class="menu-item {{ request()->routeIs('admin.data-key-in') ? 'active' : '' }}">
                 <a href="{{ route('admin.data-key-in') }}" class="menu-link">
                     <i class="menu-icon icon-base bx bx-key"></i>
                     <div data-i18n="Data Key In">Data Key In</div>
-                </a>
-            </li>
-            <li class="menu-item {{ request()->routeIs('admin.settings') ? 'active' : '' }}">
-                <a href="{{ route('admin.settings') }}" class="menu-link">
-                    <i class="menu-icon tf-icons ti ti-settings"></i>
-                    <div data-i18n="Settings">Settings</div>
                 </a>
             </li>
         @endif
