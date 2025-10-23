@@ -556,26 +556,23 @@ class ArtistOrderController extends Controller
     public function searchArtists(\Illuminate\Http\Request $request)
     {
         $q = trim((string) $request->query('q', ''));
-        if ($q === '') return response()->json(['results' => []]);
 
-        $artists = \App\Models\User::query()
-            ->where('role', 'artist')
-            ->orWhere('role', 'head-artist')
-            ->where(function ($w) use ($q) {
-                $w->where('name', 'like', "%{$q}%")
-                ->orWhere('email', 'like', "%{$q}%");
-            })
-            ->orderBy('name')
-            ->limit(15)
-            ->get(['id','name','email']);
+    $base = \App\Models\User::query()
+        ->whereIn('role', ['artist', 'head-artist'])
+        ->orderBy('name');
 
-        return response()->json([
-            'results' => $artists->map(fn($u) => [
-                'id' => $u->id,
-                'text' => $u->name,
-                'meta' => ['email' => $u->email],
-            ]),
-        ]);
+    if ($q !== '') {
+        $base->where('name', 'like', "%{$q}%");
+    }
+
+    $users = $base->limit(100)->get(['id','name','role']);
+
+    return response()->json([
+        'results' => $users->map(fn($u) => [
+            'id'   => $u->id,
+            'text' => "{$u->name} ({$u->role})",
+        ]),
+    ]);
     }
 
     public function storeProduct(Request $request, \App\Models\Order $order)
@@ -590,7 +587,7 @@ class ArtistOrderController extends Controller
             'quantity'            => ['nullable','integer','min:1'],
             'material_info'       => ['nullable','string'],
             'remarks'             => ['nullable','array'],
-            'remarks.*.operation' => ['nullable','in:printing,furnishing,installation,courier,self_pickup'],
+            'remarks.*.operation' => ['nullable','in:printing,furnishing,installation,courier,self_pickup,artist'],
             'remarks.*.remark'    => ['nullable','string'],
         ]);
 

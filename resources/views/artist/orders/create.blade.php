@@ -886,17 +886,20 @@ $(function () {
     if (!$assignee.length) return; 
 
     $assignee.select2({
-      placeholder: 'Search artists…',
+      placeholder: 'Select artist…',
       allowClear: true,
       width: '100%',
-      minimumInputLength: 1,
+      minimumInputLength: 0,                         // ← allow opening with no typing
       dropdownParent: $assignee.closest('.card, .modal, form'),
       ajax: {
         url: @json(route('artist.orders.assignees.search')),
         dataType: 'json',
-        delay: 200,
-        data: params => ({ q: params.term }),
-        processResults: data => data, 
+        delay: 150,
+        data: params => ({
+          q: params.term || '',                      // ← empty term triggers “all”
+          roles: ['artist','head-artist']
+        }),
+        processResults: data => ({ results: Array.isArray(data) ? data : (data.results || []) }),
         cache: true
       },
       templateResult: item => {
@@ -909,6 +912,15 @@ $(function () {
       },
       templateSelection: item => item.text || item.id,
       escapeMarkup: m => m
+    });
+
+    // Kick off an empty search as soon as the dropdown opens so the list shows immediately
+    $assignee.on('select2:open', () => {
+      const input = document.querySelector('.select2-container--open .select2-search__field');
+      if (input) {
+        const ev = new Event('input', { bubbles: true });
+        input.dispatchEvent(ev);
+      }
     });
 });
 </script>

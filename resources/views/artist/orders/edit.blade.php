@@ -297,6 +297,11 @@
   $disabled = $isSubmitted ? 'disabled' : '';
 
   $submitted = ((int)($order->draft ?? 0) === 1 || (int)($order->draft ?? 0) === 0) && (int)($order->submit ?? 0) === 0;
+
+  $isRedo = false;
+  if (!empty($order->redo) || (isset($order->order_number) && Str::endsWith($order->order_number, 'R'))) {
+      $isRedo = true;
+  }
   @endphp
   <div class="row g-4">
     <div class="col-12">
@@ -400,14 +405,15 @@
           </div>
 
           <!-- add product btn -->
-           @if(!$isSubmitted)
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0">Products</h5>
+            @if(!$isSubmitted && !$isRedo)
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
               + Add Product
             </button>
+            @endif
           </div>
-          @endif
+          
 
           <div class="accordion" id="productsAcc">
             @foreach($order->products as $pIndex => $product)
@@ -1374,6 +1380,12 @@
                             {{ $order->artist->name }} ({{ $order->artist->role }})
                           </option>
                         @endif
+
+                        @foreach($artists as $artist)
+                          <option value="{{ $artist->id }}">
+                            {{ $artist->name }} ({{ $artist->role }})
+                          </option>
+                        @endforeach
                       </select>
                     </div>
                     <div class="pb-1">
@@ -1602,7 +1614,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
-      <form id="productForm" method="POST" action="{{ route('artist.orders.products.store', $order->id) }}" autocomplete="off">
+      <form id="productForm" method="POST" action="{{ route('artist.orders.products.store', ['order' => $order]) }}" autocomplete="off">
         @csrf
         <div class="modal-body">
           <div class="row g-3">
@@ -3325,107 +3337,112 @@
   })();
 
   document.addEventListener('DOMContentLoaded', () => {
-    const sel = document.getElementById('assignee_artist_id');
-    const btn = document.getElementById('btn-assign-artist');
-    if (!sel || !btn) return;
+  const sel = document.getElementById('assignee_artist_id');
+  const btn = document.getElementById('btn-assign-artist');
+  if (!sel || !btn) return;
 
-    // --- Select init (uses Select2 if present), querying artists + head-artists
-    const searchUrl = @json(route('artist.orders.assignees.search')); // use the SAME endpoint you use in create.blade
+  const searchUrl = @json(route('artist.orders.assignees.search'));
 
-    function initPlainSelect() {
-      // Fallback: load once and populate <option>s
-      fetch(searchUrl + '?roles[]=artist&roles[]=head-artist', { headers: { 'Accept': 'application/json' } })
-        .then(r => r.json())
-        .then(list => {
-          // don't duplicate current selected option
-          const existing = new Set(Array.from(sel.options).map(o => String(o.value)));
-          list.forEach(u => {
-            if (!existing.has(String(u.id))) {
-              const opt = document.createElement('option');
-              opt.value = u.id;
-              opt.textContent = `${u.name} (${u.role})`;
-              sel.appendChild(opt);
-            }
-          });
-        }).catch(() => {});
-    }
-
-    if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
-      jQuery(sel).select2({
-        placeholder: 'Search artist...',
-        allowClear: true,
-        width: '100%',
-        minimumInputLength: 1,
-        ajax: {
-          url: @json(route('artist.orders.assignees.search')),
-          dataType: 'json',
-          delay: 250,
-          data: params => ({
-            q: params.term || '',
-            roles: ['artist','head-artist']
-          }),
-          processResults: (data) => {
-            const results = Array.isArray(data) ? data : (data.results || []);
-            // If your controller already returns {id, text}, just return as-is:
-            return { results };
-          }
+  // ---------- Plain SELECT fallback (no Select2) ----------
+  function initPlainSelect() {
+    fetch(searchUrl + '?roles[]=artist&roles[]=head-artist', {
+      headers: { 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(payload => {
+      const list = Array.isArray(payload) ? payload : (payload.results || []);
+      const existing = new Set(Array.from(sel.options).map(o => String(o.value)));
+      list.forEach(u => {
+        const id   = String(u.id);
+        const text = u.text ?? (u.name ? `${u.name} (${u.role})` : id);
+        if (!existing.has(id)) {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = text;
+          sel.appendChild(opt);
         }
       });
-    } else {
-      // Fallback: load once and populate <option>s
-      fetch(@json(route('artist.orders.assignees.search')) + '?roles[]=artist&roles[]=head-artist', {
-        headers: { 'Accept': 'application/json' }
-      })
-      .then(r => r.json())
-      .then(payload => {
-        const list = Array.isArray(payload) ? payload : (payload.results || []);
-        const existing = new Set(Array.from(sel.options).map(o => String(o.value)));
-        list.forEach(u => {
-          if (!existing.has(String(u.id))) {
-            const opt = document.createElement('option');
-            opt.value = u.id;
-            opt.textContent = u.text ?? u.name ?? String(u.id);
-            sel.appendChild(opt);
-          }
-        });
-      })
-      .catch(() => {});
-    }
+    })
+    .catch(() => {});
+  }
 
-    // --- Save assignment
-    btn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const userId = sel.value || null; // nullable (optional)
+  // ---------- Select2 path ----------
+  if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
+    const $s = jQuery(sel);
 
-      btn.disabled = true;
-      try {
-        const res = await fetch(@json(route('artist.orders.assigns', $order)), {
-          method: 'POST',
-          headers: {
-            'X-CSRF-TOKEN': @json(csrf_token()),
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ user_id: userId })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.ok) {
-          if (window.Swal) {
-            Swal.fire({ icon:'success', title:'Artist Assigned', timer:1200, showConfirmButton:false });
-          }
-        } else {
-          const msg = data?.message || `HTTP ${res.status}`;
-          if (window.Swal) Swal.fire({ icon:'error', title:'Failed to save', text: msg });
-          else alert(msg);
-        }
-      } catch (err) {
-        if (window.Swal) Swal.fire({ icon:'error', title:'Network error', text:'Please try again.' });
-        else alert('Network error');
-      } finally {
-        btn.disabled = false;
+    // (defensive) destroy if already initialized
+    if ($s.data('select2')) $s.select2('destroy');
+
+    $s.select2({
+      placeholder: 'Select artist...',
+      allowClear: true,
+      width: '100%',
+      minimumInputLength: 0,                               // ← show list without typing
+      ajax: {
+        url: searchUrl,
+        dataType: 'json',
+        delay: 150,
+        data: params => ({
+          q: params.term || '',                            // ← empty term triggers "all"
+          roles: ['artist','head-artist']
+        }),
+        processResults: data => {
+          // support both {results:[{id,text}]} and raw arrays
+          const results = Array.isArray(data) ? data : (data.results || []);
+          return { results };
+        },
+        cache: true
       }
     });
+
+    // Force initial fetch when the dropdown opens (so it shows immediately)
+    $s.on('select2:open', () => {
+      const searchInput = document.querySelector('.select2-container--open .select2-search__field');
+      if (searchInput) {
+        // Trigger AJAX with empty query on open
+        const ev = new Event('input', { bubbles: true });
+        searchInput.dispatchEvent(ev);
+      }
+    });
+  } else {
+    // No Select2 present → populate once
+    initPlainSelect();
+  }
+
+  // ---------- Save assignment ----------
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const userId = sel.value || null;
+
+    btn.disabled = true;
+    try {
+      const res = await fetch(@json(route('artist.orders.assigns', $order)), {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': @json(csrf_token()),
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ user_id: userId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        if (window.Swal) {
+          Swal.fire({ icon:'success', title:'Artist Assigned', timer:1200, showConfirmButton:false });
+        }
+      } else {
+        const msg = data?.message || `HTTP ${res.status}`;
+        if (window.Swal) Swal.fire({ icon:'error', title:'Failed to save', text: msg });
+        else alert(msg);
+      }
+    } catch (err) {
+      if (window.Swal) Swal.fire({ icon:'error', title:'Network error', text:'Please try again.' });
+      else alert('Network error');
+    } finally {
+      btn.disabled = false;
+    }
   });
+});
 
 (function () {
   // Utility: set value + fire events (supports Select2 if present)
@@ -3664,6 +3681,7 @@
 
   // Expose so your existing code can call it
   window.__markFormClean = markClean;
+  window.__killBeforeUnload = killBeforeUnload;
 
   // Browser-level leave prompt
   function beforeUnload(e) {
@@ -3737,8 +3755,59 @@
   document.getElementById('btn-draft')?.addEventListener('click', () => { markClean(); killBeforeUnload(); }, { once:false });
   document.getElementById('btn-submit')?.addEventListener('click', () => { markClean(); killBeforeUnload(); }, { once:false });
 
-  // If you programmatically redirect anywhere else, do:
-  //   window.__markFormClean?.();
+  window.addEventListener('load', () => {
+    setTimeout(() => window.__markFormClean && window.__markFormClean(), 0);
+  });
 })();
+
+(() => {
+  const productForm = document.getElementById('productForm');  // the Add Product modal form
+  const orderForm   = document.getElementById('order-form');    // your main order form
+  if (!productForm || !orderForm) return;
+
+  // Extract CSRF token from any existing _token input (Laravel adds this automatically)
+  const tokenInput = document.querySelector('input[name="_token"]');
+  const csrfToken  = tokenInput ? tokenInput.value : '';
+
+  productForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // --- 1) SAVE all current order data first (call Update controller) ---
+    const orderUrl = orderForm.getAttribute('action');   // e.g. /artist/orders/{id}
+    const fd = new FormData(orderForm);
+    fd.set('is_draft', '1');  // force normal update, not draft
+    fd.set('_method', 'PUT'); // Laravel method spoofing
+
+    try {
+      const res = await fetch(orderUrl, {
+        method: 'POST',        // still POST because of spoofing
+        body: fd,
+        headers: { 'X-CSRF-TOKEN': csrfToken },
+        credentials: 'same-origin'
+      });
+
+      if (!res.ok) {
+        console.error('Update failed with status', res.status);
+        if (window.Swal) await Swal.fire({ icon: 'error', title: 'Order Save Failed', text: 'Could not save order before adding product.' });
+        else alert('Order save failed before adding product.');
+        return;
+      }
+
+    } catch (err) {
+      console.error('Network error saving order', err);
+      if (window.Swal) await Swal.fire({ icon: 'error', title: 'Network Error', text: 'Failed to save order.' });
+      else alert('Network error saving order.');
+      return;
+    }
+
+    // --- 2) Mark clean & silence guard ---
+    window.__markFormClean && window.__markFormClean();
+    window.__killBeforeUnload && window.__killBeforeUnload();
+
+    // --- 3) Finally, submit Add-Product form normally (goes to storeProduct) ---
+    productForm.submit();
+  });
+})();
+
 </script>
 @endpush
