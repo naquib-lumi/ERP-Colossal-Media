@@ -341,6 +341,7 @@ public function exportCsv(Request $request)
                     'Furnishing Remark' => 'furnishing',
                     'Installation Remark' => 'installation',
                     'Courier Remark' => 'courier',
+                    'Artist Remark' => 'artist',
                     'Self Pickup Remark' => 'self_pickup',
                 ];
                 foreach ($remarkMappings as $header => $operation) {
@@ -372,6 +373,14 @@ public function exportCsv(Request $request)
         'user_id' => $user->id, 
     ]);
             }
+        }
+
+        // Notify all head-artists
+        $headArtists = User::whereHas('roles', fn($q) => $q->where('name', 'head-artist'))->get();
+        $message = "New order '{$order->orderTitle}' (ID: {$order->id}) needs assignment to artist.";
+        $url = route('artist.orders.assign.show', $order->id);
+        foreach ($headArtists as $headArtist) {
+            self::notify($headArtist, $message, $url);
         }
 
         return redirect()->route('sales.orders')->with('success', 'Order created successfully');
@@ -439,7 +448,7 @@ public function csvTemplate()
         'products.*.quantity' => 'required|integer|min:1',
         'products.*.material_remark' => 'nullable|string',
         'products.*.remarks' => 'nullable|array',
-        'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup',
+        'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
         'products.*.remarks.*.remark' => 'nullable|string',
     ]);
 

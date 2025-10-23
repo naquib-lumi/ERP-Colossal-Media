@@ -24,16 +24,16 @@ class MeetingController extends Controller
 
     public function storeFromLead(Request $request, $leadId)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'start_time' => 'required|date',
-            'duration' => 'required|integer|min:1',
-            'type' => 'required|in:online,offline',
-            'url' => 'nullable|url|required_if:type,online',
-            'location' => 'nullable|string|required_if:type,offline',
-            'note' => 'nullable|string',
-        ]);
-
+     $validated = $request->validate([
+        // 'lead_id' => 'required|exists:leads,id',
+        'title' => 'required|string|max:255',
+        'start_time' => 'required|date',
+        'duration' => 'required|integer|min:1',
+        'type' => 'nullable|in:online,offline',
+        'url' => 'nullable|url',
+        'location' => 'nullable|string',
+        'note' => 'nullable|string',
+    ]);
         // Check for existing meeting with same lead, title, and start time
         $existingMeeting = Meeting::where('lead_id', $leadId)
             ->where('title', $validated['title'])
@@ -102,16 +102,16 @@ class MeetingController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $validated = $request->validate([
-            'lead_id' => 'required|exists:leads,id',
-            'title' => 'required|string|max:255',
-            'start_time' => 'required|date',
-            'duration' => 'required|integer|min:1',
-            'type' => 'required|in:online,offline',
-            'url' => 'nullable|url|required_if:type,online',
-            'location' => 'nullable|string|required_if:type,offline',
-            'note' => 'nullable|string',
-        ]);
+    $validated = $request->validate([
+        'lead_id' => 'required|exists:leads,id',
+        'title' => 'required|string|max:255',
+        'start_time' => 'required|date',
+        'duration' => 'required|integer|min:1',
+        'type' => 'nullable|in:online,offline',
+        'url' => 'nullable|url',
+        'location' => 'nullable|string',
+        'note' => 'nullable|string',
+    ]);
 
         $lead = Lead::findOrFail($validated['lead_id']);
         if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
@@ -138,52 +138,53 @@ class MeetingController extends Controller
     }
 
     public function updateFromCalendar(Request $request, $id)
-    {
-        $user = Auth::user();
-        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $meeting = Meeting::findOrFail($id);
-        if ($meeting->user_id != $user->id && !$user->hasRole('head-salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        Log::info('updateMeeting FormData:', $request->all());
-
-        $validated = $request->validate([
-            'lead_id' => 'required|exists:leads,id',
-            'title' => 'required|string|max:255',
-            'start_time' => 'required|date',
-            'duration' => 'required|integer|min:1',
-            'type' => 'required|in:online,offline',
-            'url' => 'nullable|url|required_if:type,online',
-            'location' => 'nullable|string|required_if:type,offline',
-            'note' => 'nullable|string',
-        ]);
-
-        $lead = Lead::findOrFail($validated['lead_id']);
-        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $validated['end_time'] = Carbon::parse($validated['start_time'])->addMinutes((int) $validated['duration']);
-        unset($validated['duration']);
-        if ($validated['type'] === 'online') {
-            $validated['location'] = null;
-        } else {
-            $validated['url'] = null;
-        }
-
-        try {
-            $meeting->update($validated);
-            Log::info("Meeting ID {$id} updated for lead ID {$validated['lead_id']}");
-            return response()->json(['success' => true, 'meeting' => $meeting]);
-        } catch (\Exception $e) {
-            Log::error("Error updating meeting: " . $e->getMessage());
-            return response()->json(['error' => 'Failed to update meeting'], 500);
-        }
+{
+    $user = Auth::user();
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        return response()->json(['error' => 'Unauthorized'], 403);
     }
+
+    $meeting = Meeting::findOrFail($id);
+    if ($meeting->user_id != $user->id && !$user->hasRole('head-salesperson')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+
+    Log::info('updateMeeting FormData:', $request->all());
+
+    $validated = $request->validate([
+        'lead_id' => 'required|exists:leads,id',
+        'title' => 'required|string|max:255',
+        'start_time' => 'required|date',
+        'duration' => 'required|integer|min:1',
+        'type' => 'nullable|in:online,offline',
+        'url' => 'nullable|url',
+        'location' => 'nullable|string',
+        'note' => 'nullable|string',
+    ]);
+
+    $lead = Lead::findOrFail($validated['lead_id']);
+    if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+
+    $validated['end_time'] = Carbon::parse($validated['start_time'])->addMinutes((int) $validated['duration']);
+    unset($validated['duration']);
+    $type = $validated['type'] ?? null;
+    if ($type === 'online') {
+        $validated['location'] = null;
+    } elseif ($type === 'offline') {
+        $validated['url'] = null;
+    }
+
+    try {
+        $meeting->update($validated);
+        Log::info("Meeting ID {$id} updated for lead ID {$validated['lead_id']}");
+        return response()->json(['success' => true, 'meeting' => $meeting]);
+    } catch (\Exception $e) {
+        Log::error("Error updating meeting: " . $e->getMessage());
+        return response()->json(['error' => 'Failed to update meeting'], 500);
+    }
+}
 
     public function updateCalendarStatus(Request $request, $id)
     {

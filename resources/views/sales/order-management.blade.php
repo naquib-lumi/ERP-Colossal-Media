@@ -2,6 +2,20 @@
 @section('title', 'Job Order')
 @section('content')
 <div class="container-xxl flex-grow-1 container-p-y">
+@if(session('success'))
+<div class="alert alert-secondary alert-dismissible fade show mt-3 border-0 shadow-sm" role="alert" style="background-color: #f8f9fa; color: #6c757d;">
+    <i class="bx bx-check-circle me-2"></i>{{ session('success') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+@endif
+
+<script>
+    @if (session('success'))
+    setTimeout(function() {
+        $('#successAlert').alert('close');
+    }, 5000);
+    @endif
+</script>
     <div class="card">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-3">
             <h5 class="mb-0">Job Orders</h5>

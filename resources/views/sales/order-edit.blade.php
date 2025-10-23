@@ -136,6 +136,7 @@
                                                             <div class="remark-row">
                                                                 <input type="hidden" name="products[{{ $product->ProductID }}][remarks][{{ $loop->index }}][operation]" value="{{ $remark->operation }}">
                                                                 <select name="products[{{ $product->ProductID }}][remarks][{{ $loop->index }}][operation]" class="form-select w-auto" style="min-width:160px;">
+                                                                    <option value="artist" {{ $remark->operation == 'artist' ? 'selected' : '' }}>To Artist</option>
                                                                     <option value="printing" {{ $remark->operation == 'printing' ? 'selected' : '' }}>To Printing</option>
                                                                     <option value="furnishing" {{ $remark->operation == 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
                                                                     <option value="installation" {{ $remark->operation == 'installation' ? 'selected' : '' }}>To Installation</option>
@@ -198,6 +199,7 @@
                         <input type="hidden" name="products[${productId}][remarks][${index}][operation]" value="">
                         <select name="products[${productId}][remarks][${index}][operation]" class="form-select w-auto" style="min-width:160px;">
                             <option value="">— Select —</option>
+                            <option value="artist">To Artist</option>
                             <option value="printing">To Printing</option>
                             <option value="furnishing">To Furnishing</option>
                             <option value="installation">To Installation</option>

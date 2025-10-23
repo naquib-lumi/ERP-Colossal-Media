@@ -27,7 +27,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="companyPhone" name="company_phone" placeholder="Enter company phone" value="{{ old('company_phone', $lead->company_phone) }}" pattern="[0-9\s\-\+\(\)]*">
+                                    <input type="text" class="form-control" id="companyPhone" name="company_phone" placeholder="Enter company phone" value="{{ old('company_phone', $lead->company_phone) }}">
                                     <label for="companyPhone">Company Phone</label>
                                     @error('company_phone')
                                         <div class="text-danger">{{ $message }}</div>
@@ -35,10 +35,10 @@
                                 </div>
                             </div>
 
-                            <!-- Website and PIC Name -->
+                            <!-- Website and Lead Name -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="website" name="website" placeholder="example.com" value="{{ old('website', $lead->website) }}">
+                                    <input type="url" class="form-control" id="website" name="website" placeholder="http://example.com" value="{{ old('website', $lead->website) }}">
                                     <label for="website">Website</label>
                                     @error('website')
                                         <div class="text-danger">{{ $message }}</div>
@@ -47,8 +47,8 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="picName" name="name" placeholder="Enter PIC name" value="{{ old('name', $lead->name) }}" required>
-                                    <label for="picName">PIC Name</label>
+                                    <input type="text" class="form-control" id="leadName" name="name" placeholder="Enter lead name" value="{{ old('name', $lead->name) }}" required>
+                                    <label for="leadName">Lead Name</label>
                                     @error('name')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
@@ -58,7 +58,7 @@
                             <!-- Lead Phone and Lead Email -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="tel" class="form-control" id="leadPhone" name="phone" placeholder="Enter lead phone" value="{{ old('phone', $lead->phone) }}" required pattern="[0-9\s\-\+\(\)]*">
+                                    <input type="text" class="form-control" id="leadPhone" name="phone" placeholder="Enter lead phone" value="{{ old('phone', $lead->phone) }}" required>
                                     <label for="leadPhone">Lead Phone</label>
                                     @error('phone')
                                         <div class="text-danger">{{ $message }}</div>
@@ -67,27 +67,9 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="email" class="form-control" id="leadEmail" name="email" placeholder="Enter lead email" value="{{ old('email', $lead->email) }}">
+                                    <input type="email" class="form-control" id="leadEmail" name="email" placeholder="Enter lead email" value="{{ old('email', $lead->email) }}" required>
                                     <label for="leadEmail">Lead Email</label>
                                     @error('email')
-                                        <div class="text-danger">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            <!-- Status -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <select class="form-select" id="status" name="status" required>
-                                        <option value="" disabled>Select Status</option>
-                                        <option value="new" {{ old('status', $lead->status) == 'new' ? 'selected' : '' }}>New</option>
-                                        <option value="accept" {{ old('status', $lead->status) == 'accept' ? 'selected' : '' }}>Accept</option>
-                                        <option value="reject" {{ old('status', $lead->status) == 'reject' ? 'selected' : '' }}>Reject</option>
-                                        <option value="followup" {{ old('status', $lead->status) == 'followup' ? 'selected' : '' }}>Followup</option>
-                                        <option value="meeting" {{ old('status', $lead->status) == 'meeting' ? 'selected' : '' }}>Meeting</option>
-                                    </select>
-                                    <label for="status">Status</label>
-                                    @error('status')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -97,7 +79,8 @@
                             <div class="col-md-6">
                                 <div class="form-floating">
                                     @if (Auth::user()->hasRole('salesperson'))
-                                        <input type="text" class="form-control" id="assignTo" name="salesperson_id" value="{{ Auth::user()->name }}" readonly>
+                                       <input type="text" class="form-control" id="assignTo" name="salesperson_id"
+                                            value="{{ Auth::user()->name }}" readonly>
                                         <input type="hidden" name="salesperson_id" value="{{ Auth::user()->id }}">
                                         <label for="assignTo">Assigned To (Me)</label>
                                         @error('salesperson_id')
@@ -107,10 +90,7 @@
                                         <select class="form-select" id="assignTo" name="salesperson_id" required>
                                             <option value="">Select Salesperson</option>
                                             @foreach ($salespeople as $salesperson)
-                                                @php
-                                                    $selected = old('salesperson_id', $lead->salesperson_id) == $salesperson->id ? 'selected' : '';
-                                                @endphp
-                                                <option value="{{ $salesperson->id }}" {{ $selected }}>
+                                                <option value="{{ $salesperson->id }}" {{ old('salesperson_id', $lead->salesperson_id) == $salesperson->id ? 'selected' : '' }}>
                                                     {{ $salesperson->name }}
                                                 </option>
                                             @endforeach
@@ -123,7 +103,21 @@
                                 </div>
                             </div>
 
-                            <!-- Opportunity -->
+                            <!-- Sales Status and Opportunity -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <select class="form-select" id="salesStatus" name="status" required>
+                                        <option value="new" {{ old('status', $lead->status) == 'new' ? 'selected' : '' }}>New</option>
+                                        <option value="accept" {{ old('status', $lead->status) == 'accept' ? 'selected' : '' }}>Accept</option>
+                                        <option value="reject" {{ old('status', $lead->status) == 'reject' ? 'selected' : '' }}>Reject</option>
+                                        <option value="followup" {{ old('status', $lead->status) == 'followup' ? 'selected' : '' }}>Followup</option>                            
+                                    </select>
+                                    <label for="salesStatus">Sales Status</label>
+                                    @error('status')
+                                        <div class="text-danger">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
                                     <select class="form-select" id="opportunity" name="opportunity" required>
