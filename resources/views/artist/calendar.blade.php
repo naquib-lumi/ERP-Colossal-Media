@@ -111,19 +111,19 @@
         </div> -->
 
         <div class="input-group" style="min-width:230px;max-width:260px;">
-          <select class="form-select" id="filterSalesperson">
-            <option value="">Search Salesperson</option>
+          <select id="filter-salesperson" class="form-select">
+            <option value="">All Salesperson</option>
+            @foreach ($salespeople as $sp)
+              <option value="{{ $sp->id }}">{{ $sp->name }}</option>
+            @endforeach
           </select>
         </div>
 
-        <input type="text" class="form-control" id="searchClient" placeholder="Search by title / client" style="min-width:180px;max-width:240px;">
+        <input type="text" class="form-control" id="searchClient" placeholder="Search by title / client" style="width:100%">
 
         <div class="d-flex align-items-center gap-2 ms-auto">
         <button type="button" class="btn btn-outline-secondary" id="btnToday">Today</button>
         <button type="button" class="btn btn-outline-secondary" id="btnReset">Reset</button>
-        <button type="button" class="btn btn-outline-primary" id="btnExport">
-          <i class="bx bx-download me-1"></i> Export PDF
-        </button>
       </div>
       </div>
 
@@ -160,5 +160,5 @@
 
 @push('scripts')
 {{-- This will be injected by @stack('scripts') in commonMaster.blade.php --}}
-<script src="{{ asset('assets/js/artist-app-calendar.js') }}"></script>
+<script src="{{ asset('assets/js/artist-app-calendar.js') }}?v=5"></script>
 @endpush

@@ -14,19 +14,27 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnToggleSidebar =
       document.querySelector('#btnToggleSidebar') ||
       document.querySelector('#app-calendar-sidebar .btn-toggle-sidebar');
-    const selectAll = document.getElementById('selectAll');
-    const filterInputs = document.querySelectorAll('.input-filter');
-    const inlineCalendar = document.querySelector('.inline-calendar');
-    const upcomingList = document.getElementById('upcomingList');
+    const selectAll     = document.getElementById('selectAll');
+    const filterInputs  = document.querySelectorAll('.input-filter');
+    const inlineCalendar= document.querySelector('.inline-calendar');
+    const upcomingList  = document.getElementById('upcomingList');
 
     // Toolbar
     const inputStart  = document.getElementById('filterStart');
     const inputEnd    = document.getElementById('filterEnd');
-    const inputSearch = document.getElementById('searchClient');
-    const selArtist   = document.getElementById('filterSalesperson');
+    const inputSearch = document.getElementById('searchClient');      // <-- use this everywhere
+    const selArtist   = document.getElementById('filter-salesperson'); // server-rendered list
     const btnToday    = document.getElementById('btnToday');
     const btnReset    = document.getElementById('btnReset');
     const btnExport   = document.getElementById('btnExport');
+
+    // --- helpers ---
+    const debounce = (fn, ms) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+    function selectedCalendars() {
+      const sel = [];
+      filterInputs.forEach(i => i.checked && sel.push(i.getAttribute('data-value')));
+      return sel.length ? sel : ['meeting','reminder'];
+    }
 
     function setSidebar(collapsed) {
       if (!wrapper) return;
@@ -73,14 +81,6 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
-    // --- helpers ---
-    const debounce = (fn, ms) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
-    function selectedCalendars() {
-      const sel = [];
-      filterInputs.forEach(i => i.checked && sel.push(i.getAttribute('data-value')));
-      return sel.length ? sel : ['meeting','reminder'];
-    }
-
     function renderUpcoming(events) {
       if (!upcomingList) return;
       const now = new Date();
@@ -111,50 +111,35 @@ document.addEventListener('DOMContentLoaded', function () {
       upcomingList.innerHTML = html;
     }
 
-    function populateSalespeople(events) {
+    // Load ALL salespeople from endpoint (not from events)
+    async function loadAllSalespeople() {
       if (!selArtist) return;
-      const map = new Map(); // id -> name
-      events.forEach(ev => {
-        const id = ev.extendedProps?.artist_id;
-        const name = ev.extendedProps?.artist_name;
-        if (id && name) map.set(String(id), String(name));
-      });
-      const cur = selArtist.value;
-      selArtist.innerHTML = '<option value="">Select Salesperson</option>' +
-        Array.from(map.entries()).sort((a,b)=>a[1].localeCompare(b[1]))
-          .map(([id,name]) => `<option value="${id}">${name}</option>`).join('');
-      if (cur) selArtist.value = cur;
+      try {
+        const res  = await fetch('/artist/calendar/salespeople', { credentials: 'same-origin' });
+        const list = await res.json(); // [{id,name}, ...]
+        const cur  = selArtist.value;
+        selArtist.innerHTML =
+          '<option value="">Select Salesperson</option>' +
+          list.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+        if (cur) selArtist.value = cur; // keep current selection
+      } catch (e) {
+        console.error('Failed to load salespeople', e);
+      }
     }
 
-    function fetchEvents(info, success, failure) {
-      const calendars = selectedCalendars();
-      const q = (inputSearch?.value || '').trim().toLowerCase();
-      const artistFilter = selArtist?.value || '';
-
-      // If date range fields are empty, just use FullCalendar's visible window.
-      const startStr = inputStart?.value ? (inputStart.value + 'T00:00:00') : info.startStr;
-      const endStr   = inputEnd?.value   ? (inputEnd.value   + 'T23:59:59') : info.endStr;
-
-      $.ajax({
-        url: '/artist/calendar/events',
-        type: 'GET',
-        data: { start: startStr, end: endStr },
-        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-        success: function (data) {
-          // We trust server colors – just ensure DOM gets them
-          let evs = data.map(ev => ({ ...ev, allDay: ev.allDay ?? false }));
-
-          // Filters
-          evs = evs.filter(ev => calendars.includes(ev.extendedProps.type) || calendars.includes('all'));
-          if (artistFilter) evs = evs.filter(ev => String(ev.extendedProps?.artist_id||'') === String(artistFilter));
-          if (q) evs = evs.filter(ev => (ev.title || '').toLowerCase().includes(q));
-
-          success(evs);
-          renderUpcoming(evs);
-          populateSalespeople(evs);
-        },
-        error: function (xhr) { console.error('Fetch events failed:', xhr.status, xhr.responseText); failure && failure(xhr); }
+    // Fetch events: include salesperson + search in the query
+    function fetchEvents(info, success) {
+      const artistId = selArtist?.value || '';
+      const params = new URLSearchParams({
+        start: info.startStr,
+        end:   info.endStr,
+        salesperson_id: artistId,                 // <-- sent to controller
+        q: (document.getElementById('searchClient')?.value || '')
       });
+      fetch(`/artist/calendar/events?${params.toString()}`, { credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(evs => { success(evs); /* optional: renderUpcoming(evs); */ })
+        .catch(() => success([]));
     }
 
     const calendar = new Calendar(calendarEl, {
@@ -215,11 +200,12 @@ document.addEventListener('DOMContentLoaded', function () {
         new bootstrap.Modal(document.getElementById(modalId)).show();
       },
 
-      // IMPORTANT: leave the date inputs EMPTY by default (no auto-fill)
+      // leave date inputs empty by default
       datesSet: function () { /* intentionally empty */ }
     });
 
     calendar.render();
+    loadAllSalespeople(); // fill dropdown once from endpoint
 
     // Toolbar actions
     const refetch = debounce(() => calendar.refetchEvents(), 250);
@@ -227,15 +213,13 @@ document.addEventListener('DOMContentLoaded', function () {
     btnExport?.addEventListener('click', () => window.print());
 
     btnReset?.addEventListener('click', () => {
-      // Clear EVERYTHING including date range
-      if (inputStart) inputStart.value = '';
-      if (inputEnd)   inputEnd.value = '';
-      if (inputSearch) inputSearch.value = '';
-      if (selArtist)  selArtist.value = '';
-      if (selectAll)  selectAll.checked = true;
+      if (inputStart)  inputStart.value = '';
+      if (inputEnd)    inputEnd.value   = '';
+      if (inputSearch) inputSearch.value= '';
+      if (selArtist)   selArtist.value  = '';
+      if (selectAll)   selectAll.checked= true;
       filterInputs.forEach(c => c.checked = true);
 
-      // Optional: reset mini calendar visual
       if (inlineCalendar && inlineCalendar._flatpickr) {
         inlineCalendar._flatpickr.clear();
         inlineCalendar._flatpickr.setDate(new Date(), true);
@@ -249,6 +233,12 @@ document.addEventListener('DOMContentLoaded', function () {
     inputEnd?.addEventListener('change', refetch);
     inputSearch?.addEventListener('input', refetch);
     selArtist?.addEventListener('change', () => calendar.refetchEvents());
+    document.getElementById('btnReset')?.addEventListener('click', () => {
+      selArtist.value = '';
+      calendar.today();
+      calendar.refetchEvents();
+    });
+
 
     // Sidebar filters
     selectAll?.addEventListener('click', e => {
@@ -262,27 +252,5 @@ document.addEventListener('DOMContentLoaded', function () {
       if (selectAll) selectAll.checked = checked === total;
       calendar.refetchEvents();
     }));
-
-    // Sidebar collapse (remember)
-    function setSidebar(collapsed) {
-      if (!wrapper) return;
-      if (collapsed) {
-        wrapper.classList.add('sidebar-collapsed');
-        btnToggleSidebar?.querySelector('span')?.replaceChildren(document.createTextNode('Show Sidebar'));
-        btnToggleSidebar?.querySelector('i')?.classList.replace('bx-chevron-left','bx-chevron-right');
-      } else {
-        wrapper.classList.remove('sidebar-collapsed');
-        btnToggleSidebar?.querySelector('span')?.replaceChildren(document.createTextNode('Hide Sidebar'));
-        btnToggleSidebar?.querySelector('i')?.classList.replace('bx-chevron-right','bx-chevron-left');
-      }
-      setTimeout(() => calendar.updateSize(), 10);
-    }
-    const stored = localStorage.getItem('artistCalSidebarCollapsed') === '1';
-    setSidebar(stored);
-    btnToggleSidebar?.addEventListener('click', () => {
-      const collapsed = !wrapper.classList.contains('sidebar-collapsed');
-      setSidebar(collapsed);
-      localStorage.setItem('artistCalSidebarCollapsed', collapsed ? '1':'0');
-    });
   })();
 });
