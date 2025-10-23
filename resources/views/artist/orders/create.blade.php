@@ -274,7 +274,6 @@
                                                 <td>{!! e($product['location'] ?? '') !!}</td>
                                                 <td>{!! e($product['date_time'] ?? '') !!}</td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit">Edit</button>
                                                     <button type="button" class="btn btn-sm btn-danger remove-product">Delete</button>
                                                 </td>
                                             </tr>

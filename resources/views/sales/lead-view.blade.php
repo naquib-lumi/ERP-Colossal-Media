@@ -1,5 +1,4 @@
 @extends('layouts.app')
-
 @section('title', 'Lead Details')
 @section('content')
     <div class="container-xxl flex-grow-1 container-p-y">
@@ -147,6 +146,14 @@
                                     $(document).ready(function() {
                                         $('#addFileBtn').on('click', function() {
                                             $('#addFileForm').slideToggle();
+                                        });
+
+                                        $('#addFileForm').on('submit', function(e) {
+                                            const fileInput = $('input[name="attachments[]"]')[0];
+                                            if (!fileInput.files || fileInput.files.length === 0) {
+                                                e.preventDefault();
+                                                alert('Please select at least one file to upload.');
+                                            }
                                         });
 
                                         $('#attachmentsTableBody').on('click', '.delete-attachment', function(e) {
@@ -470,153 +477,41 @@
                                 </div>
                             </div>
                         </div>
-                        <script>
-                            $(document).ready(function() {
-                                // Type radio toggle
-                                $('input[name="type"]').on('change', function() {
-                                    if ($(this).val() === 'online') {
-                                        $('#onlineUrl').show();
-                                        $('#offlineLocation').hide();
-                                    } else {
-                                        $('#onlineUrl').hide();
-                                        $('#offlineLocation').show();
-                                    }
-                                });
+                    </div>
 
-                                // Edit meeting - whole div click
-                                $(document).on('click', '.meeting-item', function(e) {
-                                    if ($(e.target).is('.status-update')) return;
-                                    let id = $(this).data('id');
-                                    $('#meetingModalLabel').text('Update Meeting');
-                                    $('#meetingId').val(id);
-                                    $.ajax({
-                                        url: `/meetings/${id}`,
-                                        type: 'GET',
-                                        success: function(meeting) {
-                                            $('#meetingTitle').val(meeting.title || '');
-                                            $('#meetingStartTime').val(moment(meeting.start_time).format('YYYY-MM-DDTHH:mm') || '');
-                                            let duration = moment(meeting.end_time).diff(moment(meeting.start_time), 'minutes') || '';
-                                            $('#meetingDuration').val(duration);
-                                            $('input[name="type"][value="' + (meeting.type || 'online') + '"]').prop('checked', true).trigger('change');
-                                            $('#meetingUrl').val(meeting.url || '');
-                                            $('#meetingLocation').val(meeting.location || '');
-                                            $('#meetingNote').val(meeting.note || '');
-                                            $('#saveMeetingBtn').off('click').text('Update').on('click', updateMeeting);
-                                        },
-                                        error: function(xhr) {
-                                            alert('Error loading meeting: ' + xhr.responseText);
-                                        }
-                                    });
-                                });
-
-                                // Reset for add new
-                                $('#meetingModal').on('hidden.bs.modal', function() {
-                                    $('#meetingModalLabel').text('Add Meeting');
-                                    $('#meetingId').val('');
-                                    $('#meetingForm')[0].reset();
-                                    $('input[name="type"][value="online"]').prop('checked', true).trigger('change');
-                                    $('#saveMeetingBtn').off('click').text('Save Meeting').on('click', saveNewMeeting);
-                                });
-
-                                function saveNewMeeting() {
-                                console.log('masuk');
-                                    let formData = new FormData($('#meetingForm')[0]);
-                                    formData.append('_token', '{{ csrf_token() }}');
-                                    console.log('Submitting new meeting');
-                                    $.ajax({
-                                        url: '{{ route('meetings.store', ['lead' => $lead->id]) }}',
-                                        type: 'POST',
-                                        data: formData,
-                                        contentType: false,
-                                        processData: false,
-                                        success: function(response) {
-                                            console.log('New meeting saved:', response);
-                                            $('#meetingModal').modal('hide');
-                                            location.reload();
-                                        },
-                                        error: function(xhr) {
-                                            console.error('New meeting error:', xhr.responseText);
-                                            alert('Error: ' + xhr.responseText);
-                                        }
-                                    });
-                                }
-
-                                function updateMeeting() {
-                                    let id = $('#meetingId').val();
-                                    let formData = new FormData($('#meetingForm')[0]);
-                                    formData.append('_method', 'PUT');
-                                    formData.append('_token', '{{ csrf_token() }}');
-                                    $.ajax({
-                                        url: `/calendar/meetings/${id}`,
-                                        type: 'POST',
-                                        data: formData,
-                                        contentType: false,
-                                        processData: false,
-                                        success: function(response) {
-                                            $('#meetingModal').modal('hide');
-                                            location.reload();
-                                        },
-                                        error: function(xhr) {
-                                            alert('Error: ' + xhr.responseText);
-                                        }
-                                    });
-                                }
-
-                                // Status update
-                                $('.status-update').on('change', function() {
-                                    let id = $(this).data('id');
-                                    let status = $(this).val();
-                                    $.ajax({
-                                        url: `/meetings/${id}/status`,
-                                        type: 'POST',
-                                        data: {
-                                            status: status,
-                                            _token: '{{ csrf_token() }}'
-                                        },
-                                        success: function() {
-                                            location.reload();
-                                        },
-                                        error: function(xhr) {
-                                            alert('Error: ' + xhr.responseText);
-                                        }
-                                    });
-                                });
-                            });
-                        </script>
-                        <div class="tab-pane fade" id="order-history" role="tabpanel"
-                            aria-labelledby="order-history-tab">
-                            @if ($lead->orders->isEmpty())
-                                <p class="text-muted">No orders yet.</p>
-                            @else
-                                <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <thead>
+                    <div class="tab-pane fade" id="order-history" role="tabpanel"
+                        aria-labelledby="order-history-tab">
+                        @if ($lead->orders->isEmpty())
+                            <p class="text-muted">No orders yet.</p>
+                        @else
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Order ID</th>
+                                            <th>Job Title</th>
+                                            <th>Created Date</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($lead->orders as $order)
                                             <tr>
-                                                <th>Order ID</th>
-                                                <th>Job Title</th>
-                                                <th>Created Date</th>
-                                                <th>Status</th>
-                                                <th>Action</th>
+                                                <td>{{ $order->order_number }}</td>
+                                                <td>{{ $order->orderTitle }}</td>
+                                                <td>{{ $order->created_at->format('Y-m-d') }}</td>
+                                                <td><span
+                                                        class="badge bg-{{ $order->orderStatus == 'To_assign' ? 'warning' : ($order->orderStatus == 'completed' ? 'success' : 'secondary') }}">{{ ucfirst($order->orderStatus) }}</span>
+                                                </td>
+                                                <td><a href="{{ route('orders.show', $order->id) }}"
+                                                        class="btn btn-sm btn-primary">View</a></td>
                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($lead->orders as $order)
-                                                <tr>
-                                                    <td>{{ $order->order_number }}</td>
-                                                    <td>{{ $order->orderTitle }}</td>
-                                                    <td>{{ $order->created_at->format('Y-m-d') }}</td>
-                                                    <td><span
-                                                            class="badge bg-{{ $order->orderStatus == 'To_assign' ? 'warning' : ($order->orderStatus == 'completed' ? 'success' : 'secondary') }}">{{ ucfirst($order->orderStatus) }}</span>
-                                                    </td>
-                                                    <td><a href="{{ route('orders.show', $order->id) }}"
-                                                            class="btn btn-sm btn-primary">View</a></td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @endif
-                        </div>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -664,7 +559,117 @@
 
             <script>
                 $(document).ready(function() {
-                $('#saveMeetingBtn').on('click', saveNewMeeting);
+                    // Meeting functions defined first
+                    function saveNewMeeting() {
+                        console.log('masuk');
+                        let formData = new FormData($('#meetingForm')[0]);
+                        formData.append('_token', '{{ csrf_token() }}');
+                        console.log('Submitting new meeting');
+                        $.ajax({
+                            url: '{{ route('meetings.store', ['lead' => $lead->id]) }}',
+                            type: 'POST',
+                            data: formData,
+                            contentType: false,
+                            processData: false,
+                            success: function(response) {
+                                console.log('New meeting saved:', response);
+                                $('#meetingModal').modal('hide');
+                                location.reload();
+                            },
+                            error: function(xhr) {
+                                console.error('New meeting error:', xhr.responseText);
+                                alert('Error: ' + xhr.responseText);
+                            }
+                        });
+                    }
+
+                    function updateMeeting() {
+                        let id = $('#meetingId').val();
+                        let formData = new FormData($('#meetingForm')[0]);
+                        formData.append('_method', 'PUT');
+                        formData.append('_token', '{{ csrf_token() }}');
+                        $.ajax({
+                            url: `/calendar/meetings/${id}`,
+                            type: 'POST',
+                            data: formData,
+                            contentType: false,
+                            processData: false,
+                            success: function(response) {
+                                $('#meetingModal').modal('hide');
+                                location.reload();
+                            },
+                            error: function(xhr) {
+                                alert('Error: ' + xhr.responseText);
+                            }
+                        });
+                    }
+
+                    // Type radio toggle
+                    $('input[name="type"]').on('change', function() {
+                        if ($(this).val() === 'online') {
+                            $('#onlineUrl').show();
+                            $('#offlineLocation').hide();
+                        } else {
+                            $('#onlineUrl').hide();
+                            $('#offlineLocation').show();
+                        }
+                    });
+
+                    // Edit meeting - whole div click
+                    $(document).on('click', '.meeting-item', function(e) {
+                        if ($(e.target).is('.status-update')) return;
+                        let id = $(this).data('id');
+                        $('#meetingModalLabel').text('Update Meeting');
+                        $('#meetingId').val(id);
+                        $.ajax({
+                            url: `/meetings/${id}`,
+                            type: 'GET',
+                            success: function(meeting) {
+                                $('#meetingTitle').val(meeting.title || '');
+                                $('#meetingStartTime').val(moment(meeting.start_time).format('YYYY-MM-DDTHH:mm') || '');
+                                let duration = moment(meeting.end_time).diff(moment(meeting.start_time), 'minutes') || '';
+                                $('#meetingDuration').val(duration);
+                                $('input[name="type"][value="' + (meeting.type || 'online') + '"]').prop('checked', true).trigger('change');
+                                $('#meetingUrl').val(meeting.url || '');
+                                $('#meetingLocation').val(meeting.location || '');
+                                $('#meetingNote').val(meeting.note || '');
+                                $('#saveMeetingBtn').off('click').text('Update').on('click', updateMeeting);
+                            },
+                            error: function(xhr) {
+                                alert('Error loading meeting: ' + xhr.responseText);
+                            }
+                        });
+                    });
+
+                    // Reset for add new
+                    $('#meetingModal').on('hidden.bs.modal', function() {
+                        $('#meetingModalLabel').text('Add Meeting');
+                        $('#meetingId').val('');
+                        $('#meetingForm')[0].reset();
+                        $('input[name="type"][value="online"]').prop('checked', true).trigger('change');
+                        $('#saveMeetingBtn').off('click').text('Save Meeting').on('click', saveNewMeeting);
+                    });
+
+                    // Status update
+                    $('.status-update').on('change', function() {
+                        let id = $(this).data('id');
+                        let status = $(this).val();
+                        $.ajax({
+                            url: `/meetings/${id}/status`,
+                            type: 'POST',
+                            data: {
+                                status: status,
+                                _token: '{{ csrf_token() }}'
+                            },
+                            success: function() {
+                                location.reload();
+                            },
+                            error: function(xhr) {
+                                alert('Error: ' + xhr.responseText);
+                            }
+                        });
+                    });
+
                     // Debug: Confirm jQuery is loaded
                     console.log('jQuery loaded:', typeof $);
 
@@ -791,6 +796,9 @@
                             saveNewReminder();
                         }
                     });
+
+                    // Attach initial event for saveMeetingBtn
+                    $('#saveMeetingBtn').on('click', saveNewMeeting);
                 });
             </script>
         </div>

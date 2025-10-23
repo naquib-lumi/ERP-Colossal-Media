@@ -131,13 +131,11 @@ Route::get('/dashboard', function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    Route::middleware('role:salesperson|head-salesperson')->group(function () {
+    Route::middleware('role:salesperson|head-salesperson')->group(function () { 
 
         Route::get('/notifications/reminders/{reminder}/complete', [ReminderController::class, 'completeFromNotification'])->name('reminders.complete.notification');
-
-Route::get('/sales/profile', [SalesController::class, 'ProfileShow'])->name('sales.profile.show');
-Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name('sales.profile.update');
-
+        Route::get('/sales/profile', [SalesController::class, 'ProfileShow'])->name('sales.profile.show');
+        Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name('sales.profile.update');
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
         Route::get('/sales/orders', [OrderController::class, 'index'])->name('sales.orders');
         Route::get('/sales/calendar', [CalendarController::class, 'index'])->name('sales.calendar');
@@ -158,6 +156,8 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
+       Route::get('/sales/orders/export', [OrderController::class, 'exportCsv'])->name('orders.export');
+        
         Route::delete('/orders/{id}', [OrderController::class, 'destroy'])->name('orders.destroy');
         Route::post('/orders/get', [OrderController::class, 'getOrders'])->name('orders.get');
         Route::get('/orders/leads/search', [OrderController::class, 'searchLeads'])->name('orders.leads.search');
@@ -166,6 +166,9 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
 
         // LEAD MANAGEMENT
         Route::get('/sales/leads', [LeadController::class, 'leadManagement'])->name('sales.leads');
+        Route::get('/sales/leads/export', [LeadController::class, 'exportCsv'])->name('leads.export-csv');
+        
+
         Route::post('/api/leads', [LeadController::class, 'getLeads'])->name('leads.get');
         Route::post('/leads/{id}/update-status', [LeadController::class, 'updateStatus'])->name('leads.update.status');
         Route::post('/leads/{id}/update-opportunity', [LeadController::class, 'updateOpportunity'])->name('leads.update.opportunity');
@@ -190,7 +193,7 @@ Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name(
         Route::delete('/calendar/meetings/{id}', [MeetingController::class, 'destroy']);
 
         Route::get('/meetings/{id}', [MeetingController::class, 'show'])->name('meetings.show');  // Add for edit fetch
-Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])->name('meetings.update.status');
+        Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])->name('meetings.update.status');
     });
 
     Route::get('/test-route', function () {
@@ -357,12 +360,35 @@ Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])
         Route::patch('/dispatchcontrol/jobs/{product}/complete', [DispatchControlController::class, 'completeWithProof'])->name('dispatchcontrol.jobs.complete');
     });
 
-    Route::middleware('role:admin')->group(function () {
-        Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
-        Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
-        Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
-    });
+Route::middleware('role:admin')->group(function () {
+    Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::get('/admin/leads-monthly', [AdminController::class, 'leadsMonthly'])->name('admin.leadsMonthly');
+    Route::get('/admin/leads-breakdown', [AdminController::class, 'leadsBreakdown'])->name('admin.leadsBreakdown');
+    Route::get('/admin/fulfillment-counts', [AdminController::class, 'fulfillmentCounts'])->name('admin.fulfillmentCounts');
+    Route::get('/admin/fulfillment', [AdminController::class,'fulfillment'])->name('admin.fulfillment');
+    Route::get('/admin/fulfillment/{id}', [AdminController::class,'fulfillmentShow'])->name('admin.fulfillment.show');
+    Route::get('/admin/fulfillment/{id}/edit', [AdminController::class,'fulfillmentEdit'])->name('admin.fulfillment.edit');
+    Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
+    //  Route::get('/admin/manageuser-table', [AdminController::class, 'manageUserTable'])->name('admin.manageuserTable');
+    
+     Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
+     Route::put('/admin/user/{user}', [AdminController::class, 'updateUser'])->name('admin.user.update');
+     Route::patch('/admin/user/{user}/disable', [AdminController::class, 'disableUser'])->name('admin.user.disable');
+    
+     Route::get('/admin/orders', [AdminController::class, 'orders'])->name('admin.orders');
+      Route::get('/admin/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
+     Route::post('/admin/orders/data', [AdminController::class, 'getOrders'])->name('admin.orders.data');
 
+     Route::get('/admin/coasing-data', [AdminController::class, 'coasingData'])->name('admin.coasing-data');
+     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
+     Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
+     Route::get('/admin/fulfillment', [AdminController::class, 'fulfillment'])->name('admin.fulfillment');
+     Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user');
+     Route::get('/admin/data-key-in', [AdminController::class, 'dataKeyIn'])->name('admin.data-key-in');
+     Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
+     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
+     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
+ });
     Route::middleware('role:printing,installation,delivery,furnishing')->group(function () {
         Route::get('/operations/tasks', [OperationsController::class, 'tasks'])->name('operations.tasks');
     });

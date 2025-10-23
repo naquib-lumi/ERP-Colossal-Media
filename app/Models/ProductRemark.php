@@ -12,7 +12,8 @@ class ProductRemark extends Model
     protected $keyType = 'int';
     public $timestamps = true; // you have created_at/updated_at
 
-    protected $fillable = ['ProductID','operation','remark'];
+  protected $fillable = ['ProductID', 'operation', 'remark', 'user_id'];
+
 
     public function product()
     {
@@ -22,6 +23,7 @@ class ProductRemark extends Model
 
     public function user()
     {
-        return $this->belongsTo(\App\Models\User::class, 'user_id');
+        return $this->belongsTo(\App\Models\User::class, 'user_id', 'id');
     }
+
 }

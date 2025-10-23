@@ -1,23 +1,24 @@
 @extends('layouts.app')
 
-@section('title', 'Add Lead')
+@section('title', 'Edit Lead')
 @section('content')
 <div class="container-xxl flex-grow-1 container-p-y">
     <div class="row g-6">
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Add Lead</h5>
+                    <h5 class="mb-0">Edit Lead</h5>
                     <a href="{{ route('sales.leads') }}" class="btn btn-secondary">Back to Leads</a>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('leads.store') }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('leads.update', $lead->id) }}" method="POST" enctype="multipart/form-data">
                         @csrf
+                        @method('PUT')
                         <div class="row g-4">
                             <!-- Company Name and Company Phone -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="companyName" name="company_name" placeholder="Enter company name" value="{{ old('company_name') }}" required>
+                                    <input type="text" class="form-control" id="companyName" name="company_name" placeholder="Enter company name" value="{{ old('company_name', $lead->company_name) }}" required>
                                     <label for="companyName">Company Name</label>
                                     @error('company_name')
                                         <div class="text-danger">{{ $message }}</div>
@@ -26,7 +27,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="companyPhone" name="company_phone" placeholder="Enter company phone" value="{{ old('company_phone') }}" pattern="[0-9\s\-\+\(\)]*">
+                                    <input type="text" class="form-control" id="companyPhone" name="company_phone" placeholder="Enter company phone" value="{{ old('company_phone', $lead->company_phone) }}">
                                     <label for="companyPhone">Company Phone</label>
                                     @error('company_phone')
                                         <div class="text-danger">{{ $message }}</div>
@@ -34,10 +35,10 @@
                                 </div>
                             </div>
 
-                            <!-- Website and PIC Name -->
+                            <!-- Website and Lead Name -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="website" name="website" placeholder="example.com" value="{{ old('website') }}">
+                                    <input type="url" class="form-control" id="website" name="website" placeholder="http://example.com" value="{{ old('website', $lead->website) }}">
                                     <label for="website">Website</label>
                                     @error('website')
                                         <div class="text-danger">{{ $message }}</div>
@@ -46,8 +47,8 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="picName" name="name" placeholder="Enter PIC name" value="{{ old('name') }}" required>
-                                    <label for="picName">PIC Name</label>
+                                    <input type="text" class="form-control" id="leadName" name="name" placeholder="Enter lead name" value="{{ old('name', $lead->name) }}" required>
+                                    <label for="leadName">Lead Name</label>
                                     @error('name')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
@@ -57,7 +58,7 @@
                             <!-- Lead Phone and Lead Email -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="tel" class="form-control" id="leadPhone" name="phone" placeholder="Enter lead phone" value="{{ old('phone') }}" required pattern="[0-9\s\-\+\(\)]*">
+                                    <input type="text" class="form-control" id="leadPhone" name="phone" placeholder="Enter lead phone" value="{{ old('phone', $lead->phone) }}" required>
                                     <label for="leadPhone">Lead Phone</label>
                                     @error('phone')
                                         <div class="text-danger">{{ $message }}</div>
@@ -66,7 +67,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="email" class="form-control" id="leadEmail" name="email" placeholder="Enter lead email" value="{{ old('email') }}">
+                                    <input type="email" class="form-control" id="leadEmail" name="email" placeholder="Enter lead email" value="{{ old('email', $lead->email) }}" required>
                                     <label for="leadEmail">Lead Email</label>
                                     @error('email')
                                         <div class="text-danger">{{ $message }}</div>
@@ -89,10 +90,7 @@
                                         <select class="form-select" id="assignTo" name="salesperson_id" required>
                                             <option value="">Select Salesperson</option>
                                             @foreach ($salespeople as $salesperson)
-                                                @php
-                                                    $selected = old('salesperson_id') == $salesperson->id ? 'selected' : '';
-                                                @endphp
-                                                <option value="{{ $salesperson->id }}" {{ $selected }}>
+                                                <option value="{{ $salesperson->id }}" {{ old('salesperson_id', $lead->salesperson_id) == $salesperson->id ? 'selected' : '' }}>
                                                     {{ $salesperson->name }}
                                                 </option>
                                             @endforeach
@@ -105,15 +103,29 @@
                                 </div>
                             </div>
 
-                            <!-- Opportunity -->
+                            <!-- Sales Status and Opportunity -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <select class="form-select" id="salesStatus" name="status" required>
+                                        <option value="new" {{ old('status', $lead->status) == 'new' ? 'selected' : '' }}>New</option>
+                                        <option value="accept" {{ old('status', $lead->status) == 'accept' ? 'selected' : '' }}>Accept</option>
+                                        <option value="reject" {{ old('status', $lead->status) == 'reject' ? 'selected' : '' }}>Reject</option>
+                                        <option value="followup" {{ old('status', $lead->status) == 'followup' ? 'selected' : '' }}>Followup</option>                            
+                                    </select>
+                                    <label for="salesStatus">Sales Status</label>
+                                    @error('status')
+                                        <div class="text-danger">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
                                     <select class="form-select" id="opportunity" name="opportunity" required>
-                                        <option value="" disabled {{ old('opportunity') ? '' : 'selected' }}>Select Opportunity</option>
-                                        <option value="50/50" {{ old('opportunity') == '50/50' ? 'selected' : '' }}>50/50</option>
-                                        <option value="High Chance" {{ old('opportunity') == 'High Chance' ? 'selected' : '' }}>High Chance</option>
-                                        <option value="Low Chance" {{ old('opportunity') == 'Low Chance' ? 'selected' : '' }}>Low Chance</option>
-                                        <option value="None" {{ old('opportunity') == 'None' ? 'selected' : '' }}>None</option>
+                                        <option value="" disabled {{ old('opportunity', $lead->opportunity) ? '' : 'selected' }}>Select Opportunity</option>
+                                        <option value="50/50" {{ old('opportunity', $lead->opportunity) == '50/50' ? 'selected' : '' }}>50/50</option>
+                                        <option value="High Chance" {{ old('opportunity', $lead->opportunity) == 'High Chance' ? 'selected' : '' }}>High Chance</option>
+                                        <option value="Low Chance" {{ old('opportunity', $lead->opportunity) == 'Low Chance' ? 'selected' : '' }}>Low Chance</option>
+                                        <option value="None" {{ old('opportunity', $lead->opportunity) == 'None' ? 'selected' : '' }}>None</option>
                                     </select>
                                     <label for="opportunity">Opportunity</label>
                                     @error('opportunity')
@@ -126,7 +138,7 @@
                         <!-- Remark (Full Width) -->
                         <div class="mb-4 mt-4">
                             <div class="form-floating">
-                                <textarea class="form-control" id="remarks" name="remark" placeholder="Enter any additional remarks or notes" rows="3">{{ old('remark') }}</textarea>
+                                <textarea class="form-control" id="remarks" name="remark" placeholder="Enter any additional remarks or notes" rows="3">{{ old('remark', $lead->remark) }}</textarea>
                                 <label for="remarks">Remarks</label>
                                 @error('remark')
                                     <div class="text-danger">{{ $message }}</div>
@@ -152,14 +164,26 @@
                             @enderror
                         </div>
 
-                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="submit" class="btn btn-primary">Update</button>
                     </form>
+                    @if ($lead->attachments->isNotEmpty())
+                        <div class="mt-2" id="existing-attachments">
+                            <strong>Existing Attachments:</strong>
+                            <ul>
+                                @foreach ($lead->attachments as $attachment)
+                                    <li data-attachment-id="{{ $attachment->id }}">
+                                        {{ basename($attachment->file_location) }} (<a href="{{ asset('storage/' . $attachment->file_location) }}" target="_blank">View</a>)
+                                        <button type="button" class="btn btn-sm btn-danger delete-attachment" data-url="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}" onclick="return confirm('Are you sure?')">Delete</button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
     </div>
 </div>
-
 <script>
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('attachments');
@@ -244,5 +268,36 @@
         updateFileInput();
         updateFileList();
     }
+
+    document.querySelectorAll('.delete-attachment').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = this.dataset.url;
+            const li = this.closest('li');
+
+            if (!confirm('Are you sure?')) return;
+
+            fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    li.remove();
+                } else {
+                    alert('Failed to delete attachment');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting attachment');
+            });
+        });
+    });
 </script>
 @endsection
