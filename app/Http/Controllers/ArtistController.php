@@ -578,9 +578,13 @@ class ArtistController extends Controller
             ->orderByDesc('created_at')
             ->value('reason');
 
+        $artists = \App\Models\User::whereIn('role', ['artist', 'head-artist'])
+        ->orderBy('name')
+        ->get(['id', 'name', 'role']);
+
         return view('artist.orders.edit', compact(
             'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
-            'orderFiles', 'redoReason'
+            'orderFiles', 'redoReason', 'artists'
         ));
 
         return view('artist.orders.edit', [
