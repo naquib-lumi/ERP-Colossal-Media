@@ -936,7 +936,7 @@
               <div class="dlv-hd"><i class="bi bi-truck"></i> Delivery Breakdown</div>
               <div class="dlv-sub">
                 Total: {{ number_format($tot['total']) }}
-                · Delivered: {{ number_format($tot['delivered']) }}
+                · Delivery Plan: {{ number_format($tot['delivered']) }}
                 · Remaining: {{ number_format($tot['remaining']) }}
               </div>
             </div>
