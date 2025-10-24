@@ -3,6 +3,42 @@
 @section('content')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
+  /* force row on desktop */
+  .dc-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap;              /* keep one row on wide screens */
+  }
+
+  /* each child should size to content by default */
+  .dc-toolbar > * { flex: 0 0 auto; }
+
+  /* let the keyword search take the extra space */
+  .dc-toolbar .grow {
+    flex: 1 1 420px;                /* grows, with a sensible min width */
+    min-width: 320px;
+  }
+
+  /* bootstrap input-group defaults to width:100%; override for toolbar */
+  .dc-toolbar .input-group { width: auto; }
+
+  .dc-toolbar .form-control,
+  .dc-toolbar .form-select,
+  .dc-toolbar .btn {
+    height: 44px;
+  }
+
+  .dc-toolbar .input-group-text { background: #fff; }
+
+  /* spacer to push buttons to the far right */
+  .dc-toolbar .spacer { flex: 1 1 auto; }
+
+  /* wrap vertically on small screens */
+  @media (max-width: 992px) {
+    .dc-toolbar { flex-wrap: wrap; }
+    .dc-toolbar .spacer { flex-basis: 100%; height: 0; }
+  }
   .table td i {
     font-size: 1rem;
     vertical-align: middle;
@@ -248,55 +284,75 @@ default => \Illuminate\Support\Str::title($t),
   </div>
 
   {{-- Toolbar --}}
-  <div class="card card-soft mb-3">
-    <div class="card-body">
-      <form method="GET" action="{{ route('dispatchcontrol.job-order') }}" class="filter-toolbar">
-        <input type="hidden" name="method" value="{{ request('method') }}">
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-hash"></i></span>
-          <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="# Enter Product ID">
-        </div>
-
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input type="text" name="q" value="{{ request('q', $q ?? '') }}" class="form-control" placeholder="Search by Order Title, Company, Product, or Remarks">
-        </div>
-
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-          <select name="artist" class="form-select">
-            <option value="">All artists</option>
-            @foreach(($artists ?? []) as $a)
-            <option value="{{ $a->id }}" @selected((string)$a->id === (string)request('artist', $artist ?? ''))>
-              {{ $a->name }}
-            </option>
-            @endforeach
-          </select>
-        </div>
-
-        <select name="task_type" class="form-select">
-          <option value="">All Types</option>
-          <option value="printing" @selected(request('task_type')==='printing' )>Printing</option>
-          <option value="furnishing" @selected(request('task_type')==='furnishing' )>Furnishing</option>
-          <option value="installation" @selected(request('task_type')==='installation' )>Delivery & Installation</option>
-          <option value="delivery" @selected(request('task_type')==='delivery' )>Dispatch Control</option>
-        </select>
-
-        <select name="status" class="form-select">
-          <option value="">All Statuses</option>
-          <option value="in_progress" @selected(request('status')==='in_progress' )>In Progress</option>
-          <option value="completed" @selected(request('status')==='completed' )>Completed</option>
-          <option value="rejected" @selected(request('status')==='rejected' )>Rejected</option>
-        </select>
-
-        <button class="btn btn-dark"><i class="bi bi-funnel me-1"></i> Apply Filter</button>
+<div class="card card-soft mb-3">
+  <div class="card-body">
+    {{-- Header --}}
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <div>
+        <div class="fw-bold">Dispatch Control</div>
+        <small class="text-muted">Filter &amp; search</small>
+      </div>
+      <div class="d-flex gap-2">
         <a href="{{ route('dispatchcontrol.job-order') }}" class="btn btn-light border">
           <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
         </a>
-        <a class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i> Export CSV</a>
-      </form>
+        <button form="dispatch-filter" class="btn btn-dark">
+          <i class="bi bi-funnel me-1"></i> Apply Filter
+        </button>
+      </div>
     </div>
+
+    {{-- Toolbar (single row on desktop) --}}
+    <form id="dispatch-filter" method="GET" action="{{ route('dispatchcontrol.job-order') }}" class="dc-toolbar">
+      <input type="hidden" name="method" value="{{ request('method') }}">
+
+      {{-- Product ID --}}
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-hash"></i></span>
+        <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}"
+               class="form-control" placeholder="# Enter Product ID" style="width:160px;">
+      </div>
+
+      {{-- Keyword search (grows) --}}
+      <div class="input-group grow">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" name="q" value="{{ request('q', $q ?? '') }}"
+               class="form-control" placeholder="Order title, Company name, or Product">
+      </div>
+
+      {{-- Artist --}}
+      <div class="input-group" style="width:260px;">
+        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+        <select name="artist" class="form-select">
+          <option value="">All artists</option>
+          @foreach(($artists ?? []) as $a)
+            <option value="{{ $a->id }}" @selected((string)$a->id === (string)request('artist', $artist ?? ''))>
+              {{ $a->name }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+
+      {{-- Type --}}
+      <select name="task_type" class="form-select" style="width:210px;">
+        <option value="">All Types</option>
+        <option value="printing"     @selected(request('task_type')==='printing')>Printing</option>
+        <option value="furnishing"   @selected(request('task_type')==='furnishing')>Furnishing</option>
+        <option value="installation" @selected(request('task_type')==='installation')>Delivery &amp; Installation</option>
+        <option value="delivery"     @selected(request('task_type')==='delivery')>Dispatch Control</option>
+      </select>
+
+      {{-- Status --}}
+      <select name="status" class="form-select" style="width:190px;">
+        <option value="">All Statuses</option>
+        <option value="in_progress" @selected(request('status')==='in_progress')>In Progress</option>
+        <option value="completed"   @selected(request('status')==='completed')>Completed</option>
+        <option value="rejected"    @selected(request('status')==='rejected')>Rejected</option>
+      </select>
+
+    </form>
   </div>
+</div>
 
   {{-- Table --}}
   <div class="card card-soft">
