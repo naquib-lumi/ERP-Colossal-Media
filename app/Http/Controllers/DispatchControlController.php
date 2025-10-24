@@ -58,6 +58,10 @@ class DispatchControlController extends Controller
              ->where(function ($q) {
                 $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
             })
+            ->where(function ($w) {
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
+            })
             ->when($pid !== '', function ($qb) use ($pid) {
                 $like = '%'.$pid.'%';
 

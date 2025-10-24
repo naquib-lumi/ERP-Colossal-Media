@@ -47,6 +47,10 @@ class PrintingController extends Controller
                 $j->on('r.redoOf', '=', 'p.ProductID')
                 ->where('r.editable', '=', 1);
             })
+            ->where(function ($w) {
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
+            })
             ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
             ->whereNotExists(function ($q2) {
                 $q2->select(DB::raw(1))
