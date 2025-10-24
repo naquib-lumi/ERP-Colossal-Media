@@ -173,7 +173,7 @@ class ArtistController extends Controller
 
         // ---- Active flag (status is NULL or 0) ----
         $active = function ($q) {
-            $q->whereNull('status')->orWhere('status', 0);
+            $q->whereNull('status')->orWhereIn('status', [0, 1]);
         };
 
         // 1) Your normal visibility (already permission-aware) + active
@@ -215,19 +215,24 @@ class ArtistController extends Controller
         // existing status logic preserved
         if ($raw !== '') {
             if ($raw === 'pending') {
-                $query->where('orderStatus', 'assigned')
-                    ->where('pending', 1);
-
+                $query->where('orderStatus', 'assigned')->where('pending', 1);
                 if ($isHead) {
                     $query->whereRaw('1=0');
                 }
             } else {
                 $db = $map[$raw] ?? $raw;
-                $query->where('orderStatus', $db);
+                if ($db === 'rejected') {
+                    $query->where(function ($w) {
+                        $w->where('orderStatus', 'rejected')
+                        ->orWhere('status', 1);   // archived → show as rejected
+                    });
+                } else {
+                    $query->where('orderStatus', $db);
 
-                if (!$isHead && $db === 'in_progress') {
-                    $query->where('artist_id', $user->id)
-                        ->where('pending', 0);
+                    if (!$isHead && $db === 'in_progress') {
+                        $query->where('artist_id', auth()->id())
+                            ->where('pending', 0);
+                    }
                 }
             }
         }

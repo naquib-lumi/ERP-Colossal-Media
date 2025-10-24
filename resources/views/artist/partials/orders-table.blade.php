@@ -49,21 +49,27 @@ $isHead = auth()->user()->role === 'head-artist';
   </thead>
   <tbody>
 @forelse ($orders as $order)
-  @continue( (int) ($order->status ?? 0) === 1 )
+  {{-- do NOT skip status=1 --}}
   @php
-    $rawStatus   = $order->orderStatus;
-    $isPending   = (!$isHead) && $rawStatus === 'assigned' && (int) $order->pending === 1;
+    $isArchived = (int)($order->status ?? 0) === 1;
 
-    $label = $isPending ? 'Pending' : \Illuminate\Support\Str::of($rawStatus)->replace('_', ' ')->title();
+    // If archived → treat as rejected for display
+    $rawStatus = $isArchived ? 'rejected' : ($order->orderStatus ?? '');
+
+    $isPending = (!$isHead) && $rawStatus === 'assigned' && (int)$order->pending === 1;
+
+    $label = $isPending
+      ? 'Pending'
+      : \Illuminate\Support\Str::of($rawStatus)->replace('_', ' ')->title();
 
     $badgeClass = match (true) {
-      $isPending                 => 'badge bg-warning text-dark fw-bold',
-      $rawStatus === 'to_assign' => 'badge bg-secondary',
-      $rawStatus === 'assigned'  => 'badge bg-warning text-dark',
-      $rawStatus === 'in_progress'=> 'badge bg-info',
-      $rawStatus === 'completed' => 'badge bg-success',
-      $rawStatus === 'rejected'  => 'badge bg-danger',
-      default                    => 'badge bg-light text-dark',
+      $isPending                   => 'badge bg-warning text-dark fw-bold',
+      $rawStatus === 'to_assign'   => 'badge bg-secondary',
+      $rawStatus === 'assigned'    => 'badge bg-warning text-dark',
+      $rawStatus === 'in_progress' => 'badge bg-info',
+      $rawStatus === 'completed'   => 'badge bg-success',
+      $rawStatus === 'rejected'    => 'badge bg-danger',
+      default                      => 'badge bg-light text-dark',
     };
 
     $deadline = $order->deadline ? \Carbon\Carbon::parse($order->deadline)->format('M d, Y') : '-';
@@ -74,22 +80,33 @@ $isHead = auth()->user()->role === 'head-artist';
       $displayOrderNo = preg_match('/R\d*$/', $orig) ? $orig : ($orig . 'R');
     }
 
-    $status = strtolower($order->orderStatus ?? '');
+    $status        = strtolower($rawStatus);
     $isCompleted   = $status === 'completed';
     $isRejected    = $status === 'rejected';
-    $reportBlocked = in_array($status, ['to_assign','assigned','pending', 'in_progress'], true);
-    $canEdit       = !($isCompleted || $isRejected);
+    $reportBlocked = in_array($status, ['to_assign','assigned','pending','in_progress'], true);
+    $canEdit       = !($isCompleted || $isRejected) && !$isArchived; // archived → no edit
   @endphp
 
   <tr data-href="{{ route('artist.orders.show', $order->id) }}" style="cursor:pointer;">
-    <td>{{ $displayOrderNo }}</td>
+    <td>
+      <div class="d-flex align-items-center gap-2">
+        <span>{{ $displayOrderNo }}</span>
+        @if($isArchived)
+          <span class="badge rounded-pill bg-light text-danger border border-danger"
+                title="This order was archived / rejected.">
+            Rejected order
+          </span>
+        @endif
+      </div>
+    </td>
+
     <td>{{ $order->orderTitle ?? '-' }}</td>
     <td>{{ $order->companyName ?? '-' }}</td>
     <td>
       @if($isHead)
         @php $needsAssign = ($order->orderStatus === 'to_assign') && empty($order->artist_id); @endphp
         <span class="me-2">{{ optional($order->artist)->name ?? '—' }}</span>
-        @if($needsAssign)
+        @if($needsAssign && !$isArchived)
           <a href="{{ route('artist.orders.assign.show', $order->id) }}"
              class="btn btn-outline-primary btn-sm align-middle" title="Assign this order">
             <i class="bx bx-user-plus"></i>
@@ -99,39 +116,44 @@ $isHead = auth()->user()->role === 'head-artist';
         {{ optional($order->salesperson)->name ?? '-' }}
       @endif
     </td>
+
     <td data-status-code="{{ $isPending ? 'pending' : $rawStatus }}">
       <span class="{{ $badgeClass }}">{{ $label }}</span>
     </td>
+
     <td data-deadline="{{ $order->deadline ? \Carbon\Carbon::parse($order->deadline)->toDateString() : '' }}">
       {{ $deadline }}
     </td>
+
     <td class="text-end">
       <div class="d-inline-flex align-items-center gap-3">
-        {{-- View --}}
+        {{-- View (always enabled) --}}
         <a href="{{ route('artist.orders.show', $order->id) }}" class="text-secondary fw-bold" title="View">
           <i class="bx bx-show fs-5"></i>
         </a>
 
-        {{-- Edit --}}
+        {{-- Edit (disabled for completed/rejected/archived) --}}
         @if($canEdit)
           <a href="{{ route('artist.orders.edit', $order->id) }}" class="text-secondary fw-bold" title="Edit">
             <i class="bx bx-edit-alt fs-5"></i>
           </a>
         @else
           <span class="text-muted opacity-25" data-bs-toggle="tooltip" data-bs-placement="top"
-                title="Edit disabled: Order is {{ $isCompleted ? 'completed' : 'rejected' }}" style="cursor:not-allowed;">
+                title="Edit disabled: {{ $isArchived ? 'Rejected order' : ($isCompleted ? 'Completed' : 'Rejected') }}"
+                style="cursor:not-allowed;">
             <i class="bx bx-edit-alt fs-5"></i>
           </span>
         @endif
 
-        {{-- Report --}}
-        @if(!$reportBlocked)
+        {{-- Report (never for archived; also blocked for other statuses per your rule) --}}
+        @if(!$isArchived && !$reportBlocked)
           <a href="{{ route('artist.orders.redo.create', $order->id) }}" class="text-secondary fw-bold" title="Report">
             <i class="bx bx-error-alt fs-5"></i>
           </a>
         @else
           <span class="text-muted opacity-25" data-bs-toggle="tooltip" data-bs-placement="top"
-                title="Report not available for this status" style="cursor:not-allowed;">
+                title="{{ $isArchived ? 'Report disabled: Rejected order' : 'Report not available for this status' }}"
+                style="cursor:not-allowed;">
             <i class="bx bx-error-alt fs-5"></i>
           </span>
         @endif
