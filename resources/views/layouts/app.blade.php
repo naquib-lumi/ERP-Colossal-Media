@@ -125,12 +125,6 @@ $configData = \App\Helpers\Helpers::appClasses();
                   <div data-i18n="Fulfillment">Fulfillment</div>
                 </a>
               </li>
-              <li class="menu-item {{ request()->routeIs('artist.profile.show') ? 'active' : '' }}">
-                <a href="{{ route('artist.profile.show') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="Profile">Profile</div>
-                </a>
-              </li>
             @endif
             @if (in_array(auth()->user()->role, ['data-entry']))
               <li class="menu-item {{ request()->routeIs('data-entry.orders') ? 'active' : '' }}">
@@ -191,36 +185,12 @@ $configData = \App\Helpers\Helpers::appClasses();
                   <div data-i18n="Order History">Order History</div>
                 </a>
               </li>
-              <!-- <li class="menu-item {{ request()->routeIs('printing.history') ? 'active' : '' }}">
-                <a href="{{ route('printing.history') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="User">User</div>
-                </a>
-              </li> -->
-              <li class="menu-item {{ request()->routeIs('printing.profile') ? 'active' : '' }}">
-                <a href="{{ route('printing.profile') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="Profile">Profile</div>
-                </a>
-              </li>
             @endif
             @if (in_array(auth()->user()->role, ['operations-furnishing']))
               <li class="menu-item {{ request()->routeIs('furnishing.history') ? 'active' : '' }}">
                 <a href="{{ route('furnishing.history') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-history"></i>
                   <div data-i18n="Order History">Order History</div>
-                </a>
-              </li>
-              <!-- <li class="menu-item {{ request()->routeIs('furnishing.history') ? 'active' : '' }}">
-                <a href="{{ route('furnishing.history') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="User">User</div>
-                </a>
-              </li> -->
-              <li class="menu-item {{ request()->routeIs('furnishing.profile') ? 'active' : '' }}">
-                <a href="{{ route('furnishing.profile') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="Profile">Profile</div>
                 </a>
               </li>
             @endif
@@ -237,24 +207,6 @@ $configData = \App\Helpers\Helpers::appClasses();
                   <div data-i18n="Calendar">Calendar</div>
                 </a>
               </li>
-                            <li class="menu-item {{ request()->routeIs('installation.profile') ? 'active' : '' }}">
-              <a href="{{ route('installation.profile') }}" class="menu-link">
-                <i class="menu-icon icon-base bx bx-user"></i>
-                <div data-i18n="Profile">Profile</div>
-              </a>
-            </li>
-              <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
-                <a href="{{ route('installation.history') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="Calendar">Calendar</div>
-                </a>
-              </li> -->
-              <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
-                <a href="{{ route('installation.history') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="User">User</div>
-                </a>
-              </li> -->
             @endif
             @if (in_array(auth()->user()->role, ['operations-dispatch-control']))
               <li class="menu-item {{ request()->routeIs('dispatchcontrol.job-order') ? 'active' : '' }}">
@@ -269,24 +221,6 @@ $configData = \App\Helpers\Helpers::appClasses();
                   <div data-i18n="Order History">Order History</div>
                 </a>
               </li>
-              <li class="menu-item {{ request()->routeIs('dispatchcontrol.user') ? 'active' : '' }}">
-                <a href="{{ route('dispatchcontrol.user') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="Profile">Profile</div>
-                </a>
-              </li>
-              <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
-                <a href="{{ route('installation.history') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="Calendar">Calendar</div>
-                </a>
-              </li> -->
-              <!-- <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
-                <a href="{{ route('installation.history') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-user"></i>
-                  <div data-i18n="User">User</div>
-                </a>
-              </li> -->
             @endif
             @if (auth()->user()->role === 'boss')
                 <li class="menu-item {{ request()->routeIs('boss.reports') ? 'active' : '' }}">
