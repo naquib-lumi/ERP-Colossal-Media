@@ -899,9 +899,35 @@ class ArtistController extends Controller
                     $existing = $existing->reject(fn($p) => $toDelete->contains($p));
                 }
                 if ($request->hasFile('attachments')) {
-                    foreach ($request->file('attachments') as $file) {
-                        if (!$file->isValid()) continue;
-                        $path = $file->store("orders/{$order->id}/attachments", 'public');
+                    $files = $request->file('attachments');
+                    if (!is_array($files)) $files = [$files]; // handle single upload case
+
+                    $dir = "orders/{$order->id}/attachments";
+
+                    foreach ($files as $file) {
+                        if (!$file || !$file->isValid()) continue;
+
+                        // 1) Get and sanitize the original filename
+                        $orig     = $file->getClientOriginalName();
+                        $base     = pathinfo($orig, PATHINFO_FILENAME);
+                        $ext      = strtolower($file->getClientOriginalExtension());
+
+                        // slug the base (keep readable) – e.g. "My Draft v2" -> "my-draft-v2"
+                        $baseSlug = Str::slug($base);
+                        if ($baseSlug === '') $baseSlug = 'file';
+
+                        // 2) Ensure uniqueness: my-draft-v2.pdf, my-draft-v2 (1).pdf, my-draft-v2 (2).pdf, ...
+                        $candidate = "{$baseSlug}.{$ext}";
+                        $i = 1;
+                        while (Storage::disk('public')->exists("$dir/$candidate")) {
+                            $candidate = "{$baseSlug} ({$i}).{$ext}";
+                            $i++;
+                        }
+
+                        // 3) Save using the original-looking name
+                        $path = $file->storeAs($dir, $candidate, 'public');
+
+                        // 4) Track in DB list
                         $existing->push($path);
                     }
                 }

@@ -45,17 +45,12 @@
                 $order->loadMissing('originalOrder:id,order_number');
                 @endphp
                 Job Order Details – {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
+            @else
+                Job Order Details – {{ $order->order_number }}
             @endif
         </h4>
 
         <div class="d-flex align-items-center gap-2">
-        <a href="#" 
-           class="btn btn-dark d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
-           style="border:none; border-radius:8px;">
-            <i class="bx bx-printer fs-5"></i>
-            <span>Export PDF</span>
-        </a>
-
         <a href="{{ route('artist.orders.edit', $order->id) }}" 
            class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
            style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
@@ -135,8 +130,24 @@
     <div class="card mb-4">
         <div class="card-header d-flex align-items-center justify-content-between">
             <div>Product &amp; Breakdown Details</div>
-            <div class="badge bg-secondary">
-                {{ optional($order->artist)->name ? 'Artist: '. $order->artist->name : 'Unassigned' }}
+            <div>
+                <div class="d-flex gap-2">
+                {{-- Artist badge --}}
+                @if(!empty($order->artist_id) && !empty($order->artist))
+                    <span class="badge bg-secondary">
+                    {{ 'Artist: ' . $order->artist->name }}
+                    </span>
+                @else
+                    <span class="badge bg-secondary">Unassigned</span>
+                @endif
+
+                {{-- Data Entry badge --}}
+                @if(!empty($order->data_entry_id) && !empty($order->dataEntry))
+                    <span class="badge fw-semibold px-3 py-2" style="background:#E0F7FF; color:#00AEEF;">
+                    {{ 'Data Entry: ' . $order->dataEntry->name }}
+                    </span>
+                @endif
+                </div>
             </div>
         </div>
 
@@ -405,63 +416,104 @@
     </div>
     </div>
 
-    {{-- Product Remarks --}}
     @php
-        // Get products with their remarks (works even if controller didn't eager load)
-        $remarkProducts = method_exists($order, 'products')
-            ? $order->products()->with(['remarks' => function ($q) { $q->orderBy('RemarkID'); }])
-                    ->orderBy('ProductID')->get()
-            : collect();
+  // Pull products + remarks (+ remark user) even if the controller didn't eager-load them
+  $remarkProducts = method_exists($order, 'products')
+      ? $order->products()
+          ->with([
+              'remarks' => fn ($q) => $q->orderBy('RemarkID'),
+              'remarks.user:id,name',            // <- creator
+          ])
+          ->orderBy('ProductID')
+          ->get()
+      : collect();
 
-        // helper: display code for the product id with the "R" rule
-        $productCode = function ($p) {
-            $baseId = $p->redoOf ?: $p->ProductID;                   // show original id if redo
-            $suffix = ($p->redoOf && (int)($p->editable ?? 0) === 1) // only selected redo gets R
-                    ? 'R' : '';
-            return 'Product #'.str_pad($baseId, 4, '0', STR_PAD_LEFT).$suffix;
-        };
+  // Product code like "#...-P0001R" logic (R only for selected redo)
+  $productCode = function ($p) {
+      $baseId = $p->redoOf ?: $p->ProductID;
+      $suffix = ($p->redoOf && (int)($p->editable ?? 0) === 1) ? 'R' : '';
+      return 'Product #'.str_pad($baseId, 4, '0', STR_PAD_LEFT).$suffix;
+  };
 
-        // helper: human operation label
-        $opLabel = function ($op) {
-            $op = strtolower((string)$op);
-            return match ($op) {
-                'printing'               => 'Printing',
-                'furnishing'             => 'Furnishing',
-                'installation'           => 'Installation',
-                'courier'                => 'Delivery',
-                'self_pickup', 'pickup'  => 'Self Pickup',
-                default                  => ($op !== '' ? ucfirst($op) : 'General'),
-            };
-        };
-    @endphp
+  // Display label for each operation
+  $opLabel = function (?string $op) {
+      $op = strtolower((string)$op);
+      return match ($op) {
+          'printing'               => 'Printing',
+          'furnishing'             => 'Furnishing',
+          'installation'           => 'Installation',
+          'courier'                => 'Delivery',
+          'self_pickup', 'pickup'  => 'Self Pickup',
+          'artist'                 => 'Artist',
+          default                  => ($op !== '' ? ucfirst($op) : 'General'),
+      };
+  };
 
-    <div class="card mb-4">
-    <div class="card-header">Product Remarks</div>
-    <div class="card-body">
-        @forelse($remarkProducts as $p)
-        <div class="mb-3">
-            <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
-            {{ $productCode($p) }} — {{ data_get($product,'productName','-') }}
-            </div>
+  // Colors (same set you asked for in Fulfillment)
+  $opStyle = function (?string $op) {
+      $op = strtolower((string)$op);
+      return match ($op) {
+          'printing'     => ['#EEF2FF', '#4F46E5'],
+          'furnishing'   => ['#FFF7ED', '#C2410C'],
+          'installation' => ['#ECFEFF', '#0E7490'],
+          'courier'      => ['#ECFDF5', '#047857'],
+          'self_pickup'  => ['#F3F4F6', '#111827'],
+          'artist'       => ['#eaecf9ff', '#8295fdff'],
+          default        => ['#F3F4F6', '#111827'],
+      };
+  };
+@endphp
 
-            @if(($p->remarks ?? collect())->isEmpty())
-            <div class="text-muted small ms-1">No remarks for this product.</div>
-            @else
-            <div class="vstack gap-2">
-                @foreach($p->remarks as $rm)
-                <div class="d-flex align-items-start gap-2 p-2 border rounded">
-                    <span class="badge bg-secondary me-2">To {{ $opLabel($rm->operation) }}</span>
-                    <div class="flex-grow-1">{{ $rm->remark ?? '—' }}</div>
-                </div>
-                @endforeach
-            </div>
-            @endif
+<div class="card mb-4">
+  <div class="card-header">Product Remarks</div>
+  <div class="card-body">
+
+    @forelse($remarkProducts as $p)
+      <div class="mb-3">
+        {{-- product header --}}
+        <div class="px-3 py-2 bg-body-tertiary rounded-2 fw-semibold text-secondary mb-3">
+          {{ $productCode($p) }} — {{ $p->productName ?? '-' }}
         </div>
-        @empty
-        <div class="text-muted">No product remarks.</div>
-        @endforelse
-    </div>
-    </div>
+
+        @if(($p->remarks ?? collect())->isEmpty())
+          <div class="text-muted small ms-1">No remarks for this product.</div>
+        @else
+          <div class="vstack gap-2">
+            @foreach($p->remarks as $rm)
+              @php [$bg,$fg] = $opStyle($rm->operation); @endphp
+
+              <div class="border rounded-2 p-3 d-flex flex-column gap-1">
+                <div class="d-flex align-items-center gap-3">
+                  {{-- color label --}}
+                  <span class="px-2 py-1 rounded-pill fw-semibold flex-shrink-0"
+                        style="background:{{ $bg }}; color:{{ $fg }}; font-size:.8rem; min-width:max-content;">
+                    {{ $opLabel($rm->operation) }}
+                  </span>
+
+                  {{-- remark text --}}
+                  <div class="flex-grow-1">
+                    <div class="mb-0" style="line-height:1.5;">
+                      {{ $rm->remark ?: '—' }}
+                    </div>
+                  </div>
+                </div>
+
+                {{-- author + time --}}
+                <div class="text-muted small ms-1" style="font-weight: 700;">
+                  by {{ optional($rm->user)->name ?? '—' }}
+                </div>
+              </div>
+
+            @endforeach
+          </div>
+        @endif
+      </div>
+    @empty
+      <div class="text-muted">No product remarks.</div>
+    @endforelse
+
+  </div>
+</div>
 
     {{-- Attachments --}}
     <div class="card mt-4">

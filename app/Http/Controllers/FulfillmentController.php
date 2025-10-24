@@ -51,7 +51,8 @@ public function index(Request $request)
         ->where(function ($w) {
             $w->whereNull('o.orderStatus')
             ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
-        });
+        })
+        ->whereNotNull('p.taskType');
 
     // Permission: non head-artist only sees own orders
     if (!$isHead) {
@@ -284,7 +285,10 @@ public function index(Request $request)
             'deliveryBreakdowns:BreakdownID,ProductID,method,location,quantity,date,time,deliver_install_type,outsource_cost',
 
             // remarks unchanged
-            'remarks:RemarkID,ProductID,operation,remark,created_at',
+            'remarks' => function ($q) {
+                $q->select('RemarkID','ProductID','operation','remark','created_at','user_id')
+                ->with('user:id,name');   // or ->with('author:id,name') if your relation is named 'author'
+            },
         ]);
 
         $order = $product->order()->first();

@@ -74,9 +74,9 @@
   {{-- Header --}}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0">Product Details - {{ $productCode }}</h4>
-    <a href="{{ route('artist.fulfillment.product.export', $product) }}" class="btn btn-dark">
+    <!-- <a href="{{ route('artist.fulfillment.product.export', $product->ProductID) }}" class="btn btn-dark">
       <i class="bx bx-printer me-1"></i> Export PDF
-    </a>
+    </a> -->
   </div>
 
   {{-- Progress cards --}}
@@ -206,7 +206,19 @@
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h6 class="mb-0">Product & Breakdown Details</h6>
-        <span class="badge bg-light text-muted">Artist {{ $ord->artist->name ?? '-' }}</span>
+        <div class="d-flex gap-2">
+          @if(!empty($ord->artist_id) && !empty($ord->artist))
+            <span class="badge bg-light text-muted fw-semibold px-3 py-2">
+              {{ $ord->artist->name }}
+            </span>
+          @endif
+
+          @if(!empty($ord->data_entry_id) && !empty($ord->dataEntry))
+            <span class="badge fw-semibold px-3 py-2" style="background:#E0F7FF;color:#00AEEF;">
+              {{ $ord->dataEntry->name }}
+            </span>
+          @endif
+        </div>
       </div>
 
       <div class="border rounded p-3 mb-3">
@@ -352,25 +364,74 @@
   </div>
 
   {{-- Product Remarks --}}
-  <div class="card mb-3">
-    <div class="card-body">
-      <h6 class="mb-3">Product Remarks</h6>
+<div class="card mb-3">
+  <div class="card-body pb-2">
+    <h6 class="mb-3">Product Remarks</h6>
 
-      @php
-      $label = ['printing'=>'To Printing','furnishing'=>'To Furnishing','installation'=>'To Installation','delivery'=>'To Delivery'];
-      @endphp
-      @forelse($product->remarks as $r)
-      <div class="mb-2 border rounded p-2 bg-white">
-        @if(!empty($r->operation))
-        <span class="text-muted me-2" style="font-weight: bold;">{{ $label[$r->operation] ?? ucfirst($r->operation) }}:</span>
-        @endif
-        {{ $r->remark }}
-      </div>
+    <style>
+      .remarks-list .list-group-item {
+        border: 1px solid #eef0f3;
+        border-radius: 12px !important;
+        padding: .85rem 1rem;
+        margin-bottom: .5rem;
+      }
+      .remarks-op {
+        min-width: 210px;
+        text-align: center;
+        font-weight: 600;
+        border-radius: 999px;
+        padding: .4rem .75rem;
+      }
+      /* custom color mapping */
+      .remarks-op.printing     { background:#EEF2FF; color:#4F46E5; }
+      .remarks-op.furnishing   { background:#FFF7ED; color:#C2410C; }
+      .remarks-op.installation { background:#ECFEFF; color:#0E7490; }
+      .remarks-op.courier      { background:#ECFDF5; color:#047857; }
+      .remarks-op.self_pickup  { background:#F3F4F6; color:#111827; }
+      .remarks-op.artist       { background: #f9fae2ff; color: #ffd500ff; }
+
+      .remarks-text { line-height: 1.4; }
+    </style>
+
+    @php
+      $label = [
+        'printing'     => 'To Printing',
+        'furnishing'   => 'To Furnishing',
+        'installation' => 'To Delivery & Installation',
+        'courier'      => 'To Courier',
+        'self_pickup'  => 'To Self Pickup',
+        'artist'       => 'To Artist',
+      ];
+    @endphp
+
+    <ul class="list-group list-group-flush remarks-list">
+      @forelse ($product->remarks as $r)
+        @php
+          $op        = strtolower((string) $r->operation);
+          $author    = optional($r->user)->name ?? optional($r->author)->name ?? '—';
+          $timestamp = $r->created_at ? \Carbon\Carbon::parse($r->created_at)->format('Y-m-d H:i') : '';
+        @endphp
+
+        <li class="list-group-item">
+          <div class="d-flex align-items-start gap-3">
+            <span class="remarks-op {{ $op }}">
+              {{ $label[$op] ?? ucfirst($op ?: 'Note') }}
+            </span>
+            <div class="flex-grow-1">
+              <div class="remarks-text">{{ $r->remark }}</div>
+              <div class="text-muted small mt-1">
+                by <span class="fw-semibold">{{ $author }}</span>
+                @if($timestamp) • <span>{{ $timestamp }}</span>@endif
+              </div>
+            </div>
+          </div>
+        </li>
       @empty
-      <div class="text-muted">No product remarks.</div>
+        <li class="list-group-item text-muted">No product remarks.</li>
       @endforelse
-    </div>
+    </ul>
   </div>
+</div>
 
   {{-- Attachments --}}
   <div class="card mt-4 mb-4">

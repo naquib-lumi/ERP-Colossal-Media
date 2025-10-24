@@ -13,7 +13,7 @@
   .op-installation{background:#ECFEFF;color:#0E7490}
   .op-courier{background:#ECFDF5;color:#047857}
   .op-self_pickup{background:#F3F4F6;color:#111827}
-  .op-artist{background: #eaecf9ff; color: #8295fdff}
+  .op-artist{background: #f9fae2ff; color: #ffd500ff;}
   .remark-meta{color:#6B7280;font-size:.8rem}
   .remark-text{white-space:pre-wrap}
 
