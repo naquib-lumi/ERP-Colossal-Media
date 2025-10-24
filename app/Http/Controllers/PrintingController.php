@@ -18,6 +18,7 @@ class PrintingController extends Controller
         $artistId = trim((string) $request->get('artist', ''));       // artist filter
         $pid      = trim((string) $request->query('pid', ''));        // Product ID / code (all pages)
         $sort     = (string) $request->get('sort', 'deadline_nearest');
+        $mine = $request->boolean('mine');
 
         $readDate = function (?string $v): ?string {
             if (!$v) return null;
@@ -203,6 +204,29 @@ class PrintingController extends Controller
                     ->orderBy('o.deadline', 'asc')
                     ->orderBy('o.id')->orderBy('p.ProductID');
                 break;
+        }
+
+        if ($mine) {
+            $role = strtolower(Auth::user()->role ?? '');
+
+            // Map roles to the stage/column used in DB
+            $stageForRole = match ($role) {
+                'operations-printing'              => 'printing',
+                'operations-furnishing'            => 'furnishing',
+                'operations-dispatch-control'      => 'delivery',      // stored in products.status
+                'operations-delivery-installation' => 'installation',  // stored in products.status
+                default => null,
+            };
+
+            if ($stageForRole) {
+                // For printing/furnishing we use products.taskType
+                if (in_array($stageForRole, ['printing'], true)) {
+                    $jobs->where('p.taskType', $stageForRole);
+                } else {
+                    // For dispatch-control & delivery-installation we use products.status
+                    $jobs->whereRaw('LOWER(p.status) = ?', [$stageForRole]);
+                }
+            }
         }
 
         // paginate AFTER all filters → searches across all pages

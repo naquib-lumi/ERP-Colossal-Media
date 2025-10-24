@@ -18,6 +18,7 @@ class FurnishingController extends Controller
         $q       = trim((string) $request->get('q', ''));          // unified keyword (cutter/order/company/product)
         $artist  = trim((string) $request->get('artist', ''));     // artist dropdown
         $pid     = trim((string) $request->get('pid', ''));        // NEW: product id / code (all pages)
+        $mine = $request->boolean('mine');
 
         $readDate = function (?string $v): ?string {
             if (!$v) return null;
@@ -192,6 +193,29 @@ class FurnishingController extends Controller
                     ->orderBy('o.deadline', 'asc')
                     ->orderBy('o.id')->orderBy('p.ProductID');
                 break;
+        }
+
+        if ($mine) {
+            $role = strtolower(Auth::user()->role ?? '');
+
+            // Map roles to the stage/column used in DB
+            $stageForRole = match ($role) {
+                'operations-printing'              => 'printing',
+                'operations-furnishing'            => 'furnishing',
+                'operations-dispatch-control'      => 'delivery',      // stored in products.status
+                'operations-delivery-installation' => 'installation',  // stored in products.status
+                default => null,
+            };
+
+            if ($stageForRole) {
+                // For printing/furnishing we use products.taskType
+                if (in_array($stageForRole, ['furnishing'], true)) {
+                    $jobs->where('p.taskType', $stageForRole);
+                } else {
+                    // For dispatch-control & delivery-installation we use products.status
+                    $jobs->whereRaw('LOWER(p.status) = ?', [$stageForRole]);
+                }
+            }
         }
 
         $jobs = $jobs->paginate(10)->appends($request->query());
