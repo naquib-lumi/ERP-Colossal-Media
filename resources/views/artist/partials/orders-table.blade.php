@@ -93,8 +93,8 @@ $isHead = auth()->user()->role === 'head-artist';
         <span>{{ $displayOrderNo }}</span>
         @if($isArchived)
           <span class="badge rounded-pill bg-light text-danger border border-danger"
-                title="This order was archived / rejected.">
-            Rejected order
+                title="This order was rejected.">
+            Rejected for redo
           </span>
         @endif
       </div>
