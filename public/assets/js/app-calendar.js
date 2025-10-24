@@ -585,7 +585,7 @@ ${extraInfo}
               reminderForm.reset();
               submitBtn.classList.remove('btn-update-event');
               submitBtn.innerHTML = 'Add';
-              reminderForm.querySelector('.offcanvas-title').innerHTML = 'Add Reminder';
+              document.querySelector('#addReminderSidebar .offcanvas-title').innerHTML = 'Add Reminder';
               $(reminderForm.querySelector('[name="lead_id"]')).val(null).trigger('change');
             } else {
               alert('Error: ' + data.message);
@@ -641,24 +641,24 @@ ${extraInfo}
         const urlField = formData.get('url');
         const location = formData.get('location');
 
-        if (!leadId || !title || !startTime || !duration || !type) {
+        if (!leadId || !title || !startTime || !duration ) {
           alert('Please fill in all required fields: Lead, Title, Start Time, Duration, and Type.');
           meetingSubmitting = false;
           submitBtn.disabled = false;
           return;
         }
-        if (type === 'online' && (!urlField || urlField.trim() === '')) {
-          alert('Please provide a valid URL for online meetings.');
-          meetingSubmitting = false;
-          submitBtn.disabled = false;
-          return;
-        }
-        if (type === 'offline' && (!location || location.trim() === '')) {
-          alert('Please provide a location for offline meetings.');
-          meetingSubmitting = false;
-          submitBtn.disabled = false;
-          return;
-        }
+        // if (type === 'online' && (!urlField || urlField.trim() === '')) {
+        //   alert('Please provide a valid URL for online meetings.');
+        //   meetingSubmitting = false;
+        //   submitBtn.disabled = false;
+        //   return;
+        // }
+        // if (type === 'offline' && (!location || location.trim() === '')) {
+        //   alert('Please provide a location for offline meetings.');
+        //   meetingSubmitting = false;
+        //   submitBtn.disabled = false;
+        //   return;
+        // }
 
         $.ajax({
           url: url,

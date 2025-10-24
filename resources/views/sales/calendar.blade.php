@@ -97,25 +97,26 @@
         <!-- Calendar & Modals -->
         <div class="col app-calendar-content">
             {{-- TOP TOOLBAR --}}
-            <div id="calendarToolbar" class="d-flex align-items-center">
-                <div class="input-group" style="min-width:230px;max-width:260px;">
-                    <select id="filter-salesperson" class="form-select">
-                        @if(Auth::user()->hasRole('head-salesperson'))
-                            <option value="">All Salesperson</option>
-                        @endif
-                        @foreach ($salespeople as $sp)
-                            <option value="{{ $sp->id }}" {{ $sp->id == Auth::id() ? 'selected' : '' }}>{{ $sp->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+           <div id="calendarToolbar" class="d-flex align-items-center">
+    @if(Auth::user()->hasRole('head-salesperson'))
+        <div class="input-group" style="min-width:230px;max-width:260px;">
+            <select id="filter-salesperson" class="form-select">
+                <option value="">All Salesperson</option>
+                @foreach ($salespeople as $sp)
+                    <option value="{{ $sp->id }}" {{ $sp->id == Auth::id() ? 'selected' : '' }}>{{ $sp->name }}</option>
+                @endforeach
+            </select>
+        </div>
+   
 
-                <input type="text" class="form-control" id="searchClient" placeholder="Search by title / client" style="min-width:200px;">
+            <input type="text" class="form-control" id="searchClient" placeholder="Search by title / client" style="min-width:200px;">
 
-                <div class="d-flex align-items-center gap-2 ms-auto">
-                    <button type="button" class="btn btn-outline-secondary" id="btnToday">Today</button>
-                    <button type="button" class="btn btn-outline-secondary" id="btnReset">Reset</button>
-                </div>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <button type="button" class="btn btn-outline-secondary" id="btnToday">Today</button>
+                <button type="button" class="btn btn-outline-secondary" id="btnReset">Reset</button>
             </div>
+             @endif
+        </div>
 
             <div class="d-flex align-items-center gap-4 btn-toolbar justify-content-start" style="margin-bottom: 3rem;">
                 <div>
