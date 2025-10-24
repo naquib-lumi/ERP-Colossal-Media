@@ -319,7 +319,16 @@
             <h5 class="mb-0">Artist Job Order — <span class="text-body-secondary">{{ $displayOrderNo }}</span></h5>
             <small class="text-body-secondary">Last updated: {{ $today }}</small>
           </div>
-          <span class="badge bg-label-secondary">{{ $order->artist->name ?? '—' }}</span>
+          <span class="d-flex align-items-center gap-2">
+            <span class="badge bg-label-secondary">
+              {{ $order->artist->name ?? '—' }}
+            </span>
+            @if(!empty($order->dataEntry))
+              <span class="badge bg-label-info">
+                {{ $order->dataEntry->name }}
+              </span>
+            @endif
+          </span>
         </div>
 
         <div class="card-body">

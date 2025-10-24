@@ -106,4 +106,9 @@ class Order extends Model
     {
         return $this->belongsTo(self::class, 'redo', 'id');
     }
+
+    public function dataEntry()
+    {
+        return $this->belongsTo(User::class, 'data_entry_id');
+    }
 }

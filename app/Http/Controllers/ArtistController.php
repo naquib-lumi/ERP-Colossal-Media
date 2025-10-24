@@ -339,7 +339,8 @@ class ArtistController extends Controller
         $order->load([
             'salesperson:id,name',
             'artist:id,name',
-            'products.deliveryBreakdowns',               // if you render product info
+            'products.deliveryBreakdowns',
+            'dataEntry'
         ]);
 
         // Normal artists to assign to
