@@ -405,41 +405,35 @@ class ArtistOrderController extends Controller
 
     public function csvTemplate()
     {
-        // CSV headers
         header("Content-type: text/csv");
-        header("Content-Disposition: attachment; filename=products_template.csv");
+    header("Content-Disposition: attachment; filename=products_template.csv");
 
-        $output = fopen("php://output", "w");
+    $output = fopen("php://output", "w");
 
-        // Add column headers
-        fputcsv($output, ['Product Name', 'Quantity', 'Remark', 'Material Info', 'Location', 'Date']);
+    // Add column headers
+    $headers = ['Product_Name', 'Quantity', 'Material_Info', 'Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
+    fputcsv($output, $headers);
 
-        // Generate example data
-        $data = [
-            // 3 rows → 3 days from now
-            ['Banner Print', 100, 'Urgent order', 'Vinyl 12oz', 'Kuala Lumpur', now()->addDays(3)->format('Y-m-d')],
-            ['Flyer A5', 5000, 'Double sided', 'Art Paper 128gsm', 'Penang', now()->addDays(3)->format('Y-m-d')],
-            ['T-Shirt', 50, 'Black color only', 'Cotton', 'Johor Bahru', now()->addDays(3)->format('Y-m-d')],
+    // Generate example data with material info and up to 5 remarks, some empty
+    $data = [
+        ['Banner Print', 100, 'Vinyl 12oz', 'High resolution', '', '', 'Next day', ''],
+        ['Flyer A5', 5000, 'Art Paper 128gsm', '', 'Glossy finish', '', '', ''],
+        ['T-Shirt', 50, 'Cotton', 'Front print', '', 'Embroidery', '', ''],
+        ['Poster A3', 200, 'Art Card 260gsm', '', '', '', 'Fragile', ''],
+        ['Sticker Roll', 1000, 'PP Synthetic', '', '', '', '', 'Call ahead'],
+        ['Name Card', 300, 'Art Card 310gsm', '', 'Double sided', '', '', ''],
+        ['Booklet A4', 100, '80gsm Simili', 'Color print', '', '', 'Express', ''],
+        ['Backdrop', 5, 'Tarpaulin', '', 'Sturdy frame', '', '', ''],
+        ['Mug Print', 40, 'Ceramic', 'Heat resistant', '', '', '', ''],
+        ['Cap Embroidery', 25, 'Polyester', '', 'Red thread', '', '', ''],
+    ];
 
-            // 2 rows → 5 days from now
-            ['Poster A3', 200, 'Gloss finish', 'Art Card 260gsm', 'Melaka', now()->addDays(5)->format('Y-m-d')],
-            ['Sticker Roll', 1000, 'Waterproof', 'PP Synthetic', 'Ipoh', now()->addDays(5)->format('Y-m-d')],
+    foreach ($data as $row) {
+        fputcsv($output, $row);
+    }
 
-            // 5 rows → 2 days from now
-            ['Name Card', 300, 'Matte Lamination', 'Art Card 310gsm', 'Shah Alam', now()->addDays(2)->format('Y-m-d')],
-            ['Booklet A4', 100, 'Saddle stitch', '80gsm Simili', 'Kuantan', now()->addDays(2)->format('Y-m-d')],
-            ['Backdrop', 5, 'Event hall size', 'Tarpaulin', 'Kota Kinabalu', now()->addDays(2)->format('Y-m-d')],
-            ['Mug Print', 40, 'Full wrap print', 'Ceramic', 'Kuching', now()->addDays(2)->format('Y-m-d')],
-            ['Cap Embroidery', 25, 'Logo front only', 'Polyester', 'Seremban', now()->addDays(2)->format('Y-m-d')],
-        ];
-
-        // Write rows
-        foreach ($data as $row) {
-            fputcsv($output, $row);
-        }
-
-        fclose($output);
-        exit;
+    fclose($output);
+    exit;
     }
 
     public function edit($id)
