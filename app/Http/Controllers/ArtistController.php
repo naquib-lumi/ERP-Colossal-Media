@@ -207,6 +207,7 @@ class ArtistController extends Controller
             'inprogress' => 'in_progress',
             'completed'  => 'completed',
             'rejected'   => 'rejected',
+            'awaitingkeyin'  => 'awaiting_keyin',
         ];
 
         $query = clone $base;
@@ -307,6 +308,7 @@ class ArtistController extends Controller
             'in_progress' => (clone $statsBase)->where('orderStatus', 'in_progress')->count(),
             'completed'   => (clone $statsBase)->where('orderStatus', 'completed')->count(),
             'rejected'    => (clone $statsBase)->where('orderStatus', 'rejected')->count(),
+            'awaiting_keyin'=> (clone $statsBase)->where('orderStatus', 'awaiting_keyin')->count(),
         ];
         if ($isHead) {
             $metrics['to_assign'] = (clone $statsBase)->where('orderStatus', 'to_assign')->count();
