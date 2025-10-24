@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
-/* ===== Theme (white clean) – 与上一页一致 ===== */
+/* ===== Theme (white clean) ===== */
 :root{
   --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB; --thead:#F9FAFB;
   --text:#101828; --muted:#667085; --chip:#F2F4F7;
@@ -15,11 +15,11 @@
 body{background:var(--bg);}
 .page-wrap{max-width:1140px;margin:0 auto}
 
-/* ===== Title ===== */
+/* Title */
 .header-row{display:block;margin:0 18px 12px;}
 .hd-title{margin:0;font-size:22px;font-weight:800;color:var(--text)}
 
-/* ===== White Section Card (toolbar + table + pagination) ===== */
+/* Section Card */
 .table-section{
   background:var(--card); border:1px solid var(--border); border-radius:16px;
   box-shadow:var(--shadow); overflow:hidden; margin:0 18px 18px;
@@ -41,7 +41,7 @@ body{background:var(--bg);}
 .btn-dark{background:var(--primary);border:1px solid var(--primary);color:#fff}
 .btn-dark:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
 
-/* ===== Table ===== */
+/* Table */
 .section-body{background:#fff;}
 .table-wrap{border:none;border-radius:0;overflow:hidden;background:#fff;margin:0}
 .table{margin:0;border-collapse:separate;border-spacing:0;width:100%}
@@ -53,7 +53,7 @@ body{background:var(--bg);}
 
 /* Name cell */
 .user-cell{display:flex;align-items:center;gap:12px}
-.avatar{width:34px;height:34px;border-radius:999px;background:#EEF2F7;display:grid;place-items:center;font-size:18px}
+.avatar{width:34px;height:34px;border-radius:999px;background:#EEF2F7;display:grid;place-items:center;font-size:18px;color:#344054}
 .avatar img{width:34px;height:34px;border-radius:999px;object-fit:cover}
 
 /* Status badge */
@@ -61,24 +61,20 @@ body{background:var(--bg);}
 .badge-active{background:rgba(22,163,74,.10);color:var(--success)}
 .badge-inactive{background:#F2F4F7;color:#344054}
 
-/* Row action icons */
-.kebab, .icon-btn{
+/* Row actions */
+.icon-btn{
   border:0;background:transparent;padding:6px;border-radius:8px;color:#475467;line-height:1;
   transition:background .15s,color .15s
 }
-.kebab:hover,.icon-btn:hover{background:#F2F4F7;color:#1F2937}
-.kebab:focus,.icon-btn:focus{outline:2px solid #E5E7EB;outline-offset:2px}
+.icon-btn:hover{background:#F2F4F7;color:#1F2937}
+.icon-btn:focus{outline:2px solid #E5E7EB;outline-offset:2px}
 
 /* Pagination */
 .section-foot{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border-top:1px solid var(--border)}
 .range-text{color:#667085;font-size:14px}
-.pager{display:flex;align-items:center;gap:8px}
-.page-btn{min-width:36px;height:36px;border:1px solid var(--border);border-radius:10px;background:#fff;color:#344054}
-.page-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-.page-btn:disabled{opacity:.5}
-.page-btn.icon{display:grid;place-items:center}
+.pager nav{display:flex;gap:8px}
 
-/* ===== Modal: Add/Edit User (Pop-up) ===== */
+/* Modal */
 .modal-backdrop-user{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(17,24,39,.55);z-index:1060}
 .modal-backdrop-user.open{display:flex}
 .modal-user{width:min(720px,92vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.25);overflow:hidden}
@@ -114,50 +110,122 @@ input:checked + .slider:before{transform:translateX(20px)}
       <h1 class="hd-title">Manage Users</h1>
     </div>
 
-    {{-- Section Card (Toolbar + Table + Pagination) --}}
+    {{-- Section Card --}}
     <div class="table-section">
-      <div class="section-toolbar">
-        <input id="q" type="text" class="control input" placeholder="Search users...">
-        <select id="role" class="control select">
-          <option value="all">All Roles</option>
-          <option>Head Artist</option><option>Artist</option>
-          <option>Head Salesperson</option><option>Salesperson</option>
-          <option>Installation</option>
+      {{-- Toolbar：GET 方式，保留筛选 --}}
+      <form id="filterForm" class="section-toolbar" method="GET" action="{{ route('admin.manageuser') }}">
+        <input name="q" value="{{ request('q','') }}" type="text" class="control input" placeholder="Search users...">
+        <select name="role" class="control select">
+          @php $role = request('role','all'); @endphp
+          <option value="all" {{ $role==='all'?'selected':'' }}>All Roles</option>
+          <option value="admin" {{ $role==='admin'?'selected':'' }}>Admin</option>
+          <option value="salesperson" {{ $role==='salesperson'?'selected':'' }}>Salesperson</option>
+          <option value="head-salesperson" {{ $role==='head-salesperson'?'selected':'' }}>Head Salesperson</option>
+          <option value="head-artist" {{ $role==='head-artist'?'selected':'' }}>Head Artist</option>
+          <option value="artist" {{ $role==='artist'?'selected':'' }}>Artist</option>
+          <option value="installation" {{ $role==='installation'?'selected':'' }}>Installation</option>
         </select>
-        <select id="status" class="control select">
-          <option value="all">All Status</option>
-          <option value="Active">Active</option><option value="Inactive">Inactive</option>
+        @php $st = request('status','all'); @endphp
+        <select name="status" class="control select">
+          <option value="all" {{ $st==='all'?'selected':'' }}>All Status</option>
+          <option value="active" {{ $st==='active'?'selected':'' }}>Active</option>
+          <option value="inactive" {{ $st==='inactive'?'selected':'' }}>Inactive</option>
         </select>
         <div style="flex:1"></div>
-        <button id="btnAddUser" class="btn btn-dark btn-rect">
+        <button type="button" id="btnAddUser" class="btn btn-dark btn-rect">
           <i class="bi bi-plus-lg"></i> Add New User
         </button>
-      </div>
+        <button type="submit" class="btn btn-secondary soft btn-rect">
+          <i class="bi bi-funnel"></i> Apply
+        </button>
+      </form>
 
       <div class="section-body">
         <div class="table-wrap">
           <div class="table-responsive">
-            <table class="table align-middle" id="userTable">
+            <table class="table align-middle">
               <thead>
-              <tr>
-                <th>Name</th><th>Role</th><th>Email</th><th>Contact No.</th><th>Status</th><th class="col-actions">Actions</th>
-              </tr>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Email</th>
+                  <th>Contact No.</th>
+                  <th>Status</th>
+                  <th class="col-actions">Actions</th>
+                </tr>
               </thead>
-              <tbody id="tbody"></tbody>
+              <tbody>
+                @forelse($users as $user)
+                  <tr>
+                    <td>
+                      <div class="user-cell">
+                        @php $av = $user->avatar_url ?? null; @endphp
+                        @if($av)
+                          <div class="avatar"><img src="{{ $av }}" alt="{{ $user->name }}"></div>
+                        @else
+                          <div class="avatar">{{ strtoupper(mb_substr($user->name,0,1)) }}</div>
+                        @endif
+                        <div>{{ $user->name }}</div>
+                      </div>
+                    </td>
+                    <td>{{ $user->display_role ?? ucwords(str_replace(['-','_'],' ',$user->role)) }}</td>
+                    <td>{{ $user->email }}</td>
+                    <td>{{ $user->contact_number ?? 'N/A' }}</td>
+                    <td>
+                      @php $active = strtolower((string)($user->status ?? '')) === 'active'; @endphp
+                      <span class="badge-status {{ $active ? 'badge-active' : 'badge-inactive' }}">
+                        {{ $active ? 'Active' : 'Inactive' }}
+                      </span>
+                    </td>
+                    <td class="col-actions">
+                      <button class="icon-btn" title="Edit"
+                              data-mode="edit"
+                              data-id="{{ $user->id }}"
+                              data-name="{{ $user->name }}"
+                              data-email="{{ $user->email }}"
+                              data-role="{{ $user->role }}"
+                              data-phone="{{ $user->contact_number }}"
+                              data-status="{{ strtolower((string)$user->status) }}">
+                        <i class="bi bi-pencil-square"></i>
+                      </button>
+
+                      <form action="{{ route('admin.user.disable',$user->id) }}" method="POST" style="display:inline"
+                            onsubmit="return confirm('Are you sure you want to {{ $active? 'disable':'enable' }} this user?');">
+                        @csrf @method('PATCH')
+                        <button type="submit" class="icon-btn" title="{{ $active? 'Disable':'Enable' }}">
+                          <i class="bi bi-{{ $active? 'person-dash':'person-check' }}"></i>
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                @empty
+                  <tr><td colspan="6"><div class="text-center text-muted py-3">No results found.</div></td></tr>
+                @endforelse
+              </tbody>
             </table>
           </div>
         </div>
       </div>
 
       <div class="section-foot">
-        <div class="range-text" id="rangeText">Showing 0–0 of 0 results</div>
-        <div class="pager" id="pager"></div>
+        @if(method_exists($users,'firstItem') && $users->total() > 0)
+          <div class="range-text">
+            Showing {{ $users->firstItem() }}–{{ $users->lastItem() }} of {{ $users->total() }} results
+          </div>
+        @else
+          <div class="range-text">Showing 0–0 of 0 results</div>
+        @endif
+        <div class="pager">
+          {{ $users->appends(request()->only('q','role','status'))
+                   ->onEachSide(1)
+                   ->links('pagination::bootstrap-5') }}
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ===== Add/Edit User Modal (Pop-up) ===== -->
+{{-- Add/Edit Modal --}}
 <div class="modal-backdrop-user" id="userModal" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-user" role="document">
     <div class="head">
@@ -165,236 +233,172 @@ input:checked + .slider:before{transform:translateX(20px)}
       <button class="close" id="userClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
     </div>
 
-    <div class="body">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label>Full Name</label>
-          <input type="text" id="f_name" class="form-control" placeholder="John Lim">
-        </div>
-        <div class="col-md-6">
-          <label>Email Address</label>
-          <input type="email" id="f_email" class="form-control" placeholder="john@example.com">
-        </div>
-
-        <div class="col-md-6">
-          <label>Role</label>
-          <select id="f_role" class="form-select">
-            <option disabled selected>Select a role</option>
-            <option>Head Artist</option><option>Artist</option>
-            <option>Head Salesperson</option><option>Salesperson</option>
-            <option>Installation</option>
-          </select>
-        </div>
-
-        <!-- Password 行：新增时显示、编辑时隐藏 -->
-        <div class="col-md-6" id="rowPwd">
-          <label>Password</label>
-          <div class="input-with-icon">
-            <input type="password" id="f_pwd" class="form-control" placeholder="Enter temporary password">
-            <button type="button" class="toggle-eye" id="togglePwd" aria-label="Show/Hide password">
-              <i class="bi bi-eye"></i>
-            </button>
+    <form id="userForm" method="POST" action="{{ route('admin.user.store') }}">
+      @csrf
+      <input type="hidden" name="_method" id="methodSpoof" value="POST">
+      <div class="body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label>Full Name</label>
+            <input type="text" name="name" id="f_name" class="form-control" placeholder="John Lim" required>
           </div>
-        </div>
+          <div class="col-md-6">
+            <label>Email Address</label>
+            <input type="email" name="email" id="f_email" class="form-control" placeholder="john@example.com" required>
+          </div>
 
-        <div class="col-md-6">
-          <label>Contact Number</label>
-          <input type="text" id="f_phone" class="form-control" placeholder="+60 12-345 6789">
-        </div>
-        <div class="col-md-6 d-flex align-items-end">
-          <div>
-            <label>Status</label><br>
-            <label class="switch">
-              <input type="checkbox" id="f_status_sw" checked>
-              <span class="slider"></span>
-            </label>
-            <span class="status-label" id="statusText">Active</span>
+          <div class="col-md-6">
+            <label>Role</label>
+            <select name="role" id="f_role" class="form-select" required>
+              <option disabled value="">Select a role</option>
+              <option value="admin">Admin</option>
+              <option value="salesperson">Salesperson</option>
+              <option value="head-salesperson">Head Salesperson</option>
+              <option value="head-artist">Head Artist</option>
+              <option value="artist">Artist</option>
+              <option value="installation">Installation</option>
+            </select>
+          </div>
+
+          {{-- 新增显示密码，编辑隐藏 --}}
+          <div class="col-md-6" id="rowPwd">
+            <label>Password</label>
+            <div class="input-with-icon">
+              <input type="password" name="password" id="f_pwd" class="form-control" placeholder="Enter temporary password">
+              <button type="button" class="toggle-eye" id="togglePwd" aria-label="Show/Hide password">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <label>Contact Number</label>
+            <input type="text" name="contact_number" id="f_phone" class="form-control" placeholder="+60 12-345 6789">
+          </div>
+          <div class="col-md-6 d-flex align-items-end">
+            <div>
+              <label>Status</label><br>
+              <label class="switch">
+                <input type="checkbox" id="f_status_sw" checked>
+                <span class="slider"></span>
+              </label>
+              <span class="status-label" id="statusText">Active</span>
+              <input type="hidden" name="status" id="f_status" value="active">
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="foot">
-      <button class="btn btn-secondary soft btn-rect" id="userCancel">Cancel</button>
-      <button class="btn btn-dark btn-rect" id="userSave">
-        <i class="bi bi-save me-1"></i><span id="saveText">Save User</span>
-      </button>
-    </div>
+      <div class="foot">
+        <button type="button" class="btn btn-secondary soft btn-rect" id="userCancel">Cancel</button>
+        <button type="submit" class="btn btn-dark btn-rect" id="userSave">
+          <i class="bi bi-save me-1"></i><span id="saveText">Save User</span>
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 
 <script>
-/** ===== Demo Data ===== */
-const USERS = [
-  {name:'Sarah Johnson', role:'Head Artist', email:'sarah.johnson@company.com', phone:'+1 234 567 8901', status:'Active'},
-  {name:'Mike Chen', role:'Artist', email:'mike.chen@company.com', phone:'+1 234 567 8902', status:'Active'},
-  {name:'Emma Davis', role:'Head Salesperson', email:'emma.davis@company.com', phone:'+1 234 567 8903', status:'Inactive'},
-  {name:'James Wilson', role:'Salesperson', email:'james.wilson@company.com', phone:'+1 234 567 8904', status:'Active'},
-  {name:'Lisa Martinez', role:'Installation', email:'lisa.martinez@company.com', phone:'+1 234 567 8905', status:'Active'},
-];
+/** Modal controls */
+const modal   = document.getElementById('userModal');
+const openBtn = document.getElementById('btnAddUser');
+const closeBtn= document.getElementById('userClose');
+const cancelBtn=document.getElementById('userCancel');
 
-const PAGE = {size:10,page:1,q:'',role:'all',status:'all'};
-const elBody=document.getElementById('tbody');
-const elRange=document.getElementById('rangeText');
-const elPager=document.getElementById('pager');
+const form    = document.getElementById('userForm');
+const methodSpoof = document.getElementById('methodSpoof');
+const modalTitle  = document.getElementById('modalTitle');
+const saveText    = document.getElementById('saveText');
+const rowPwd      = document.getElementById('rowPwd');
 
-/** ===== Helpers ===== */
-function badge(status){
-  const cls = status==='Active' ? 'badge-status badge-active' : 'badge-status badge-inactive';
-  return `<span class="${cls}">${status}</span>`;
-}
-function avatarFor(name){
-  const letter=(name||'?').trim().charAt(0).toUpperCase();
-  return `<div class="avatar">${letter}</div>`;
-}
-function filterUsers(){
-  const q=PAGE.q.toLowerCase();
-  return USERS.filter(u=>{
-    const hitQ=!q||u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||u.phone.toLowerCase().includes(q)||u.role.toLowerCase().includes(q);
-    const hitR=PAGE.role==='all'||u.role===PAGE.role;
-    const hitS=PAGE.status==='all'||u.status===PAGE.status;
-    return hitQ&&hitR&&hitS;
-  });
-}
-function paginate(list){
-  const start=(PAGE.page-1)*PAGE.size, end=start+PAGE.size;
-  return {slice:list.slice(start,end), start:start+1, end:Math.min(end,list.length), total:list.length};
-}
-function rowTpl(u,idx){
-  const gidx=(PAGE.page-1)*PAGE.size+idx;
-  return `
-  <tr>
-    <td><div class="user-cell">${avatarFor(u.name)}<div>${u.name}</div></div></td>
-    <td>${u.role}</td>
-    <td>${u.email}</td>
-    <td>${u.phone}</td>
-    <td>${badge(u.status)}</td>
-    <td class="col-actions">
-      <button class="icon-btn" title="Edit" data-edit="${gidx}"><i class="bi bi-pencil-square"></i></button>
-      <button class="icon-btn" title="Delete" data-del="${gidx}"><i class="bi bi-trash3"></i></button>
-    </td>
-  </tr>`;
-}
-function render(){
-  const filtered=filterUsers();
-  const pg=paginate(filtered);
-  if(pg.total===0){
-    elBody.innerHTML=`<tr><td colspan="6"><div class="text-center text-muted py-3">No results found.</div></td></tr>`;
-    elRange.textContent=`Showing 0–0 of 0 results`;
-    elPager.innerHTML=''; return;
-  }
-  elBody.innerHTML=pg.slice.map(rowTpl).join('');
-  elRange.textContent=`Showing ${pg.start}–${pg.end} of ${pg.total} results`;
-  const pages=Math.ceil(pg.total/PAGE.size);
-  let html='';
-  html+=`<button class="page-btn icon" ${PAGE.page<=1?'disabled':''} onclick="gotoPage(${PAGE.page-1})"><i class="bi bi-chevron-left"></i></button>`;
-  for(let i=1;i<=pages;i++){ html+=`<button class="page-btn ${i===PAGE.page?'active':''}" onclick="gotoPage(${i})">${i}</button>`; }
-  html+=`<button class="page-btn icon" ${PAGE.page>=pages?'disabled':''} onclick="gotoPage(${PAGE.page+1})"><i class="bi bi-chevron-right"></i></button>`;
-  elPager.innerHTML=html;
-}
-function gotoPage(p){ PAGE.page=p; render(); }
+const fName  = document.getElementById('f_name');
+const fEmail = document.getElementById('f_email');
+const fRole  = document.getElementById('f_role');
+const fPhone = document.getElementById('f_phone');
+const fPwd   = document.getElementById('f_pwd');
+const fStatusSw = document.getElementById('f_status_sw');
+const fStatus    = document.getElementById('f_status');
+const statusText = document.getElementById('statusText');
 
-/** ===== Bind filters ===== */
-document.getElementById('q').addEventListener('input',e=>{PAGE.q=e.target.value.trim();PAGE.page=1;render();});
-document.getElementById('role').addEventListener('change',e=>{PAGE.role=e.target.value;PAGE.page=1;render();});
-document.getElementById('status').addEventListener('change',e=>{PAGE.status=e.target.value;PAGE.page=1;render();});
+function openModal(){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); }
+function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
+openBtn.addEventListener('click', ()=>{ prepareCreate(); openModal(); });
+closeBtn.addEventListener('click', closeModal);
+cancelBtn.addEventListener('click', closeModal);
+modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && modal.classList.contains('open')) closeModal(); });
 
-/** ===== Actions: Edit / Delete ===== */
-elBody.addEventListener('click',(e)=>{
-  const editBtn=e.target.closest('[data-edit]'); const delBtn=e.target.closest('[data-del]');
-  if(editBtn){ const idx=Number(editBtn.dataset.edit); openUserModal(idx); }
-  else if(delBtn){ const idx=Number(delBtn.dataset.del);
-    if(confirm('Delete this user?')){ USERS.splice(idx,1); if((PAGE.page-1)*PAGE.size>=USERS.length) PAGE.page=Math.max(1,PAGE.page-1); render(); }
-  }
+/** 新增模式 */
+function prepareCreate(){
+  form.action = @json(route('admin.user.store'));
+  methodSpoof.value = 'POST';
+  modalTitle.textContent = 'Add New User';
+  saveText.textContent = 'Save User';
+  rowPwd.classList.remove('hidden');
+
+  fName.value=''; fEmail.value=''; fRole.value=''; fPhone.value=''; fPwd.value='';
+  fStatusSw.checked = true; fStatus.value='active'; statusText.textContent='Active';
+}
+
+/** 编辑模式（隐藏密码；_method=PUT） */
+function prepareEdit(u){
+  form.action = u.update;
+  methodSpoof.value = 'PUT';
+  modalTitle.textContent = 'Edit User';
+  saveText.textContent = 'Save Changes';
+  rowPwd.classList.add('hidden');
+
+  fName.value = u.name;
+  fEmail.value = u.email;
+  fRole.value = u.role || '';
+  fPhone.value = u.phone || '';
+  const active = (u.status === 'active');
+  fStatusSw.checked = active;
+  fStatus.value = active ? 'active' : 'inactive';
+  statusText.textContent = active ? 'Active' : 'Inactive';
+}
+
+/** 行内编辑按钮绑定 */
+document.querySelector('tbody').addEventListener('click', function(e){
+  const btn = e.target.closest('button[data-mode="edit"]');
+  if(!btn) return;
+  const u = {
+    id: btn.dataset.id,
+    name: btn.dataset.name,
+    email: btn.dataset.email,
+    role: btn.dataset.role,
+    phone: btn.dataset.phone,
+    status: btn.dataset.status, // 已是小写
+    update: @json(route('admin.user.update', ['user' => '___ID___'])).replace('___ID___', btn.dataset.id)
+  };
+  prepareEdit(u); openModal();
 });
 
-/** ===== Modal controls ===== */
-const modal=document.getElementById('userModal');
-const modalTitle=document.getElementById('modalTitle');
-const saveText=document.getElementById('saveText');
-const rowPwd=document.getElementById('rowPwd');
-
-const fName=document.getElementById('f_name');
-const fRole=document.getElementById('f_role');
-const fEmail=document.getElementById('f_email');
-const fPhone=document.getElementById('f_phone');
-const fPwd=document.getElementById('f_pwd');
-const fStatusSw=document.getElementById('f_status_sw');
-const statusText=document.getElementById('statusText');
-let editingIndex=null;
-
-function openUserModal(idx=null){
-  editingIndex=idx;
-
-  if(idx===null){
-    // Add 模式：显示密码、默认Active
-    modalTitle.textContent='Add New User';
-    saveText.textContent='Save User';
-    rowPwd.classList.remove('hidden');
-
-    fName.value=''; fEmail.value=''; fPhone.value=''; fPwd.value='';
-    fRole.selectedIndex=0; // Select a role
-    fStatusSw.checked=true; statusText.textContent='Active';
-  }else{
-    // Edit 模式：隐藏密码（与你第二张图一致）
-    modalTitle.textContent='Edit User';
-    saveText.textContent='Save User'; // 如要“Update User”，改成 'Update User'
-    rowPwd.classList.add('hidden');
-
-    const u=USERS[idx];
-    fName.value=u.name; fEmail.value=u.email; fPhone.value=u.phone; fRole.value=u.role;
-    fPwd.value='';
-    fStatusSw.checked=(u.status==='Active'); statusText.textContent=u.status;
-  }
-
-  modal.classList.add('open'); modal.setAttribute('aria-hidden','false');
-  setTimeout(()=>fName.focus(),30);
-}
-function closeUserModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
-document.getElementById('btnAddUser').addEventListener('click',()=>openUserModal(null));
-document.getElementById('userClose').addEventListener('click',closeUserModal);
-document.getElementById('userCancel').addEventListener('click',closeUserModal);
-modal.addEventListener('click',e=>{ if(e.target===modal) closeUserModal(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&modal.classList.contains('open')) closeUserModal(); });
-
-/* status text sync */
-fStatusSw.addEventListener('change',()=>{ statusText.textContent = fStatusSw.checked ? 'Active' : 'Inactive'; });
+/* status 与隐藏域同步 */
+fStatusSw.addEventListener('change', ()=>{
+  const act = fStatusSw.checked;
+  fStatus.value = act ? 'active' : 'inactive';
+  statusText.textContent = act ? 'Active' : 'Inactive';
+});
 
 /* password eye */
 document.getElementById('togglePwd').addEventListener('click',(ev)=>{
-  const isPw=fPwd.getAttribute('type')==='password';
+  const isPw = fPwd.getAttribute('type')==='password';
   fPwd.setAttribute('type', isPw?'text':'password');
   ev.currentTarget.innerHTML = `<i class="bi ${isPw?'bi-eye-slash':'bi-eye'}"></i>`;
 });
 
-/** ===== Save ===== */
-document.getElementById('userSave').addEventListener('click',()=>{
-  const needPwd = (editingIndex===null); // 仅新增必填密码
-
-  const rec={
-    name:fName.value.trim(),
-    role:(fRole.value && fRole.value!=='Select a role') ? fRole.value : '',
-    email:fEmail.value.trim(),
-    phone:fPhone.value.trim(),
-    status:fStatusSw.checked?'Active':'Inactive'
-  };
-  if(!rec.name||!rec.email||!rec.role|| (needPwd && !fPwd.value.trim())){
-    alert('Please fill Full Name, Email and Role' + (needPwd?' and Password':'') + '.'); 
-    return;
-  }
-
-  if(needPwd){
-    // 真实提交后端时带上密码
-    rec.password = fPwd.value;
-  }
-
-  if(editingIndex===null){ USERS.unshift(rec); PAGE.page=1; }
-  else{ USERS[editingIndex]={...USERS[editingIndex], ...rec}; }
-
-  render(); closeUserModal();
+/* 搜索框回车提交 */
+document.querySelector('input[name="q"]').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ document.getElementById('filterForm').submit(); }
 });
 
-/** ===== Init ===== */
-document.addEventListener('DOMContentLoaded',render);
+/* 提交前再次同步状态（保险） */
+document.getElementById('userForm').addEventListener('submit', () => {
+  const sw = document.getElementById('f_status_sw');
+  const hid = document.getElementById('f_status');
+  hid.value = sw.checked ? 'active' : 'inactive';
+});
 </script>
 @endsection
