@@ -50,6 +50,10 @@ class FurnishingController extends Controller
                 $w->whereNull('o.orderStatus')
                 ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
             })
+            ->where(function ($w) {
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'in_progress');
+            })
             ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
             // exclude already completed furnishing
             ->whereNotExists(function ($q2) {
@@ -227,6 +231,14 @@ class FurnishingController extends Controller
             ->where('p.taskType', 'furnishing')
             ->where(function ($q) {
                 $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
+            ->where(function ($q) {
+                $q->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
+            })
+            ->where(function ($q) {
+                $q->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'in_progress');
             })
             ->count();
 
