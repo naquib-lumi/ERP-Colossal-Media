@@ -44,7 +44,7 @@
       <a href="{{ route('printing.dashboard') }}" class="text-decoration-none text-muted">
         <i class="bi bi-arrow-left"></i>
       </a>
-      <h1 class="h4 fw-bold mb-0">Report Issue — <span class="text-muted">#{{ $orderCode }}</span></h1>
+      <h1 class="h4 fw-bold mb-0">Report Issue — <span class="text-muted">{{ $row->product_code_display }}</span></h1>
     </div>
 
     {{-- Flash --}}
@@ -67,7 +67,7 @@
             <label class="form-label"><i class="bi bi-hash"></i> Order ID</label>
             <input type="text"
                    class="form-control"
-                   value="{{ $orderCode }}"
+                   value="{{ $row->product_code_display }}"
                    readonly>
           </div>
 
