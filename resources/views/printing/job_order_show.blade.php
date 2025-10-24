@@ -13,6 +13,7 @@
   .op-installation{background:#ECFEFF;color:#0E7490}
   .op-courier{background:#ECFDF5;color:#047857}
   .op-self_pickup{background:#F3F4F6;color:#111827}
+  .op-artist{background: #eaecf9ff; color: #8295fdff}
   .remark-meta{color:#6B7280;font-size:.8rem}
   .remark-text{white-space:pre-wrap}
 
@@ -760,7 +761,12 @@
         <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
         <h1 class="h4 fw-bold mb-0">Printing Task — <span class="text-muted">{{ $product_code }}</span></h1>
       </div>
-      <span class="assignee-chip">{{ $assignee }}</span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="assignee-chip">{{ $assignee }}</span>
+        @if(!empty($header->data_entry_name))
+          <span class="badge bg-label-info assignee-chip">{{ $header->data_entry_name }}</span>
+        @endif
+      </div>
     </div>
     <div class="text-muted mb-3">Printing Module</div>
 
@@ -803,6 +809,7 @@
             'installation' => 'To Delivery & Installation',
             'courier'      => 'To Courier',
             'self_pickup'  => 'To Self Pickup',
+            'artist'       => 'To Artist',
           ];
         @endphp
         <div class="mt-3">
@@ -1030,6 +1037,7 @@
                 'installation' => 'To Delivery & Installation',
                 'courier'      => 'To Courier',
                 'self_pickup'  => 'To Self Pickup',
+                'artist'  => 'To Artist',
               ];
             @endphp
             <select class="form-select form-select-sm remark-cat" style="max-width:180px">
@@ -1284,7 +1292,8 @@ document.addEventListener('DOMContentLoaded', function () {
       'furnishing': 'To Furnishing',
       'installation': 'To Delivery & Installation',
       'courier': 'To Courier',
-      'self_pickup': 'To Self Pickup'
+      'self_pickup': 'To Self Pickup',
+      'artist': 'To Artist'
     };
 
     function makeRow(){
