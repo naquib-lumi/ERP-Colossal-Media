@@ -43,6 +43,7 @@ class DispatchControlProductOrderController extends Controller
         $headerRow = DB::table('products as p')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
             ->leftJoin('users  as u', 'u.id', '=', 'o.artist_id')
+            ->leftJoin('users  as de', 'de.id', '=', 'o.data_entry_id')
             ->where('p.ProductID', $productId)
             ->select([
                 'p.ProductID',
@@ -65,6 +66,7 @@ class DispatchControlProductOrderController extends Controller
                 'o.status as orderStatus',
                 'p.accepted',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
+                DB::raw('COALESCE(de.name, "") as data_entry_name'),
             ])
             ->first();
 
@@ -97,6 +99,7 @@ class DispatchControlProductOrderController extends Controller
             'artist_name'  => $headerRow->artist_name,
             'orderStatus'   => $headerRow->orderStatus,
             'accepted'      => $headerRow->accepted,
+            'data_entry_name' => $headerRow->data_entry_name,
         ];
 
         $canEdit = ((int)($headerRow->accepted ?? 0) === 1) && (strtolower((string)($headerRow->orderStatus ?? '')) !== 'rejected');
@@ -324,6 +327,7 @@ class DispatchControlProductOrderController extends Controller
 
         // Who to show in chips
         $assignee = $header->artist_name ?: '—';
+        $dataEntry = $header->data_entry_name ?: '—';
         $uploader = $assignee;
         $permit   = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
 
@@ -337,6 +341,7 @@ class DispatchControlProductOrderController extends Controller
             'deliveries'     => $deliveries,
             'totals'         => $totals,
             'assignee'       => $assignee,
+            'dataEntry'  => $dataEntry,
             'uploader'       => $uploader,
             'permit'         => $permit,
             'attachments'    => $attachments,
@@ -393,7 +398,7 @@ class DispatchControlProductOrderController extends Controller
 
             // 2) Append new remarks (if any) to product_remarks
             //    Only allow these 5 keys in DB: printing, furnishing, installation, courier, self_pickup
-            $allowedOps = ['printing','furnishing','installation','courier','self_pickup'];
+            $allowedOps = ['printing','furnishing','installation','courier','self_pickup', 'artist'];
 
             foreach ($remarks as $row) {
                 $opRaw = strtolower(trim((string)($row['operation'] ?? '')));
@@ -414,6 +419,8 @@ class DispatchControlProductOrderController extends Controller
                     $op = 'printing';
                 } elseif ($opRaw === 'furnishing') {
                     $op = 'furnishing';
+                } elseif ($opRaw === 'artist') {
+                    $op = 'artist';
                 } else {
                     // fallback if the UI somehow sends an unexpected value
                     $op = 'furnishing';

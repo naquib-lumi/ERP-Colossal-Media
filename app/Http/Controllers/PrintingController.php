@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Helpers\Helpers;
+use App\Models\Order;
+use App\Models\Product;
 
 class PrintingController extends Controller
 {
@@ -18,6 +20,7 @@ class PrintingController extends Controller
         $artistId = trim((string) $request->get('artist', ''));       // artist filter
         $pid      = trim((string) $request->query('pid', ''));        // Product ID / code (all pages)
         $sort     = (string) $request->get('sort', 'deadline_nearest');
+        $mine = $request->boolean('mine');
 
         $readDate = function (?string $v): ?string {
             if (!$v) return null;
@@ -50,6 +53,10 @@ class PrintingController extends Controller
             ->where(function ($w) {
                 $w->whereNull('o.orderStatus')
                 ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
+            })
+            ->where(function ($w) {
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'in_progress');
             })
             ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
             ->whereNotExists(function ($q2) {
@@ -205,6 +212,29 @@ class PrintingController extends Controller
                 break;
         }
 
+        if ($mine) {
+            $role = strtolower(Auth::user()->role ?? '');
+
+            // Map roles to the stage/column used in DB
+            $stageForRole = match ($role) {
+                'operations-printing'              => 'printing',
+                'operations-furnishing'            => 'furnishing',
+                'operations-dispatch-control'      => 'delivery',      // stored in products.status
+                'operations-delivery-installation' => 'installation',  // stored in products.status
+                default => null,
+            };
+
+            if ($stageForRole) {
+                // For printing/furnishing we use products.taskType
+                if (in_array($stageForRole, ['printing'], true)) {
+                    $jobs->where('p.taskType', $stageForRole);
+                } else {
+                    // For dispatch-control & delivery-installation we use products.status
+                    $jobs->whereRaw('LOWER(p.status) = ?', [$stageForRole]);
+                }
+            }
+        }
+
         // paginate AFTER all filters → searches across all pages
         $jobs = $jobs->paginate(10)->appends($request->query());
 
@@ -215,6 +245,14 @@ class PrintingController extends Controller
             ->where('p.taskType', 'printing')
             ->where(function ($q) {
                 $q->whereNull('o.status')->orWhere('o.status', '!=', 1);
+            })
+            ->where(function ($q) {
+                $q->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
+            })
+            ->where(function ($q) {
+                $q->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'in_progress');
             })
             ->count();
 
@@ -579,52 +617,188 @@ class PrintingController extends Controller
         $row = DB::table('products as p')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
             ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
-            ->select('p.ProductID', 'p.OrderID', 'o.order_number')
+            ->select([
+                'p.ProductID',
+                'p.redoOf',
+                'p.created_at',
+                'o.orderDate',
+                'o.order_number',
+                DB::raw("
+                    CONCAT(
+                        '#ORD-',
+                        YEAR(o.orderDate), '-',
+                        LPAD(o.id, 3, '0'),
+                        '-P',
+                        LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                        CASE 
+                            WHEN p.redoOf IS NOT NULL THEN 'R' 
+                            ELSE '' 
+                        END
+                    ) AS product_code_display
+                "),
+            ])
             ->where('p.ProductID', $productId)
             ->first();
 
-        $orderCode = $row
-            ? ($row->order_number ?: ('ORD' . ($row->OrderID ?: $row->ProductID) . '-P' . $row->ProductID))
-            : ('ORD-P' . $productId);
-
         return view('printing.report_issue', [
             'productId' => $productId,
-            'orderCode' => $orderCode,
+            'row'       => $row
         ]);
     }
 
-    /**
-     * Submit a Printing issue report.
-     * Writes to `report_redo` table.
-     */
-    public function reportSubmit(Request $request, $productId)
+
+    public function reportSubmit(Request $request, int $productId)
     {
+        // 1) Validate + normalize
         $data = $request->validate([
-            'reason'        => ['required', 'string'],
-            'other_reason'  => ['nullable', 'string'],
-            'reason_other'  => ['nullable', 'string'],
-            'notes'         => ['nullable', 'string'],
+            'reason'        => ['required', 'string', 'max:255'],
+            'other_reason'  => ['nullable', 'string', 'max:2000'],
+            'reason_other'  => ['nullable', 'string', 'max:2000'], // legacy alias
+            'notes'         => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $otherText = $data['other_reason'] ?? $data['reason_other'] ?? null;
+        $picked     = trim((string)($data['reason'] ?? ''));
+        $otherText  = trim((string)($data['other_reason'] ?? $data['reason_other'] ?? ''));
+        $notes      = trim((string)($data['notes'] ?? ''));
 
-        $reason = strtolower($data['reason']) === 'others'
-            ? ($otherText ?: 'Others')
-            : $data['reason'];
+        // If "Others" → use typed text; else append notes to chosen reason
+        $baseReason = (strcasecmp($picked, 'Others') === 0)
+            ? ($otherText !== '' ? $otherText : 'Others')
+            : $picked;
 
-        $orderId = DB::table('products')
-            ->where('ProductID', $productId)
-            ->value('OrderID');
+        $reasonText = $baseReason;
+        if ($notes !== '') {
+            $reasonText .= ': ' . $notes; // "reason: note"
+        }
 
-        DB::table('report_redo')->insert([
-            'OrderID'    => $orderId ?? 0,
-            'reason'     => $reason,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // 2) Resolve the product and order
+        $product = Product::findOrFail($productId);
+        $order   = Order::findOrFail((int)$product->OrderID);
+
+        // 3) Transaction – archive prior redos of the base, create new redo, clone data
+        DB::transaction(function () use ($order, $productId, $reasonText) {
+
+            $baseId    = $order->redo ? (int) $order->redo : (int) $order->id;
+            $baseOrder = $order->redo ? Order::findOrFail($baseId) : $order;
+
+            // 🔴 Hide existing redos (status=1) for the same base so only newest redo shows
+            Order::where('redo', $baseId)->update(['status' => 1]);
+
+            // (Optional) count existing for analytics; we don’t need it for numbering here
+            $existingCount = Order::lockForUpdate()->where('redo', $baseId)->count();
+
+            // 🔵 Create brand-new redo order from the BASE order
+            $redo = $baseOrder->replicate([
+                'id','order_number','created_at','updated_at','submit','draft','status','redo','orderStatus'
+            ]);
+
+            $redo->order_number = $this->nextRedoNumber($baseOrder->order_number);
+            $redo->redo         = $baseId;
+            $redo->draft        = 1;
+            $redo->submit       = 0;
+            $redo->orderStatus  = 'in_progress';
+            $redo->status       = 0;           // keep visible
+            $redo->data_entry_id = null;       // detach from DE
+            $redo->created_at   = now();
+            $redo->updated_at   = now();
+
+            if ($reasonText !== '') {
+                $redo->orderDetail = trim(
+                    ($baseOrder->orderDetail ? $baseOrder->orderDetail . "\n\n" : '')
+                    . 'REDO Reason: ' . $reasonText
+                );
+            }
+
+            $redo->save();
+
+            // 🗒️ Log the reason
+            if ($reasonText !== '') {
+                DB::table('report_redo')->insert([
+                    'OrderID'    => $baseId,
+                    'reason'     => $reasonText,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // 4) Clone ALL products of the BASE order → only the REPORTED product is editable=1
+            $baseProducts = Product::with(['items.spec','remarks','deliveryBreakdowns','progress'])
+                ->where('OrderID', $baseOrder->id)
+                ->orderBy('ProductID')
+                ->get();
+
+            // Find the “origin” ProductID for the reported product (in case we’re on a redo)
+            $reportedOriginId = Product::where('ProductID', $productId)
+                ->value(DB::raw('COALESCE(redoOf, ProductID)'));
+
+            foreach ($baseProducts as $origin) {
+                $editable = ((int)$origin->ProductID === (int)$reportedOriginId) ? 1 : 0;
+
+                $np = $origin->replicate(['ProductID','OrderID','created_at','updated_at']);
+                $np->OrderID    = $redo->id;
+                $np->redoOf     = $origin->ProductID;
+                $np->editable   = $editable;
+                $np->created_at = now();
+                $np->updated_at = now();
+                $np->accepted   = null;
+                $np->save();
+
+                foreach ($origin->items as $it) {
+                    $ni = $it->replicate(['ItemID','ProductID','created_at','updated_at']);
+                    $ni->ProductID  = $np->ProductID;
+                    $ni->created_at = now();
+                    $ni->updated_at = now();
+                    $ni->save();
+
+                    if ($it->spec) {
+                        $ns = $it->spec->replicate(['SpecificationID','ItemID','created_at','updated_at']);
+                        $ns->ItemID     = $ni->ItemID;
+                        $ns->created_at = now();
+                        $ns->updated_at = now();
+                        $ns->save();
+                    }
+                }
+                foreach ($origin->remarks as $rm) {
+                    $nr = $rm->replicate(['RemarkID','ProductID','created_at','updated_at']);
+                    $nr->ProductID  = $np->ProductID;
+                    $nr->created_at = now();
+                    $nr->updated_at = now();
+                    $nr->save();
+                }
+                foreach ($origin->deliveryBreakdowns as $db) {
+                    $nd = $db->replicate(['BreakdownID','ProductID','created_at','updated_at']);
+                    $nd->ProductID  = $np->ProductID;
+                    $nd->created_at = now();
+                    $nd->updated_at = now();
+                    $nd->save();
+                }
+                foreach ($origin->progress as $pg) {
+                    $npgr = $pg->replicate(['ProgressID','ProductID','created_at','updated_at']);
+                    $npgr->ProductID  = $np->ProductID;
+                    $npgr->created_at = now();
+                    $npgr->updated_at = now();
+                    $npgr->save();
+                }
+            }
+
+            // (Optional) if this was the first redo ever, you could archive the base:
+            if ($existingCount === 0 && $order->id === $baseOrder->id) {
+                $order->forceFill(['status' => 1])->save();
+            }
+        });
 
         return redirect()
             ->route('printing.dashboard')
-            ->with('status', 'Report submitted.');
+            ->with('status', 'Report submitted. Redo order has been created.');
+    }
+
+    protected function nextRedoNumber(string $baseOrderNo): string
+    {
+        // remove leading '#' and any existing R or R1/R2 etc.
+        $base = ltrim($baseOrderNo, '#');
+        $base = preg_replace('/R\d*$/i', '', $base);
+
+        // always return one R only
+        return '#' . $base . 'R';
     }
 }

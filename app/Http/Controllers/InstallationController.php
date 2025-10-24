@@ -30,6 +30,7 @@ class InstallationController extends Controller
         $artist  = trim((string) $request->query('artist', ''));   // orders.artist_id
         $dFrom   = trim((string) $request->query('deadline_from', ''));
         $dTo     = trim((string) $request->query('deadline_to', ''));
+        $mine = $request->boolean('mine');
 
         // Keep your existing params too
         $search  = $q;                                             // keep name used in view, but uses new 'q'
@@ -325,6 +326,29 @@ class InstallationController extends Controller
         } else {
             // Default: least progress first (what you had before)
             usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
+        }
+
+        if ($mine) {
+            $role = strtolower(Auth::user()->role ?? '');
+
+            // Match your roles to the production stage name used in the table
+            $stageForRole = match ($role) {
+                'operations-printing'             => 'printing',
+                'operations-furnishing'           => 'furnishing',
+                'operations-dispatch-control'     => 'delivery',      // dispatch control column in UI
+                'operations-delivery-installation'=> 'installation',  // delivery & installation column in UI
+                default => null,
+            };
+
+            if ($stageForRole) {
+                // Keep only the products currently in *my* stage
+                $list = array_values(array_filter($list, function ($row) use ($stageForRole) {
+                    return ($row['current_stage'] ?? null) === $stageForRole
+                        // Some teams want to see the whole family of their stage;
+                        // if you prefer strictly current stage only, keep just the line above.
+                        || in_array($stageForRole, $row['stages'] ?? [], true);
+                }));
+            }
         }
 
         $perPage = 10;

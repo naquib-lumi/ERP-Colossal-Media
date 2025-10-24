@@ -4,6 +4,12 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
+  .form-switch-lg .form-check-input {
+    width: 3rem; height: 1.5rem;
+  }
+  .form-switch-lg .form-check-input:checked {
+    background-color: #6366f1; border-color: #6366f1;
+  }
   /* ===== KPI ===== */
   .kpi-grid {
     display: grid;
@@ -428,6 +434,22 @@
                 <input type="date" name="deadline_to" value="{{ request('deadline_to') }}" class="form-control">
               </div>
             </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label d-flex align-items-center gap-1">
+                Only my tasks
+                <i class="bi bi-info-circle text-muted"
+                  data-bs-toggle="tooltip"
+                  title="Show products currently in a stage that matches your role"></i>
+              </label>
+
+              <div class="form-switch form-switch-lg">
+                <input class="form-check-input mine-switch" type="checkbox" role="switch"
+                      id="mineCheck" name="mine" value="1"
+                      {{ request('mine') ? 'checked' : '' }}>
+                <label class="form-check-label ms-2" for="mineCheck">Filter Me</label>
+                <!-- comment 2424 -->
+              </div>
+            </div>
 
             {{-- Actions --}}
             <div class="col-12 col-lg-4 d-flex gap-2 justify-content-end ms-lg-auto">
@@ -799,5 +821,13 @@
     });
   });
 })();
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    new bootstrap.Tooltip(el);
+  });
+
+  const mine = document.getElementById('mineCheck');
+  if (mine) mine.addEventListener('change', () => mine.form?.submit());
+});
 </script>
 @endsection
