@@ -5,11 +5,15 @@
 
 <style>
   .form-switch-lg .form-check-input {
-    width: 3rem; height: 1.5rem;
+    width: 3rem;
+    height: 1.5rem;
   }
+
   .form-switch-lg .form-check-input:checked {
-    background-color: #6366f1; border-color: #6366f1;
+    background-color: #6366f1;
+    border-color: #6366f1;
   }
+
   /* ===== KPI ===== */
   .kpi-grid {
     display: grid;
@@ -291,25 +295,261 @@
     background: #F6F7FB;
   }
 
-  .filter-card{ border:1px solid #ECEFF3; border-radius:14px; }
-  .filter-card .form-label{ font-size:.8rem; color:#6b7280; margin-bottom:.25rem; }
-  .filter-card .input-group-text{ background:#f8fafc; border-color:#e5e7eb; }
-  .filter-card .form-control{ border-color:#e5e7eb; }
-  .filter-card .has-icon .form-control{ border-left:0; }
-  .filter-card .input-group-text i{ opacity:.75; }
-  @media (min-width: 1200px){
-    .filter-card form .col-lg-2 { min-width: 220px; }
-    .filter-card form .col-lg-3 { min-width: 260px; }
+  .filter-card {
+    border: 1px solid #ECEFF3;
+    border-radius: 14px;
   }
 
-  .js-sort-deadline { cursor: pointer; user-select: none; }
-  .js-sort-deadline::after { content: " ↕"; opacity: .5; font-size: .9em; }
-  .js-sort-deadline[data-order="asc"]::after  { content: " ↑"; }
-  .js-sort-deadline[data-order="desc"]::after { content: " ↓"; }
+  .filter-card .form-label {
+    font-size: .8rem;
+    color: #6b7280;
+    margin-bottom: .25rem;
+  }
 
-  .th-sort { text-decoration:none; color:inherit; user-select:none; }
-  .th-sort:hover { text-decoration:underline; }
-  .th-sort.is-active { font-weight:700; }
+  .filter-card .input-group-text {
+    background: #f8fafc;
+    border-color: #e5e7eb;
+  }
+
+  .filter-card .form-control {
+    border-color: #e5e7eb;
+  }
+
+  .filter-card .has-icon .form-control {
+    border-left: 0;
+  }
+
+  .filter-card .input-group-text i {
+    opacity: .75;
+  }
+
+  @media (min-width: 1200px) {
+    .filter-card form .col-lg-2 {
+      min-width: 220px;
+    }
+
+    .filter-card form .col-lg-3 {
+      min-width: 260px;
+    }
+  }
+
+  .js-sort-deadline {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .js-sort-deadline::after {
+    content: " ↕";
+    opacity: .5;
+    font-size: .9em;
+  }
+
+  .js-sort-deadline[data-order="asc"]::after {
+    content: " ↑";
+  }
+
+  .js-sort-deadline[data-order="desc"]::after {
+    content: " ↓";
+  }
+
+  .th-sort {
+    text-decoration: none;
+    color: inherit;
+    user-select: none;
+  }
+
+  .th-sort:hover {
+    text-decoration: underline;
+  }
+
+  .th-sort.is-active {
+    font-weight: 700;
+  }
+
+  /* ====== ADD-ON: 顶部按钮 + 下方输入区（保留原有样式不改动） ====== */
+  .filter-actions-top {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .filter-actions-top .btn {
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    height: 34px;
+    line-height: 1.1;
+    padding: 0 12px;
+  }
+
+  .filter-actions-top .btn-dark {
+    background: #1f2544;
+    border-color: #1f2544;
+  }
+
+  .filter-actions-top .btn-dark:hover {
+    background: #171c33;
+  }
+
+  .filter-actions-top .btn-outline-secondary {
+    color: #1f2544;
+    border-color: #cdd3df;
+  }
+
+  .filter-actions-top .btn-outline-secondary:hover {
+    background: #f4f6fa;
+  }
+
+  /* 下方输入区保持一排紧凑 */
+  .filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+  }
+
+  .filters-row .form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475467;
+    margin-bottom: 6px;
+  }
+
+  .filters-row .input-group-text {
+    background: #fff;
+    border-right: 0;
+  }
+
+  .filters-row .input-group.input-group-sm .form-control,
+  .filters-row .input-group.input-group-sm .form-select {
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .filters-row .form-control,
+  .filters-row .form-select {
+    border-radius: 10px;
+  }
+
+  .fx-id {
+    max-width: 190px;
+    flex: 1 1 160px;
+  }
+
+  .fx-search {
+    min-width: 260px;
+    flex: 2 1 320px;
+  }
+
+  .fx-artist {
+    max-width: 220px;
+    flex: 1 1 200px;
+  }
+
+  .fx-date {
+    max-width: 180px;
+    flex: 1 1 160px;
+  }
+
+  @media (max-width: 992px) {
+    .filter-actions-top {
+      justify-content: flex-end;
+    }
+  }
+
+  /* 标题与按钮同一排 */
+  .filter-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 12px;
+  }
+
+  .filter-head .title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .filter-head .actions .btn {
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    height: 34px;
+    line-height: 1.1;
+    padding: 0 12px;
+  }
+
+  .filter-head .actions .btn-dark {
+    background: #1f2544;
+    border-color: #1f2544;
+  }
+
+  .filter-head .actions .btn-dark:hover {
+    background: #171c33;
+  }
+
+  .filter-head .actions .btn-outline-secondary {
+    color: #1f2544;
+    border-color: #cdd3df;
+  }
+
+  .filter-head .actions .btn-outline-secondary:hover {
+    background: #f4f6fa;
+  }
+
+  /* 下方输入区：一排紧凑 */
+  .filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+  }
+
+  .filters-row .form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475467;
+    margin-bottom: 6px;
+  }
+
+  .filters-row .input-group-text {
+    background: #fff;
+    border-right: 0;
+  }
+
+  .filters-row .input-group.input-group-sm .form-control,
+  .filters-row .input-group.input-group-sm .form-select {
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .filters-row .form-control,
+  .filters-row .form-select {
+    border-radius: 10px;
+  }
+
+  .fx-id {
+    max-width: 190px;
+    flex: 1 1 160px;
+  }
+
+  .fx-search {
+    min-width: 260px;
+    flex: 2 1 320px;
+  }
+
+  .fx-artist {
+    max-width: 220px;
+    flex: 1 1 200px;
+  }
+
+  .fx-date {
+    max-width: 180px;
+    flex: 1 1 160px;
+  }
 </style>
 
 <div class="container-fluid py-4 px-4">
@@ -340,205 +580,208 @@
         <span>Furnishing Jobs</span>
       </div>
 
-      <div class="card shadow-soft mb-3 filter-card">
+      <div class="card shadow-soft filter-card">
         <div class="card-body">
-          <div class="d-flex align-items-center mb-3">
-            <h6 class="mb-0 fw-semibold">Furnishing Jobs</h6>
-            <span class="text-muted small ms-2">Filter &amp; search</span>
-          </div>
 
-          <form class="row g-3 align-items-end" method="GET" action="{{ route('furnishing.dashboard') }}">
-            {{-- Client-side Product ID (page only) --}}
-            <div class="col-12 col-md-6 col-lg-3">
-              <label class="form-label">Search Product ID</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-hash"></i></span>
-                <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="Enter product ID">
+          <form method="GET" action="{{ route('furnishing.dashboard') }}">
+            {{-- 顶部：标题在左、按钮在右（同一排） --}}
+            <div class="filter-head">
+              <div class="title">
+                <span class="text-muted small">Filter &amp; search</span>
+              </div>
+              <div class="actions d-flex align-items-center gap-3">
+                {{-- 新增：Filter Me switch（不改你其它代码） --}}
+                <div class="form-check form-switch m-0 d-flex align-items-center">
+                  <input class="form-check-input me-1" type="checkbox" role="switch" id="mineCheck" name="mine" value="1"
+                    {{ request('mine') ? 'checked' : '' }} style="cursor:pointer;">
+                  <label class="form-check-label small fw-semibold text-muted" for="mineCheck" style="user-select:none;cursor:pointer;">
+                    Filter Me
+                  </label>
+                  <i class="bi bi-info-circle ms-1 text-secondary small" data-bs-toggle="tooltip"
+                    title="Show only tasks assigned to your role."></i>
+                </div>
+
+                <a href="{{ route('furnishing.dashboard') }}" class="btn btn-outline-secondary">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                </a>
+                <button class="btn btn-dark" type="submit">
+                  <i class="bi bi-funnel me-1"></i> Apply Filter
+                </button>
               </div>
             </div>
 
-            {{-- Unified keyword: cutter / order title / company / product name --}}
-            <div class="col-12 col-md-6 col-lg-4">
-              <label class="form-label">Search</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input type="text" name="q" value="{{ request('q') }}" class="form-control"
-                      placeholder="Cutter, Order title, Company name, or Product name">
+            {{-- 下方：一排输入控件 --}}
+            <div class="filters-row">
+              {{-- Product ID --}}
+              <div class="fx-id">
+                <label class="form-label">Search Product ID</label>
+                <div class="input-group input-group-sm has-icon">
+                  <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                  <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}" class="form-control" placeholder="Enter Product ID">
+                </div>
               </div>
-            </div>
 
-            {{-- Artist --}}
-            <div class="col-12 col-md-6 col-lg-3">
-              <label class="form-label">Artist</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                <select name="artist" class="form-select">
-                  <option value="">All artists</option>
-                  @foreach (($artists ?? []) as $a)
-                    <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist') ? 'selected' : '' }}>
+              {{-- Keyword --}}
+              <div class="fx-search">
+                <label class="form-label">Search</label>
+                <div class="input-group input-group-sm has-icon">
+                  <span class="input-group-text"><i class="bi bi-search"></i></span>
+                  <input type="text" name="q" value="{{ request('q', $q ?? '') }}" class="form-control"
+                    placeholder="Order title, Company name, or Product name">
+                </div>
+              </div>
+
+              {{-- Artist --}}
+              <div class="fx-artist">
+                <label class="form-label">Artist</label>
+                <div class="input-group input-group-sm has-icon">
+                  <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                  <select name="artist" class="form-select">
+                    <option value="">All artists</option>
+                    @foreach (($artists ?? []) as $a)
+                    <option value="{{ $a->id }}" {{ (string)$a->id === (string)request('artist', $artist ?? '') ? 'selected' : '' }}>
                       {{ $a->name }}
                     </option>
-                  @endforeach
-                </select>
+                    @endforeach
+                  </select>
+                </div>
               </div>
-            </div>
 
-            {{-- Deadline --}}
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Deadline From</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
-                <input type="date" name="deadline_from" value="{{ request('deadline_from') }}" class="form-control">
+              {{-- Deadline From --}}
+              <div class="fx-date">
+                <label class="form-label">Deadline From</label>
+                <div class="input-group input-group-sm has-icon">
+                  <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                  <input type="date" name="deadline_from" value="{{ request('deadline_from', $deadline_from ?? '') }}" class="form-control" placeholder="dd/mm/yyyy">
+                </div>
               </div>
-            </div>
-            <div class="col-6 col-md-4 col-lg-2">
-              <label class="form-label">Deadline To</label>
-              <div class="input-group input-group-sm has-icon">
-                <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
-                <input type="date" name="deadline_to" value="{{ request('deadline_to') }}" class="form-control">
-              </div>
-            </div>
-            <div class="col-12 col-md-3">
-              <label class="form-label d-flex align-items-center gap-1">
-                Only my tasks
-                <i class="bi bi-info-circle text-muted"
-                  data-bs-toggle="tooltip"
-                  title="Show products currently in a stage that matches your role"></i>
-              </label>
 
-              <div class="form-switch form-switch-lg">
-                <input class="form-check-input mine-switch" type="checkbox" role="switch"
-                      id="mineCheck" name="mine" value="1"
-                      {{ request('mine') ? 'checked' : '' }}>
-                <label class="form-check-label ms-2" for="mineCheck">Filter Me</label>
+              {{-- Deadline To --}}
+              <div class="fx-date">
+                <label class="form-label">Deadline To</label>
+                <div class="input-group input-group-sm has-icon">
+                  <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
+                  <input type="date" name="deadline_to" value="{{ request('deadline_to', $deadline_to ?? '') }}" class="form-control" placeholder="dd/mm/yyyy">
+                </div>
               </div>
-            </div>
-
-            {{-- Actions --}}
-            <div class="col-12 col-lg-4 ms-auto d-flex gap-2 justify-content-end">
-              <a href="{{ route('furnishing.dashboard') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
-              </a>
-              <button class="btn btn-dark"><i class="bi bi-funnel me-1"></i> Apply Filter</button>
             </div>
           </form>
+
         </div>
       </div>
+    </section>
 
-      <div class="table-wrapper">
-        <table class="table align-middle mb-0">
+    <div class="table-wrapper card table-card" style="margin-top:20px;">
+      <table class="table align-middle mb-0">
+        @php
+        $q = request()->query();
+        $urlWith = function(array $overrides) use ($q) {
+        return route('furnishing.dashboard', array_filter(array_merge($q, $overrides), fn($v)=>$v!==null && $v!==''));
+        };
+
+        $sort = request('sort','deadline_nearest');
+
+        $dlNext = $sort === 'deadline_furthest' ? 'deadline_nearest' : 'deadline_furthest';
+        $dlLabel = $sort === 'deadline_furthest' ? 'furthest' : ($sort === 'deadline_nearest' ? 'nearest' : '');
+
+        $sbNext = $sort === 'submitted_furthest' ? 'submitted_nearest' : 'submitted_furthest';
+        $sbLabel = str_starts_with($sort,'submitted_') ? ($sort==='submitted_furthest'?'furthest':'nearest') : '';
+        @endphp
+        <thead>
+          <tr>
+            <th>PRODUCT ID</th>
+            <th>CUTTER</th>
+            <th>SQ INCH</th>
+
+            {{-- DEADLINE: toggle nearest <-> furthest --}}
+            <th>
+              <a class="th-sort {{ str_starts_with($sort,'deadline_') ? 'is-active' : '' }}"
+                href="{{ $urlWith(['sort' => $dlNext]) }}">
+                DEADLINE
+                @if($dlLabel)
+                <span class="badge bg-light text-dark ms-1">{{ $dlLabel }}</span>
+                @endif
+              </a>
+            </th>
+
+            {{-- SUBMISSION DATE: toggle nearest <-> furthest --}}
+            <th>
+              <a class="th-sort {{ str_starts_with($sort,'submitted_') ? 'is-active' : '' }}"
+                href="{{ $urlWith(['sort' => $sbNext]) }}">
+                SUBMISSION DATE
+                @if($sbLabel)
+                <span class="badge bg-light text-dark ms-1">{{ $sbLabel }}</span>
+                @endif
+              </a>
+            </th>
+
+            <th class="col-actions">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody id="jobsTbody">
+          @forelse ($jobs as $j)
           @php
-            $q = request()->query();
-            $urlWith = function(array $overrides) use ($q) {
-              return route('furnishing.dashboard', array_filter(array_merge($q, $overrides), fn($v)=>$v!==null && $v!==''));
-            };
+          $code = $j->order_number
+          ? $j->order_number.'-P'.$j->ProductID
+          : 'ORD'.$j->OrderID.'-P'.$j->ProductID;
 
-            $sort = request('sort','deadline_nearest');
+          $cutter = $j->cutter ?: '—';
+          $sqIn = is_null($j->sq_inch) ? 0 : $j->sq_inch;
+          $accepted = (int)($j->accepted ?? 0) === 1;
 
-            $dlNext   = $sort === 'deadline_furthest' ? 'deadline_nearest' : 'deadline_furthest';
-            $dlLabel  = $sort === 'deadline_furthest' ? 'furthest' : ($sort === 'deadline_nearest' ? 'nearest' : '');
+          $viewUrl = route('furnishing.job.show', $j->ProductID); // always available
+          $editUrl = route('furnishing.job.show', [$j->ProductID, 'edit' => 1]); // same page; edit visible after accepted
+          $doneUrl = route('furnishing.jobs.complete', $j->ProductID); // PATCH
 
-            $sbNext   = $sort === 'submitted_furthest' ? 'submitted_nearest' : 'submitted_furthest';
-            $sbLabel  = str_starts_with($sort,'submitted_') ? ($sort==='submitted_furthest'?'furthest':'nearest') : '';
+          $isFurnishing = strtolower((string)($j->taskType ?? '')) === 'furnishing';
+          $accepted = (int)($j->accepted ?? 0) === 1;
           @endphp
-          <thead>
-            <tr>
-              <th>PRODUCT ID</th>
-              <th>CUTTER</th>
-              <th>SQ INCH</th>
+          <tr id="job-{{ $j->ProductID }}"
+            class="js-row-open"
+            data-href="{{ route('furnishing.job.show', $j->ProductID) }}"
+            style="cursor:pointer;">
+            <td class="whitespace-nowrap font-medium">
+              {{ $j->display_product_id }}
+            </td>
+            <td>{{ ($j->cutter ?? '-') === '-' ? '—' : $j->cutter }}</td>
+            <td>{{ is_numeric($j->sq_inch ?? null) ? number_format((float)$j->sq_inch, 0).' sq in' : '0 sq in' }}</td>
 
-              {{-- DEADLINE: toggle nearest <-> furthest --}}
-              <th>
-                <a class="th-sort {{ str_starts_with($sort,'deadline_') ? 'is-active' : '' }}"
-                  href="{{ $urlWith(['sort' => $dlNext]) }}">
-                  DEADLINE
-                  @if($dlLabel)
-                    <span class="badge bg-light text-dark ms-1">{{ $dlLabel }}</span>
-                  @endif
-                </a>
-              </th>
+            {{-- sortable date cells with raw ISO in data-date --}}
+            <td class="td-deadline" data-date="{{ $j->deadline ?: '' }}">
+              {{ $j->deadline ? \Carbon\Carbon::parse($j->deadline)->format('Y-m-d') : '—' }}
+            </td>
+            <td class="td-submitted" data-date="{{ $j->submission_date ?: '' }}">
+              {{ $j->submission_date ? \Carbon\Carbon::parse($j->submission_date)->format('Y-m-d') : '—' }}
+            </td>
 
-              {{-- SUBMISSION DATE: toggle nearest <-> furthest --}}
-              <th>
-                <a class="th-sort {{ str_starts_with($sort,'submitted_') ? 'is-active' : '' }}"
-                  href="{{ $urlWith(['sort' => $sbNext]) }}">
-                  SUBMISSION DATE
-                  @if($sbLabel)
-                    <span class="badge bg-light text-dark ms-1">{{ $sbLabel }}</span>
-                  @endif
-                </a>
-              </th>
-
-              <th class="col-actions">ACTIONS</th>
-            </tr>
-          </thead>
-            <tbody id="jobsTbody">
-            @forelse ($jobs as $j)
+            <td class="text-nowrap">
               @php
-                $code = $j->order_number
-                  ? $j->order_number.'-P'.$j->ProductID
-                  : 'ORD'.$j->OrderID.'-P'.$j->ProductID;
-
-                $cutter = $j->cutter ?: '—';
-                $sqIn   = is_null($j->sq_inch) ? 0 : $j->sq_inch;
-                $accepted = (int)($j->accepted ?? 0) === 1;
-
-                $viewUrl  = route('furnishing.job.show', $j->ProductID);              // always available
-                $editUrl  = route('furnishing.job.show', [$j->ProductID, 'edit' => 1]); // same page; edit visible after accepted
-                $doneUrl  = route('furnishing.jobs.complete', $j->ProductID);         // PATCH
-
-                $isFurnishing = strtolower((string)($j->taskType ?? '')) === 'furnishing';
-                $accepted = (int)($j->accepted ?? 0) === 1;
+              $isFurnishing = strtolower((string)($j->taskType ?? '')) === 'furnishing';
+              $accepted = (int)($j->accepted ?? 0) === 1;
               @endphp
-              <tr id="job-{{ $j->ProductID }}"
-    class="js-row-open"
-    data-href="{{ route('furnishing.job.show', $j->ProductID) }}"
-    style="cursor:pointer;">
-  <td class="whitespace-nowrap font-medium">
-                {{ $j->display_product_id }}
-              </td>
-  <td>{{ ($j->cutter ?? '-') === '-' ? '—' : $j->cutter }}</td>
-  <td>{{ is_numeric($j->sq_inch ?? null) ? number_format((float)$j->sq_inch, 0).' sq in' : '0 sq in' }}</td>
-
-  {{-- sortable date cells with raw ISO in data-date --}}
-  <td class="td-deadline" data-date="{{ $j->deadline ?: '' }}">
-    {{ $j->deadline ? \Carbon\Carbon::parse($j->deadline)->format('Y-m-d') : '—' }}
-  </td>
-  <td class="td-submitted" data-date="{{ $j->submission_date ?: '' }}">
-    {{ $j->submission_date ? \Carbon\Carbon::parse($j->submission_date)->format('Y-m-d') : '—' }}
-  </td>
-
-  <td class="text-nowrap">
-    @php
-      $isFurnishing = strtolower((string)($j->taskType ?? '')) === 'furnishing';
-      $accepted = (int)($j->accepted ?? 0) === 1;
-    @endphp
-    @if (!$accepted || !$isFurnishing)
-      <a class="icon-pill" href="{{ route('furnishing.job.show', $j->ProductID) }}" title="View">
-        <i class="bi bi-eye"></i>
-      </a>
-    @endif
-    @if ($isFurnishing && $accepted)
-      <button class="icon-pill js-mark" data-id="{{ $j->ProductID }}" title="Mark Completed">
-        <i class="bi bi-check2"></i>
-      </button>
-      <a href="{{ route('furnishing.orders.show', $j->ProductID) }}" class="icon-pill" title="Edit">
-        <i class="bi bi-pencil"></i>
-      </a>
-    @endif
-  </td>
-</tr>
-            @empty
-              <tr>
-                <td colspan="7" class="text-center text-muted">No jobs found.</td>
-              </tr>
-            @endforelse
-            </tbody>
-        </table>
-      </div>
-
-      {{-- Pagination --}}
-      <div class="card-ft">
+              @if (!$accepted || !$isFurnishing)
+              <a class="icon-pill" href="{{ route('furnishing.job.show', $j->ProductID) }}" title="View">
+                <i class="bi bi-eye"></i>
+              </a>
+              @endif
+              @if ($isFurnishing && $accepted)
+              <button class="icon-pill js-mark" data-id="{{ $j->ProductID }}" title="Mark Completed">
+                <i class="bi bi-check2"></i>
+              </button>
+              <a href="{{ route('furnishing.orders.show', $j->ProductID) }}" class="icon-pill" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </a>
+              @endif
+            </td>
+          </tr>
+          @empty
+          <tr>
+            <td colspan="7" class="text-center text-muted">No jobs found.</td>
+          </tr>
+          @endforelse
+        </tbody>
+      </table>
+      <div class="card-ft ">
         <nav class="d-flex justify-content-end">
           <ul class="pagination pill-pager mb-0">
             {{-- Previous --}}
@@ -587,7 +830,10 @@
           </ul>
         </nav>
       </div>
-    </section>
+    </div>
+
+    {{-- Pagination --}}
+
   </div>
 </div>
 
@@ -614,7 +860,7 @@
 
 <script>
   (() => {
-    const mask   = document.getElementById('confirmModal');
+    const mask = document.getElementById('confirmModal');
     const btnYes = document.getElementById('confirmYes');
     let currentId = null;
     const csrf = '{{ csrf_token() }}';
@@ -649,11 +895,14 @@
 
       try {
         const url = "{{ route('furnishing.jobs.complete', ['productId' => '__ID__']) }}"
-                      .replace('__ID__', currentId);
+          .replace('__ID__', currentId);
 
         const res = await fetch(url, {
           method: 'PATCH',
-          headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
+          headers: {
+            'X-CSRF-TOKEN': csrf,
+            'Accept': 'application/json'
+          }
         });
 
         const data = await res.json();
@@ -671,7 +920,7 @@
 
           // 3) live-update KPI numbers
           const inProgEl = document.getElementById('kpiInProgress');
-          const compEl   = document.getElementById('kpiCompleted');
+          const compEl = document.getElementById('kpiCompleted');
 
           if (inProgEl) {
             const v = Math.max(0, toInt(inProgEl) - 1);
@@ -699,7 +948,7 @@
     const input = document.getElementById('pidFilter');
     const tbody = document.querySelector('.table tbody');
     if (!input || !tbody) return;
-    input.addEventListener('input', function () {
+    input.addEventListener('input', function() {
       const q = (this.value || '').toLowerCase().trim();
       tbody.querySelectorAll('tr').forEach(tr => {
         const text = (tr.querySelector('td')?.textContent || '').toLowerCase();
@@ -713,36 +962,36 @@
     const tr = e.target.closest('tr.js-row-open');
     if (!tr) return;
     const tag = (e.target.tagName || '').toLowerCase();
-    if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+    if (['a', 'button', 'input', 'select', 'textarea', 'label', 'svg', 'path', 'i'].includes(tag)) return;
     const url = tr.dataset.href;
     if (url) window.location.href = url;
   });
 
-(function () {
-  // base route to history page (Laravel route)
-  const base = "{{ route('furnishing.history') }}";
+  (function() {
+    // base route to history page (Laravel route)
+    const base = "{{ route('furnishing.history') }}";
 
-  document.querySelectorAll('[data-go-status]').forEach(function (tile) {
-    tile.addEventListener('click', function () {
-      const status = tile.getAttribute('data-go-status')?.trim();
-      if (!status) return;
+    document.querySelectorAll('[data-go-status]').forEach(function(tile) {
+      tile.addEventListener('click', function() {
+        const status = tile.getAttribute('data-go-status')?.trim();
+        if (!status) return;
 
-      // Build target URL with query param
-      const url = new URL(base, window.location.origin);
-      url.searchParams.set('status', status);
+        // Build target URL with query param
+        const url = new URL(base, window.location.origin);
+        url.searchParams.set('status', status);
 
-      // Redirect to ?status=completed
-      window.location.href = url.toString();
+        // Redirect to ?status=completed
+        window.location.href = url.toString();
+      });
     });
-  });
-})();
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-    new bootstrap.Tooltip(el);
-  });
+  })();
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+      new bootstrap.Tooltip(el);
+    });
 
-  const mine = document.getElementById('mineCheck');
-  if (mine) mine.addEventListener('change', () => mine.form?.submit());
-});
+    const mine = document.getElementById('mineCheck');
+    if (mine) mine.addEventListener('change', () => mine.form?.submit());
+  });
 </script>
 @endsection
