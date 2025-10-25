@@ -406,7 +406,13 @@ Route::middleware(['auth','role:admin'])->group(function () {
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'index'])->name('boss.fulfillment');
         Route::get('/boss/manageuser', [BossManageUserController::class, 'index'])->name('boss.manageuser');
         Route::get('/boss/datamanagement', [BossDataManagementController::class, 'index'])->name('boss.datamanagement');
-    
+        
+        // Users
+        Route::get('/boss/manageuser', [BossManageUserController::class, 'manageUser'])->name('boss.manageuser');
+        Route::get('/boss/user', [BossManageUserController::class, 'user'])->name('boss.user'); // DataTables JSON（可选）
+        Route::post('/boss/user', [BossManageUserController::class, 'storeUser'])->name('boss.user.store');
+        Route::put('/boss/user/{user}', [BossManageUserController::class, 'updateUser'])->name('boss.user.update');
+        Route::patch('/boss/user/{user}/disable', [BossManageUserController::class, 'disableUser'])->name('boss.user.disable');
     });
 
 
