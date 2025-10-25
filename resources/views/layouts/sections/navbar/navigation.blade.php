@@ -371,6 +371,7 @@
                         'operations-furnishing', 'operation-furnishing'   => route('furnishing.profile'),
                         'operations-dispatch-control'                     => route('dispatchcontrol.user'),
                         'operations-delivery-installation'                => route('installation.profile'),
+                        'boss'                                            => route('boss.profile.show'),
                         'admin'                                           => route('admin.profile.show'),
                         default                                           => url('pages-account-settings-account.html'),
                       };

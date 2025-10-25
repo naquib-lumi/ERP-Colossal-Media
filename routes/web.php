@@ -413,6 +413,10 @@ Route::middleware(['auth','role:admin'])->group(function () {
         Route::post('/boss/user', [BossManageUserController::class, 'storeUser'])->name('boss.user.store');
         Route::put('/boss/user/{user}', [BossManageUserController::class, 'updateUser'])->name('boss.user.update');
         Route::patch('/boss/user/{user}/disable', [BossManageUserController::class, 'disableUser'])->name('boss.user.disable');
+
+        // update profile
+        Route::get('/boss/profile',       [BossDashboardController::class, 'ProfileShow'])->name('boss.profile.show');
+        Route::patch('/boss/profile',     [BossDashboardController::class, 'ProfileUpdate'])->name('boss.profile.update');
     });
 
 
