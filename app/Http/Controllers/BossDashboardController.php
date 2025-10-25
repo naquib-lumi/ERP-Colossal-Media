@@ -279,6 +279,46 @@ class BossDashboardController extends Controller
             'machine_range'=> $mrange,
         ];
 
+        // Top 6 base orders by # of redone products (newest redo kept visible; archived redos ignored)
+        $redoAgg = DB::table('orders as r')
+            ->join('products as p', 'p.OrderID', '=', 'r.id')
+            ->whereNotNull('r.redo')                         // only redo orders (children)
+            ->where(function ($w) {                          // keep visible (not archived)
+                $w->whereNull('r.status')->orWhere('r.status', 0);
+            })
+            ->whereNotNull('p.redoOf')                       // this product is a redo copy
+            ->where('p.editable', 1)                         // only the products actually selected for redo
+            ->selectRaw('r.redo as base_id, COUNT(DISTINCT p.redoOf) as product_redo_count')
+            ->groupBy('r.redo')
+            ->orderByDesc('product_redo_count')
+            ->limit(6)
+            ->get();
+
+        $redoLabels = [];
+        $redoCounts = [];
+
+        foreach ($redoAgg as $row) {
+            $base = DB::table('orders')
+                ->where('id', $row->base_id)
+                ->select('id', 'orderDate', 'created_at')
+                ->first();
+
+            if (!$base) continue;
+
+            $yr = $base->orderDate
+                ? \Carbon\Carbon::parse($base->orderDate)->format('Y')
+                : \Carbon\Carbon::parse($base->created_at ?? now())->format('Y');
+
+            // Label format: #ORD-YYYY-####R
+            $redoLabels[] = sprintf('#ORD-%s-%04dR', $yr, (int)$base->id);
+            $redoCounts[] = (int)$row->product_redo_count;
+        }
+
+        $redoChart = [
+            'labels' => $redoLabels,
+            'counts' => $redoCounts,
+        ];
+
         return view('boss.dashboard', [
             'kpis'               => $kpis,
             'monthlyPerformance' => $monthlyPerformance,
@@ -296,6 +336,7 @@ class BossDashboardController extends Controller
             ],
             'machineUsage'   => $machineUsage,
             'machineFilters' => $machineFilters,
+            'redoChart' => $redoChart,
         ]);
     }
 }

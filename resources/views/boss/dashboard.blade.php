@@ -385,10 +385,11 @@ body{background:var(--bg);}
         </div>
       </div>
     </div>
+    {{-- Redo Count by Product & Order --}}
     <div class="col-lg-6">
       <div class="card soft p-3 h-100 redo-card">
         <h6 class="fw-bold mb-2">Redo Count by Product & Order</h6>
-        <div class="chart-wrap"><canvas id="redoChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="redoChart" height="120"></canvas></div>
       </div>
     </div>
   </div>
@@ -563,22 +564,79 @@ if (donutCtx) {
 }
 
 // ===== Redo 多色柱图（有颜色）=====
-const redoCtx = document.getElementById('redoChart');
-if (redoCtx) {
-  new Chart(redoCtx,{
-    type:'bar',
-    data:{
-      labels:['ORD005-P1','ORD007-P2','ORD010-P2','ORD011-A1','ORD014-B1','ORD018-P3','ORD020-C2'],
-      datasets:[{ data:[3,1,2,4,2,3,1],
-        backgroundColor:['#60a5fa','#22c55e','#f59e0b','#ef4444','#a78bfa','#10b981','#f472b6'],
-        borderRadius:6, borderSkipped:false }]
+(function () {
+  const ctx = document.getElementById('redoChart').getContext('2d');
+
+  // server data
+  const labels = @json($redoChart['labels'] ?? []);
+  const data    = @json($redoChart['counts'] ?? []);
+
+  // palette similar to your original look (multi-color bars)
+  const colors = [
+    '#60A5FA', // blue
+    '#34D399', // green
+    '#F59E0B', // orange
+    '#EF4444', // red
+    '#A78BFA', // purple
+    '#10B981', // teal
+  ].slice(0, data.length);
+
+  // thin darker borders
+  const borders = colors.map(() => 'rgba(0,0,0,.15)');
+
+  // Destroy existing chart if hot-reloaded
+  if (window.__redoChart) { window.__redoChart.destroy(); }
+
+  window.__redoChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Redo count',
+        data,
+        backgroundColor: colors,
+        borderColor: borders,
+        borderWidth: 1,
+        borderRadius: 6,
+        barPercentage: 0.6,
+        categoryPercentage: 0.7
+      }]
     },
-    options:{
-      responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`Redo: ${c.parsed.y}`}} },
-      scales:{ y:{beginAtZero:true, ticks:{stepSize:1}}, x:{grid:{display:false}} }
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => items[0]?.label ?? '',
+            label: (item) => ` ${item.dataset.label}: ${item.formattedValue}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            precision: 0,          // integers only
+            stepSize: 1
+          },
+          grid: { color: 'rgba(0,0,0,.06)' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: {
+            maxRotation: 0,
+            autoSkip: false,
+            font: {
+              size: 10 // <-- smaller font size for the order ID labels
+            }
+          }
+        }
+      }
     }
   });
-}
+})();
 
 (function(){
   const form = document.getElementById('outcomeFilter');
