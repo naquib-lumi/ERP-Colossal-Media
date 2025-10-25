@@ -9,13 +9,11 @@ use App\Models\Lead;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Validation\Rules\Password;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Response;   // CSV 导出
-use Illuminate\Support\Facades\Schema;     // 判断列是否存在
+use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Schema;
 use Yajra\DataTables\Facades\DataTables;
 
 class AdminController extends Controller
@@ -60,9 +58,7 @@ class AdminController extends Controller
     public function dashboard(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('admin')) {
-            abort(403, 'Unauthorized');
-        }
+        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
 
         $period = $request->get('period', 'this_month');
         $now = Carbon::now();
@@ -245,10 +241,9 @@ class AdminController extends Controller
     }
 
     /* ======================================================================
-     *                          Manage User（整合版）
+     *                          Manage Users
      * ====================================================================== */
 
-    /** 统一的角色白名单（按你数据库截图） */
     private function allowedRoles(): array
     {
         return [
@@ -262,20 +257,41 @@ class AdminController extends Controller
             'operations-dispatch-control',
             'operations-delivery-installation',
             'data-entry',
+            'installation', // 如果你在前端下拉里用到了
+            'head-salesperson',
         ];
     }
 
-    /** 页面入口：GET /admin/manageuser  */
+    /** 页面入口：服务端分页 + 搜索筛选 */
     public function manageUser(Request $request)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
-        // 页面只渲染，数据交由 /admin/user (DataTables JSON)
+
+        $q      = trim((string)$request->query('q', ''));
+        $role   = $request->query('role', 'all');
+        $status = $request->query('status', 'all');
+
+        $users = User::query()
+            ->when($q !== '', function ($qbuilder) use ($q) {
+                $qbuilder->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                      ->orWhere('email', 'like', "%{$q}%")
+                      ->orWhere('contact_number', 'like', "%{$q}%");
+                });
+            })
+            ->when($role !== 'all', fn($qb) => $qb->where('role', $role))
+            ->when($status !== 'all', fn($qb) => $qb->where('status', strtolower($status)))
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
+
         return view('admin.manageuser', [
+            'users'       => $users,
             'roleOptions' => $this->allowedRoles(),
         ]);
     }
 
-    /** DataTables JSON：GET /admin/user  (name: admin.user) */
+    /** 若你仍用到 DataTables */
     public function user(Request $request)
     {
         if (!Auth::user()->hasRole('admin')) {
@@ -283,8 +299,8 @@ class AdminController extends Controller
         }
 
         $q      = trim((string)$request->get('q',''));
-        $role   = $request->get('role');     // e.g. salesperson
-        $status = $request->get('status');   // active | inactive | all
+        $role   = $request->get('role');
+        $status = $request->get('status');
 
         $query = User::query()
             ->select(['id','name','email','contact_number','status','role','created_at','updated_at']);
@@ -297,19 +313,19 @@ class AdminController extends Controller
             });
         }
         if ($role && $role !== 'all')     $query->where('role', $role);
-        if ($status && $status !== 'all') $query->where('status', $status);
+        if ($status && $status !== 'all') $query->where('status', strtolower($status));
 
         return DataTables::of($query)
             ->addColumn('actions', function(User $u){
                 return [
-                    'update' => route('admin.user.update', $u),   // PUT
-                    'toggle' => route('admin.user.disable', $u),  // PATCH
+                    'update' => route('admin.user.update', $u),
+                    'toggle' => route('admin.user.disable', $u),
                 ];
             })
             ->toJson();
     }
 
-    /** 创建：POST /admin/user (name: admin.user.store) */
+    /** 创建用户（状态统一写小写） */
     public function storeUser(Request $request)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
@@ -331,17 +347,15 @@ class AdminController extends Controller
             'contact_number' => $validated['contact_number'] ?? null,
             'role'           => $validated['role'],
             'password'       => Hash::make($validated['password']),
-            'status'         => $validated['status'] ?? 'active',
+            'status'         => strtolower($validated['status'] ?? 'active'),
         ]);
 
-        $payload = ['success' => true, 'message' => 'User created successfully.', 'user' => $user];
-
         return $request->expectsJson()
-            ? response()->json($payload, 201)
+            ? response()->json(['success' => true, 'message' => 'User created successfully.', 'user' => $user], 201)
             : back()->with('success', 'User created successfully.');
     }
 
-    /** 更新：PUT /admin/user/{user} (name: admin.user.update) */
+    /** 更新用户（状态统一写小写） */
     public function updateUser(Request $request, User $user)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
@@ -362,7 +376,7 @@ class AdminController extends Controller
             'email'          => $validated['email'],
             'contact_number' => $validated['contact_number'] ?? null,
             'role'           => $validated['role'],
-            'status'         => $validated['status'],
+            'status'         => strtolower($validated['status']),
         ]);
 
         if (!empty($validated['password'])) {
@@ -371,26 +385,25 @@ class AdminController extends Controller
 
         $user->save();
 
-        $payload = ['success'=>true,'message'=>'User updated successfully.','user'=>$user];
-
         return $request->expectsJson()
-            ? response()->json($payload)
-            : back()->with('success', 'User updated successfully.');
+            ? response()->json(['success'=>true,'message'=>'User updated successfully.','user'=>$user])
+            : redirect()->route('admin.manageuser', $request->only('q','role','status'))
+                        ->with('success', 'User updated successfully.');
     }
 
-    /** 启/停用切换：PATCH /admin/user/{user}/disable (name: admin.user.disable) */
+    /** 启/停用切换（大小写安全） */
     public function disableUser(Request $request, User $user)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
 
-        $user->status = $user->status === 'active' ? 'inactive' : 'active';
+        $current = strtolower((string)$user->status);
+        $user->status = $current === 'active' ? 'inactive' : 'active';
         $user->save();
 
-        $payload = ['success'=>true,'status'=>$user->status,'message'=>'User status updated successfully.'];
-
         return $request->expectsJson()
-            ? response()->json($payload)
-            : back()->with('success', 'User status updated successfully.');
+            ? response()->json(['success'=>true,'status'=>$user->status,'message'=>'User status updated successfully.'])
+            : redirect()->route('admin.manageuser', $request->only('q','role','status'))
+                        ->with('success', 'User status updated successfully.');
     }
 
     /* -------------------- Orders (Admin Overview) -------------------- */
@@ -398,9 +411,7 @@ class AdminController extends Controller
     public function orders(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('admin')) {
-            abort(403, 'Unauthorized');
-        }
+        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
 
         $perPage = (int) $request->query('per_page', 10);
         $perPage = in_array($perPage, [10, 20, 50]) ? $perPage : 10;
@@ -592,23 +603,18 @@ class AdminController extends Controller
         return view('admin.reports', compact('leads', 'orders'));
     }
 
-    /* -------------------- Fulfillment（新版：两排筛选 + 导出 + 分页） -------------------- */
+    /* -------------------- Fulfillment -------------------- */
 
     public function fulfillment(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('admin')) {
-            abort(403, 'Unauthorized');
-        }
+        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
 
-        // 每页条数
         $perPage = (int) $request->query('per_page', 10);
         $perPage = in_array($perPage, [10, 20, 50]) ? $perPage : 10;
 
-        // 排除 redo 子单
         $excludedOrderIds = Order::whereNotNull('redo')->pluck('redo')->all();
 
-        /** 统计卡 */
         $needPermit = Order::whereNotIn('id', $excludedOrderIds)
             ->when(Schema::hasColumn('orders','need_permit'), fn($q)=>$q->where('need_permit', true),
                    fn($q)=>$q->where('orderStatus','pending'))
@@ -619,7 +625,6 @@ class AdminController extends Controller
             ->whereIn('orderStatus', ['pending','in_progress'])
             ->count();
 
-        /** 列表查询（工具条） */
         $q = Order::query()->with('artist')->whereNotIn('id', $excludedOrderIds);
 
         if ($idOrTitle = $request->input('order_id')) {
@@ -653,7 +658,6 @@ class AdminController extends Controller
 
         $q->orderByDesc('created_at');
 
-        /** 导出 CSV（保留当前筛选） */
         if ($request->boolean('export')) {
             $rows = $q->get();
             $csv  = [];
@@ -684,7 +688,6 @@ class AdminController extends Controller
             ]);
         }
 
-        /** 分页 + 视图字段映射 */
         $fulfillments = $q->paginate($perPage)->withQueryString();
 
         $fulfillments->getCollection()->transform(function($o){

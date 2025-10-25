@@ -33,18 +33,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const inlineCalendar = document.querySelector('.inline-calendar');
     const reminderSidebar = document.getElementById('addReminderSidebar');
     const meetingSidebar = document.getElementById('addMeetingSidebar');
-    const inputSearch = document.getElementById('searchClient');
-    const selSalesperson = document.getElementById('filter-salesperson');
-    const btnToday = document.getElementById('btnToday');
-    const btnReset = document.getElementById('btnReset');
 
     const bsReminderSidebar = reminderSidebar ? new bootstrap.Offcanvas(reminderSidebar) : null;
     const bsMeetingSidebar = meetingSidebar ? new bootstrap.Offcanvas(meetingSidebar) : null;
 
     const reminderLeadId = $('#reminderLeadId');
     const meetingLeadId = $('#meetingLeadId');
-
-    // Initialize Select2 for lead selection
     if (reminderLeadId.length) {
       function renderBadges(option) {
         if (!option.id) return option.text;
@@ -154,29 +148,18 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         });
       }
-      return selected.length ? selected : ['meeting', 'reminder'];
+      return selected;
     }
-
-    const debounce = (fn, ms) => {
-      let t;
-      return (...a) => {
-        clearTimeout(t);
-        t = setTimeout(() => fn(...a), ms);
-      };
-    };
 
     function fetchEvents(info, successCallback) {
       let calendars = selectedCalendars();
-      const salespersonId = selSalesperson ? selSalesperson.value : $('meta[name="user-id"]').attr('content');
-      const searchQuery = inputSearch ? inputSearch.value : '';
       $.ajax({
         url: '/calendar/events',
         type: 'GET',
         data: {
           start: info.startStr,
           end: info.endStr,
-          salesperson_id: salespersonId,
-          q: searchQuery
+          salesperson_id: $('meta[name="user-id"]').attr('content')
         },
         headers: {
           'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -186,6 +169,7 @@ document.addEventListener('DOMContentLoaded', function () {
           let filteredEvents = data.filter(event => calendars.includes(event.extendedProps.type) || calendars.includes('all'));
           filteredEvents = filteredEvents.map(event => {
             if (event.extendedProps.type === 'reminder') {
+              const startDate = new Date(event.start);
               return {
                 ...event,
                 allDay: false
@@ -201,8 +185,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
     }
-
-    const refetch = debounce(() => calendar.refetchEvents(), 250);
 
     let calendar = new Calendar(calendarEl, {
       initialView: 'dayGridMonth',
@@ -268,6 +250,7 @@ ${extraInfo}
   </select>
 </p>`;
 
+
           if (isReminder) {
             modalBody += `
 <p><strong>Remind At:</strong> <span id="eventRemindAtDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
@@ -328,7 +311,9 @@ ${extraInfo}
         const isReminder = info.event.extendedProps.type === 'reminder';
         if (isReminder) {
           $('#eventRemindAtDetail_' + safeId).text(info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('YYYY-MM-DD HH:mm') : 'N/A');
-          $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
+          console.log('HEREEEEEEEEEEE');
+          console.log(info.event.extendedProps);
+          $('#eventDescriptionDetail_' + safeId).text( info.event.extendedProps.note || 'N/A');
         } else {
           $('#eventStartTimeDetail_' + safeId).text(moment(info.event.start).format('YYYY-MM-DD HH:mm') || 'N/A');
           $('#eventDurationDetail_' + safeId).text(moment(info.event.end).diff(moment(info.event.start), 'minutes') + ' minutes' || 'N/A');
@@ -422,13 +407,15 @@ ${extraInfo}
               form.querySelector('[name="remind_at"]').value = info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('YYYY-MM-DDTHH:mm') : moment(info.event.start).format('YYYY-MM-DDTHH:mm') || '';
               const descriptionField = form.querySelector('[name="description"]');
               if (descriptionField) {
-                descriptionField.value = info.event.extendedProps.note || '';
+                console.log('descriptionField TRUEEEEEEEEEEEEEEEEEEEEEEE' +  info.event.extendedProps);
+                console.log( info.event.extendedProps);
+                descriptionField.value =  info.event.extendedProps.note || '';
               }
             }
           }
         });
 
-        $('.btn-delete-event').off('click').on('click', function () {
+        $('.btn-delete-event').off('click').on('click', function() {
           if (confirm('Are you sure you want to delete this event?')) {
             const eventId = $(this).data('event-id');
             const type = $(this).data('event-type');
@@ -437,7 +424,7 @@ ${extraInfo}
               url: `/calendar/${type}s/${id}`,
               type: 'DELETE',
               headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-              success: function (response) {
+              success: function(response) {
                 if (response.success) {
                   calendar.refetchEvents();
                   eventModal.hide();
@@ -445,7 +432,7 @@ ${extraInfo}
                   alert('Error deleting event');
                 }
               },
-              error: function () {
+              error: function() {
                 alert('Failed to delete event');
               }
             });
@@ -458,7 +445,7 @@ ${extraInfo}
           new bootstrap.Modal(document.getElementById(confirmModalId)).show();
         });
 
-        $(`#confirmCompleteBtn_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}`).off('click').on('click', function () {
+        $('#confirmCompleteBtn_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '')).off('click').on('click', function () {
           const eventId = $(this).data('event-id');
           $.ajax({
             url: '/calendar/reminders/' + eventId.replace('reminder-', '') + '/complete',
@@ -525,26 +512,10 @@ ${extraInfo}
       });
     }
 
-    // Toolbar actions
-    btnToday?.addEventListener('click', () => {
-      calendar.today();
-      refetch();
-    });
-    btnReset?.addEventListener('click', () => {
-      if (selSalesperson) selSalesperson.value = '';
-      if (inputSearch) inputSearch.value = '';
-      if (selectAll) selectAll.checked = true;
-      filterInputs.forEach(c => c.checked = true);
-      calendar.today();
-      refetch();
-    });
-    selSalesperson?.addEventListener('change', refetch);
-    inputSearch?.addEventListener('input', refetch);
-
     let reminderSubmitting = false;
     const reminderForm = document.getElementById('reminderForm');
     if (reminderForm) {
-      $(reminderForm).off('submit').on('submit', function (e) {
+      $(reminderForm).off('submit').on('submit', function(e) {
         e.preventDefault();
         if (reminderSubmitting) return;
         reminderSubmitting = true;
@@ -578,20 +549,20 @@ ${extraInfo}
           headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
           },
-          success: function (data) {
+          success: function(data) {
             if (data.success) {
               calendar.refetchEvents();
               bsReminderSidebar.hide();
               reminderForm.reset();
               submitBtn.classList.remove('btn-update-event');
               submitBtn.innerHTML = 'Add';
-              document.querySelector('#addReminderSidebar .offcanvas-title').innerHTML = 'Add Reminder';
+              reminderForm.querySelector('.offcanvas-title').innerHTML = 'Add Reminder';
               $(reminderForm.querySelector('[name="lead_id"]')).val(null).trigger('change');
             } else {
               alert('Error: ' + data.message);
             }
           },
-          error: function (xhr) {
+          error: function(xhr) {
             console.error('Error adding/updating reminder:', xhr.status, xhr.responseText);
             if (xhr.status === 422) {
               const errors = xhr.responseJSON.errors;
@@ -604,7 +575,7 @@ ${extraInfo}
               alert('Failed to add/update reminder');
             }
           },
-          complete: function () {
+          complete: function() {
             submitBtn.disabled = false;
             reminderSubmitting = false;
           }
@@ -615,7 +586,7 @@ ${extraInfo}
     let meetingSubmitting = false;
     const meetingForm = document.getElementById('meetingForm');
     if (meetingForm) {
-      $(meetingForm).off('submit').on('submit', function (e) {
+      $(meetingForm).off('submit').on('submit', function(e) {
         e.preventDefault();
         if (meetingSubmitting) return;
         meetingSubmitting = true;
@@ -641,24 +612,24 @@ ${extraInfo}
         const urlField = formData.get('url');
         const location = formData.get('location');
 
-        if (!leadId || !title || !startTime || !duration ) {
+        if (!leadId || !title || !startTime || !duration || !type) {
           alert('Please fill in all required fields: Lead, Title, Start Time, Duration, and Type.');
           meetingSubmitting = false;
           submitBtn.disabled = false;
           return;
         }
-        // if (type === 'online' && (!urlField || urlField.trim() === '')) {
-        //   alert('Please provide a valid URL for online meetings.');
-        //   meetingSubmitting = false;
-        //   submitBtn.disabled = false;
-        //   return;
-        // }
-        // if (type === 'offline' && (!location || location.trim() === '')) {
-        //   alert('Please provide a location for offline meetings.');
-        //   meetingSubmitting = false;
-        //   submitBtn.disabled = false;
-        //   return;
-        // }
+        if (type === 'online' && (!urlField || urlField.trim() === '')) {
+          alert('Please provide a valid URL for online meetings.');
+          meetingSubmitting = false;
+          submitBtn.disabled = false;
+          return;
+        }
+        if (type === 'offline' && (!location || location.trim() === '')) {
+          alert('Please provide a location for offline meetings.');
+          meetingSubmitting = false;
+          submitBtn.disabled = false;
+          return;
+        }
 
         $.ajax({
           url: url,
@@ -669,7 +640,7 @@ ${extraInfo}
           headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
           },
-          success: function (data) {
+          success: function(data) {
             if (data.success) {
               calendar.refetchEvents();
               bsMeetingSidebar.hide();
@@ -684,7 +655,7 @@ ${extraInfo}
               alert('Error: ' + data.message);
             }
           },
-          error: function (xhr) {
+          error: function(xhr) {
             console.error('Error adding/updating meeting:', xhr.status, xhr.responseText);
             if (xhr.status === 422) {
               const errors = xhr.responseJSON.errors;
@@ -697,7 +668,7 @@ ${extraInfo}
               alert('Failed to add/update meeting: ' + xhr.responseText);
             }
           },
-          complete: function () {
+          complete: function() {
             submitBtn.disabled = false;
             meetingSubmitting = false;
           }
@@ -718,9 +689,16 @@ ${extraInfo}
 
     if (selectAll) {
       selectAll.addEventListener('click', e => {
-        const checked = e.currentTarget.checked;
-        filterInputs.forEach(c => c.checked = checked);
-        refetch();
+        if (e.currentTarget.checked) {
+          filterInputs.forEach(c => {
+            if (c) c.checked = true;
+          });
+        } else {
+          filterInputs.forEach(c => {
+            if (c) c.checked = false;
+          });
+        }
+        calendar.refetchEvents();
       });
     }
 
@@ -730,19 +708,17 @@ ${extraInfo}
           const checkedCount = Array.from(filterInputs).filter(f => f.checked).length;
           const totalCount = filterInputs.length;
           selectAll.checked = checkedCount === totalCount;
-          refetch();
+          calendar.refetchEvents();
         });
       });
     }
 
     if (inlineCalInstance) {
       inlineCalInstance.config.onChange.push(function (date) {
-        if (!date?.length) return;
-        calendar.gotoDate(moment(date[0]).format('YYYY-MM-DD'));
+        calendar.changeView(calendar.view.type, moment(date[0]).format('YYYY-MM-DD'));
         modifyToggler();
         appCalendarSidebar.classList.remove('show');
         appOverlay.classList.remove('show');
-        refetch();
       });
     }
   })();

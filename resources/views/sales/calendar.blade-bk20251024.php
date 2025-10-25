@@ -3,53 +3,6 @@
 @section('title', 'Sales Calendar')
 
 @section('content')
-<meta name="csrf-token" content="{{ csrf_token() }}">
-<meta name="user-id" content="{{ Auth::id() }}">
-
-<style>
-  .app-calendar-wrapper .row.g-0 {
-    align-items: flex-start;
-  }
-
-  .app-calendar-content .card {
-    margin-top: 0 !important;
-    box-shadow: none;
-    border: 0;
-  }
-
-  .app-calendar-content .card-body {
-    padding-top: .25rem !important;
-  }
-
-  #calendarToolbar .form-control,
-  #calendarToolbar .btn,
-  #calendarToolbar .input-group-text {
-    height: 36px;
-    padding: 0 .65rem;
-  }
-
-  #calendarToolbar, .btn-toolbar {
-    gap: .5rem;
-    margin-bottom: .5rem;
-    padding: .5rem;
-    justify-content: flex-end;
-  }
-
-  .status-dot {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-  }
-
-  @media (max-width: 1200px) {
-    #calendarToolbar {
-      overflow-x: auto;
-      white-space: nowrap;
-    }
-  }
-</style>
-
 <div class="card app-calendar-wrapper">
     <div class="row g-0">
         <!-- Calendar Sidebar -->
@@ -96,101 +49,48 @@
 
         <!-- Calendar & Modals -->
         <div class="col app-calendar-content">
-            {{-- TOP TOOLBAR --}}
-           <div id="calendarToolbar" class="d-flex align-items-center">
-    @if(Auth::user()->hasRole('head-salesperson'))
-        <div class="input-group" style="min-width:230px;max-width:260px;">
-            <select id="filter-salesperson" class="form-select">
-                <option value="">All Salesperson</option>
-                @foreach ($salespeople as $sp)
-                    <option value="{{ $sp->id }}" {{ $sp->id == Auth::id() ? 'selected' : '' }}>{{ $sp->name }}</option>
-                @endforeach
-            </select>
-        </div>
-   
-
-            <input type="text" class="form-control" id="searchClient" placeholder="Search by title / client" style="min-width:200px;">
-
-            <div class="d-flex align-items-center gap-2 ms-auto">
-                <button type="button" class="btn btn-outline-secondary" id="btnToday">Today</button>
-                <button type="button" class="btn btn-outline-secondary" id="btnReset">Reset</button>
-            </div>
-             @endif
-        </div>
-
-            <div class="d-flex align-items-center gap-4 btn-toolbar justify-content-start" style="margin-bottom: 3rem;">
-                <div>
-                    <h6>Meeting Status</h6>
-                    <ul class="list-unstyled d-flex flex-wrap gap-3 mb-0" style="margin-left:10px;">
-                        <li class="d-flex align-items-center">
-                            <span class="status-dot me-2" style="background-color:#4e73df;"></span> Scheduled
-                        </li>
-                        <li class="d-flex align-items-center">
-                            <span class="status-dot me-2" style="background-color:#000a0b;"></span> Cancelled
-                        </li>
-                        <li class="d-flex align-items-center">
-                            <span class="status-dot me-2" style="background-color:#f6c23e;"></span> Postponed
-                        </li>
-                    </ul>
-                </div>
-                <div>
-                    <h6>Reminder Status</h6>
-                    <ul class="list-unstyled d-flex flex-wrap gap-3 mb-0" style="margin-left:10px;">
-                        <li class="d-flex align-items-center">
-                            <span class="status-dot me-2" style="background-color:#28a745;"></span> Pending
-                        </li>
-                        <li class="d-flex align-items-center">
-                            <span class="status-dot me-2" style="background-color:#dc3545;"></span> Overdue
-                        </li>
-                        <li class="d-flex align-items-center">
-                            <span class="status-dot me-2" style="background-color:#6c757d;"></span> Completed
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
             <div class="card shadow-none border-0">
                 <div class="card-body pb-0">
-                    <div id="calendar" style="min-height:700px"></div>
+                    <div id="calendar"></div>
                 </div>
             </div>
             <div class="app-overlay"></div>
 
             <!-- Reminder Offcanvas -->
             <div class="offcanvas offcanvas-end" tabindex="-1" id="addReminderSidebar" aria-labelledby="addReminderSidebarLabel">
-                <div class="offcanvas-header border-bottom">
-                    <h5 class="offcanvas-title" id="addReminderSidebarLabel">Add Reminder</h5>
-                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                </div>
-                <div class="offcanvas-body">
-                    <form class="pt-0" id="reminderForm" novalidate>
-                        @csrf
-                        <input type="hidden" name="id">
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderLeadId">Lead</label>
-                            <select class="form-select select2" id="reminderLeadId" name="lead_id" required>
-                                <option value="">Search for a lead</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderTitle">Title</label>
-                            <input type="text" class="form-control" id="reminderTitle" name="title" placeholder="Reminder Title" required />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderRemindAt">Remind Time & Date</label>
-                            <input type="datetime-local" class="form-control" id="reminderRemindAt" name="remind_at" required />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="reminderDescription">Description</label>
-                            <textarea class="form-control" id="reminderDescription" name="description" placeholder="Reminder Description" rows="3"></textarea>
-                        </div>
-                        <div class="d-flex mt-4 gap-2">
-                            <button type="submit" class="btn btn-primary btn-add-reminder me-2">Add</button>
-                            <button type="reset" class="btn btn-label-secondary btn-cancel" data-bs-dismiss="offcanvas">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="addReminderSidebarLabel">Add Reminder</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+   <div class="offcanvas-body">
+    <form class="pt-0" id="reminderForm" novalidate>
+        @csrf
+        <input type="hidden" name="id">
+        <div class="mb-3">
+            <label class="form-label" for="reminderLeadId">Lead</label>
+            <select class="form-select select2" id="reminderLeadId" name="lead_id" required>
+                <option value="">Search for a lead</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="reminderTitle">Title</label>
+            <input type="text" class="form-control" id="reminderTitle" name="title" placeholder="Reminder Title" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="reminderRemindAt">Remind Time & Date</label>
+            <input type="datetime-local" class="form-control" id="reminderRemindAt" name="remind_at" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="reminderDescription">Description</label>
+            <textarea class="form-control" id="reminderDescription" name="description" placeholder="Reminder Description" rows="3"></textarea>
+        </div>
+        <div class="d-flex mt-4 gap-2">
+            <button type="submit" class="btn btn-primary btn-add-reminder me-2">Add</button>
+            <button type="reset" class="btn btn-label-secondary btn-cancel" data-bs-dismiss="offcanvas">Cancel</button>
+        </div>
+    </form>
+</div>
+</div>
 
             <!-- Meeting Offcanvas -->
             <div class="offcanvas offcanvas-end" tabindex="-1" id="addMeetingSidebar" aria-labelledby="addMeetingSidebarLabel">
