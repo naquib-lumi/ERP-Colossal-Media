@@ -600,15 +600,8 @@ class AdminController extends Controller
         return view('admin.calendar', compact('salespeople'));
     }
 
-    public function reports()
-    {
-        $user = Auth::user();
-        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
 
-        $leads  = Lead::latest()->get();
-        $orders = Order::latest()->get();
-        return view('admin.reports', compact('leads', 'orders'));
-    }
+
 
     /* -------------------- Fulfillment -------------------- */
 
