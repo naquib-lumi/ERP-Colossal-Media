@@ -361,7 +361,6 @@
               <th>Machine Type</th>
               <th>Used by Items</th>
               <th>Total Quantity</th>
-              <th>Past Usage</th>
               <th class="text-end">Actions</th>
             </tr>
           </thead>

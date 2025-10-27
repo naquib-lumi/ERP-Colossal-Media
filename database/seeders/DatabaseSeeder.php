@@ -20,5 +20,6 @@ class DatabaseSeeder extends Seeder
         $this->call(DataEntrySeeder::class);
         $this->call(FulfillmentProgressSeeder::class);
         $this->call(BossSeeder::class);
+        $this->call(MaterialSeederLatest::class);
     }
 }

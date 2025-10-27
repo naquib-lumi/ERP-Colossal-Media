@@ -15,7 +15,7 @@ class Material extends Model
     protected $keyType = 'int';
     public $timestamps = true;
 
-    protected $fillable = ['UserID','materialName','materialDescription','unitType','unitCost','pastUsageReference'];
+    protected $fillable = ['UserID','materialName', 'materialType', 'materialDescription','unitType','unitCost','pastUsageReference'];
 
 
     // ── Relations
