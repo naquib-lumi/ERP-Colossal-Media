@@ -229,6 +229,13 @@ class ArtistController extends Controller
                 } else {
                     $query->where('orderStatus', $db);
 
+                    // EXCLUDE archived/redone for the listed statuses
+                    if (in_array($db, ['in_progress', 'completed', 'awaiting_keyin', 'to_assign', 'assigned'], true)) {
+                        $query->where(function ($w) {
+                            $w->whereNull('status')->orWhere('status', 0);
+                        });
+                    }
+
                     if (!$isHead && $db === 'in_progress') {
                         $query->where('artist_id', auth()->id())
                             ->where('pending', 0);

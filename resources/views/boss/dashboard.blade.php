@@ -187,7 +187,7 @@ body{background:var(--bg);}
                         value="{{ $meetingOutcomes['filters']['end_date'] }}">
                 </div>
                 <div>
-                  <div class="label">Salesperson</div>
+                <div class="label">Salesperson</div>
                   <select class="form-select" name="salesperson">
                     <option value="all" {{ $meetingOutcomes['filters']['salesperson']==='all' ? 'selected' : '' }}>
                       All Salesperson
@@ -200,7 +200,7 @@ body{background:var(--bg);}
                   </select>
                 </div>
                 <div>
-                  <div class="label">Period</div>
+                <div class="label">Period</div>
                   <select class="form-select" name="period" id="piePeriod">
                     @php $p = $meetingOutcomes['filters']['period'] ?? 'monthly'; @endphp
                     <option value="monthly"  {{ $p==='monthly'  ? 'selected' : '' }}>Monthly</option>

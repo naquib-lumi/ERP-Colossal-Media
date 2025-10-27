@@ -5,91 +5,91 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
-:root{
-  --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
-  --text:#101828; --muted:#667085;
-  --shadow:0 2px 6px rgba(16,24,40,.05);
-  --success:#16A34A; --danger:#DC2626; --primary:#111827;
-  --accent:#2E3A8C;
-}
-body{background:var(--bg);}
-.page-wrap{max-width:1240px;margin:0 auto}
-.card.soft{border:0;background:var(--card);box-shadow:var(--shadow);border-radius:16px}
-.form-control,.form-select,.btn{min-height:38px;font-size:14px}
+  :root{
+    --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
+    --text:#101828; --muted:#667085;
+    --shadow:0 2px 6px rgba(16,24,40,.05);
+    --success:#16A34A; --danger:#DC2626; --primary:#111827;
+    --accent:#2E3A8C;
+  }
+  body{background:var(--bg);}
+  .page-wrap{max-width:1240px;margin:0 auto}
+  .card.soft{border:0;background:var(--card);box-shadow:var(--shadow);border-radius:16px}
+  .form-control,.form-select,.btn{min-height:38px;font-size:14px}
 
-/* Tabs */
-.nav-tabs .nav-link{border:0;color:#475467;padding:14px 18px}
-.nav-tabs .nav-link.active{color:#111827;border-bottom:3px solid var(--accent);border-radius:0}
+  /* Tabs */
+  .nav-tabs .nav-link{border:0;color:#475467;padding:14px 18px}
+  .nav-tabs .nav-link.active{color:#111827;border-bottom:3px solid var(--accent);border-radius:0}
 
-/* Section switch */
-.section{display:none}
-.section.active{display:block}
+  /* Section switch */
+  .section{display:none}
+  .section.active{display:block}
 
-/* KPI */
-.kpi .title{font-size:12px;color:var(--muted)}
-.kpi .num{font-weight:700;font-size:22px;color:var(--text)}
-.kpi .delta{font-size:12px}
-.kpi .icon-pill{
-  background:#F2F4F7;color:#667085;border-radius:10px;padding:6px 8px;line-height:1
-}
+  /* KPI */
+  .kpi .title{font-size:12px;color:var(--muted)}
+  .kpi .num{font-weight:700;font-size:22px;color:var(--text)}
+  .kpi .delta{font-size:12px}
+  .kpi .icon-pill{
+    background:#F2F4F7;color:#667085;border-radius:10px;padding:6px 8px;line-height:1
+  }
 
-/* Charts & legends */
-.chart-wrap{height:260px}
-.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
-.legend-row{color:#667085;font-size:13px}
+  /* Charts & legends */
+  .chart-wrap{height:260px}
+  .legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .legend-row{color:#667085;font-size:13px}
 
-/* Table */
-.table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.table thead th{background:#F8FAFC;color:#475467;font-weight:700}
-.table>:not(caption)>*>*{padding:12px 14px;vertical-align:middle}
-.tag{display:inline-block;background:#F2F4F7;color:#344054;border:1px solid #E5E7EB;border-radius:999px;padding:2px 8px;font-size:12px;margin:2px}
-.kebab{border:0;background:transparent}
-.badge-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px}
+  /* Table */
+  .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .table thead th{background:#F8FAFC;color:#475467;font-weight:700}
+  .table>:not(caption)>*>*{padding:12px 14px;vertical-align:middle}
+  .tag{display:inline-block;background:#F2F4F7;color:#344054;border:1px solid #E5E7EB;border-radius:999px;padding:2px 8px;font-size:12px;margin:2px}
+  .kebab{border:0;background:transparent}
+  .badge-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px}
 
-/* Compact buttons */
-.btn-sm-compact{min-height:36px;font-size:13px;padding:0 14px;border-radius:6px}
-.btn-dark-compact{background:#1E2235;color:#fff;border:0}
-.btn-dark-compact:hover{background:#111827}
-.btn-gray-compact{background:#94A3B8;color:#fff;border:0}
-.btn-gray-compact:hover{background:#64748B}
+  /* Compact buttons */
+  .btn-sm-compact{min-height:36px;font-size:13px;padding:0 14px;border-radius:6px}
+  .btn-dark-compact{background:#1E2235;color:#fff;border:0}
+  .btn-dark-compact:hover{background:#111827}
+  .btn-gray-compact{background:#94A3B8;color:#fff;border:0}
+  .btn-gray-compact:hover{background:#64748B}
 
-/* 备用：横向紧凑工具条 */
-.toolbar-compact{gap:8px}
-.toolbar-compact .form-control,
-.toolbar-compact .form-select{min-height:34px;font-size:13px;padding:0 10px;border-radius:6px;}
-.w-140{width:140px}
-.w-150{width:150px}
-.separator{color:#98A2B3;font-size:12px}
+  /* 备用：横向紧凑工具条 */
+  .toolbar-compact{gap:8px}
+  .toolbar-compact .form-control,
+  .toolbar-compact .form-select{min-height:34px;font-size:13px;padding:0 10px;border-radius:6px;}
+  .w-140{width:140px}
+  .w-150{width:150px}
+  .separator{color:#98A2B3;font-size:12px}
 
-/* Meeting Outcomes：左图表 / 右筛选 */
-.outcomes-grid{
-  display:grid;
-  grid-template-columns: 1.7fr 1fr;
-  gap:16px;
-  align-items:start;
-}
-.sidebar{
-  border-left:1px solid var(--border);
-  padding-left:12px;
-}
-.filter-stack .form-control,
-.filter-stack .form-select{
-  min-height:36px; font-size:13px; border-radius:8px;
-}
-.filter-stack .label{
-  font-size:12px; color:#667085; margin-bottom:4px;
-}
-/* 小屏改为上下排 */
-@media (max-width: 992px){
-  .outcomes-grid{ grid-template-columns: 1fr; }
-  .sidebar{ border-left:0; border-top:1px solid var(--border); padding-left:0; padding-top:12px; }
-}
+  /* Meeting Outcomes：左图表 / 右筛选 */
+  .outcomes-grid{
+    display:grid;
+    grid-template-columns: 1.7fr 1fr;
+    gap:16px;
+    align-items:start;
+  }
+  .sidebar{
+    border-left:1px solid var(--border);
+    padding-left:12px;
+  }
+  .filter-stack .form-control,
+  .filter-stack .form-select{
+    min-height:36px; font-size:13px; border-radius:8px;
+  }
+  .filter-stack .label{
+    font-size:12px; color:#667085; margin-bottom:4px;
+  }
+  /* 小屏改为上下排 */
+  @media (max-width: 992px){
+    .outcomes-grid{ grid-template-columns: 1fr; }
+    .sidebar{ border-left:0; border-top:1px solid var(--border); padding-left:0; padding-top:12px; }
+  }
 
-/* 缩短 Machine Usage 的下拉 */
-.short-select{min-width:140px;max-width:160px}
+  /* 缩短 Machine Usage 的下拉 */
+  .short-select{min-width:140px;max-width:160px}
 
-/* 让两张图卡片等高 */
-.charts-row .card.soft{height:100%}
+  /* 让两张图卡片等高 */
+  .charts-row .card.soft{height:100%}
 </style>
 
 <div class="card soft p-0 mb-3">
@@ -144,8 +144,7 @@ body{background:var(--bg);}
               <p class="title mb-1">Total Leads Added</p>
               <span class="icon-pill"><i class="bi bi-magnet"></i></span>
             </div>
-            <div class="num">36</div>
-            <span class="delta text-success">+12% from last period</span>
+            <div class="num">{{ number_format($kpis['total_leads']) }}</div>
           </div>
         </div>
         <div class="col-md-3">
@@ -154,27 +153,28 @@ body{background:var(--bg);}
               <p class="title mb-1">Total Meetings Held</p>
               <span class="icon-pill"><i class="bi bi-calendar3"></i></span>
             </div>
-            <div class="num">18</div>
-            <span class="delta text-success">+8% from last period</span>
+            <div class="num">{{ number_format($kpis['total_meetings']) }}</div>
           </div>
         </div>
         <div class="col-md-3">
           <div class="card soft kpi p-3">
             <div class="d-flex justify-content-between align-items-start">
-              <p class="title mb-1">Accepted Meetings</p>
+              <p class="title mb-1">Scheduled Meetings</p>
               <span class="icon-pill"><i class="bi bi-check2-square"></i></span>
             </div>
-            <div class="num">10</div>
-            <span class="text-muted small">55.6% acceptance rate</span>
+            <div class="num">{{ number_format($kpis['accepted_meets']) }}</div>
+            <span class="text-muted small" style="color: #10b981;">
+              {{ $kpis['total_meetings'] ? number_format($kpis['accepted_meets'] / max($kpis['total_meetings'],1) * 100, 1) : 0 }}% acceptance rate
+            </span>
           </div>
         </div>
         <div class="col-md-3">
           <div class="card soft kpi p-3">
             <div class="d-flex justify-content-between align-items-start">
-              <p class="title mb-1">Rejected</p>
+              <p class="title mb-1">Canceled Meeting</p>
               <span class="icon-pill"><i class="bi bi-x-square"></i></span>
             </div>
-            <div class="num">8</div>
+            <div class="num">{{ number_format($kpis['rejected_meets']) }}</div>
           </div>
         </div>
       </div>
@@ -190,9 +190,11 @@ body{background:var(--bg);}
               <h6 class="fw-bold mb-0">Monthly Performance</h6>
               <div class="d-flex align-items-center gap-2">
                 <label class="small text-muted mb-0">Month</label>
-                <select id="mpMonth" class="form-select form-select-sm" style="width:140px">
-                  <option>Jan</option><option>Feb</option><option>Mar</option>
-                  <option>Apr</option><option>May</option><option selected>Jun</option>
+                <select id="mpMonth" class="form-select form-select-sm short-select">
+                  @php $m = $monthlyPerformance['month_short']; @endphp
+                  @foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $mon)
+                    <option value="{{ $mon }}" {{ $mon === $m ? 'selected' : '' }}>{{ $mon }}</option>
+                  @endforeach
                 </select>
               </div>
             </div>
@@ -228,32 +230,41 @@ body{background:var(--bg);}
 
               <!-- 右：竖排筛选 -->
               <aside class="sidebar">
-                <div class="filter-stack d-flex flex-column gap-3">
+                <form id="outcomeFilter" method="GET" class="filter-stack d-flex flex-column gap-3">
                   <div>
                     <div class="label">Start date</div>
-                    <input type="date" class="form-control" value="2025-01-01">
+                    <input type="date" class="form-control" name="start_date"
+                          value="{{ $meetingOutcomes['filters']['start_date'] }}">
                   </div>
                   <div>
                     <div class="label">End date</div>
-                    <input type="date" class="form-control" value="2025-01-31">
+                    <input type="date" class="form-control" name="end_date"
+                          value="{{ $meetingOutcomes['filters']['end_date'] }}">
                   </div>
                   <div>
-                    <div class="label">Salesperson</div>
-                    <select class="form-select">
-                      <option>All Salespersons</option>
-                      <option>Alex</option>
-                      <option>Brenda</option>
+                  <div class="label">Salesperson</div>
+                    <select class="form-select" name="salesperson">
+                      <option value="all" {{ $meetingOutcomes['filters']['salesperson']==='all' ? 'selected' : '' }}>
+                        All Salesperson
+                      </option>
+                      @foreach($salespeople as $sp)
+                        <option value="{{ $sp->id }}" {{ (string)$sp->id === (string)$meetingOutcomes['filters']['salesperson'] ? 'selected' : '' }}>
+                          {{ $sp->name }}
+                        </option>
+                      @endforeach
                     </select>
                   </div>
                   <div>
-                    <div class="label">Period</div>
-                    <select class="form-select">
-                      <option selected>Monthly</option>
-                      <option>Quarterly</option>
-                      <option>Yearly</option>
+                  <div class="label">Period</div>
+                    <select class="form-select" name="period" id="piePeriod">
+                      @php $p = $meetingOutcomes['filters']['period'] ?? 'monthly'; @endphp
+                      <option value="monthly"  {{ $p==='monthly'  ? 'selected' : '' }}>Monthly</option>
+                      <option value="quarterly"{{ $p==='quarterly'? 'selected' : '' }}>Quarterly</option>
+                      <option value="yearly"   {{ $p==='yearly'   ? 'selected' : '' }}>Yearly</option>
+                      <option value="custom"   {{ $p==='custom'   ? 'selected' : '' }}>Custom</option>
                     </select>
                   </div>
-                </div>
+                </form>
               </aside>
             </div>
           </div>
@@ -299,7 +310,7 @@ body{background:var(--bg);}
           <span class="badge-dot" style="background:#22c55e"></span>New Order
           <span class="badge-dot" style="background:#f59e0b;margin-left:14px"></span>In Progress
           <span class="badge-dot" style="background:#06b6d4;margin-left:14px"></span>Completed
-          <span class="badge-dot" style="background:#ef4444;margin-left:14px"></span>Overdue
+          <span class="badge-dot" style="background:#ef4444;margin-left:14px"></span>Rejected
         </div>
       </div>
     </div>
@@ -310,31 +321,33 @@ body{background:var(--bg);}
     <!-- Tools -->
     <div class="p-3 border-bottom">
       <div class="row g-2 align-items-end">
-        <div class="col-lg-4">
-          <input type="text" id="searchMachine" class="form-control" placeholder="Search machine...">
-        </div>
-        <div class="col-auto">
-          <select class="form-select w-auto short-select" id="typeFilter">
-            <option value="">All Types</option>
-            <option value="Printer">Printer</option>
-            <option value="Cutter">Cutter</option>
-          </select>
-        </div>
-        <div class="col-auto">
-          <select class="form-select w-auto short-select" id="rangeFilter">
-            <option>Last 30 Days</option>
-            <option>Last 90 Days</option>
-            <option>This Year</option>
-          </select>
-        </div>
-        <div class="col-auto ms-auto d-flex gap-2">
-          <button class="btn btn-dark-compact btn-sm-compact">
-            <i class="bi bi-download me-1"></i> Export
+        <form method="GET" class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="machineFilterForm" style="width: 100%;">
+        <input type="text" name="machine_q" class="form-control form-control-sm w-180"
+              placeholder="Search machine..." value="{{ $machineFilters['machine_q'] ?? '' }}">
+
+        <select name="machine_type" class="form-select form-select-sm w-160">
+          @php $mt = $machineFilters['machine_type'] ?? ''; @endphp
+          <option value="" {{ $mt==='' ? 'selected' : '' }}>All Machine Types</option>
+          <option value="Printer" {{ $mt==='Printer' ? 'selected' : '' }}>Printer</option>
+          <option value="Cutter"  {{ $mt==='Cutter'  ? 'selected' : '' }}>Cutter</option>
+        </select>
+
+        <select name="machine_range" class="form-select form-select-sm w-160">
+          @php $mr = $machineFilters['machine_range'] ?? 'last30'; @endphp
+          <option value="last30" {{ $mr==='last30' ? 'selected' : '' }}>Last 30 Days</option>
+          <option value="last90" {{ $mr==='last90' ? 'selected' : '' }}>Last 90 Days</option>
+          <option value="year"   {{ $mr==='year'   ? 'selected' : '' }}>This Year</option>
+        </select>
+
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-dark-compact btn-sm-compact" type="submit">
+            <i class="bi bi-download"></i> Export
           </button>
-          <button class="btn btn-gray-compact btn-sm-compact" data-bs-toggle="modal" data-bs-target="#addMachineModal">
-            <i class="bi bi-plus-lg me-1"></i> Add Machine Type
+          <button class="btn btn-gray-compact btn-sm-compact" type="button">
+            <i class="bi bi-plus-lg"></i> Add Machine Type
           </button>
         </div>
+      </form>
       </div>
     </div>
 
@@ -353,31 +366,22 @@ body{background:var(--bg);}
             </tr>
           </thead>
           <tbody>
-            @php
-              $rows = [
-                ['Handtop Hybrid','Printer','24 items','1,250',['#ORD005-P1','#ORD006-P1','#ORD007-P1']],
-                ['Roland CAMM-1','Cutter','18 items','890',['#ORD003-C1','#ORD008-C1']],
-                ['Epson SureColor','Printer','31 items','2,180',['#ORD001-P2','#ORD004-P2','#ORD009-P2','#more']],
-                ['Cricut Maker 3','Cutter','12 items','450',['#ORD002-C2','#ORD010-C2']],
-                ['HP DesignJet','Printer','8 items','320',['#ORD011-P3']],
-                ['Silhouette Cameo 4','Cutter','15 items','680',['#ORD012-C3','#ORD013-C3']],
-              ];
-            @endphp
-            @foreach($rows as $r)
-            <tr data-type="{{ $r[1] }}">
-              <td>{{ $r[0] }}</td>
-              <td>{{ $r[1] }}</td>
-              <td>{{ $r[2] }}</td>
-              <td>{{ $r[3] }}</td>
-              <td>
-                @foreach($r[4] as $tag)
-                  <span class="tag">{{ $tag }}</span>
-                @endforeach
+          @forelse($machineUsage as $m)
+            <tr>
+              <td>{{ $m->machine_name }}</td>
+              <td>{{ $m->machine_type }}</td>
+              <td>{{ number_format($m->used_items) }} items</td>
+              <td>{{ number_format($m->total_qty) }}</td>
+              <td class="text-end">
+                <button class="kebab"><i class="bi bi-three-dots-vertical"></i></button>
               </td>
-              <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
             </tr>
-            @endforeach
-          </tbody>
+          @empty
+            <tr>
+              <td colspan="5" class="text-center text-muted">No machine usage found for current filters.</td>
+            </tr>
+          @endforelse
+        </tbody>
         </table>
       </div>
 
@@ -440,99 +444,155 @@ document.querySelectorAll('#reportTabs .nav-link').forEach(a=>{
 
 // ===== Monthly Performance（单月构成） =====
 const mpCtx = document.getElementById('barMonthly');
-
 const mpLabels = ['Leads Added','Accepted','Rejected','50/50','Low Chance'];
 const mpColors = ['#60a5fa','#22c55e','#ef4444','#06b6d4','#a78bfa'];
 
-const monthlyData = {
-  Jan: [100,30,15,50,5],
-  Feb: [80,25,12,35,8],
-  Mar: [95,22,14,40,7],
-  Apr: [110,21,16,38,6],
-  May: [90,34,10,45,4],
-  Jun: [100,30,15,50,5],
-};
+// Values from server (per your rules)
+const monthlyServerValues = {!! json_encode([
+  $monthlyPerformance['bars']['leads_added'],
+  $monthlyPerformance['bars']['accepted'],
+  $monthlyPerformance['bars']['rejected'],
+  $monthlyPerformance['bars']['fifty_fifty'],
+  $monthlyPerformance['bars']['low_chance'],
+]) !!};
 
-function makeDataset(values){
-  return [{
-    label: 'This Month',
-    data: values,
-    backgroundColor: mpColors,
-    borderRadius: 6,
-    borderSkipped: false
-  }];
+
+if (mpCtx) {
+  const barMonthly = new Chart(mpCtx, {
+    type:'bar',
+    data:{ labels: mpLabels, datasets:[{ label:'This Month', data: monthlyServerValues, backgroundColor: mpColors, borderRadius:6, borderSkipped:false }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ x:{grid:{display:false}}, y:{beginAtZero:true, ticks:{stepSize:20}} } }
+  });
+
+  // Keep the same visual control; on change, reload with new month (no UI change)
+  const mpSel = document.getElementById('mpMonth');
+  mpSel && mpSel.addEventListener('change', e => {
+    const params = new URLSearchParams(window.location.search);
+    params.set('mpMonth', e.target.value);
+    params.set('year', {{ (int)$monthlyPerformance['year'] }});
+    window.location.search = params.toString();
+  });
 }
-
-let currentMonth = 'Jun';
-let barMonthly = new Chart(mpCtx, {
-  type: 'bar',
-  data: { labels: mpLabels, datasets: makeDataset(monthlyData[currentMonth]) },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed.y}` } }
-    },
-    scales: {
-      x: { grid: { display: false } },
-      y: { beginAtZero: true, ticks: { stepSize: 20 } }
-    }
-  }
-});
-
-// 月份下拉切换
-const mpSel = document.getElementById('mpMonth');
-mpSel?.addEventListener('change', () => {
-  currentMonth = mpSel.value;
-  barMonthly.data.datasets = makeDataset(monthlyData[currentMonth]);
-  barMonthly.update();
-});
 
 // ===== Meeting Outcomes 饼图 =====
 const pieCtx = document.getElementById('pieOutcome');
 if (pieCtx) {
-  new Chart(pieCtx, {
-    type: 'pie',
+  const accepted = {{ $meetingOutcomes['accepted'] }};
+  const rejected = {{ $meetingOutcomes['rejected'] }};
+
+  // If both are zero, show a message instead of an empty chart
+  if (accepted === 0 && rejected === 0) {
+    pieCtx.parentElement.innerHTML =
+      `<div class="d-flex justify-content-center align-items-center text-muted" style="height:220px; font-size:12px;">
+         No meeting data found for selected filters
+       </div>`;
+  } else {
+    new Chart(pieCtx, {
+      type: 'pie',
+      data: {
+        labels: ['Accepted','Rejected'],
+        datasets: [{
+          data: [accepted, rejected],
+          backgroundColor: ['#22c55e','#ef4444'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+}
+
+// ===== Job Order Fulfillment =====
+const fulfillCtx = document.getElementById('orderFulfill');
+if (fulfillCtx) {
+  const fulfillData = {!! json_encode([
+    $jobFulfillment['total'],
+    $jobFulfillment['in_progress'],
+    $jobFulfillment['completed'],
+    $jobFulfillment['rejected'],
+  ]) !!};
+
+  new Chart(fulfillCtx, {
+    type: 'bar',
     data: {
-      labels: ['Accepted', 'Rejected'],
+      labels: ['Total Orders','In Progress','Completed','Rejected'],
       datasets: [{
-        data: [10, 8],
-        backgroundColor: ['#22c55e', '#ef4444'],
-        borderWidth: 0
+        data: fulfillData,
+        backgroundColor: ['#22c55e','#f59e0b','#06b6d4','#ef4444'],
+        borderRadius: 6,
+        borderSkipped: false
       }]
     },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 5 } }, x: { grid: { display: false } } }
+    }
   });
 }
 
-// ===== Order chart =====
-new Chart(document.getElementById('orderFulfill'),{
-  type:'bar',
-  data:{
-    labels:['New Order','In Progress','Completed','Overdue'],
-    datasets:[{ data:[30,12,17,1], backgroundColor:['#22c55e','#f59e0b','#06b6d4','#ef4444'] }]
-  },
-  options:{
-    responsive:true, maintainAspectRatio:false,
-    plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}
-  }
-});
+(function(){
+  const form = document.getElementById('outcomeFilter');
+  if (!form) return;
 
-// ===== Machine table: search + filter =====
-const searchInput = document.getElementById('searchMachine');
-const typeFilter  = document.getElementById('typeFilter');
-function filterRows(){
-  const q = (searchInput?.value||'').toLowerCase();
-  const t = typeFilter?.value;
-  document.querySelectorAll('#machineTable tbody tr').forEach(tr=>{
-    const txt = tr.innerText.toLowerCase();
-    const matchQ = txt.includes(q);
-    const matchT = !t || tr.dataset.type === t;
-    tr.style.display = (matchQ && matchT) ? '' : 'none';
+  // autosubmit on any change
+  form.addEventListener('change', function(){
+    // if period changed to a preset range, set dates then submit
+    if (document.activeElement && document.activeElement.name === 'period') {
+      const period = document.activeElement.value;
+      const sd = form.querySelector('input[name="start_date"]');
+      const ed = form.querySelector('input[name="end_date"]');
+      const today = new Date();
+
+      const pad = n => String(n).padStart(2,'0');
+      const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+      if (period === 'monthly') {
+        const s = new Date(today.getFullYear(), today.getMonth(), 1);
+        const e = new Date(today.getFullYear(), today.getMonth()+1, 0);
+        sd.value = iso(s); ed.value = iso(e);
+      } else if (period === 'quarterly') {
+        const q = Math.floor(today.getMonth()/3);                 // 0..3
+        const s = new Date(today.getFullYear(), q*3, 1);
+        const e = new Date(today.getFullYear(), q*3 + 3, 0);
+        sd.value = iso(s); ed.value = iso(e);
+      } else if (period === 'yearly') {
+        const s = new Date(today.getFullYear(), 0, 1);
+        const e = new Date(today.getFullYear(), 11, 31);
+        sd.value = iso(s); ed.value = iso(e);
+      }
+    }
+    form.submit();
   });
-}
-searchInput?.addEventListener('input',filterRows);
-typeFilter?.addEventListener('change',filterRows);
+
+  const f = document.getElementById('jobFilterForm');
+  if (!f) return;
+
+  // submit on change of selects/date
+  ['artist','order_date','order_status'].forEach(n => {
+    const el = f.querySelector(`[name="${n}"]`);
+    if (el) el.addEventListener('change', () => f.submit());
+  });
+
+  // submit on Enter in search
+  const q = f.querySelector('[name="order_search"]');
+  if (q) q.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); f.submit(); }
+  });
+
+  const machinefilter = document.getElementById('machineFilterForm');
+  if (!machinefilter) return;
+  ['machine_type','machine_range'].forEach(n=>{
+    const el = machinefilter.querySelector(`[name="${n}"]`);
+    if (el) el.addEventListener('change', () => machinefilter.submit());
+  });
+  const result = machinefilter.querySelector('[name="machine_q"]');
+  if (result) result.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); machinefilter.submit(); }});
+})();
 </script>
 @endsection
