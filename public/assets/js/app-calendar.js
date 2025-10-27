@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       headerToolbar: {
         start: 'sidebarToggle, prev,next, title',
-        end: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+        end: ''
       },
       direction: direction,
       initialDate: new Date(),

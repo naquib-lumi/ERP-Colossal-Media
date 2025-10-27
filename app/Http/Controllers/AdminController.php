@@ -587,10 +587,17 @@ class AdminController extends Controller
     }
 
     public function calendar()
-    {
+   {
         $user = Auth::user();
-        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
-        return view('admin.calendar');
+        if (!$user->hasRole('admin')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('admin.calendar', compact('salespeople'));
     }
 
     public function reports()
