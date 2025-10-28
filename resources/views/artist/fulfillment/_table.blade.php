@@ -89,6 +89,7 @@
         <td>
           <div class="table-actions">
             <a title="View" href="{{ $r->view_url }}"><i class="bx bx-show"></i></a>
+            <a title="Report" href="{{ $r->assign_url }}"><i class="bx bx-error-alt fs-5"></i></a>
           </div>
         </td>
       </tr>

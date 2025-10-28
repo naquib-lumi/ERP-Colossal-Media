@@ -104,36 +104,68 @@
   <div class="section active" id="salesSec">
     <!-- Filters -->
     <div class="p-3 border-bottom">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-          <label class="form-label small">Select Salesperson</label>
-          <select class="form-select" id="salesperson">
-            <option>All Salespersons</option><option>Alex</option><option>Brenda</option>
-          </select>
+  <form id="salesFilterForm" method="GET" action="{{ url()->current() }}">
+    @php
+      $sf = $salesFilters ?? [
+        'salesperson' => 'all',
+        'period'      => 'monthly',
+        'start_date'  => now()->startOfMonth()->toDateString(),
+        'end_date'    => now()->endOfMonth()->toDateString(),
+      ];
+    @endphp
+    <div class="row g-3 align-items-end">
+
+      <!-- Salesperson -->
+      <div class="col-md-3">
+        <label class="form-label small">Select Salesperson</label>
+        <select class="form-select" id="salesperson" name="salesperson">
+          <option value="all" {{ ($sf['salesperson'] ?? 'all') === 'all' ? 'selected' : '' }}>All Salespersons</option>
+          @foreach($salespeople as $sp)
+            <option value="{{ $sp->id }}" {{ (string)($sf['salesperson'] ?? 'all') === (string)$sp->id ? 'selected' : '' }}>
+              {{ $sp->name }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+
+      <!-- Period segmented buttons (writes to hidden input) -->
+      <div class="col-md-3">
+        <label class="form-label small">Time Period</label>
+        <div class="btn-group w-100" role="group" id="periodGroup">
+          @php $pSel = $sf['period'] ?? 'monthly'; @endphp
+          <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='yearly'?'active':'' }}" data-value="yearly">Yearly</button>
+          <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='quarterly'?'active':'' }}" data-value="quarterly">Quarterly</button>
+          <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='monthly'?'active':'' }}" data-value="monthly">Monthly</button>
         </div>
-        <div class="col-md-3">
-          <label class="form-label small">Time Period</label>
-          <div class="btn-group w-100" role="group">
-            <button class="btn btn-outline-dark btn-sm active">Yearly</button>
-            <button class="btn btn-outline-dark btn-sm">Quarterly</button>
-            <button class="btn btn-outline-dark btn-sm">Monthly</button>
-          </div>
+        <input type="hidden" name="period" id="periodInput" value="{{ $pSel }}">
+      </div>
+
+      <!-- Date Range -->
+      <div class="col-md-4">
+        <label class="form-label small">Date Range</label>
+        <div class="d-flex align-items-center gap-2">
+          <input type="date" class="form-control" name="start_date" value="{{ $sf['start_date'] ?? '' }}">
+          <span class="text-muted small">to</span>
+          <input type="date" class="form-control" name="end_date" value="{{ $sf['end_date'] ?? '' }}">
         </div>
-        <div class="col-md-4">
-          <label class="form-label small">Date Range</label>
-          <div class="d-flex align-items-center gap-2">
-            <input type="date" class="form-control" value="2025-01-01">
-            <span class="text-muted small">to</span>
-            <input type="date" class="form-control" value="2025-01-31">
-          </div>
-        </div>
-        <div class="col-md-2 text-md-end">
-          <button class="btn btn-dark-compact btn-sm-compact w-100">
+      </div>
+
+      <!-- Actions -->
+      <div class="col-md-2 text-md-end">
+        <div class="d-grid gap-2">
+          <button type="submit" class="btn btn-dark-compact btn-sm-compact">
+            <i class="bi bi-funnel me-1"></i> Filter
+          </button>
+          <a href="{{ url()->current() }}" class="btn btn-light btn-sm-compact" id="salesResetBtn">Reset</a>
+          <button class="btn btn-dark-compact btn-sm-compact">
             <i class="bi bi-download me-1"></i> Export
           </button>
         </div>
       </div>
+
     </div>
+  </form>
+</div>
 
     <!-- KPI -->
     <div class="p-3">
@@ -222,49 +254,15 @@
               <!-- 左：饼图 -->
               <div>
                 <div class="chart-wrap"><canvas id="pieOutcome"></canvas></div>
-                <div class="mt-2 small">
-                  <span class="legend-dot" style="background:#22c55e"></span>Accepted
-                  <span class="legend-dot" style="background:#ef4444;margin-left:14px"></span>Rejected
-                </div>
+                
               </div>
 
               <!-- 右：竖排筛选 -->
               <aside class="sidebar">
-                <form id="outcomeFilter" method="GET" class="filter-stack d-flex flex-column gap-3">
-                  <div>
-                    <div class="label">Start date</div>
-                    <input type="date" class="form-control" name="start_date"
-                          value="{{ $meetingOutcomes['filters']['start_date'] }}">
-                  </div>
-                  <div>
-                    <div class="label">End date</div>
-                    <input type="date" class="form-control" name="end_date"
-                          value="{{ $meetingOutcomes['filters']['end_date'] }}">
-                  </div>
-                  <div>
-                  <div class="label">Salesperson</div>
-                    <select class="form-select" name="salesperson">
-                      <option value="all" {{ $meetingOutcomes['filters']['salesperson']==='all' ? 'selected' : '' }}>
-                        All Salesperson
-                      </option>
-                      @foreach($salespeople as $sp)
-                        <option value="{{ $sp->id }}" {{ (string)$sp->id === (string)$meetingOutcomes['filters']['salesperson'] ? 'selected' : '' }}>
-                          {{ $sp->name }}
-                        </option>
-                      @endforeach
-                    </select>
-                  </div>
-                  <div>
-                  <div class="label">Period</div>
-                    <select class="form-select" name="period" id="piePeriod">
-                      @php $p = $meetingOutcomes['filters']['period'] ?? 'monthly'; @endphp
-                      <option value="monthly"  {{ $p==='monthly'  ? 'selected' : '' }}>Monthly</option>
-                      <option value="quarterly"{{ $p==='quarterly'? 'selected' : '' }}>Quarterly</option>
-                      <option value="yearly"   {{ $p==='yearly'   ? 'selected' : '' }}>Yearly</option>
-                      <option value="custom"   {{ $p==='custom'   ? 'selected' : '' }}>Custom</option>
-                    </select>
-                  </div>
-                </form>
+                <div class="mt-2 small">
+                  <span class="legend-dot" style="background:#22c55e"></span>Accepted
+                  <span class="legend-dot" style="background:#ef4444;margin-left:14px"></span>Rejected
+                </div>
               </aside>
             </div>
           </div>
@@ -592,6 +590,34 @@ if (fulfillCtx) {
   });
   const result = machinefilter.querySelector('[name="machine_q"]');
   if (result) result.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); machinefilter.submit(); }});
+})();
+
+// sales report filter
+(function () {
+  const form = document.getElementById('salesFilterForm');
+  if (!form) return;
+
+  const group = document.getElementById('periodGroup');
+  const hidden = document.getElementById('periodInput');
+
+  if (group && hidden) {
+    group.querySelectorAll('button[data-value]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        hidden.value = btn.dataset.value;
+      });
+    });
+  }
+
+  // Reset just navigates to the page without query string
+  const reset = document.getElementById('salesResetBtn');
+  if (reset) {
+    reset.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location = form.getAttribute('action');
+    });
+  }
 })();
 </script>
 @endsection

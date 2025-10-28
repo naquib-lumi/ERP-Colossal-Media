@@ -233,6 +233,7 @@
                     <option value="completed"   {{ $statusVal==='completed' ? 'selected' : '' }}>Completed</option>
                     <option value="rejected"    {{ $statusVal==='rejected' ? 'selected' : '' }}>Rejected</option>
                     <option value="awaiting_keyin"    {{ $statusVal==='awaiting_keyin' ? 'selected' : '' }}>Awaiting Keyin</option>
+                    <option value="redo"    {{ $statusVal==='redo' ? 'selected' : '' }}>Redo</option>
                     @if($isHead ?? false)
                       <option value="to_assign" {{ $statusVal==='to_assign' ? 'selected' : '' }}>To assign</option>
                       <option value="assigned"  {{ $statusVal==='assigned'  ? 'selected' : '' }}>Assigned</option>

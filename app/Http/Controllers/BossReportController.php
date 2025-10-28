@@ -13,13 +13,14 @@ class BossReportController extends Controller
     public function index(Request $request)
     {
         // ----- Read filters from UI (with safe defaults) -----
-        $startParam = $request->input('start_date');
-        $endParam   = $request->input('end_date');
-        $salespersonId = $request->input('salesperson');     // meetings.user_id, or 'all'
+        $startParam    = $request->input('start_date');
+        $endParam      = $request->input('end_date');
+        $salespersonId = $request->input('salesperson', 'all');  // 'all' or users.id
+        $period        = $request->input('period', 'monthly');
 
         // Month selector in your UI is short name (Jan/Feb/…).
         $mpMonthShort = $request->input('mpMonth');          // e.g. "Jun"
-        $yearParam    = $request->input('year', Carbon::now()->year);
+        $yearParam     = (int) $request->input('year', now()->year);
 
         // Defaults: KPI range = current month
         if (!$startParam || !$endParam) {
@@ -40,34 +41,55 @@ class BossReportController extends Controller
         // =========================
         // KPI TILES (top 4 cards)
         // =========================
+        // Leads in selected range (+ salesperson)
+        $leadsBase = DB::table('leads');
+        $leadsBase->whereBetween('date', [$startParam, $endParam]);
+        if ($salespersonId !== 'all' && $salespersonId) {
+            $leadsBase->where('user_id', $salespersonId);
+        }
         $totalLeadsAdded = DB::table('leads')->count();
 
-        $meetingBaseAllTime = DB::table('meetings');
-        if ($salespersonId && $salespersonId !== 'all') {
-            $meetingBaseAllTime->where('user_id', $salespersonId);
+        // Meetings in selected range (+ salesperson)
+        $meetingBase = DB::table('meetings')
+            ->whereBetween(DB::raw('DATE(start_time)'), [$startParam, $endParam]);
+
+        if ($salespersonId !== 'all' && $salespersonId) {
+            $meetingBase->where('user_id', $salespersonId);
         }
 
-        $totalMeetings    = (clone $meetingBaseAllTime)->count();
-        $acceptedMeetings = (clone $meetingBaseAllTime)->where('status', 'scheduled')->count();
-        $rejectedMeetings = (clone $meetingBaseAllTime)->where('status', 'canceled')->count();
+        $totalMeetings    = (clone $meetingBase)->count();
+        $acceptedMeetings = (clone $meetingBase)->where('status', 'scheduled')->count();
+        $rejectedMeetings = (clone $meetingBase)->where('status', 'canceled')->count();
 
         $kpis = [
             'total_leads'    => $totalLeadsAdded,
             'total_meetings' => $totalMeetings,
             'accepted_meets' => $acceptedMeetings,
             'rejected_meets' => $rejectedMeetings,
+            // keep current view logic intact but also return selected filters for UI state
+            'filters'        => [
+                'start_date'  => $startParam,
+                'end_date'    => $endParam,
+                'salesperson' => $salespersonId,
+                'period'      => $period,
+            ],
         ];
 
         // ===========================================
         // Monthly Performance (your 5 bars definition)
         // ===========================================
         // Bar 1: leads added IN selected month only
-        $leadsThisMonth = DB::table('leads')
-            ->whereBetween('date', [$monthStart, $monthEnd])
-            ->count();
+        $leadsMonthBase = DB::table('leads')->whereBetween('date', [$monthStart, $monthEnd]);
+        if ($salespersonId !== 'all' && $salespersonId) {
+            $leadsMonthBase->where('salesperson_id', $salespersonId);
+        }
+        $leadsThisMonth = (clone $leadsMonthBase)->count();
 
         // Bars 2–5: cumulative from beginning up to end of selected month
         $cumBase = DB::table('leads')->where('date', '<=', $monthEnd);
+        if ($salespersonId !== 'all' && $salespersonId) {
+            $cumBase->where('salesperson_id', $salespersonId);
+        }
 
         $acceptedCum   = (clone $cumBase)->where('status', 'accept')->count();
         $rejectedCum   = (clone $cumBase)->where('status', 'reject')->count();
@@ -76,7 +98,7 @@ class BossReportController extends Controller
 
         $monthlyPerformance = [
             'month_short' => $mpMonthShort,
-            'year'        => (int)$yearParam,
+            'year'        => (int) $yearParam,
             'bars'        => [
                 'leads_added' => $leadsThisMonth,
                 'accepted'    => $acceptedCum,
@@ -339,6 +361,13 @@ class BossReportController extends Controller
             'machineUsage'   => $machineUsage,
             'machineFilters' => $machineFilters,
             'redoChart' => $redoChart,
+
+            'salesFilters'       => [
+                'salesperson' => $salespersonId,
+                'period'      => $period,
+                'start_date'  => $startParam,
+                'end_date'    => $endParam,
+            ],
         ]);
     }
 }

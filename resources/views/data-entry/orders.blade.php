@@ -130,7 +130,6 @@
     }
 </style>
 @endpush
-
 <div class="container py-4">
     <h3 class="mb-4">Job Order Overview</h3>
 
@@ -144,24 +143,30 @@
                     <div class="card-body card-widget-separator">
                         <div class="row gy-4 gy-sm-1">
                         <div class="col-sm-4">
-                            <div class="card p-3 h-100">
-                            <p class="mb-1">Total</p>
-                            <h4 class="mb-1">{{ $metrics['total'] ?? 0 }}</h4>
-                            </div>
+                            <a href="{{ route('data-entry.orders') }}" class="text-decoration-none">
+                                <div class="card p-3 h-100 cursor-pointer" style="background-color: rgba(148, 234, 255) !important;">
+                                <p class="mb-1" style="font-weight: 600; color:rgb(23, 107, 128)">Total</p>
+                                <h4 class="mb-1" style="font-weight: bold; color:rgb(23, 107, 128)">{{ $metrics['total'] ?? 0 }}</h4>
+                                </div>
+                            </a>
                         </div>
 
                         <div class="col-sm-4">
-                            <div class="card p-3 h-100">
-                            <p class="mb-1">Awaiting Key-in</p>
-                            <h4 class="mb-1">{{ $metrics['awaiting_keyin'] ?? 0 }}</h4>
-                            </div>
+                            <a href="{{ route('data-entry.orders', ['status' => 'awaiting_keyin']) }}" class="text-decoration-none">
+                                <div class="card p-3 h-100 cursor-pointer" style="background-color: rgba(255, 200, 148) !important;">
+                                <p class="mb-1" style="font-weight: 600; color:rgb(128, 72, 19)">Awaiting Key-in</p>
+                                <h4 class="mb-1" style="font-weight: bold; color:rgb(128, 72, 19)">{{ $metrics['awaiting_keyin'] ?? 0 }}</h4>
+                                </div>
+                            </a>
                         </div>
 
                         <div class="col-sm-4">
-                            <div class="card p-3 h-100">
-                            <p class="mb-1">Completed</p>
-                            <h4 class="mb-1">{{ $metrics['completed'] ?? 0 }}</h4>
-                            </div>
+                            <a href="{{ route('data-entry.orders', ['status' => 'completed']) }}" class="text-decoration-none">
+                                <div class="card p-3 h-100 cursor-pointer" style="background-color: rgba(154, 252, 172) !important;">
+                                <p class="mb-1" style="font-weight: 600; color:rgb(7, 115, 26)">Completed</p>
+                                <h4 class="mb-1" style="font-weight: bold; color:rgb(7, 115, 26)">{{ $metrics['completed'] ?? 0 }}</h4>
+                                </div>
+                            </a>
                         </div>
                         </div>
                     </div>
@@ -175,12 +180,12 @@
                         <h5 class="mb-0">Job Orders</h5>
 
                         <div class="d-flex align-items-center gap-2 mb-3">
-                            <div class="input-group" style="width:260px;">
+                            <div class="input-group" style="width:360px;">
                                 <span class="input-group-text bg-white border-end-0"><i class="bx bx-search"></i></span>
                                 <input id="jobSearch" type="text" class="form-control border-start-0" placeholder="Search orders…">
                             </div>
 
-                            <select id="statusFilter" class="form-select w-auto">
+                            <!-- <select id="statusFilter" class="form-select w-auto">
                                 <option value="">All statuses</option>
 
                                 <option value="in_progress">In progress</option>
@@ -191,7 +196,7 @@
 
                             <button id="exportExcel" class="btn btn-dark">
                                 <i class="bx bx-export me-1"></i> Export
-                            </button>
+                            </button> -->
                         </div>
                     </div>
 

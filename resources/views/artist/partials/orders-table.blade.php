@@ -31,6 +31,11 @@ $isHead = auth()->user()->role === 'head-artist';
                 : ($currentSort === 'furthest' ? 'bx-sort-down' : 'bx-sort');
   $deadlineSortUrl = route('artist.orders', array_merge(request()->query(), ['deadline_sort' => $nextSort]));
 @endphp
+<style>
+  .bg-amber {
+  background-color: #ff6f00 !important; /* vivid amber-orange */
+}
+</style>
 <table id="{{ $tableId }}" class="table table-modern table-hover w-100">
   <thead>
     <tr>
@@ -54,7 +59,7 @@ $isHead = auth()->user()->role === 'head-artist';
     $isArchived = (int)($order->status ?? 0) === 1;
 
     // If archived → treat as rejected for display
-    $rawStatus = $isArchived ? 'rejected' : ($order->orderStatus ?? '');
+    $rawStatus = $isArchived ? 'redo' : ($order->orderStatus ?? '');
 
     $isPending = (!$isHead) && $rawStatus === 'assigned' && (int)$order->pending === 1;
 
@@ -69,6 +74,7 @@ $isHead = auth()->user()->role === 'head-artist';
       $rawStatus === 'in_progress' => 'badge bg-info',
       $rawStatus === 'completed'   => 'badge bg-success',
       $rawStatus === 'rejected'    => 'badge bg-danger',
+      $rawStatus === 'redo' => 'badge bg-amber text-white',
       default                      => 'badge bg-light text-dark',
     };
 
@@ -83,8 +89,8 @@ $isHead = auth()->user()->role === 'head-artist';
     $status        = strtolower($rawStatus);
     $isCompleted   = $status === 'completed';
     $isRejected    = $status === 'rejected';
-    $reportBlocked = in_array($status, ['to_assign','assigned','pending','in_progress'], true);
-    $canEdit       = !($isCompleted || $isRejected) && !$isArchived; // archived → no edit
+    $reportBlocked = in_array($status, ['to_assign','assigned','pending','in_progress', 'awaiting_keyin', 'rejected'], true);
+    $canEdit       = !($isCompleted) && !$isArchived; // archived → no edit
   @endphp
 
   <tr data-href="{{ route('artist.orders.show', $order->id) }}" style="cursor:pointer;">
