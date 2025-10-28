@@ -5,22 +5,44 @@
 @section('content')
 @push('styles')
 <style>
-  .ti-disabled { opacity: 0.6; }
-  .redo-reason{
-    display:inline-flex;
-    align-items:center;
-    max-width: 48ch;             /* stays on one line */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: .20rem .55rem;
-    border-radius: 999px;
-    font-size: .875rem;
-    font-weight: 500;
-    background: #F4F6FF;         /* gentle indigo tint */
-    color: #3842b0;
-    border: 1px solid #E3E7FF;
+  .redo-banner{
+    display:inline-flex; align-items:center; gap:.5rem;
+    background:#dc3545;           /* Bootstrap danger red */
+    color:#fff;
+    padding:.2rem .35rem;
+    border-radius:12px;
+    box-shadow:0 6px 14px rgba(220,53,69,.25);
+    border:1px solid #b02a37;     /* darker red border */
   }
+  .redo-banner .icon{ font-size:1.1rem; line-height:1; }
+  .redo-banner .tag{
+    background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);
+    color:#fff;
+    border-radius:999px;
+    padding:.2rem .55rem;
+    font-weight:700;
+    letter-spacing:.02em;
+  }
+  .redo-banner .by{
+    font-weight:700;
+    padding:.15rem .45rem;
+    background:rgba(255,255,255,.12);
+    border-radius:999px;
+  }
+  .redo-banner .reason{
+    max-width:420px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    padding:.15rem .45rem;
+    background:#fff;
+    color:#b02a37;
+    border-radius:999px;
+    border:1px solid #f1aeb5; /* bs-danger-subtle border */
+  }
+  /* small spacing helper so it doesn't crash into the title */
+  .redo-offset { margin-left:.75rem; }
+
+  .ti-disabled { opacity: 0.6; }
 
   .remove-item {
     display: flex;
@@ -426,51 +448,65 @@
 
           <div class="accordion" id="productsAcc">
             @foreach($order->products as $pIndex => $product)
-            @php
-            $isRedo = (bool) $order->redo;
-            $selectedForRedo = $isRedo && (int) ($product->editable ?? 0) === 1;
-            $locked = $isRedo && !$selectedForRedo;
-            @endphp
-            <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
-            <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}" data-product-row data-product-id="{{ $product->ProductID }}" data-url="{{ route('artist.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
-              <h2 class="accordion-header" id="pHead{{ $pIndex }}">
-                <div class="d-flex justify-content-between align-items-center w-100">
-                  <button
-                    class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#pCollapse{{ $pIndex }}"
-                    aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
-                    aria-controls="pCollapse{{ $pIndex }}">
-                    Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
-                    @if ($selectedForRedo)
-                      <span class="badge bg-primary ms-2">REDO</span>
-                      @if (!empty($redoReason))
-                        <span
-                          class="redo-reason ms-2"
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="top"
-                          title="{{ $redoReason }}"
-                        >
-                          <i class="bi bi-chat-left-text me-1"></i>
-                          {{ Str::limit($redoReason, 60) }}
+              @php
+                $isRedo = (bool) $order->redo;
+                $selectedForRedo = $isRedo && (int) ($product->editable ?? 0) === 1;
+                $locked = $isRedo && !$selectedForRedo;
+
+                // 👇 fetch redo info (created by & reason) if available
+                $redoRecord = DB::table('report_redo')
+                ->where('OrderID', $order->redo ?: $order->id)
+                ->latest('ReportID') // ✅ use correct primary key
+                ->first();
+                $redoBy = null;
+                if ($redoRecord && $redoRecord->user_id) {
+                    $redoBy = \App\Models\User::find($redoRecord->user_id)?->name;
+                }
+              @endphp
+
+              <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
+              <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}"
+                  data-product-row
+                  data-product-id="{{ $product->ProductID }}"
+                  data-url="{{ route('artist.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
+                <h2 class="accordion-header" id="pHead{{ $pIndex }}">
+                  <div class="d-flex justify-content-between align-items-center w-100">
+                    <button
+                      class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#pCollapse{{ $pIndex }}"
+                      aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
+                      aria-controls="pCollapse{{ $pIndex }}">
+                      Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
+
+                      @if ($selectedForRedo)
+                        <span class="redo-banner redo-offset ms-2" title="{{ $redoReason ?? '' }}">
+                          <i class="bi bi-exclamation-octagon-fill icon"></i>
+                          <span class="tag" style="font-size: 12px;">REDO</span>
+                          @if($redoBy)
+                            <span class="by" style="font-size: 12px;">by {{ $redoBy }}</span>
+                          @endif
+                          @if(!empty($redoReason))
+                            <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                                  title="{{ $redoReason }}">{{ Str::limit($redoReason, 90) }}</span>
+                          @endif
                         </span>
                       @endif
-                    @endif
-                  </button>
-
-                  @if ($submitted)
-                    <button type="button"
-                            class="btn btn-link text-danger p-0 ms-2 me-3"
-                            data-delete-product
-                            aria-label="Delete product"
-                            title="Delete this product"
-                            style="text-decoration:none;">
-                      <i class="bx bx-trash fs-5"></i>
                     </button>
-                  @endif
-                </div>
-              </h2>
+
+                    @if ($submitted)
+                      <button type="button"
+                              class="btn btn-link text-danger p-0 ms-2 me-3"
+                              data-delete-product
+                              aria-label="Delete product"
+                              title="Delete this product"
+                              style="text-decoration:none;">
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
+                    @endif
+                  </div>
+                </h2>
 
               <div
                 id="pCollapse{{ $pIndex }}"

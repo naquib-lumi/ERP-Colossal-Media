@@ -4,30 +4,49 @@
 
 @section('content')
 @php
-    // Map method code -> label
-    function dd_method_label($v) {
-        $v = strtolower((string) $v);
-        return [
-            'courier'               => 'Courier',
-            'self_pickup'           => 'Self Pickup',
-            'pickup'                => 'Pickup',
-            'installation'          => 'Installation',
-            'delivery_installation' => 'Delivery & Installation',
-        ][$v] ?? ucfirst($v ?: '-');
-    }
+// Map method code -> label
+function dd_method_label($v) {
+$v = strtolower((string) $v);
+return [
+'courier' => 'Courier',
+'self_pickup' => 'Self Pickup',
+'pickup' => 'Pickup',
+'installation' => 'Installation',
+'delivery_installation' => 'Delivery & Installation',
+][$v] ?? ucfirst($v ?: '-');
+}
 
-    // Nice date time from separate date+time columns
-    function dd_datetime(?string $d, ?string $t) {
-        if (!$d && !$t) return '—';
-        try {
-            if ($d && $t)   return \Carbon\Carbon::parse("$d $t")->format('M d, Y · h:i A');
-            if ($d)         return \Carbon\Carbon::parse($d)->format('M d, Y');
-            return \Carbon\Carbon::parse($t)->format('h:i A');
-        } catch (\Throwable $e) { return trim(($d ?: '').' '.$t) ?: '—'; }
-    }
+// Nice date time from separate date+time columns
+function dd_datetime(?string $d, ?string $t) {
+if (!$d && !$t) return '—';
+try {
+if ($d && $t) return \Carbon\Carbon::parse("$d $t")->format('M d, Y · h:i A');
+if ($d) return \Carbon\Carbon::parse($d)->format('M d, Y');
+return \Carbon\Carbon::parse($t)->format('h:i A');
+} catch (\Throwable $e) { return trim(($d ?: '').' '.$t) ?: '—'; }
+}
 
-    // Yes/No from tinyint/nullable
-    function yn($v) { return ((int)$v) === 1 ? 'Yes' : 'No'; }
+// Yes/No from tinyint/nullable
+function yn($v) { return ((int)$v) === 1 ? 'Yes' : 'No'; }
+@endphp
+@php
+// base order id for redo context
+$baseOrderId = $order->redo ?: $order->id;
+
+// latest redo record for this base order
+$redoRecord = DB::table('report_redo')
+->where('OrderID', $baseOrderId)
+->orderByDesc('ReportID') // use correct PK
+->first();
+
+$redoBy = null;
+if ($redoRecord && $redoRecord->user_id) {
+$redoBy = \App\Models\User::find($redoRecord->user_id)?->name;
+}
+$redoReason = $redoRecord->reason ?? null;
+
+// helper: whether a product is the selected redo copy
+$isRedoOrder = (bool) $order->redo;
 @endphp
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
@@ -36,36 +55,87 @@
         background: #5a4cd9 !important;
         transform: translateY(-1px);
     }
+
+    .redo-banner {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        background: #dc3545;
+        color: #fff;
+        padding: .1rem .35rem;
+        border-radius: 12px;
+        box-shadow: 0 6px 14px rgba(220, 53, 69, .25);
+        border: 1px solid #b02a37;
+    }
+
+    .redo-banner .icon {
+        font-size: 1.1rem;
+        line-height: 1;
+    }
+
+    .redo-banner .tag {
+        background: rgba(255, 255, 255, .18);
+        border: 1px solid rgba(255, 255, 255, .35);
+        color: #fff;
+        border-radius: 999px;
+        padding: .1rem .55rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+    }
+
+    .redo-banner .by {
+        font-weight: 700;
+        padding: .15rem .45rem;
+        background: rgba(255, 255, 255, .12);
+        border-radius: 999px;
+    }
+
+    .redo-banner .reason {
+        max-width: 420px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: .1rem .45rem;
+        background: #fff;
+        color: #b02a37;
+        border-radius: 999px;
+        border: 1px solid #f1aeb5;
+    }
+
+    .redo-offset {
+        margin-left: .5rem;
+    }
 </style>
 <div class="container-xxl py-3">
 
+
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-        <a href="{{ route('artist.orders') }}" 
-        class="text-decoration-none text-muted me-3"
-        style="display: inline-flex; align-items: center; gap: 8px;">
-        <i class="bi bi-arrow-left-circle fw-semibold" 
-            style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        <a href="{{ route('artist.orders') }}"
+            class="text-decoration-none text-muted me-3"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="bi bi-arrow-left-circle fw-semibold"
+                style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
         </a>
         <h4 class="mb-0 flex-grow-1">
             @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
-                @php
-                $order->loadMissing('originalOrder:id,order_number');
-                @endphp
-                Job Order Details – {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
+            @php
+            $order->loadMissing('originalOrder:id,order_number');
+            @endphp
+            Job Order Details – {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
             @else
-                Job Order Details – {{ $order->order_number }}
+            Job Order Details – {{ $order->order_number }}
             @endif
         </h4>
 
         <div class="d-flex align-items-center gap-2">
-        <a href="{{ route('artist.orders.edit', $order->id) }}" 
-           class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
-           style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
-            <i class="bx bx-edit-alt fs-5"></i>
-            <span>Edit Order</span>
-        </a>
-    </div>
+            <a href="{{ route('artist.orders.edit', $order->id) }}"
+                class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
+                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+                <i class="bx bx-edit-alt fs-5"></i>
+                <span>Edit Order</span>
+            </a>
+        </div>
     </div>
 
     {{-- Job order information --}}
@@ -110,23 +180,23 @@
                     <small class="text-muted d-block mb-1">Attachment from Lead</small>
 
                     @php
-                        $leadFiles = \App\Models\LeadAttachment::where('lead_id', $order->lead_id)
-                            ->latest()->get();
+                    $leadFiles = \App\Models\LeadAttachment::where('lead_id', $order->lead_id)
+                    ->latest()->get();
 
                     @endphp
 
                     <div class="fw-medium">
                         @if($leadFiles->isNotEmpty())
-                            @foreach ($leadFiles as $att)
-                                <a href="{{ asset('storage/' . ltrim($att->file_location, '/')) }}"
-                                target="_blank"
-                                class="d-inline-flex align-items-center text-decoration-underline me-3 mb-1">
-                                    {{ basename($att->file_location) }}
-                                    <i class="bx bx-download ms-1"></i>
-                                </a>
-                            @endforeach
+                        @foreach ($leadFiles as $att)
+                        <a href="{{ asset('storage/' . ltrim($att->file_location, '/')) }}"
+                            target="_blank"
+                            class="d-inline-flex align-items-center text-decoration-underline me-3 mb-1">
+                            {{ basename($att->file_location) }}
+                            <i class="bx bx-download ms-1"></i>
+                        </a>
+                        @endforeach
                         @else
-                            -
+                        -
                         @endif
                     </div>
                 </div>
@@ -140,21 +210,21 @@
             <div>Product &amp; Breakdown Details</div>
             <div>
                 <div class="d-flex gap-2">
-                {{-- Artist badge --}}
-                @if(!empty($order->artist_id) && !empty($order->artist))
+                    {{-- Artist badge --}}
+                    @if(!empty($order->artist_id) && !empty($order->artist))
                     <span class="badge bg-secondary">
-                    {{ 'Artist: ' . $order->artist->name }}
+                        {{ 'Artist: ' . $order->artist->name }}
                     </span>
-                @else
+                    @else
                     <span class="badge bg-secondary">Unassigned</span>
-                @endif
+                    @endif
 
-                {{-- Data Entry badge --}}
-                @if(!empty($order->data_entry_id) && !empty($order->dataEntry))
+                    {{-- Data Entry badge --}}
+                    @if(!empty($order->data_entry_id) && !empty($order->dataEntry))
                     <span class="badge fw-semibold px-3 py-2" style="background:#E0F7FF; color:#00AEEF;">
-                    {{ 'Data Entry: ' . $order->dataEntry->name }}
+                        {{ 'Data Entry: ' . $order->dataEntry->name }}
                     </span>
-                @endif
+                    @endif
                 </div>
             </div>
         </div>
@@ -173,11 +243,11 @@
                 $pId = 'product_'.$pi;
                 $pOpen = $pi === 0 ? 'show' : '';
                 $items = data_get($product, 'items', collect());
-                
+
                 $isRedoSelected = !empty($product->editable);
-                $origPid   = (int) ($product->redoOf ?: $product->ProductID);
+                $origPid = (int) ($product->redoOf ?: $product->ProductID);
                 $pidPadded = sprintf('%04d', $origPid);
-                $pidLabel  = '#'.$pidPadded . (($product->redoOf && (int)$product->editable === 1) ? 'R' : '');
+                $pidLabel = '#'.$pidPadded . (($product->redoOf && (int)$product->editable === 1) ? 'R' : '');
                 @endphp
 
                 <div class="accordion-item mb-2">
@@ -189,6 +259,23 @@
                                 <div class="me-auto">
                                     <strong>Product</strong>
                                     <span class="fw-semibold">{{ $pidLabel }} — {{ data_get($product,'productName','-') }}</span>
+                                    @php
+                                    $selectedForRedo = $isRedoOrder && (int)($product->editable ?? 0) === 1;
+                                    @endphp
+
+                                    @if($selectedForRedo)
+                                    <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                                        <i class="bi bi-exclamation-octagon-fill icon"></i>
+                                        <span class="tag" style="font-size: 10px;">REDO</span>
+                                        @if($redoBy)
+                                        <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                                        @endif
+                                        @if(!empty($redoReason))
+                                        <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                                            title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
+                                        @endif
+                                    </span>
+                                    @endif
                                 </div>
                                 <div>
                                     <small class="text-muted">Qty:</small>
@@ -210,33 +297,33 @@
                             <div class="accordion" id="itemsAcc_{{ $pId }}">
                                 @foreach($items as $ii => $item)
                                 @php
-                                    $iId = $pId.'_item_'.$ii;
-                                    $iOpen = $ii === 0 ? 'show' : '';
-                                    $materialsCol = collect(data_get($item, 'material', []));
-                                    if (is_string($materialsCol)) {
-                                        $decoded = json_decode($materialsCol, true);
-                                        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                                            $materialsCol = collect($decoded);
-                                        } else {
-                                            $materialsCol = collect(array_map('trim', explode(',', $materialsCol)));
-                                        }
-                                    }
-                                    $materials = $materialsCol->filter()->join(', ');
+                                $iId = $pId.'_item_'.$ii;
+                                $iOpen = $ii === 0 ? 'show' : '';
+                                $materialsCol = collect(data_get($item, 'material', []));
+                                if (is_string($materialsCol)) {
+                                $decoded = json_decode($materialsCol, true);
+                                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                $materialsCol = collect($decoded);
+                                } else {
+                                $materialsCol = collect(array_map('trim', explode(',', $materialsCol)));
+                                }
+                                }
+                                $materials = $materialsCol->filter()->join(', ');
 
-                                    $szUnit = $item->sizeUnit ?: 'mm';
-                                    $blUnit = $item->bleedUnit ?: ($item->sizeUnit ?: 'mm');
+                                $szUnit = $item->sizeUnit ?: 'mm';
+                                $blUnit = $item->bleedUnit ?: ($item->sizeUnit ?: 'mm');
 
-                                    // Size numbers (strip trailing zeros)
-                                    $w = $item->sizeWidth  !== null ? rtrim(rtrim((string)$item->sizeWidth , '0'), '.') : '–';
-                                    $h = $item->sizeHeight !== null ? rtrim(rtrim((string)$item->sizeHeight, '0'), '.') : '–';
+                                // Size numbers (strip trailing zeros)
+                                $w = $item->sizeWidth !== null ? rtrim(rtrim((string)$item->sizeWidth , '0'), '.') : '–';
+                                $h = $item->sizeHeight !== null ? rtrim(rtrim((string)$item->sizeHeight, '0'), '.') : '–';
 
-                                    // Bleed numbers (T,R,B,L)
-                                    $bt = $item->bleedTop    !== null ? rtrim(rtrim((string)$item->bleedTop   , '0'), '.') : '0';
-                                    $br = $item->bleedRight  !== null ? rtrim(rtrim((string)$item->bleedRight , '0'), '.') : '0';
-                                    $bb = $item->bleedBottom !== null ? rtrim(rtrim((string)$item->bleedBottom, '0'), '.') : '0';
-                                    $bl = $item->bleedLeft   !== null ? rtrim(rtrim((string)$item->bleedLeft  , '0'), '.') : '0';
+                                // Bleed numbers (T,R,B,L)
+                                $bt = $item->bleedTop !== null ? rtrim(rtrim((string)$item->bleedTop , '0'), '.') : '0';
+                                $br = $item->bleedRight !== null ? rtrim(rtrim((string)$item->bleedRight , '0'), '.') : '0';
+                                $bb = $item->bleedBottom !== null ? rtrim(rtrim((string)$item->bleedBottom, '0'), '.') : '0';
+                                $bl = $item->bleedLeft !== null ? rtrim(rtrim((string)$item->bleedLeft , '0'), '.') : '0';
 
-                                    $primeCentre = ((int) data_get($item, 'prime_centre')) === 1 ? 'Yes' : 'No';
+                                $primeCentre = ((int) data_get($item, 'prime_centre')) === 1 ? 'Yes' : 'No';
                                 @endphp
 
                                 <div class="accordion-item mb-2">
@@ -283,7 +370,7 @@
                                                 </div>
 
                                                 @php
-                                                    $specification = $item->spec;
+                                                $specification = $item->spec;
                                                 @endphp
 
                                                 <div class="col-md-4">
@@ -324,42 +411,61 @@
 
     {{-- Delivery Breakdown (grouped by product) --}}
     <div class="card mb-4">
-    <div class="card-header">Delivery Method Summary</div>
-    <div class="card-body">
-        @php
-        $products = $order->relationLoaded('products')
+        <div class="card-header">Delivery Method Summary</div>
+        <div class="card-body">
+            
+            @php
+            $products = $order->relationLoaded('products')
             ? $order->products
             : \App\Models\Product::with('deliveryBreakdowns')->where('OrderID', $order->id)->get();
-        @endphp
+            @endphp
 
-        @forelse($products as $pIndex => $p)
-        @php
+            @forelse($products as $pIndex => $p)
+            @php
             $isRedoOrder = !empty($order->redo);
 
             $origPid = $isRedoOrder && !empty($p->redoOf)
-                ? (int) $p->redoOf
-                : (int) $p->ProductID;
+            ? (int) $p->redoOf
+            : (int) $p->ProductID;
 
             $pidLabel = '#'.str_pad((string)$origPid, 4, '0', STR_PAD_LEFT);
             if ($isRedoOrder && (int)($p->editable ?? 0) === 1) {
-                $pidLabel .= 'R';
+            $pidLabel .= 'R';
             }
-        @endphp
-        <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
-            Product {{ $pidLabel }} — {{ data_get($product,'productName','-') }}
-        </div>
+            @endphp
+            <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
+                Product {{ $pidLabel }} — {{ data_get($p,'productName','-') }}
 
-        @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
+                @php
+                $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
+                @endphp
 
-        @forelse($deliveries as $d)
+                @if($selectedForRedo)
+                <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                    <i class="bi bi-exclamation-octagon-fill icon"></i>
+                    <span class="tag" style="font-size: 10px;">REDO</span>
+                    @if($redoBy)
+                    <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                    @endif
+                    @if(!empty($redoReason))
+                    <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                        title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
+                    @endif
+                </span>
+                @endif
+            </div>
+
+            @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
+
+            @forelse($deliveries as $d)
             @php
             $methodRaw = strtolower((string) $d->method);
             $methodLabel = match ($methodRaw) {
-                'courier'               => 'Courier',
-                'self_pickup', 'pickup' => 'Self Pickup',
-                'installation'          => 'Installation',
-                'delivery_installation' => 'Delivery & Installation',
-                default                 => ucfirst((string) $d->method),
+            'courier' => 'Courier',
+            'self_pickup', 'pickup' => 'Self Pickup',
+            'installation' => 'Installation',
+            'delivery_installation' => 'Delivery & Installation',
+            default => ucfirst((string) $d->method),
             };
 
             // Build a readable datetime from separate date/time columns
@@ -367,200 +473,225 @@
             $dateStr = trim((string) $d->date);
             $timeStr = trim((string) $d->time);
             try {
-                if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
-                // time field already contains a full datetime
-                $dt = \Carbon\Carbon::parse($timeStr);
-                } elseif ($dateStr && $timeStr) {
-                $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
-                } elseif ($dateStr) {
-                $dt = \Carbon\Carbon::parse($dateStr);
-                } elseif ($timeStr) {
-                $dt = \Carbon\Carbon::parse($timeStr);
-                }
+            if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
+            // time field already contains a full datetime
+            $dt = \Carbon\Carbon::parse($timeStr);
+            } elseif ($dateStr && $timeStr) {
+            $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
+            } elseif ($dateStr) {
+            $dt = \Carbon\Carbon::parse($dateStr);
+            } elseif ($timeStr) {
+            $dt = \Carbon\Carbon::parse($timeStr);
+            }
             } catch (\Throwable $e) {}
             @endphp
 
             <div class="border rounded p-3 mb-3">
-            <div class="text-muted small">
-                Delivery Method:
-                <span class="text-body fw-semibold">{{ $methodLabel }}</span>
+                <div class="text-muted small">
+                    Delivery Method:
+                    <span class="text-body fw-semibold">{{ $methodLabel }}</span>
+                </div>
+
+                <div class="row g-3 mt-1">
+                    <div class="col-sm-6 col-lg-3">
+                        <small class="text-muted d-block">Installation Type</small>
+                        <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
+                    </div>
+
+                    <div class="col-sm-6 col-lg-3">
+                        <small class="text-muted d-block">Outsource Cost (RM)</small>
+                        <div class="fw-medium">
+                            {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
+                        </div>
+                    </div>
+
+                    <div class="col-sm-6 col-lg-2">
+                        <small class="text-muted d-block">Quantity</small>
+                        <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
+                    </div>
+
+                    <div class="col-sm-6 col-lg-4">
+                        <small class="text-muted d-block">Location</small>
+                        <div class="fw-medium">{{ $d->location ?? '-' }}</div>
+                    </div>
+
+                    <div class="col-sm-6 col-lg-4">
+                        <small class="text-muted d-block">Date &amp; Time</small>
+                        <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
+                    </div>
+                </div>
             </div>
-
-            <div class="row g-3 mt-1">
-                <div class="col-sm-6 col-lg-3">
-                <small class="text-muted d-block">Installation Type</small>
-                <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
-                </div>
-
-                <div class="col-sm-6 col-lg-3">
-                <small class="text-muted d-block">Outsource Cost (RM)</small>
-                <div class="fw-medium">
-                    {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
-                </div>
-                </div>
-
-                <div class="col-sm-6 col-lg-2">
-                <small class="text-muted d-block">Quantity</small>
-                <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
-                </div>
-
-                <div class="col-sm-6 col-lg-4">
-                <small class="text-muted d-block">Location</small>
-                <div class="fw-medium">{{ $d->location ?? '-' }}</div>
-                </div>
-
-                <div class="col-sm-6 col-lg-4">
-                <small class="text-muted d-block">Date &amp; Time</small>
-                <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
-                </div>
-            </div>
-            </div>
-        @empty
+            @empty
             <div class="text-muted border rounded p-3 mb-4">No delivery breakdowns.</div>
-        @endforelse
-        @empty
-        <div class="text-muted border rounded p-3 mb-3">No products.</div>
-        @endforelse
-    </div>
+            @endforelse
+            @empty
+            <div class="text-muted border rounded p-3 mb-3">No products.</div>
+            @endforelse
+        </div>
     </div>
 
     @php
-  // Pull products + remarks (+ remark user) even if the controller didn't eager-load them
-  $remarkProducts = method_exists($order, 'products')
-      ? $order->products()
-          ->with([
-              'remarks' => fn ($q) => $q->orderBy('RemarkID'),
-              'remarks.user:id,name',            // <- creator
-          ])
-          ->orderBy('ProductID')
-          ->get()
-      : collect();
+    // Pull products + remarks (+ remark user) even if the controller didn't eager-load them
+    $remarkProducts = method_exists($order, 'products')
+    ? $order->products()
+    ->with([
+    'remarks' => fn ($q) => $q->orderBy('RemarkID'),
+    'remarks.user:id,name', // <- creator
+        ])
+        ->orderBy('ProductID')
+        ->get()
+        : collect();
 
-  // Product code like "#...-P0001R" logic (R only for selected redo)
-  $productCode = function ($p) {
-      $baseId = $p->redoOf ?: $p->ProductID;
-      $suffix = ($p->redoOf && (int)($p->editable ?? 0) === 1) ? 'R' : '';
-      return 'Product #'.str_pad($baseId, 4, '0', STR_PAD_LEFT).$suffix;
-  };
+        // Product code like "#...-P0001R" logic (R only for selected redo)
+        $productCode = function ($p) {
+        $baseId = $p->redoOf ?: $p->ProductID;
+        $suffix = ($p->redoOf && (int)($p->editable ?? 0) === 1) ? 'R' : '';
+        return 'Product #'.str_pad($baseId, 4, '0', STR_PAD_LEFT).$suffix;
+        };
 
-  // Display label for each operation
-  $opLabel = function (?string $op) {
-      $op = strtolower((string)$op);
-      return match ($op) {
-          'printing'               => 'Printing',
-          'furnishing'             => 'Furnishing',
-          'installation'           => 'Installation',
-          'courier'                => 'Delivery',
-          'self_pickup', 'pickup'  => 'Self Pickup',
-          'artist'                 => 'Artist',
-          default                  => ($op !== '' ? ucfirst($op) : 'General'),
-      };
-  };
+        // Display label for each operation
+        $opLabel = function (?string $op) {
+        $op = strtolower((string)$op);
+        return match ($op) {
+        'printing' => 'Printing',
+        'furnishing' => 'Furnishing',
+        'installation' => 'Installation',
+        'courier' => 'Delivery',
+        'self_pickup', 'pickup' => 'Self Pickup',
+        'artist' => 'Artist',
+        default => ($op !== '' ? ucfirst($op) : 'General'),
+        };
+        };
 
-  // Colors (same set you asked for in Fulfillment)
-  $opStyle = function (?string $op) {
-      $op = strtolower((string)$op);
-      return match ($op) {
-          'printing'     => ['#EEF2FF', '#4F46E5'],
-          'furnishing'   => ['#FFF7ED', '#C2410C'],
-          'installation' => ['#ECFEFF', '#0E7490'],
-          'courier'      => ['#ECFDF5', '#047857'],
-          'self_pickup'  => ['#F3F4F6', '#111827'],
-          'artist'       => ['#eaecf9ff', '#8295fdff'],
-          default        => ['#F3F4F6', '#111827'],
-      };
-  };
-@endphp
+        // Colors (same set you asked for in Fulfillment)
+        $opStyle = function (?string $op) {
+        $op = strtolower((string)$op);
+        return match ($op) {
+        'printing' => ['#EEF2FF', '#4F46E5'],
+        'furnishing' => ['#FFF7ED', '#C2410C'],
+        'installation' => ['#ECFEFF', '#0E7490'],
+        'courier' => ['#ECFDF5', '#047857'],
+        'self_pickup' => ['#F3F4F6', '#111827'],
+        'artist' => ['#eaecf9ff', '#8295fdff'],
+        default => ['#F3F4F6', '#111827'],
+        };
+        };
+        @endphp
 
-<div class="card mb-4">
-  <div class="card-header">Product Remarks</div>
-  <div class="card-body">
+        <div class="card mb-4">
+            <div class="card-header">Product Remarks</div>
+            <div class="card-body">
 
-    @forelse($remarkProducts as $p)
-      <div class="mb-3">
-        {{-- product header --}}
-        <div class="px-3 py-2 bg-body-tertiary rounded-2 fw-semibold text-secondary mb-3">
-          {{ $productCode($p) }} — {{ $p->productName ?? '-' }}
-        </div>
+                @forelse($remarkProducts as $p)
+                <div class="mb-3">
+                    {{-- product header --}}
+                    <div class="px-3 py-2 bg-body-tertiary rounded-2 fw-semibold text-secondary mb-3">
+                        {{ $productCode($p) }} — {{ $p->productName ?? '-' }}
+                        @php
+                        $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
+                        @endphp
 
-        @if(($p->remarks ?? collect())->isEmpty())
-          <div class="text-muted small ms-1">No remarks for this product.</div>
-        @else
-          <div class="vstack gap-2">
-            @foreach($p->remarks as $rm)
-              @php [$bg,$fg] = $opStyle($rm->operation); @endphp
-
-              <div class="border rounded-2 p-3 d-flex flex-column gap-1">
-                <div class="d-flex align-items-center gap-3">
-                  {{-- color label --}}
-                  <span class="px-2 py-1 rounded-pill fw-semibold flex-shrink-0"
-                        style="background:{{ $bg }}; color:{{ $fg }}; font-size:.8rem; min-width:max-content;">
-                    {{ $opLabel($rm->operation) }}
-                  </span>
-
-                  {{-- remark text --}}
-                  <div class="flex-grow-1">
-                    <div class="mb-0" style="line-height:1.5;">
-                      {{ $rm->remark ?: '—' }}
-                    </div>
-                  </div>
-                </div>
-
-                {{-- author + time --}}
-                <div class="text-muted small ms-1" style="font-weight: 700;">
-                  by {{ optional($rm->user)->name ?? '—' }}
-                </div>
-              </div>
-
-            @endforeach
-          </div>
-        @endif
-      </div>
-    @empty
-      <div class="text-muted">No product remarks.</div>
-    @endforelse
-
-  </div>
-</div>
-
-    {{-- Attachments --}}
-    <div class="card mt-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Attachments</span>
-        </div>
-
-        <div class="card-body">
-            @if($attachments->isEmpty())
-            <p class="text-muted mb-0">No attachments.</p>
-            @else
-            <ul class="list-group list-group-flush">
-                @foreach($attachments as $f)
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bx bx-paperclip"></i>
-                        <span>{{ $f['name'] }}</span>
-                        @if(!empty($f['size']))
-                        <small class="text-muted">
-                            {{ number_format($f['size'] / 1024, 0) }} KB
-                        </small>
+                        @if($selectedForRedo)
+                        <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                            <i class="bi bi-exclamation-octagon-fill icon"></i>
+                            <span class="tag" style="font-size: 10px;">REDO</span>
+                            @if($redoBy)
+                            <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                            @endif
+                            @if(!empty($redoReason))
+                            <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
+                            @endif
+                        </span>
                         @endif
                     </div>
-                    <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
-                        Download
-                    </a>
-                </li>
-                @endforeach
-            </ul>
-            @endif
+
+                    @if(($p->remarks ?? collect())->isEmpty())
+                    <div class="text-muted small ms-1">No remarks for this product.</div>
+                    @else
+                    <div class="vstack gap-2">
+                        @foreach($p->remarks as $rm)
+                        @php [$bg,$fg] = $opStyle($rm->operation); @endphp
+
+                        <div class="border rounded-2 p-3 d-flex flex-column gap-1">
+                            <div class="d-flex align-items-center gap-3">
+                                {{-- color label --}}
+                                <span class="px-2 py-1 rounded-pill fw-semibold flex-shrink-0"
+                                    style="background:{{ $bg }}; color:{{ $fg }}; font-size:.8rem; min-width:max-content;">
+                                    {{ $opLabel($rm->operation) }}
+                                </span>
+
+                                {{-- remark text --}}
+                                <div class="flex-grow-1">
+                                    <div class="mb-0" style="line-height:1.5;">
+                                        {{ $rm->remark ?: '—' }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- author + time --}}
+                            <div class="text-muted small ms-1" style="font-weight: 700;">
+                                by {{ optional($rm->user)->name ?? '—' }}
+                            </div>
+                        </div>
+
+                        @endforeach
+                    </div>
+                    @endif
+                </div>
+                @empty
+                <div class="text-muted">No product remarks.</div>
+                @endforelse
+
+            </div>
         </div>
-    </div>
-    <div class="d-flex justify-content-end mt-4">
-        <a href="{{ route('artist.orders.edit', $order->id) }}" 
-        class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
-        style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
-            <i class="bx bx-edit-alt fs-5"></i>
-            <span>Edit Order</span>
-        </a>
-    </div>
+
+        {{-- Attachments --}}
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Attachments</span>
+            </div>
+
+            <div class="card-body">
+                @if($attachments->isEmpty())
+                <p class="text-muted mb-0">No attachments.</p>
+                @else
+                <ul class="list-group list-group-flush">
+                    @foreach($attachments as $f)
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bx bx-paperclip"></i>
+                            <span>{{ $f['name'] }}</span>
+                            @if(!empty($f['size']))
+                            <small class="text-muted">
+                                {{ number_format($f['size'] / 1024, 0) }} KB
+                            </small>
+                            @endif
+                        </div>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
+                            Download
+                        </a>
+                    </li>
+                    @endforeach
+                </ul>
+                @endif
+            </div>
+        </div>
+        <div class="d-flex justify-content-end mt-4">
+            <a href="{{ route('artist.orders.edit', $order->id) }}"
+                class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
+                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+                <i class="bx bx-edit-alt fs-5"></i>
+                <span>Edit Order</span>
+            </a>
+        </div>
 </div>
+@push('scripts')
+<script>
+    // enable Bootstrap tooltips if not already
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+    });
+</script>
+@endpush
 @endsection
