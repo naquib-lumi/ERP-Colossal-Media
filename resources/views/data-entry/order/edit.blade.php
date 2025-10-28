@@ -1209,7 +1209,7 @@
                           </div>
                         </template>
 
-                        {{-- Product Remarks --}}
+                        <!-- {{-- Product Remarks --}}
                         <div class="mt-4">
                           <h6 class="mb-2">Product Remarks</h6>
 
@@ -1270,16 +1270,6 @@
                               @endif
                             </div>
                             @empty
-                            <!-- <select name="products[{{ $pIndex }}][remarks][0][operation]"
-                                    class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
-                              <option value="">— Select Department —</option>
-                              @foreach($ops as $k => $label)
-                                @php $isArtist = $k === 'artist'; @endphp
-                                <option value="{{ $k }}" {{ $isArtist && $noArtistAssigned ? 'disabled' : '' }}>
-                                  {{ $label }}{{ $isArtist && $noArtistAssigned ? ' (assign artist first)' : '' }}
-                                </option>
-                              @endforeach
-                            </select> -->
                             @endforelse
                           </div>
                           @if ($submitted)
@@ -1289,7 +1279,7 @@
                           @endif
                           {{-- per-product delete bin --}}
                           <div id="delete-remarks-bin-{{ $pIndex }}"></div>
-                        </div>
+                        </div> -->
                       </div>
                     </div>
                 </div>
