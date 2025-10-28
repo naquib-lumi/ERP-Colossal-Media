@@ -409,7 +409,7 @@
         @php
           $op        = strtolower((string) $r->operation);
           $author    = optional($r->user)->name ?? optional($r->author)->name ?? '—';
-          $timestamp = $r->created_at ? \Carbon\Carbon::parse($r->created_at)->format('Y-m-d H:i') : '';
+          $timestamp = $r->created_at ? \Carbon\Carbon::parse($r->created_at)->format('Y-m-d') : '';
         @endphp
 
         <li class="list-group-item">

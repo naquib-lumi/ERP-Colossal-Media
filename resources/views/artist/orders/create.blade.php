@@ -269,8 +269,8 @@
                                         <tr>
                                             <th>Product Name</th>
                                             <th>Quantity</th>
+                                            <th>Material Remarks</th>
                                             <th>Remark</th>
-                                            <th>Material Remark</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>

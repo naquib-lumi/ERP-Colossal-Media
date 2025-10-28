@@ -400,10 +400,9 @@ public function index(Request $request)
         }
 
         // ---------- Fulfillment progress (use fulfillment_progress, fall back to products when in_progress) ----------
-        // We now support 4 stages: printing, furnishing, delivery (Dispatch Control), installation (display as Delivery & Installation)
         $ALL_STAGES = ['printing', 'furnishing', 'delivery', 'installation'];
 
-        // Pull all rows for this product and reduce to latest per stage
+        // Pull all rows for this product and keep the latest per stage
         $rows = DB::table('fulfillment_progress')
             ->where('ProductID', $product->ProductID)
             ->whereIn('stage', $ALL_STAGES)
@@ -413,33 +412,70 @@ public function index(Request $request)
         foreach ($rows as $r) {
             $rank = $r->completedAt ?? $r->acceptedAt ?? $r->created_at;
             $cur  = $latest[$r->stage]['_rank'] ?? null;
-
             if (!$cur || $rank > $cur) {
                 $latest[$r->stage] = [
-                    'status'     => strtolower((string)$r->status),
-                    'acceptedAt' => $r->acceptedAt,
+                    'status'      => strtolower((string) $r->status),
+                    'acceptedAt'  => $r->acceptedAt,
                     'completedAt' => $r->completedAt,
-                    '_rank'      => $rank,
+                    '_rank'       => $rank,
                 ];
             }
         }
 
-        // Build the structure the Blade expects; keep key names compatible with your previous view
-        $currentStage  = strtolower((string)$product->taskType);
-        $currentStatus = strtolower((string)$product->status);
+        // product's current stage/status (to force "in_progress" display if needed)
+        $currentStage  = strtolower((string) $product->taskType);
+        $currentStatus = strtolower((string) $product->status);
 
-        $progress = collect($ALL_STAGES)->mapWithKeys(function ($stage) use ($latest, $currentStage, $currentStatus) {
-            $row         = $latest[$stage] ?? null;
-            $status      = $row['status'] ?? 'pending';
-            $acceptedAt  = $row['acceptedAt']  ?? null;
-            $completedAt = $row['completedAt'] ?? null;
+        // Determine which of the forked stages exists
+        $hasDelivery      = isset($latest['delivery']);
+        $hasInstallation  = isset($latest['installation']);
 
-            // If this is the product's current stage and products.status is in_progress, force in_progress
+        // Helper to check completion
+        $st = fn($k) => $latest[$k]['status'] ?? null;
+        $isCompleted = fn($k) => ($latest[$k]['status'] ?? null) === 'completed';
+
+        // For blanking earlier no-touch stages when a later stage is completed
+        $laterCompleted = [
+            // printing should be blank if furnishing OR the chosen fork is completed
+            'printing' => ($isCompleted('furnishing') ?? false)
+                        || (($hasDelivery && $isCompleted('delivery')) || ($hasInstallation && $isCompleted('installation'))),
+            // furnishing should be blank if the chosen fork is completed
+            'furnishing' => (($hasDelivery && $isCompleted('delivery')) || ($hasInstallation && $isCompleted('installation'))),
+            'delivery' => false,
+            'installation' => false,
+        ];
+
+        // Build what the Blade expects
+        $progress = collect($ALL_STAGES)->mapWithKeys(function ($stage) use ($latest, $currentStage, $currentStatus, $hasDelivery, $hasInstallation, $laterCompleted) {
+
+            // MUTUAL EXCLUSION: if delivery exists, hide installation pill; if installation exists, hide delivery pill
+            if ($stage === 'delivery' && $hasInstallation) {
+                return [$stage => ['status' => '', 'accepted_at' => null, 'completed_at' => null, 'duration' => null]];
+            }
+            if ($stage === 'installation' && $hasDelivery) {
+                return [$stage => ['status' => '', 'accepted_at' => null, 'completed_at' => null, 'duration' => null]];
+            }
+
+            $row = $latest[$stage] ?? null;
+
+            if ($row) {
+                $status      = $row['status'];
+                $acceptedAt  = $row['acceptedAt'];
+                $completedAt = $row['completedAt'];
+            } else {
+                // No DB row for this stage
+                // If a later stage is completed → BLANK; otherwise default to "pending"
+                $status      = $laterCompleted[$stage] ? '' : 'pending';
+                $acceptedAt  = null;
+                $completedAt = null;
+            }
+
+            // If this is the product's current stage and it's in progress, show in_progress (unless already completed/rejected)
             if ($currentStage === $stage && $currentStatus === 'in_progress' && !in_array($status, ['completed', 'rejected'], true)) {
                 $status = 'in_progress';
             }
 
-            // Optional duration (only if both ends exist)
+            // Optional duration when both timestamps exist
             $duration = null;
             if ($acceptedAt && $completedAt) {
                 $start = \Carbon\Carbon::parse($acceptedAt);
@@ -452,7 +488,7 @@ public function index(Request $request)
             }
 
             return [$stage => [
-                'status'       => $status,
+                'status'       => $status,        // '' means: render no pill
                 'accepted_at'  => $acceptedAt,
                 'completed_at' => $completedAt,
                 'duration'     => $duration,
