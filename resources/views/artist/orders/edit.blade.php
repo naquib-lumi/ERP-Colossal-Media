@@ -2535,34 +2535,53 @@
   });
 
     input.addEventListener('change', () => {
-      if (!input.files?.length) return;
-      const incoming = Array.from(input.files);
+    if (!input.files?.length) return;
+    const incoming = Array.from(input.files);
 
-      incoming.forEach(f => {
-        const ext = (f.name.split('.').pop() || '').toLowerCase();
-        const key = `${f.name}|${f.size}|${f.lastModified}`;
+    // collect invalids to show in one SweetAlert
+    const invalids = [];
 
-        const errors = [];
-        if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
-        if (selected.has(key)) errors.push('Duplicate');
+    incoming.forEach(f => {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      const key = `${f.name}|${f.size}|${f.lastModified}`;
 
-        if (errors.length) {
-          addRow(f, {
-            status: 'error',
-            note: errors.join(', ')
-          });
-        } else {
-          selected.set(key, f);
-          addRow(f, {
-            key,
-            status: 'ready'
-          });
-        }
-      });
+      const errors = [];
+      if (!ALLOWED.includes(ext)) {
+        errors.push('Invalid file type');
+        invalids.push({ name: f.name, ext });
+      }
+      if (selected.has(key)) errors.push('Duplicate');
 
-      updateSummary();
-      input.value = '';
+      if (errors.length) {
+        addRow(f, { status: 'error', note: errors.join(', ') });
+      } else {
+        selected.set(key, f);
+        addRow(f, { key, status: 'ready' });
+      }
     });
+
+    // pop SweetAlert if any invalid types
+    if (invalids.length) {
+      const uniqAllowed = [...new Set(ALLOWED)].map(e => `.${e}`).join(', ');
+      const list = invalids
+        .map(({ name, ext }) => `<li><code>${name}</code> &nbsp;<small>(.${ext})</small></li>`)
+        .join('');
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Unsupported file type',
+        html: `
+          <p>The following file(s) are not allowed:</p>
+          <ul style="text-align:left;margin:0 0 8px 18px;">${list}</ul>
+          <p><small>Allowed types: ${uniqAllowed || '–'}</small></p>
+        `,
+        confirmButtonText: 'OK'
+      });
+    }
+
+    updateSummary();
+    input.value = '';
+  });
 
     function addRow(file, {
       key = null,
