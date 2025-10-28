@@ -78,45 +78,53 @@ body{background:var(--bg);}
 </style>
 
 <div class="card soft p-0 mb-3">
-  <!-- Tabs（已移除 Machine Usage） -->
+  <!-- Tabs -->
   <ul class="nav nav-tabs px-3 pt-3" id="reportTabs" style="border-bottom:1px solid var(--border)">
     <li class="nav-item"><a class="nav-link active" data-target="#salesSec" href="javascript:void(0)">Sales Report</a></li>
     <li class="nav-item"><a class="nav-link" data-target="#orderSec" href="javascript:void(0)">Order Report</a></li>
   </ul>
 
-  <!-- ===================== Sales Report ===================== -->
+  <!-- Sales Report -->
   <div class="section active" id="salesSec">
     <!-- Filters -->
     <div class="p-3 border-bottom">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-          <label class="form-label small">Select Salesperson</label>
-          <select class="form-select" id="salesperson">
-            <option>All Salespersons</option><option>Alex</option><option>Brenda</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label small">Time Period</label>
-          <div class="btn-group w-100" role="group">
-            <button class="btn btn-outline-dark btn-sm active">Yearly</button>
-            <button class="btn btn-outline-dark btn-sm">Quarterly</button>
-            <button class="btn btn-outline-dark btn-sm">Monthly</button>
+      <form id="sales-filters">
+        @csrf
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label small">Select Salesperson</label>
+            <select class="form-select" name="salesperson" id="salesperson">
+              <option value="All Salespersons">All Salespersons</option>
+              @foreach($salespeople as $id => $name)
+                <option value="{{ $id }}">{{ $name }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Time Period</label>
+            <div class="btn-group w-100" role="group" id="sales-period-group">
+              <button type="button" class="btn btn-outline-dark btn-sm" data-period="yearly">Yearly</button>
+              <button type="button" class="btn btn-outline-dark btn-sm" data-period="quarterly">Quarterly</button>
+              <button type="button" class="btn btn-outline-dark btn-sm active" data-period="monthly">Monthly</button>
+            </div>
+            <input type="hidden" name="period" id="sales-period" value="monthly">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small">Date Range</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="date" name="start_date" id="sales-start-date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}">
+              <span class="text-muted small">to</span>
+              <input type="date" name="end_date" id="sales-end-date" class="form-control" value="{{ now()->endOfMonth()->format('Y-m-d') }}">
+            </div>
+          </div>
+          <div class="col-md-2 text-md-end d-flex gap-2">
+            <button type="button" id="sales-generate" class="btn btn-primary btn-sm-compact">Generate</button>
+            <button type="submit" formaction="{{ route('admin.report.export-sales') }}" class="btn btn-dark-compact btn-sm-compact">
+              <i class="bi bi-download me-1"></i> Export
+            </button>
           </div>
         </div>
-        <div class="col-md-4">
-          <label class="form-label small">Date Range</label>
-          <div class="d-flex align-items-center gap-2">
-            <input type="date" class="form-control" value="2025-01-01">
-            <span class="text-muted small">to</span>
-            <input type="date" class="form-control" value="2025-01-31">
-          </div>
-        </div>
-        <div class="col-md-2 text-md-end">
-          <button class="btn btn-dark-compact btn-sm-compact w-100">
-            <i class="bi bi-download me-1"></i> Export
-          </button>
-        </div>
-      </div>
+      </form>
     </div>
 
     <!-- KPI -->
@@ -128,8 +136,8 @@ body{background:var(--bg);}
               <p class="title mb-1">Total Leads Added</p>
               <span class="icon-pill"><i class="bi bi-magnet"></i></span>
             </div>
-            <div class="num">36</div>
-            <span class="delta text-success">+12% from last period</span>
+            <div class="num" id="total-leads">0</div>
+            <span class="delta" id="leads-delta"></span>
           </div>
         </div>
         <div class="col-md-3">
@@ -138,8 +146,8 @@ body{background:var(--bg);}
               <p class="title mb-1">Total Meetings Held</p>
               <span class="icon-pill"><i class="bi bi-calendar3"></i></span>
             </div>
-            <div class="num">18</div>
-            <span class="delta text-success">+8% from last period</span>
+            <div class="num" id="total-meetings">0</div>
+            <span class="delta" id="meetings-delta"></span>
           </div>
         </div>
         <div class="col-md-3">
@@ -148,8 +156,8 @@ body{background:var(--bg);}
               <p class="title mb-1">Accepted Meetings</p>
               <span class="icon-pill"><i class="bi bi-check2-square"></i></span>
             </div>
-            <div class="num">10</div>
-            <span class="text-muted small">55.6% acceptance rate</span>
+            <div class="num" id="accepted-meetings">0</div>
+            <span class="text-muted small" id="acceptance-rate">0% acceptance rate</span>
           </div>
         </div>
         <div class="col-md-3">
@@ -158,7 +166,7 @@ body{background:var(--bg);}
               <p class="title mb-1">Rejected</p>
               <span class="icon-pill"><i class="bi bi-x-square"></i></span>
             </div>
-            <div class="num">8</div>
+            <div class="num" id="rejected-meetings">0</div>
           </div>
         </div>
       </div>
@@ -167,7 +175,7 @@ body{background:var(--bg);}
     <!-- Charts -->
     <div class="p-3">
       <div class="row g-3 align-items-stretch charts-row">
-        <!-- 左：Monthly Performance -->
+        <!-- Monthly Performance -->
         <div class="col-lg-7">
           <div class="card soft p-3 h-100 d-flex flex-column">
             <div class="d-flex justify-content-between align-items-center">
@@ -176,7 +184,9 @@ body{background:var(--bg);}
                 <label class="small text-muted mb-0">Month</label>
                 <select id="mpMonth" class="form-select form-select-sm" style="width:140px">
                   <option>Jan</option><option>Feb</option><option>Mar</option>
-                  <option>Apr</option><option>May</option><option selected>Jun</option>
+                  <option>Apr</option><option>May</option><option>Jun</option>
+                  <option>Jul</option><option>Aug</option><option>Sep</option>
+                  <option>Oct</option><option>Nov</option><option>Dec</option>
                 </select>
               </div>
             </div>
@@ -193,15 +203,16 @@ body{background:var(--bg);}
           </div>
         </div>
 
-        <!-- 右：Meeting Outcomes -->
+        <!-- Meeting Outcomes -->
         <div class="col-lg-5">
           <div class="card soft p-3 h-100 d-flex flex-column">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h6 class="fw-bold mb-0">Meeting Outcomes</h6>
+              <button type="button" id="outcomes-generate" class="btn btn-primary btn-sm-compact">Generate</button>
             </div>
 
             <div class="outcomes-grid">
-              <!-- 左：饼图 -->
+              <!-- Pie Chart -->
               <div>
                 <div class="chart-wrap"><canvas id="pieOutcome"></canvas></div>
                 <div class="mt-2 small">
@@ -210,68 +221,74 @@ body{background:var(--bg);}
                 </div>
               </div>
 
-              <!-- 右：竖排筛选 -->
+              <!-- Filters -->
               <aside class="sidebar">
-                <div class="filter-stack d-flex flex-column gap-3">
+                <form id="outcomes-filters" class="filter-stack d-flex flex-column gap-3">
+                  @csrf
                   <div>
                     <div class="label">Start date</div>
-                    <input type="date" class="form-control" value="2025-01-01">
+                    <input type="date" name="start_date" id="outcomes-start-date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}">
                   </div>
                   <div>
                     <div class="label">End date</div>
-                    <input type="date" class="form-control" value="2025-01-31">
+                    <input type="date" name="end_date" id="outcomes-end-date" class="form-control" value="{{ now()->endOfMonth()->format('Y-m-d') }}">
                   </div>
                   <div>
                     <div class="label">Salesperson</div>
-                    <select class="form-select">
-                      <option>All Salespersons</option>
-                      <option>Alex</option>
-                      <option>Brenda</option>
+                    <select name="salesperson" class="form-select">
+                      <option value="All Salespersons">All Salespersons</option>
+                      @foreach($salespeople as $id => $name)
+                        <option value="{{ $id }}">{{ $name }}</option>
+                      @endforeach
                     </select>
                   </div>
                   <div>
                     <div class="label">Period</div>
-                    <select class="form-select">
-                      <option selected>Monthly</option>
+                    <select name="period" id="outcomes-period" class="form-select">
+                      <option>Monthly</option>
                       <option>Quarterly</option>
                       <option>Yearly</option>
                     </select>
                   </div>
-                </div>
+                </form>
               </aside>
             </div>
           </div>
         </div>
       </div>
-    </div> <!-- /p-3 -->
-  </div><!-- /salesSec -->
+    </div>
+  </div>
 
-  <!-- ===================== Order Report ===================== -->
+  <!-- Order Report -->
   <div class="section" id="orderSec">
     <!-- Filters -->
     <div class="p-3 border-bottom">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-          <label class="form-label small">Time Period</label>
-          <select class="form-select" id="ordPeriod">
-            <option selected>Monthly</option>
-            <option>Quarterly</option>
-            <option>Yearly</option>
-          </select>
-        </div>
-        <div class="col-md-5">
-          <label class="form-label small">Date Range</label>
-          <div class="d-flex gap-2">
-            <input type="date" class="form-control" value="2025-01-01">
-            <input type="date" class="form-control" value="2025-01-31">
+      <form id="order-filters">
+        @csrf
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label small">Time Period</label>
+            <select class="form-select" name="period" id="order-period">
+              <option>Monthly</option>
+              <option>Quarterly</option>
+              <option>Yearly</option>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small">Date Range</label>
+            <div class="d-flex gap-2">
+              <input type="date" name="start_date" id="order-start-date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}">
+              <input type="date" name="end_date" id="order-end-date" class="form-control" value="{{ now()->endOfMonth()->format('Y-m-d') }}">
+            </div>
+          </div>
+          <div class="col-md-2 ms-auto text-md-end d-flex gap-2">
+            <button type="button" id="order-generate" class="btn btn-primary btn-sm-compact">Generate</button>
+            <button type="submit" formaction="{{ route('admin.report.export-orders') }}" class="btn btn-dark-compact btn-sm-compact">
+              <i class="bi bi-download me-1"></i> Export
+            </button>
           </div>
         </div>
-        <div class="col-md-2 ms-auto text-md-end">
-          <button class="btn btn-dark-compact btn-sm-compact w-100">
-            <i class="bi bi-download me-1"></i> Export
-          </button>
-        </div>
-      </div>
+      </form>
     </div>
 
     <!-- Chart -->
@@ -287,49 +304,16 @@ body{background:var(--bg);}
         </div>
       </div>
     </div>
-  </div><!-- /orderSec -->
+  </div>
 </div>
 
 <script>
-// ===== Tabs（仅两页） =====
-document.querySelectorAll('#reportTabs .nav-link').forEach(a=>{
-  a.addEventListener('click', ()=>{
-    document.querySelectorAll('#reportTabs .nav-link').forEach(x=>x.classList.remove('active'));
-    a.classList.add('active');
-    document.querySelectorAll('.section').forEach(sec=>sec.classList.remove('active'));
-    document.querySelector(a.dataset.target).classList.add('active');
-  });
-});
-
-// ===== Monthly Performance（单月构成） =====
-const mpCtx = document.getElementById('barMonthly');
-
-const mpLabels = ['Leads Added','Accepted','Rejected','50/50','Low Chance'];
-const mpColors = ['#60a5fa','#22c55e','#ef4444','#06b6d4','#a78bfa'];
-
-const monthlyData = {
-  Jan: [100,30,15,50,5],
-  Feb: [80,25,12,35,8],
-  Mar: [95,22,14,40,7],
-  Apr: [110,21,16,38,6],
-  May: [90,34,10,45,4],
-  Jun: [100,30,15,50,5],
-};
-
-function makeDataset(values){
-  return [{
-    label: 'This Month',
-    data: values,
-    backgroundColor: mpColors,
-    borderRadius: 6,
-    borderSkipped: false
-  }];
-}
-
-let currentMonth = 'Jun';
-let barMonthly = new Chart(mpCtx, {
+// Initialize charts with zeros
+const mpLabels = ['Leads Added', 'Accepted', 'Rejected', '50/50', 'Low Chance'];
+const mpColors = ['#60a5fa', '#22c55e', '#ef4444', '#06b6d4', '#a78bfa'];
+let barMonthly = new Chart(document.getElementById('barMonthly'), {
   type: 'bar',
-  data: { labels: mpLabels, datasets: makeDataset(monthlyData[currentMonth]) },
+  data: { labels: mpLabels, datasets: [{ data: [0, 0, 0, 0, 0], backgroundColor: mpColors, borderRadius: 6, borderSkipped: false }] },
   options: {
     responsive: true,
     maintainAspectRatio: false,
@@ -344,42 +328,160 @@ let barMonthly = new Chart(mpCtx, {
   }
 });
 
-// 月份下拉切换
-const mpSel = document.getElementById('mpMonth');
-mpSel?.addEventListener('change', () => {
-  currentMonth = mpSel.value;
-  barMonthly.data.datasets = makeDataset(monthlyData[currentMonth]);
-  barMonthly.update();
+let pieOutcome = new Chart(document.getElementById('pieOutcome'), {
+  type: 'pie',
+  data: { labels: ['Accepted', 'Rejected'], datasets: [{ data: [0, 0], backgroundColor: ['#22c55e', '#ef4444'], borderWidth: 0 }] },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
 });
 
-// ===== Meeting Outcomes 饼图 =====
-const pieCtx = document.getElementById('pieOutcome');
-if (pieCtx) {
-  new Chart(pieCtx, {
-    type: 'pie',
-    data: {
-      labels: ['Accepted', 'Rejected'],
-      datasets: [{
-        data: [10, 8],
-        backgroundColor: ['#22c55e', '#ef4444'],
-        borderWidth: 0
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+let orderFulfill = new Chart(document.getElementById('orderFulfill'), {
+  type: 'bar',
+  data: { labels: ['New Order', 'In Progress', 'Completed', 'Overdue'], datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#22c55e', '#f59e0b', '#06b6d4', '#ef4444'] }] },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true } }
+  }
+});
+
+// Tabs
+document.querySelectorAll('#reportTabs .nav-link').forEach(a => {
+  a.addEventListener('click', () => {
+    document.querySelectorAll('#reportTabs .nav-link').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+    document.querySelector(a.dataset.target).classList.add('active');
   });
+});
+
+// Function to update date range inputs
+function updateDateRange(section, period) {
+  const startInput = document.querySelector(`#${section}-start-date`);
+  const endInput = document.querySelector(`#${section}-end-date`);
+  const today = new Date();
+  let startDate, endDate;
+
+  if (period === 'yearly') {
+    startDate = new Date(today.getFullYear(), 0, 1);
+    endDate = new Date(today.getFullYear(), 11, 31);
+  } else if (period === 'quarterly') {
+    const quarter = Math.floor(today.getMonth() / 3);
+    startDate = new Date(today.getFullYear(), quarter * 3, 1);
+    endDate = new Date(today.getFullYear(), (quarter + 1) * 3 - 1, new Date(today.getFullYear(), (quarter + 1) * 3, 0).getDate());
+  } else {
+    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  }
+
+  startInput.value = startDate.toISOString().split('T')[0];
+  endInput.value = endDate.toISOString().split('T')[0];
 }
 
-// ===== Order chart =====
-new Chart(document.getElementById('orderFulfill'),{
-  type:'bar',
-  data:{
-    labels:['New Order','In Progress','Completed','Overdue'],
-    datasets:[{ data:[30,12,17,1], backgroundColor:['#22c55e','#f59e0b','#06b6d4','#ef4444'] }]
-  },
-  options:{
-    responsive:true, maintainAspectRatio:false,
-    plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}
-  }
+// Sales Period buttons
+document.querySelectorAll('#sales-period-group button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#sales-period-group button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector('#sales-period').value = btn.dataset.period;
+    updateDateRange('sales', btn.dataset.period);
+    document.getElementById('sales-generate').click();
+  });
+});
+
+// Outcomes Period select
+document.getElementById('outcomes-period').addEventListener('change', (e) => {
+  updateDateRange('outcomes', e.target.value.toLowerCase());
+  document.getElementById('outcomes-generate').click();
+});
+
+// Order Period select
+document.getElementById('order-period').addEventListener('change', (e) => {
+  updateDateRange('order', e.target.value.toLowerCase());
+  document.getElementById('order-generate').click();
+});
+
+// Sales Generate
+document.getElementById('sales-generate').addEventListener('click', () => {
+  const formData = new FormData(document.getElementById('sales-filters'));
+  fetch('{{ route('admin.report.sales-kpis') }}', {
+    method: 'POST',
+    body: formData,
+    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+  })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('total-leads').textContent = data.total_leads;
+      document.getElementById('leads-delta').textContent = `${data.leads_delta}% from last period`;
+      document.getElementById('leads-delta').className = data.leads_delta >= 0 ? 'delta text-success' : 'delta text-danger';
+      document.getElementById('total-meetings').textContent = data.total_meetings;
+      document.getElementById('meetings-delta').textContent = `${data.meetings_delta}% from last period`;
+      document.getElementById('meetings-delta').className = data.meetings_delta >= 0 ? 'delta text-success' : 'delta text-danger';
+      document.getElementById('accepted-meetings').textContent = data.accepted;
+      document.getElementById('acceptance-rate').textContent = `${data.acceptance_rate}% acceptance rate`;
+      document.getElementById('rejected-meetings').textContent = data.rejected;
+    })
+    .catch(err => console.error('Error fetching sales KPIs:', err));
+});
+
+// Monthly Performance change
+document.getElementById('mpMonth').addEventListener('change', (e) => {
+  const formData = new FormData(document.getElementById('sales-filters'));
+  formData.append('month', e.target.value);
+  fetch('{{ route('admin.report.sales-monthly') }}', {
+    method: 'POST',
+    body: formData,
+    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+  })
+    .then(res => res.json())
+    .then(data => {
+      barMonthly.data.datasets[0].data = [data.leads_added, data.accepted, data.rejected, data.fifty_fifty, data.low_chance];
+      barMonthly.update();
+    })
+    .catch(err => console.error('Error fetching monthly performance:', err));
+});
+
+// Outcomes Generate
+document.getElementById('outcomes-generate').addEventListener('click', () => {
+  const formData = new FormData(document.getElementById('outcomes-filters'));
+  fetch('{{ route('admin.report.sales-outcomes') }}', {
+    method: 'POST',
+    body: formData,
+    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+  })
+    .then(res => res.json())
+    .then(data => {
+      pieOutcome.data.datasets[0].data = [data.accepted, data.rejected];
+      pieOutcome.update();
+    })
+    .catch(err => console.error('Error fetching meeting outcomes:', err));
+});
+
+// Order Generate
+document.getElementById('order-generate').addEventListener('click', () => {
+  const formData = new FormData(document.getElementById('order-filters'));
+  fetch('{{ route('admin.report.order-fulfillment') }}', {
+    method: 'POST',
+    body: formData,
+    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+  })
+    .then(res => res.json())
+    .then(data => {
+      orderFulfill.data.datasets[0].data = [data.new_orders, data.in_progress, data.completed, data.overdue];
+      orderFulfill.update();
+    })
+    .catch(err => console.error('Error fetching order fulfillment:', err));
+});
+
+// Initial data fetch on page load
+document.addEventListener('DOMContentLoaded', () => {
+  // Set default month for Monthly Performance
+  document.getElementById('mpMonth').value = new Date().toLocaleString('en-US', { month: 'short' });
+  // Trigger all generate buttons
+  document.getElementById('sales-generate').click();
+  document.getElementById('mpMonth').dispatchEvent(new Event('change'));
+  document.getElementById('outcomes-generate').click();
+  document.getElementById('order-generate').click();
 });
 </script>
 @endsection

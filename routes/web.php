@@ -5,10 +5,13 @@ use App\Http\Controllers\SalesController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdminReportController;
+use App\Http\Controllers\CalendarController;
+
+
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\MeetingController;
-use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\ArtistOrderController;
 use App\Http\Controllers\ArtistCalendarController;
 use App\Http\Controllers\ReminderController;
@@ -362,40 +365,44 @@ Route::get('/dashboard', function () {
 
 
 
-Route::middleware(['auth','role:admin'])->group(function () {
-    // Dashboard & charts
+Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/admin/leads-monthly', [AdminController::class, 'leadsMonthly'])->name('admin.leadsMonthly');
     Route::get('/admin/leads-breakdown', [AdminController::class, 'leadsBreakdown'])->name('admin.leadsBreakdown');
     Route::get('/admin/fulfillment-counts', [AdminController::class, 'fulfillmentCounts'])->name('admin.fulfillmentCounts');
-
-    // Fulfillment
-    Route::get('/admin/fulfillment', [AdminController::class,'fulfillment'])->name('admin.fulfillment');
-    Route::get('/admin/fulfillment/{id}', [AdminController::class,'fulfillmentShow'])->name('admin.fulfillment.show');
-    Route::get('/admin/fulfillment/{id}/edit', [AdminController::class,'fulfillmentEdit'])->name('admin.fulfillment.edit');
-
-    // Users
+    Route::get('/admin/fulfillment', [AdminController::class, 'fulfillment'])->name('admin.fulfillment');
+    Route::get('/admin/fulfillment/{id}', [AdminController::class, 'fulfillmentShow'])->name('admin.fulfillment.show');
+    Route::get('/admin/fulfillment/{id}/edit', [AdminController::class, 'fulfillmentEdit'])->name('admin.fulfillment.edit');
     Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
-    Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user'); // DataTables JSON（可选）
+    Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user');
     Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
     Route::put('/admin/user/{user}', [AdminController::class, 'updateUser'])->name('admin.user.update');
     Route::patch('/admin/user/{user}/disable', [AdminController::class, 'disableUser'])->name('admin.user.disable');
-
-    // Orders
     Route::get('/admin/orders', [AdminController::class, 'orders'])->name('admin.orders');
     Route::get('/admin/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
     Route::post('/admin/orders/data', [AdminController::class, 'getOrders'])->name('admin.orders.data');
-
     Route::get('/admin/coasing-data', [AdminController::class, 'coasingData'])->name('admin.coasing-data');
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
-    Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
-    Route::get('/admin/fulfillment', [AdminController::class, 'fulfillment'])->name('admin.fulfillment');
-    Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user');
+    Route::get('/calendar/admin-events', [CalendarController::class, 'events'])->name('calendar.events');
+    Route::get('/calendar/order-events', [CalendarController::class, 'orderEvents'])->name('calendar.order-events');
+Route::get('/admin/reports', [AdminReportController::class, 'index'])->name('admin.reports');
+Route::get('/admin/reportstest', [AdminReportController::class, 'reportstest'])->name('admin.reportstest');
+
+    Route::post('/admin/reports/sales-kpis', [AdminReportController::class, 'salesKpis'])->name('admin.report.sales-kpis');
+    Route::post('/admin/reports/sales-monthly', [AdminReportController::class, 'salesMonthlyPerformance'])->name('admin.report.sales-monthly');
+    Route::post('/admin/reports/sales-outcomes', [AdminReportController::class, 'salesMeetingOutcomes'])->name('admin.report.sales-outcomes');
+    Route::post('/admin/reports/order-fulfillment', [AdminReportController::class, 'orderFulfillment'])->name('admin.report.order-fulfillment');
+    Route::post('/admin/reports/export-sales', [AdminReportController::class, 'exportSales'])->name('admin.report.export-sales');
+    Route::post('/admin/reports/export-orders', [AdminReportController::class, 'exportOrders'])->name('admin.report.export-orders');
     Route::get('/admin/data-key-in', [AdminController::class, 'dataKeyIn'])->name('admin.data-key-in');
     Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
+
+    // Profile
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
 });
+
+
     Route::middleware('role:printing,installation,delivery,furnishing')->group(function () {
         Route::get('/operations/tasks', [OperationsController::class, 'tasks'])->name('operations.tasks');
     });

@@ -73,7 +73,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
 
     <!-- Page CSS (conditional) -->
-    @if (Request::is('sales/calendar') || Request::is('calendar/*'))
+    @if (Request::is('sales/calendar') || Request::is('calendar/*') || Request::is('admin/calendar') )
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
         <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
     @endif
@@ -83,7 +83,7 @@
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
     @endif
 
-    @if (Request::is('sales/leads') || Request::is('sales/calendar') || Request::is('sales/orders') || Request::is('sales/dashboard'))
+    @if (Request::is('sales/leads') || Request::is('sales/calendar') || Request::is('sales/orders') || Request::is('sales/dashboard') || Request::is('admin/calendar') )
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
         <link rel="stylesheet"
@@ -275,6 +275,15 @@
         <script src="{{ asset('assets/js/app-calendar.js') }}"></script>
     @endif
 
+      @if (Request::is('admin/calendar') )
+        <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
+        <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
+        <script src="{{ asset('assets/js/app-calendar-admin.js') }}"></script>
+    @endif
+
+
+    
+
     <script src="{{ asset('assets/vendor/libs/@form-validation/popular.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/@form-validation/bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/@form-validation/auto-focus.js') }}"></script>
@@ -322,6 +331,15 @@
         <!-- <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script> -->
         <script src="{{ asset('assets/js/app-calendar.js') }}"></script>
     @endif
+
+      @if (Request::is('admin/calendar') )
+        <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
+        <!-- Page JS -->
+        <!-- <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script> -->
+        <script src="{{ asset('assets/js/app-calendar-admin.js') }}"></script>
+    @endif
+
+ 
 
     <script src="{{ asset('assets/vendor/libs/@form-validation/popular.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/@form-validation/bootstrap5.js') }}"></script>
