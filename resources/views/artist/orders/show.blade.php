@@ -29,6 +29,8 @@
     // Yes/No from tinyint/nullable
     function yn($v) { return ((int)$v) === 1 ? 'Yes' : 'No'; }
 @endphp
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
 <style>
     .btn-purple:hover {
         background: #5a4cd9 !important;
@@ -39,6 +41,12 @@
 
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <a href="{{ route('artist.orders') }}" 
+        class="text-decoration-none text-muted me-3"
+        style="display: inline-flex; align-items: center; gap: 8px;">
+        <i class="bi bi-arrow-left-circle fw-semibold" 
+            style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        </a>
         <h4 class="mb-0 flex-grow-1">
             @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
                 @php

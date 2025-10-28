@@ -69,10 +69,18 @@
 @endpush
 
 @section('content')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
 <div class="container py-4">
 
   {{-- Header --}}
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex align-items-center mb-3">
+    <a href="{{ route('artist.fulfillment.index') }}" 
+      class="text-decoration-none text-muted me-3"
+      style="display: inline-flex; align-items: center; gap: 8px;">
+      <i class="bi bi-arrow-left-circle fw-semibold" 
+        style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+    </a>
     <h4 class="mb-0">Product Details - {{ $productCode }}</h4>
     <!-- <a href="{{ route('artist.fulfillment.product.export', $product->ProductID) }}" class="btn btn-dark">
       <i class="bx bx-printer me-1"></i> Export PDF
