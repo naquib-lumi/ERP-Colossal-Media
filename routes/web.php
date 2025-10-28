@@ -396,6 +396,8 @@ Route::get('/admin/reportstest', [AdminReportController::class, 'reportstest'])-
     Route::post('/admin/reports/export-orders', [AdminReportController::class, 'exportOrders'])->name('admin.report.export-orders');
     Route::get('/admin/data-key-in', [AdminController::class, 'dataKeyIn'])->name('admin.data-key-in');
     Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
+
+    // Profile
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
 });

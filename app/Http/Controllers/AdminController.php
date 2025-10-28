@@ -14,10 +14,63 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
 
 class AdminController extends Controller
 {
+    /* ========================= Auth (Login / Logout) ========================= */
+
+    /** 登录页（已登录则带去后台） */
+    public function showLogin()
+    {
+        if (Auth::check()) {
+            return redirect()->intended(route('admin.dashboard'));
+        }
+        return view('auth.login');
+    }
+
+    /** 登录提交：仅允许 status=active */
+    public function doLogin(Request $request)
+    {
+        $request->validate([
+            'email'    => ['required','email'],
+            'password' => ['required','string'],
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        // 邮箱不存在或密码错误 -> 与默认错误一致
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return back()
+                ->withErrors(['email' => __('auth.failed')]) // “These credentials do not match our records.”
+                ->onlyInput('email');
+        }
+
+        // 关键校验：必须 active 才能登入
+        if (strtolower((string)$user->status) !== 'active') {
+            return back()
+                ->withErrors(['email' => 'Your account is inactive. Please contact the administrator.'])
+                ->onlyInput('email');
+        }
+
+        Auth::login($user, $request->boolean('remember'));
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('admin.dashboard'));
+    }
+
+    /** 登出 */
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->with('status', 'You have been logged out.');
+    }
+
     /* -------------------- Profile -------------------- */
 
     public function ProfileShow(Request $request)
@@ -240,9 +293,7 @@ class AdminController extends Controller
         ]);
     }
 
-    /* ======================================================================
-     *                          Manage Users
-     * ====================================================================== */
+    /* ====================== Manage Users ====================== */
 
     private function allowedRoles(): array
     {
@@ -250,6 +301,7 @@ class AdminController extends Controller
             'admin',
             'boss',
             'salesperson',
+            'head-salesperson',
             'head-artist',
             'artist',
             'operations-printing',
@@ -257,12 +309,11 @@ class AdminController extends Controller
             'operations-dispatch-control',
             'operations-delivery-installation',
             'data-entry',
-            'installation', // 如果你在前端下拉里用到了
-            'head-salesperson',
+            'installation',
         ];
     }
 
-    /** 页面入口：服务端分页 + 搜索筛选 */
+    /** 列表页（分页 + 搜索/筛选），表格中不显示 admin */
     public function manageUser(Request $request)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
@@ -272,15 +323,16 @@ class AdminController extends Controller
         $status = $request->query('status', 'all');
 
         $users = User::query()
-            ->when($q !== '', function ($qbuilder) use ($q) {
-                $qbuilder->where(function ($w) use ($q) {
+            ->where('role', '!=', 'admin')
+            ->when($q !== '', function ($qb) use ($q) {
+                $qb->where(function ($w) use ($q) {
                     $w->where('name', 'like', "%{$q}%")
                       ->orWhere('email', 'like', "%{$q}%")
                       ->orWhere('contact_number', 'like', "%{$q}%");
                 });
             })
-            ->when($role !== 'all', fn($qb) => $qb->where('role', $role))
-            ->when($status !== 'all', fn($qb) => $qb->where('status', strtolower($status)))
+            ->when($role !== 'all' && $role !== 'admin', fn($qb) => $qb->where('role', $role))
+            ->when($status !== 'all', fn($qb) => $qb->whereRaw('LOWER(status)=?', [strtolower($status)]))
             ->orderBy('name')
             ->paginate(10)
             ->withQueryString();
@@ -291,7 +343,7 @@ class AdminController extends Controller
         ]);
     }
 
-    /** 若你仍用到 DataTables */
+    /** （可选）DataTables JSON */
     public function user(Request $request)
     {
         if (!Auth::user()->hasRole('admin')) {
@@ -303,7 +355,8 @@ class AdminController extends Controller
         $status = $request->get('status');
 
         $query = User::query()
-            ->select(['id','name','email','contact_number','status','role','created_at','updated_at']);
+            ->select(['id','name','email','contact_number','status','role','created_at','updated_at'])
+            ->where('role', '!=', 'admin');
 
         if ($q !== '') {
             $query->where(function($w) use ($q){
@@ -312,75 +365,82 @@ class AdminController extends Controller
                   ->orWhere('contact_number','like',"%{$q}%");
             });
         }
-        if ($role && $role !== 'all')     $query->where('role', $role);
-        if ($status && $status !== 'all') $query->where('status', strtolower($status));
+        if ($role && $role !== 'all' && $role !== 'admin') {
+            $query->where('role', $role);
+        }
+        if ($status && $status !== 'all') {
+            $query->whereRaw('LOWER(status)=?', [strtolower($status)]);
+        }
 
         return DataTables::of($query)
-            ->addColumn('actions', function(User $u){
-                return [
-                    'update' => route('admin.user.update', $u),
-                    'toggle' => route('admin.user.disable', $u),
-                ];
-            })
-            ->toJson();
+            ->addColumn('actions', fn(User $u) => [
+                'update' => route('admin.user.update', $u),
+                'toggle' => route('admin.user.disable', $u),
+            ])->toJson();
     }
 
-    /** 创建用户（状态统一写小写） */
+    /** 创建用户（status 默认 active；允许传密码，不传则自动生成临时强密码） */
     public function storeUser(Request $request)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
 
-        $roles = implode(',', $this->allowedRoles());
+        $roles = $this->allowedRoles();
 
-        $validated = $request->validate([
-            'name'           => ['required', 'string', 'max:255'],
-            'email'          => ['required', 'email', 'max:255', 'unique:users,email'],
-            'contact_number' => ['nullable', 'string', 'max:30'],
-            'role'           => ["required","in:$roles"],
-            'password'       => [ 'required', Password::min(8)->mixedCase()->numbers()->symbols() ],
+        $data = $request->validate([
+            'name'           => ['required','string','max:255'],
+            'email'          => ['required','email','max:255','unique:users,email'],
+            'contact_number' => ['nullable','string','max:30'],
+            'role'           => ['required', Rule::in($roles)],
+            'password'       => ['nullable','string','min:8'],
             'status'         => ['nullable','in:active,inactive'],
         ]);
 
-        $user = User::create([
-            'name'           => $validated['name'],
-            'email'          => $validated['email'],
-            'contact_number' => $validated['contact_number'] ?? null,
-            'role'           => $validated['role'],
-            'password'       => Hash::make($validated['password']),
-            'status'         => strtolower($validated['status'] ?? 'active'),
+        $plain = $data['password'] ?: Str::password(12);
+        $user  = User::create([
+            'name'           => $data['name'],
+            'email'          => $data['email'],
+            'contact_number' => $data['contact_number'] ?? null,
+            'role'           => $data['role'],
+            'password'       => Hash::make($plain),
+            'status'         => strtolower($data['status'] ?? 'active'),
         ]);
 
-        return $request->expectsJson()
-            ? response()->json(['success' => true, 'message' => 'User created successfully.', 'user' => $user], 201)
-            : back()->with('success', 'User created successfully.');
+        return back()->with('success', 'User created. Temp password: '.$plain);
     }
 
-    /** 更新用户（状态统一写小写） */
+    /** 更新用户（保护：不能自己降级/停用自己） */
     public function updateUser(Request $request, User $user)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
 
-        $roles = implode(',', $this->allowedRoles());
+        $roles = $this->allowedRoles();
 
-        $validated = $request->validate([
-            'name'           => ['required', 'string', 'max:255'],
-            'email'          => ['required', 'email', 'max:255', 'unique:users,email,'.$user->id],
-            'contact_number' => ['nullable', 'string', 'max:30'],
-            'role'           => ["required","in:$roles"],
+        $data = $request->validate([
+            'name'           => ['required','string','max:255'],
+            'email'          => ['required','email','max:255','unique:users,email,'.$user->id],
+            'contact_number' => ['nullable','string','max:30'],
+            'role'           => ['required', Rule::in($roles)],
             'password'       => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols()],
             'status'         => ['required','in:active,inactive'],
         ]);
 
+        if (auth()->id() === $user->id && strtolower($data['status']) === 'inactive') {
+            return back()->withErrors(['status' => 'You cannot deactivate your own account.']);
+        }
+        if (auth()->id() === $user->id && $user->role === 'admin' && $data['role'] !== 'admin') {
+            return back()->withErrors(['role' => 'You cannot downgrade your own admin role.']);
+        }
+
         $user->fill([
-            'name'           => $validated['name'],
-            'email'          => $validated['email'],
-            'contact_number' => $validated['contact_number'] ?? null,
-            'role'           => $validated['role'],
-            'status'         => strtolower($validated['status']),
+            'name'           => $data['name'],
+            'email'          => $data['email'],
+            'contact_number' => $data['contact_number'] ?? null,
+            'role'           => $data['role'],
+            'status'         => strtolower($data['status']),
         ]);
 
-        if (!empty($validated['password'])) {
-            $user->password = Hash::make($validated['password']);
+        if (!empty($data['password'])) {
+            $user->password = Hash::make($data['password']);
         }
 
         $user->save();
@@ -391,13 +451,16 @@ class AdminController extends Controller
                         ->with('success', 'User updated successfully.');
     }
 
-    /** 启/停用切换（大小写安全） */
+    /** 启/停用切换（自己不能停用自己） */
     public function disableUser(Request $request, User $user)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
 
-        $current = strtolower((string)$user->status);
-        $user->status = $current === 'active' ? 'inactive' : 'active';
+        if (auth()->id() === $user->id) {
+            return back()->withErrors(['status' => 'You cannot deactivate your own account.']);
+        }
+
+        $user->status = strtolower((string)$user->status) === 'active' ? 'inactive' : 'active';
         $user->save();
 
         return $request->expectsJson()
