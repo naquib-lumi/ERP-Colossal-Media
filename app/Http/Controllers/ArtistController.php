@@ -208,6 +208,7 @@ class ArtistController extends Controller
             'completed'  => 'completed',
             'rejected'   => 'rejected',
             'awaitingkeyin'  => 'awaiting_keyin',
+            'redo'          => 'redo',
         ];
 
         $query = clone $base;
@@ -221,13 +222,25 @@ class ArtistController extends Controller
                 }
             } else {
                 $db = $map[$raw] ?? $raw;
-                if ($db === 'rejected') {
-                    $query->where(function ($w) {
-                        $w->where('orderStatus', 'rejected')
-                        ->orWhere('status', 1);   // archived → show as rejected
-                    });
+
+                if ($db === 'redo') {                 // <-- NEW
+                    // "Redo" means orders.status = 1
+                    $query->where('status', 1);
+                } elseif ($db === 'rejected') {
+                    // Rejected ONLY; do NOT include redo
+                    $query->where('orderStatus', 'rejected')
+                        ->where(function ($w) {
+                            $w->whereNull('status')->orWhere('status', 0);
+                        });
                 } else {
                     $query->where('orderStatus', $db);
+
+                    // EXCLUDE archived/redone for the listed statuses
+                    if (in_array($db, ['in_progress', 'completed', 'awaiting_keyin', 'to_assign', 'assigned'], true)) {
+                        $query->where(function ($w) {
+                            $w->whereNull('status')->orWhere('status', 0);
+                        });
+                    }
 
                     if (!$isHead && $db === 'in_progress') {
                         $query->where('artist_id', auth()->id())

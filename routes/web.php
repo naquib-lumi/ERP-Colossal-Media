@@ -408,6 +408,8 @@ Route::get('/admin/reportstest', [AdminReportController::class, 'reportstest'])-
     Route::middleware('role:boss')->group(function () {
         Route::get('/boss/dashboard', [BossDashboardController::class, 'index'])->name('boss.dashboard');
         Route::get('/boss/reports', [BossReportController::class, 'index'])->name('boss.reports');
+        Route::get('/boss/reports/sales/export', [BossReportController::class, 'exportSales'])->name('boss.reports.sales.export');
+
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'index'])->name('boss.fulfillment');
         Route::get('/boss/manageuser', [BossManageUserController::class, 'index'])->name('boss.manageuser');
         Route::get('/boss/datamanagement', [BossDataManagementController::class, 'index'])->name('boss.datamanagement');

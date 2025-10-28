@@ -33,6 +33,11 @@ class DataEntryController extends Controller
     {
         $user = auth()->user();
 
+        // --- read status from query (for KPI / dropdown) ---
+        $statusParam = strtolower(trim((string) $request->query('status', '')));
+        $allowedStatuses = ['awaiting_keyin', 'completed'];
+        $selectedStatus  = in_array($statusParam, $allowedStatuses, true) ? $statusParam : '';
+
         // Base scope: hide rows with status = 1 (only NULL or 0 are visible)
         $base = Order::query()
             ->where(function ($q) {
@@ -49,7 +54,12 @@ class DataEntryController extends Controller
         ];
 
         // ---------- TABLE DATA: awaiting_keyin + completed ----------
-        $table = (clone $base)->whereIn('orderStatus', ['awaiting_keyin', 'completed']);
+        $table = (clone $base);
+        if ($selectedStatus !== '') {
+            $table->where('orderStatus', $selectedStatus);
+        } else {
+            $table->whereIn('orderStatus', ['awaiting_keyin', 'completed']);
+        }
 
         if ($s = trim((string) $request->query('q', ''))) {
             $table->where(function ($w) use ($s) {
@@ -78,7 +88,7 @@ class DataEntryController extends Controller
             return $o;
         });
 
-        $statusRaw = ''; // keep existing view contract
+        $statusRaw = $selectedStatus;
 
         if ($request->ajax()) {
             return view('data-entry.partials.orders-table', ['orders' => $orders])->render();
@@ -571,9 +581,35 @@ class DataEntryController extends Controller
                     $existing = $existing->reject(fn($p) => $toDelete->contains($p));
                 }
                 if ($request->hasFile('attachments')) {
-                    foreach ($request->file('attachments') as $file) {
-                        if (!$file->isValid()) continue;
-                        $path = $file->store("orders/{$order->id}/attachments", 'public');
+                    $files = $request->file('attachments');
+                    if (!is_array($files)) $files = [$files]; // handle single upload case
+
+                    $dir = "orders/{$order->id}/attachments";
+
+                    foreach ($files as $file) {
+                        if (!$file || !$file->isValid()) continue;
+
+                        // 1) Get and sanitize the original filename
+                        $orig     = $file->getClientOriginalName();
+                        $base     = pathinfo($orig, PATHINFO_FILENAME);
+                        $ext      = strtolower($file->getClientOriginalExtension());
+
+                        // slug the base (keep readable) – e.g. "My Draft v2" -> "my-draft-v2"
+                        $baseSlug = Str::slug($base);
+                        if ($baseSlug === '') $baseSlug = 'file';
+
+                        // 2) Ensure uniqueness: my-draft-v2.pdf, my-draft-v2 (1).pdf, my-draft-v2 (2).pdf, ...
+                        $candidate = "{$baseSlug}.{$ext}";
+                        $i = 1;
+                        while (Storage::disk('public')->exists("$dir/$candidate")) {
+                            $candidate = "{$baseSlug} ({$i}).{$ext}";
+                            $i++;
+                        }
+
+                        // 3) Save using the original-looking name
+                        $path = $file->storeAs($dir, $candidate, 'public');
+
+                        // 4) Track in DB list
                         $existing->push($path);
                     }
                 }

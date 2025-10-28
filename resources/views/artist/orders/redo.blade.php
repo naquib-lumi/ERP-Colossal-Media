@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-fluid">
   <h4 class="mb-3">
-    Report Issue – Redo Job Order
+    Report Issue – Redo Job Order {{ $displayOrderNumber }}
     <!-- <span class="text-muted">{{ $displayOrderNumber }}</span> -->
   </h4>
 

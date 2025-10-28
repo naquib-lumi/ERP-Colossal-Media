@@ -1,3 +1,15 @@
+<style>
+  .bg-complete {
+    background-color: rgba(154, 252, 172) !important;
+    color:rgb(7, 115, 26)
+  }
+
+  .bg-awaiting {
+    background-color: rgba(255, 200, 148) !important;
+    color:rgb(128, 72, 19)
+  }
+</style>
+
 <table id="jobOrdersTable" class="table align-middle table-modern">
 
   <thead>
@@ -37,8 +49,8 @@
         $status = strtolower((string)($row->orderStatus ?? $row->ui_status ?? ''));
         $label  = $status === 'awaiting_keyin' ? 'Awaiting Key-in' : \Illuminate\Support\Str::headline(str_replace('_',' ',$status));
         $badgeClass = match ($status) {
-            'awaiting_keyin' => 'bg-warning text-dark fw-bold',
-            'completed'      => 'bg-success',
+            'awaiting_keyin' => 'bg-awaiting',
+            'completed'      => 'bg-complete',
             default          => 'bg-secondary-subtle text-muted',
         };
       @endphp
