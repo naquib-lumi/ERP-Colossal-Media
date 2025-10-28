@@ -11,8 +11,10 @@
     --primary:#5B55F6; --primary-600:#4B47E6;
     --success:#16A34A; --info:#2563EB; --warn:#F59E0B;
   }
+  /* ==== 防止侧栏打开时整页被横向撑开 ==== */
+  html, body { max-width:100%; overflow-x:hidden; }
   body{background:var(--bg)}
-  .wrap{max-width:1200px;margin:0 auto;padding:22px}
+  .wrap{max-width:1200px;margin:0 auto;padding:22px;box-sizing:border-box;}
 
   /* title */
   .h2{font-weight:800;color:var(--text);font-size:22px;margin:0 0 14px}
@@ -27,9 +29,9 @@
 
   /* toolbar */
   .toolbar{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:grid;gap:14px;margin-bottom:14px}
-  .tb-row{display:grid;grid-template-columns:1.15fr 1.15fr 1.6fr .9fr .9fr;gap:12px}
-  .tb-row2{display:grid;grid-template-columns:1.6fr .6fr .6fr .6fr;gap:12px}
-  .control{height:44px;border:1px solid var(--border);border-radius:12px;padding:0 14px;background:#fff}
+  .tb-row{display:grid;grid-template-columns:1.15fr 1.15fr 1.6fr .9fr .9fr;gap:12px;grid-auto-columns:minmax(0,1fr)}
+  .tb-row2{display:grid;grid-template-columns:1.6fr .6fr .6fr .6fr;gap:12px;grid-auto-columns:minmax(0,1fr)}
+  .control{height:44px;border:1px solid var(--border);border-radius:12px;padding:0 14px;background:#fff;min-width:0}
   .control::placeholder{color:#98A2B3}
   .btn{height:44px;border-radius:12px;border:1px solid transparent;font-weight:700}
   .btn-primary{background:var(--primary);color:#fff}
@@ -42,7 +44,8 @@
   /* table card */
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
   .card-hd{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700}
-  .table-responsive{padding:10px 12px;overflow-x:visible;}
+  /* ✅ 仅卡片内部可横向滚动 */
+  .table-responsive{padding:10px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 
   table{
     width:100%;
@@ -50,6 +53,8 @@
     border-spacing:0 8px;
     table-layout:auto;
     font-size:14px;
+    /* ✅ 防止列过多被过度压缩，造成再次撑出页面 */
+    min-width:980px; /* 可按需要微调 */
   }
   thead th{
     font-size:12px;text-transform:uppercase;color:#8A94A6;letter-spacing:.04em;
@@ -84,25 +89,38 @@
   .bd-blue{background:#EFF6FF;border:1px solid #BFDBFE;color:#2563EB}
   .bd-warn{background:#FFF7ED;border:1px solid #FED7AA;color:#EA580C}
 
-  /* ✅ Action buttons */
-  .actions{display:flex;justify-content:flex-end;gap:8px}
-  .act{
-    width:36px;height:36px;
-    border:1px solid var(--border);
-    border-radius:10px;
-    display:grid;
-    place-items:center;
-    background:#fff;
-    transition:all .2s ease;
-  }
-  .act i{
-    font-size:16px;           /* ✅ 图标缩小 */
-    color:var(--primary);
-  }
-  .act:hover{
-    background:#F8FAFC;
-    transform:scale(1.05);
-  }
+/* ✅ Action buttons (compact gray style) */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px; /* 缩小间距 */
+}
+
+.act {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.act i {
+  font-size: 18px;
+  color: #3180e7ff; /* 浅灰色 */
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.act:hover i {
+  color: #475569; /* hover 时变深 */
+  transform: scale(1.15);
+}
+
+.act:active i {
+  color: #334155; /* 点击时更深 */
+}
+
 
   /* footer */
   .table-ft{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 14px;border-top:1px solid var(--border)}

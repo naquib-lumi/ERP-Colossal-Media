@@ -55,8 +55,35 @@ body{background:var(--bg);}
 thead th{font-size:12px;color:#6B7280;text-transform:uppercase;background:#F8FAFC;padding:12px 14px;border-bottom:1px solid var(--border)}
 tbody td{padding:14px;border-bottom:1px solid var(--border)}
 tbody tr:hover{background:#FAFAFB}
-.actions a{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--border);border-radius:8px;background:#fff}
 
+/* ✅ Actions (only View, minimalist gray style) */
+.actions{
+  display:flex;
+  justify-content:flex-end;
+}
+.actions a{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border:none;
+  background:transparent;
+  padding:0;
+}
+.actions a i{
+  font-size:18px;
+  color:#3180e7ff; /* gray */
+  transition:color .2s ease, transform .2s ease;
+}
+.actions a:hover i{
+  color:#475569;
+  transform:scale(1.15);
+}
+.actions a:active i{
+  color:#334155;
+}
+
+/* ===== Badges ===== */
 .badge-soft{font-weight:700;border-radius:999px;padding:6px 10px;font-size:12px}
 .soft-pending{background:#F3F4F6;color:#374151}
 .soft-progress{background:#EEF2FF;color:#4F46E5}
@@ -104,10 +131,9 @@ tbody tr:hover{background:#FAFAFB}
     </div>
   </div>
 
-  {{-- ===== Toolbar：第1排搜索 + 状态；第2排日期范围 + 按钮 ===== --}}
+  {{-- ===== Toolbar ===== --}}
   <form class="toolbar mb-3" method="GET" action="">
     <div class="toolbar-grid">
-      {{-- Row 1: Search row --}}
       <div style="grid-column:span 3">
         <div class="cell">
           <div class="tool-chip"><i class='bx bx-hash'></i>
@@ -141,7 +167,6 @@ tbody tr:hover{background:#FAFAFB}
         </div>
       </div>
 
-      {{-- Row 2: Date & actions row --}}
       <div style="grid-column:span 6">
         <div class="cell">
           <div class="tool-chip"><i class='bx bx-calendar'></i>
@@ -180,7 +205,7 @@ tbody tr:hover{background:#FAFAFB}
             <th style="width:16%">Artist</th>
             <th style="width:14%">Status</th>
             <th style="width:10%">Deadline</th>
-            <th style="width:6%">Actions</th>
+            <th style="width:6%">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -209,19 +234,19 @@ tbody tr:hover{background:#FAFAFB}
       </table>
     </div>
 
-    {{-- Pagination + Per-page --}}
+    {{-- Pagination --}}
     <div class="pager-wrap">
       <div class="pager-left">
-  Show
-  <select id="perPageSelect"
-          style="border:1px solid var(--border);border-radius:8px;height:34px;padding:4px 8px;">
-    @php $pp=(int)request('per_page',10); @endphp
-    @foreach([10,20,50] as $n)
-      <option value="{{ $n }}" {{ $pp===$n?'selected':'' }}>{{ $n }}</option>
-    @endforeach
-  </select>
-  entries
-</div>
+        Show
+        <select id="perPageSelect"
+                style="border:1px solid var(--border);border-radius:8px;height:34px;padding:4px 8px;">
+          @php $pp=(int)request('per_page',10); @endphp
+          @foreach([10,20,50] as $n)
+            <option value="{{ $n }}" {{ $pp===$n?'selected':'' }}>{{ $n }}</option>
+          @endforeach
+        </select>
+        entries
+      </div>
 
       <div class="pager-right">
         {{ $orders->withQueryString()->onEachSide(1)->links('pagination::bootstrap-5') }}
@@ -234,7 +259,6 @@ tbody tr:hover{background:#FAFAFB}
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // 日期范围选择器
   flatpickr("#dateRange", {
     mode: "range",
     dateFormat: "d/m/Y",
@@ -242,14 +266,13 @@ document.addEventListener('DOMContentLoaded', function() {
     locale: { rangeSeparator: " - " }
   });
 
-  // 每页条数
-  var sel = document.getElementById('perPageSelect');
+  const sel = document.getElementById('perPageSelect');
   if (sel){
     sel.addEventListener('change', function(){
-      var url = new URL(window.location.href);
-      var p = url.searchParams;
-      p.set('per_page', sel.value); // 更新每页条数
-      p.delete('page');             // 回到第一页，防止空页
+      const url = new URL(window.location.href);
+      const p = url.searchParams;
+      p.set('per_page', sel.value);
+      p.delete('page');
       window.location.href = url.toString();
     });
   }
