@@ -362,6 +362,15 @@ Route::get('/dashboard', function () {
 
 
 
+Route::middleware('guest')->group(function () {
+    Route::get('/login',  [AdminController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AdminController::class, 'doLogin'])->name('login.post');
+});
+
+// 登出（已登录）
+Route::post('/logout', [AdminController::class, 'logout'])->name('logout')->middleware('auth');
+
+// 你的 admin 分组（保持与原来一致）
 Route::middleware(['auth','role:admin'])->group(function () {
     // Dashboard & charts
     Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
@@ -376,7 +385,7 @@ Route::middleware(['auth','role:admin'])->group(function () {
 
     // Users
     Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
-    Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user'); // DataTables JSON（可选）
+    Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user'); // 可选 DataTables JSON
     Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
     Route::put('/admin/user/{user}', [AdminController::class, 'updateUser'])->name('admin.user.update');
     Route::patch('/admin/user/{user}/disable', [AdminController::class, 'disableUser'])->name('admin.user.disable');
@@ -386,16 +395,20 @@ Route::middleware(['auth','role:admin'])->group(function () {
     Route::get('/admin/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
     Route::post('/admin/orders/data', [AdminController::class, 'getOrders'])->name('admin.orders.data');
 
+    // Others
     Route::get('/admin/coasing-data', [AdminController::class, 'coasingData'])->name('admin.coasing-data');
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
     Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
-    Route::get('/admin/fulfillment', [AdminController::class, 'fulfillment'])->name('admin.fulfillment');
-    Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user');
     Route::get('/admin/data-key-in', [AdminController::class, 'dataKeyIn'])->name('admin.data-key-in');
     Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
+
+    // Profile
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
 });
+
+
+
     Route::middleware('role:printing,installation,delivery,furnishing')->group(function () {
         Route::get('/operations/tasks', [OperationsController::class, 'tasks'])->name('operations.tasks');
     });
