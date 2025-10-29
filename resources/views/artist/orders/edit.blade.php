@@ -544,6 +544,8 @@
                               class="form-control"
                               placeholder="1000"
                               onkeydown="return !['e','E','+','-'].includes(event.key)"
+                              onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                              oninput="restrictInteger(event)"
                               value="{{ old("products.$pIndex.qty_total", $product->totalQuantity ?? '') }}"
                               {{ $readonly }}>
                           </div>
@@ -650,6 +652,8 @@
                                     <input type="number" min="0" class="form-control"
                                       name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                      oninput="restrictInteger(event)"
                                       value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}" {{ $readonly }}>
                                   </div>
 
@@ -878,7 +882,8 @@
                                     <label class="form-label">Quantity</label>
                                     <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                                     {{ $readonly }}>
                                   </div>
 
@@ -1181,7 +1186,8 @@
                                     name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]"
                                     value="{{ $d->quantity }}" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                                     {{ $readonly }}>
                                 </div>
 
@@ -1253,7 +1259,8 @@
                                 <div class="col-12 col-md-4">
                                   <label class="form-label">Quantity</label>
                                   <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty"
-                                  onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                  onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                              >
                                 </div>
 
@@ -1495,8 +1502,8 @@
         <div class="col-md-2">
           <label class="form-label">Quantity</label>
           <input name="items[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
-          onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             >
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
         </div>
         <div class="col-md-6">
           <label class="form-label">Material</label>
@@ -1596,8 +1603,8 @@
         <div class="col-12 col-md-2">
           <label class="form-label">Quantity</label>
           <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
-          onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             >
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
         </div>
         <div class="col-12 col-md-4">
           <label class="form-label">Date & Time</label>
@@ -1688,7 +1695,8 @@
             <div class="col-md-4">
               <label class="form-label">Quantity</label>
               <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1"
-              onkeydown="return !['e','E','+','-'].includes(event.key)">
+              onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
             </div>
             <div class="col-12">
               <label class="form-label">Material Remark</label>
@@ -3925,5 +3933,101 @@ function restrict2dp(e) {
     el.setSelectionRange(p, p);
   });
 }
+
+function restrictInteger(e){
+  const el = e.target;
+  const v  = el.value;
+
+  // ✅ allow only whole numbers (empty or digits)
+  const partialOK = /^\d*$/.test(v);
+
+  if (partialOK) {
+    el.dataset.last = v;
+    el.dataset.pos  = el.selectionStart;
+    return;
+  }
+
+  // ❌ invalid → revert to last valid
+  const last = el.dataset.last ?? '';
+  const pos  = parseInt(el.dataset.pos ?? last.length, 10);
+  el.value = last;
+  requestAnimationFrame(() => {
+    const p = Math.min(pos, el.value.length);
+    el.setSelectionRange(p, p);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form      = document.getElementById('productForm');
+  const saveBtn   = form.querySelector('button[type="submit"]');
+  const pName     = document.getElementById('p_name');
+  const pQty      = document.getElementById('p_qty');
+  const pMaterial = document.getElementById('p_material');
+  const remarksBox= document.getElementById('remarkRows');
+  const addBtn    = document.getElementById('addRemarkRow');
+  const modalEl   = document.getElementById('addProductModal');
+
+  // disable initially
+  saveBtn.disabled = true;
+
+  // core validator
+  function checkAllFilled() {
+    const baseFilled = pName.value.trim() !== '' &&
+                       pQty.value.trim()  !== '' &&
+                       pMaterial.value.trim() !== '';
+
+    // remark validation: at least 1 row, each row must have operation + remark
+    const rows = Array.from(remarksBox.querySelectorAll('.remark-row'));
+    const hasRows = rows.length > 0;
+
+    const eachValid = rows.every(row => {
+      const op = row.querySelector('select[name^="remarks"]');
+      const tx = row.querySelector('input[name^="remarks"]');
+      const opOk = !!(op && op.value && op.value.trim() !== '');
+      const txOk = !!(tx && tx.value && tx.value.trim() !== '');
+      return opOk && txOk;
+    });
+
+    saveBtn.disabled = !(baseFilled && hasRows && eachValid);
+  }
+
+  // base fields listeners
+  [pName, pQty, pMaterial].forEach(el => {
+    el.addEventListener('input', checkAllFilled);
+    el.addEventListener('change', checkAllFilled);
+  });
+
+  // delegate changes inside remark rows (selects & inputs)
+  remarksBox.addEventListener('input', checkAllFilled);
+  remarksBox.addEventListener('change', checkAllFilled);
+
+  // handle remove buttons via delegation
+  remarksBox.addEventListener('click', (e) => {
+    const btn = e.target.closest('.remove-remark');
+    if (!btn) return;
+    const row = btn.closest('.remark-row');
+    if (row) row.remove();
+    checkAllFilled();
+  });
+
+  // if you create rows via the "+ Add Remarks" button, revalidate after adding
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      // if your own code injects the row, just delay-validate
+      setTimeout(checkAllFilled, 0);
+    });
+  }
+
+  // re-check when modal opens (in case fields were cleared)
+  modalEl.addEventListener('shown.bs.modal', checkAllFilled);
+
+  // optional: clear + disable when closed
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    saveBtn.disabled = true;
+  });
+
+  // initial
+  checkAllFilled();
+});
 </script>
 @endpush

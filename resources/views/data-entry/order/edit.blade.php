@@ -499,6 +499,8 @@
                               class="form-control"
                               placeholder="1000"
                               onkeydown="return !['e','E','+','-'].includes(event.key)"
+                              onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                              oninput="restrictInteger(event)"
                               value="{{ old("products.$pIndex.qty_total", $product->totalQuantity ?? '') }}"
                               {{ $readonly }}>
                           </div>
@@ -605,6 +607,8 @@
                                     <input type="number" min="0" class="form-control"
                                       name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                      oninput="restrictInteger(event)"
                                       value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}" {{ $readonly }}>
                                   </div>
 
@@ -833,7 +837,8 @@
                                     <label class="form-label">Quantity</label>
                                     <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                                     {{ $readonly }}>
                                   </div>
 
@@ -1136,7 +1141,8 @@
                                     name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]"
                                     value="{{ $d->quantity }}" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                                     {{ $readonly }}>
                                 </div>
 
@@ -1208,7 +1214,8 @@
                                 <div class="col-12 col-md-4">
                                   <label class="form-label">Quantity</label>
                                   <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty"
-                                  onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                  onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                              >
                                 </div>
 
@@ -1440,8 +1447,8 @@
         <div class="col-md-2">
           <label class="form-label">Quantity</label>
           <input name="items[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
-          onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             >
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
         </div>
         <div class="col-md-6">
           <label class="form-label">Material</label>
@@ -1541,8 +1548,8 @@
         <div class="col-12 col-md-2">
           <label class="form-label">Quantity</label>
           <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
-          onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             >
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
         </div>
         <div class="col-12 col-md-4">
           <label class="form-label">Date & Time</label>
@@ -1636,7 +1643,8 @@
             <div class="col-md-4">
               <label class="form-label">Quantity</label>
               <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1"
-              onkeydown="return !['e','E','+','-'].includes(event.key)">
+              onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
             </div>
             <div class="col-12">
               <label class="form-label">Material Remark</label>
@@ -3801,6 +3809,29 @@ function restrict2dp(e) {
   el.value = last;
 
   // restore caret gracefully
+  requestAnimationFrame(() => {
+    const p = Math.min(pos, el.value.length);
+    el.setSelectionRange(p, p);
+  });
+}
+
+function restrictInteger(e){
+  const el = e.target;
+  const v  = el.value;
+
+  // ✅ allow only whole numbers (empty or digits)
+  const partialOK = /^\d*$/.test(v);
+
+  if (partialOK) {
+    el.dataset.last = v;
+    el.dataset.pos  = el.selectionStart;
+    return;
+  }
+
+  // ❌ invalid → revert to last valid
+  const last = el.dataset.last ?? '';
+  const pos  = parseInt(el.dataset.pos ?? last.length, 10);
+  el.value = last;
   requestAnimationFrame(() => {
     const p = Math.min(pos, el.value.length);
     el.setSelectionRange(p, p);
