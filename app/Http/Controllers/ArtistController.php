@@ -1156,16 +1156,22 @@ class ArtistController extends Controller
                     $keepRemarkIds = [];
 
                     foreach (collect($group['remarks'] ?? [])->filter(fn ($v) => is_array($v)) as $row) {
-                        $op = strtolower(trim((string)($row['operation'] ?? '')));
+                        $op  = strtolower(trim((string)($row['operation'] ?? '')));
                         $txt = trim((string)($row['remark'] ?? ''));
 
+                        // skip empty rows
                         if ($op === '' && $txt === '') {
                             continue;
                         }
 
+                        // block "artist" when no artist assigned
                         if ($op === 'artist' && empty($order->artist_id)) {
                             continue;
                         }
+
+                        // normalize to null / canonical values
+                        $newOp  = $op ?: null;
+                        $newTxt = $txt ?: null;
 
                         $remark = null;
                         if (!empty($row['id'])) {
@@ -1173,23 +1179,41 @@ class ArtistController extends Controller
                                 ->where('ProductID', $productRow->ProductID)
                                 ->first();
                         }
+
                         if (!$remark) {
+                            // NEW REMARK → set creator
                             $remark = new ProductRemark();
                             $remark->ProductID = $productRow->ProductID;
+                            $remark->operation = $newOp;
+                            $remark->remark    = $newTxt;
+                            $remark->user_id   = $authorId;     // creator only on create
+                            $remark->save();
+                        } else {
+                            // EXISTING REMARK → only change user_id if content changed
+                            $dirty = false;
+
+                            if ($remark->operation !== $newOp) {
+                                $remark->operation = $newOp;
+                                $dirty = true;
+                            }
+                            if ($remark->remark !== $newTxt) {
+                                $remark->remark = $newTxt;
+                                $dirty = true;
+                            }
+
+                            if ($dirty) {
+                                // content changed → attribute the edit to current user
+                                $remark->user_id = $authorId;
+                                $remark->save();
+                            }
+                            // if not dirty, leave user_id (creator) untouched
                         }
-
-                        $remark->user_id   = $authorId;
-
-                        $remark->operation = $op ?: null;
-                        $remark->remark    = $txt ?: null;
-
-                        $remark->save();
 
                         $keepRemarkIds[] = $remark->RemarkID;
                     }
 
                     $toDelete = collect($group['delete_remarks'] ?? [])
-                        ->merge($request->input('delete_remarks', []))  
+                        ->merge($request->input('delete_remarks', []))
                         ->map(fn ($id) => (int)$id)
                         ->filter();
 
