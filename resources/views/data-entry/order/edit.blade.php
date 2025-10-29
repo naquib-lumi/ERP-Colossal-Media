@@ -639,7 +639,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
@@ -647,7 +648,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -665,7 +667,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -673,7 +676,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -681,7 +685,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -689,7 +694,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -855,14 +861,16 @@
                                     <label class="form-label">Width</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
 
@@ -879,28 +887,32 @@
                                     <label class="form-label">Top</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
 
@@ -1439,33 +1451,39 @@
         <div class="col-12 col-md-3">
           <label class="form-label">Width</label>
           <input name="items[IDX][size][w]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Height</label>
           <input name="items[IDX][size][h]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
 
         <div class="col-12 col-md-3">
           <label class="form-label">Top</label>
           <input name="items[IDX][bleed][top]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Bottom</label>
           <input name="items[IDX][bleed][bottom]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Left</label>
           <input name="items[IDX][bleed][left]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Right</label>
           <input name="items[IDX][bleed][right]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"class="form-control">
         </div>
 
         <div class="col-md-3">
@@ -3762,7 +3780,32 @@
   });
 })();
 
+function restrict2dp(e) {
+  const el = e.target;
+  const v  = el.value;
 
+  // ✅ allow "in-progress" states so caret doesn't jump:
+  // '', '123', '123.', '123.4', '123.45'
+  const partialOK = /^\d*(?:\.)?\d{0,2}$/.test(v);
+
+  if (partialOK) {
+    // accept and remember this state (no rewrite → no jump)
+    el.dataset.last = v;
+    el.dataset.pos  = el.selectionStart;
+    return;
+  }
+
+  // ❌ invalid (extra dots, letters, >2 decimals, etc.) → revert
+  const last = el.dataset.last ?? '';
+  const pos  = parseInt(el.dataset.pos ?? last.length, 10);
+  el.value = last;
+
+  // restore caret gracefully
+  requestAnimationFrame(() => {
+    const p = Math.min(pos, el.value.length);
+    el.setSelectionRange(p, p);
+  });
+}
 
 </script>
 @endpush
