@@ -216,9 +216,9 @@ class PrintingProductOrderController extends Controller
                 if ($r->bleedTop !== null || $r->bleedRight !== null || $r->bleedBottom !== null || $r->bleedLeft !== null) {
                     $bleed = implode(' / ', [
                         $fmt($r->bleedTop)    ?? '0',
-                        $fmt($r->bleedRight)  ?? '0',
                         $fmt($r->bleedBottom) ?? '0',
                         $fmt($r->bleedLeft)   ?? '0',
+                        $fmt($r->bleedRight)  ?? '0',
                     ]) . ' ' . (string)($r->bleedUnit ?? '');
                 }
 
