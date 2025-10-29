@@ -461,26 +461,48 @@ class ArtistController extends Controller
         $isHead = $this->isHeadArtist($user);
         if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) abort(403);
 
-        if (!$this->isHeadArtist(Auth::user())
-            && $order->orderStatus === 'assigned'
-            && (int) $order->pending === 1) {
+        /**
+         * A) If currently REJECTED and we enter Edit:
+         *    Bring it back to work-in-progress, make it a draft, not submitted, not pending.
+         */
+        if (strtolower((string)$order->orderStatus) === 'rejected') {
+            $order->orderStatus = 'in_progress';
+            $order->submit      = 0;
+            $order->draft       = 1;
+            $order->pending     = 0;
+
+            // ensure ownership to the editing artist (if not head-artist and artist not set)
+            if (!$isHead && empty($order->artist_id)) {
+                $order->artist_id = $user->id;
+            }
+
+            $order->save();
+        }
+        /**
+         * B) Original behavior: if assigned + pending=1 and non-head artist opens Edit,
+         *    flip to in_progress and clear pending.
+         */
+        elseif (!$isHead
+            && strtolower((string)$order->orderStatus) === 'assigned'
+            && (int)$order->pending === 1) {
 
             $order->orderStatus = 'in_progress';
             $order->pending     = 0;
 
-            // make sure the order is owned by this artist from now on
-            if (!$order->artist_id) {
-                $order->artist_id = Auth::id();
+            if (empty($order->artist_id)) {
+                $order->artist_id = $user->id;
             }
 
-            $order->loadMissing([
-                'products' => fn ($q) => $q->orderBy('ProductID'),
-                'products.items' => fn ($q) => $q->orderBy('ItemID'), // relation on Product model
-                'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
-            ]);
-            $order->load('artist:id,name');
             $order->save();
         }
+
+        // Load relations AFTER any status/ownership changes
+        $order->loadMissing([
+            'products' => fn ($q) => $q->orderBy('ProductID'),
+            'products.items' => fn ($q) => $q->orderBy('ItemID'),
+            'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+            'artist:id,name',
+        ]);
 
         $orderCode = sprintf('ORD-%04d', $order->id);
         $today     = now()->format('M d, Y');
