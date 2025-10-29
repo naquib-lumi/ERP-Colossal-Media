@@ -119,7 +119,7 @@ body{background:var(--bg);}
           </div>
           <div class="col-md-2 text-md-end d-flex gap-2">
             <button type="button" id="sales-generate" class="btn btn-primary btn-sm-compact">Generate</button>
-            <button type="submit" formaction="{{ route('admin.report.export-sales') }}" class="btn btn-dark-compact btn-sm-compact">
+             <button type="submit" formaction="{{ route('admin.report.export-sales') }}" class="btn btn-dark-compact btn-sm-compact">
               <i class="bi bi-download me-1"></i> Export
             </button>
           </div>
@@ -153,17 +153,16 @@ body{background:var(--bg);}
         <div class="col-md-3">
           <div class="card soft kpi p-3">
             <div class="d-flex justify-content-between align-items-start">
-              <p class="title mb-1">Accepted Meetings</p>
+              <p class="title mb-1">Leads Accepted</p>
               <span class="icon-pill"><i class="bi bi-check2-square"></i></span>
             </div>
             <div class="num" id="accepted-meetings">0</div>
-            <span class="text-muted small" id="acceptance-rate">0% acceptance rate</span>
           </div>
         </div>
         <div class="col-md-3">
           <div class="card soft kpi p-3">
             <div class="d-flex justify-content-between align-items-start">
-              <p class="title mb-1">Rejected</p>
+              <p class="title mb-1">Leads Rejected</p>
               <span class="icon-pill"><i class="bi bi-x-square"></i></span>
             </div>
             <div class="num" id="rejected-meetings">0</div>
@@ -175,21 +174,10 @@ body{background:var(--bg);}
     <!-- Charts -->
     <div class="p-3">
       <div class="row g-3 align-items-stretch charts-row">
-        <!-- Monthly Performance -->
+        <!-- Performance -->
         <div class="col-lg-7">
           <div class="card soft p-3 h-100 d-flex flex-column">
-            <div class="d-flex justify-content-between align-items-center">
-              <h6 class="fw-bold mb-0">Monthly Performance</h6>
-              <div class="d-flex align-items-center gap-2">
-                <label class="small text-muted mb-0">Month</label>
-                <select id="mpMonth" class="form-select form-select-sm" style="width:140px">
-                  <option>Jan</option><option>Feb</option><option>Mar</option>
-                  <option>Apr</option><option>May</option><option>Jun</option>
-                  <option>Jul</option><option>Aug</option><option>Sep</option>
-                  <option>Oct</option><option>Nov</option><option>Dec</option>
-                </select>
-              </div>
-            </div>
+            <h6 class="fw-bold mb-0">Leads Performance</h6>
 
             <div class="d-flex flex-wrap gap-3 legend-row mb-2 mt-2">
               <span><i class="legend-dot" style="background:#60a5fa"></i>Leads Added</span>
@@ -206,52 +194,12 @@ body{background:var(--bg);}
         <!-- Meeting Outcomes -->
         <div class="col-lg-5">
           <div class="card soft p-3 h-100 d-flex flex-column">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="fw-bold mb-0">Meeting Outcomes</h6>
-              <button type="button" id="outcomes-generate" class="btn btn-primary btn-sm-compact">Generate</button>
-            </div>
+            <h6 class="fw-bold mb-0">Sales Outcomes</h6>
 
-            <div class="outcomes-grid">
-              <!-- Pie Chart -->
-              <div>
-                <div class="chart-wrap"><canvas id="pieOutcome"></canvas></div>
-                <div class="mt-2 small">
-                  <span class="legend-dot" style="background:#22c55e"></span>Accepted
-                  <span class="legend-dot" style="background:#ef4444;margin-left:14px"></span>Rejected
-                </div>
-              </div>
-
-              <!-- Filters -->
-              <aside class="sidebar">
-                <form id="outcomes-filters" class="filter-stack d-flex flex-column gap-3">
-                  @csrf
-                  <div>
-                    <div class="label">Start date</div>
-                    <input type="date" name="start_date" id="outcomes-start-date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}">
-                  </div>
-                  <div>
-                    <div class="label">End date</div>
-                    <input type="date" name="end_date" id="outcomes-end-date" class="form-control" value="{{ now()->endOfMonth()->format('Y-m-d') }}">
-                  </div>
-                  <div>
-                    <div class="label">Salesperson</div>
-                    <select name="salesperson" class="form-select">
-                      <option value="All Salespersons">All Salespersons</option>
-                      @foreach($salespeople as $id => $name)
-                        <option value="{{ $id }}">{{ $name }}</option>
-                      @endforeach
-                    </select>
-                  </div>
-                  <div>
-                    <div class="label">Period</div>
-                    <select name="period" id="outcomes-period" class="form-select">
-                      <option>Monthly</option>
-                      <option>Quarterly</option>
-                      <option>Yearly</option>
-                    </select>
-                  </div>
-                </form>
-              </aside>
+            <div class="chart-wrap"><canvas id="pieOutcome"></canvas></div>
+            <div class="mt-2 small">
+              <span class="legend-dot" style="background:#22c55e"></span>Accepted
+              <span class="legend-dot" style="background:#ef4444;margin-left:14px"></span>Rejected
             </div>
           </div>
         </div>
@@ -389,12 +337,6 @@ document.querySelectorAll('#sales-period-group button').forEach(btn => {
   });
 });
 
-// Outcomes Period select
-document.getElementById('outcomes-period').addEventListener('change', (e) => {
-  updateDateRange('outcomes', e.target.value.toLowerCase());
-  document.getElementById('outcomes-generate').click();
-});
-
 // Order Period select
 document.getElementById('order-period').addEventListener('change', (e) => {
   updateDateRange('order', e.target.value.toLowerCase());
@@ -406,52 +348,39 @@ document.getElementById('sales-generate').addEventListener('click', () => {
   const formData = new FormData(document.getElementById('sales-filters'));
   fetch('{{ route('admin.report.sales-kpis') }}', {
     method: 'POST',
-    body: formData,
-    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+    body: formData
   })
     .then(res => res.json())
     .then(data => {
       document.getElementById('total-leads').textContent = data.total_leads;
-      document.getElementById('leads-delta').textContent = `${data.leads_delta}% from last period`;
       document.getElementById('leads-delta').className = data.leads_delta >= 0 ? 'delta text-success' : 'delta text-danger';
       document.getElementById('total-meetings').textContent = data.total_meetings;
-      document.getElementById('meetings-delta').textContent = `${data.meetings_delta}% from last period`;
       document.getElementById('meetings-delta').className = data.meetings_delta >= 0 ? 'delta text-success' : 'delta text-danger';
       document.getElementById('accepted-meetings').textContent = data.accepted;
-      document.getElementById('acceptance-rate').textContent = `${data.acceptance_rate}% acceptance rate`;
       document.getElementById('rejected-meetings').textContent = data.rejected;
     })
     .catch(err => console.error('Error fetching sales KPIs:', err));
-});
 
-// Monthly Performance change
-document.getElementById('mpMonth').addEventListener('change', (e) => {
-  const formData = new FormData(document.getElementById('sales-filters'));
-  formData.append('month', e.target.value);
   fetch('{{ route('admin.report.sales-monthly') }}', {
     method: 'POST',
-    body: formData,
-    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+    body: formData
   })
     .then(res => res.json())
     .then(data => {
       barMonthly.data.datasets[0].data = [data.leads_added, data.accepted, data.rejected, data.fifty_fifty, data.low_chance];
       barMonthly.update();
     })
-    .catch(err => console.error('Error fetching monthly performance:', err));
-});
+    .catch(err => console.error('Error fetching performance:', err));
 
-// Outcomes Generate
-document.getElementById('outcomes-generate').addEventListener('click', () => {
-  const formData = new FormData(document.getElementById('outcomes-filters'));
+  
   fetch('{{ route('admin.report.sales-outcomes') }}', {
     method: 'POST',
-    body: formData,
-    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+    body: formData
   })
     .then(res => res.json())
     .then(data => {
       pieOutcome.data.datasets[0].data = [data.accepted, data.rejected];
+      console.log(pieOutcome.data.datasets[0].data);
       pieOutcome.update();
     })
     .catch(err => console.error('Error fetching meeting outcomes:', err));
@@ -462,8 +391,7 @@ document.getElementById('order-generate').addEventListener('click', () => {
   const formData = new FormData(document.getElementById('order-filters'));
   fetch('{{ route('admin.report.order-fulfillment') }}', {
     method: 'POST',
-    body: formData,
-    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+    body: formData
   })
     .then(res => res.json())
     .then(data => {
@@ -475,12 +403,7 @@ document.getElementById('order-generate').addEventListener('click', () => {
 
 // Initial data fetch on page load
 document.addEventListener('DOMContentLoaded', () => {
-  // Set default month for Monthly Performance
-  document.getElementById('mpMonth').value = new Date().toLocaleString('en-US', { month: 'short' });
-  // Trigger all generate buttons
   document.getElementById('sales-generate').click();
-  document.getElementById('mpMonth').dispatchEvent(new Event('change'));
-  document.getElementById('outcomes-generate').click();
   document.getElementById('order-generate').click();
 });
 </script>
