@@ -654,34 +654,48 @@ class ArtistOrderController extends Controller
                 return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
             }
 
+            // If you want to allow unassign (user_id = null), use nullable
             $validated = $request->validate([
-                'user_id' => ['required','integer','exists:users,id'],
+                'user_id' => ['nullable','integer','exists:users,id'],
             ]);
 
             $assignee = isset($validated['user_id']) ? User::find($validated['user_id']) : null;
 
-            if (!$assignee) {
-                $newStatus = 'to_assign';
-            } elseif ($assignee->role === 'head-artist') {
-                $newStatus = 'in_progress';
-            } else {
-                $newStatus = 'assigned';
-            }
+            // defaults
+            $newStatus = 'to_assign';
+            $pending   = 0;
+
+            if ($assignee) {
+                if ($assignee->role === 'head-artist') {
+                    // assigning to a head-artist → they can start work immediately
+                    $newStatus = 'in_progress';
+                    $pending   = 0;
+                } else {
+                    // assigning to a normal artist → mark as pending until they pick up
+                    $newStatus = 'assigned';
+                    $pending   = 1;
+                }
+            } // else keep to_assign + pending=0 for unassign
 
             $order->artist_id   = $assignee?->id;   // allow unassign (null)
             $order->orderStatus = $newStatus;
+            $order->pending     = $pending;
             $order->save();
 
             return response()->json([
-                'ok'          => true,
-                'artist_id'   => $order->artist_id,
-                'orderStatus' => $order->orderStatus,
-                'assigneeRole'=> $assignee?->role,
+                'ok'           => true,
+                'artist_id'    => $order->artist_id,
+                'orderStatus'  => $order->orderStatus,
+                'pending'      => $order->pending,
+                'assigneeRole' => $assignee?->role,
             ]);
         } catch (\Throwable $e) {
-
+            // For bad input, 422 is more appropriate than 500
             if ($request->expectsJson()) {
-                return response()->json(['ok' => false, 'message' => 'Please select an artist or head artist to assign.'], 500);
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Please select a valid artist or head artist to assign.',
+                ], 422);
             }
             return back()->with('error', 'Failed to assign. Please try again.');
         }
