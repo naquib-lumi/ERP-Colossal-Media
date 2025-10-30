@@ -1,281 +1,412 @@
 @extends('layouts.app')
 
-@section('title','Job Order Overview')
-
 @section('content')
-{{-- Icons & Datepicker --}}
-<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
 :root{
-  --bg:#F6F8FC; --card:#fff; --border:#E5E7EB; --text:#0F172A; --muted:#64748B;
-  --shadow:0 4px 14px rgba(17,24,39,.06); --r:16px; --primary:#4F46E5;
-  --ctl-h:44px; --gap:12px;
+  --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
+  --text:#101828; --muted:#667085;
+  --shadow:0 2px 6px rgba(16,24,40,.05);
+  --success:#16A34A; --danger:#DC2626; --primary:#111827;
+  --accent:#2E3A8C;
 }
 body{background:var(--bg);}
-.page-h1{color:var(--text);font-weight:800;}
-.sub{color:var(--muted);}
+.page-wrap{max-width:1240px;margin:0 auto}
+.card.soft{border:0;background:var(--card);box-shadow:var(--shadow);border-radius:16px}
+.form-control,.form-select,.btn{min-height:38px;font-size:14px}
 
-/* ===== Metrics ===== */
-.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap);}
-.metric{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);
-        display:flex;align-items:center;padding:14px 16px;min-height:78px;}
-.metric .pill{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;
-              font-size:20px;box-shadow:var(--shadow);}
-.metric .txt{margin-left:12px}
-.metric .label{font-size:12px;color:#6B7280}
-.metric .value{font-size:22px;font-weight:800;color:var(--text)}
-.metric.color-indigo .pill{background:#EEF2FF;color:#4F46E5}
-.metric.color-amber  .pill{background:#FFF7E6;color:#B45309}
-.metric.color-cyan   .pill{background:#E0F2FE;color:#0369A1}
-.metric.color-rose   .pill{background:#FFE4E6;color:#E11D48}
+/* Tabs */
+.nav-tabs .nav-link{border:0;color:#475467;padding:14px 18px}
+.nav-tabs .nav-link.active{color:#111827;border-bottom:3px solid var(--accent);border-radius:0}
 
-/* ===== Toolbar ===== */
-.toolbar{background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:12px}
-.toolbar-grid{display:grid;grid-template-columns:repeat(12,1fr);grid-auto-rows:minmax(var(--ctl-h),auto);gap:var(--gap);align-items:center}
-.cell{display:flex;align-items:center;width:100%;height:var(--ctl-h)}
+/* Section switch */
+.section{display:none}
+.section.active{display:block}
 
-.tool-chip{display:flex;align-items:center;gap:8px;height:100%;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 12px;width:100%}
-.tool-chip i{color:#64748B}
-.tool-chip input{border:0;outline:0;width:100%;height:calc(100% - 2px);line-height:1}
-
-.tool-btn{display:inline-flex;align-items:center;justify-content:center;height:100%;width:100%;
-  border:1px solid var(--border);border-radius:10px;background:#fff;font-weight:600;text-decoration:none;color:var(--text)}
-.tool-btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
-.tool-btn.link{background:#F3F4F6;color:#4F46E5;border:1px solid #E5E7EB}
-.tool-btn.link:hover{background:#E0E7FF;color:#4338CA}
-
-.tool-select{height:100%;width:100%;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 12px}
-
-/* ===== Table ===== */
-.table-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
-.table-card .hd{padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700;color:var(--text)}
-.table-card table{width:100%;border-collapse:separate;border-spacing:0}
-thead th{font-size:12px;color:#6B7280;text-transform:uppercase;background:#F8FAFC;padding:12px 14px;border-bottom:1px solid var(--border)}
-tbody td{padding:14px;border-bottom:1px solid var(--border)}
-tbody tr:hover{background:#FAFAFB}
-
-/* ✅ Actions (only View, minimalist gray style) */
-.actions{
-  display:flex;
-  justify-content:flex-end;
+/* KPI */
+.kpi .title{font-size:12px;color:var(--muted)}
+.kpi .num{font-weight:700;font-size:22px;color:var(--text)}
+.kpi .delta{font-size:12px}
+.kpi .icon-pill{
+  background:#F2F4F7;color:#667085;border-radius:10px;padding:6px 8px;line-height:1
 }
-.actions a{
-  width:34px;
-  height:34px;
+
+/* Charts & legends */
+.chart-wrap{height:260px}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.legend-row{color:#667085;font-size:13px}
+
+/* Table (通用) */
+.table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.table thead th{background:#F8FAFC;color:#475467;font-weight:700}
+.table>:not(caption)>*>*{padding:12px 14px;vertical-align:middle}
+.badge-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px}
+
+/* 紧凑按钮 */
+.btn-sm-compact{min-height:36px;font-size:13px;padding:0 14px;border-radius:6px}
+.btn-dark-compact{background:#1E2235;color:#fff;border:0}
+.btn-dark-compact:hover{background:#111827}
+
+/* Meeting Outcomes：左图表 / 右筛选 */
+.outcomes-grid{
   display:grid;
-  place-items:center;
-  border:none;
-  background:transparent;
-  padding:0;
+  grid-template-columns: 1.7fr 1fr;
+  gap:16px;
+  align-items:start;
 }
-.actions a i{
-  font-size:18px;
-  color:#3180e7ff; /* gray */
-  transition:color .2s ease, transform .2s ease;
+.sidebar{
+  border-left:1px solid var(--border);
+  padding-left:12px;
 }
-.actions a:hover i{
-  color:#475569;
-  transform:scale(1.15);
+.filter-stack .form-control,
+.filter-stack .form-select{
+  min-height:36px; font-size:13px; border-radius:8px;
 }
-.actions a:active i{
-  color:#334155;
+.filter-stack .label{
+  font-size:12px; color:#667085; margin-bottom:4px;
+}
+/* 小屏改为上下排 */
+@media (max-width: 992px){
+  .outcomes-grid{ grid-template-columns: 1fr; }
+  .sidebar{ border-left:0; border-top:1px solid var(--border); padding-left:0; padding-top:12px; }
 }
 
-/* ===== Badges ===== */
-.badge-soft{font-weight:700;border-radius:999px;padding:6px 10px;font-size:12px}
-.soft-pending{background:#F3F4F6;color:#374151}
-.soft-progress{background:#EEF2FF;color:#4F46E5}
-.soft-complete{background:#ECFDF5;color:#059669}
-.soft-reject{background:#FFF1F2;color:#E11D48}
-
-/* ===== Pagination ===== */
-.pager-wrap{display:flex;justify-content:space-between;align-items:center;padding:12px 16px}
-.pager-left{color:var(--muted);font-size:.9rem}
-.pager-right nav{display:block}
-.pager-right .pagination{margin:0;display:flex;gap:8px}
-.pager-right .page-item .page-link{border:1px solid var(--border);background:#fff;color:#475569;border-radius:10px;padding:.45rem .7rem;min-width:36px;text-align:center}
-.pager-right .page-item.active .page-link{background:var(--primary);border-color:var(--primary);color:#fff}
-.pager-right .page-item.disabled .page-link{background:#F1F5F9;color:#94A3B8;border-color:#E2E8F0}
-
-/* Responsive */
-@media (max-width:992px){.metrics-grid{grid-template-columns:repeat(2,1fr)} .toolbar-grid{grid-template-columns:repeat(6,1fr)}}
-@media (max-width:576px){.metrics-grid{grid-template-columns:1fr} .toolbar-grid{grid-template-columns:repeat(4,1fr)}}
+/* 让两张图卡片等高 */
+.charts-row .card.soft{height:100%}
 </style>
 
-<div class="container-fluid">
-  <div class="row mb-2">
-    <div class="col">
-      <h3 class="page-h1">Job Order Overview</h3>
+<div class="card soft p-0 mb-3">
+  <!-- Tabs -->
+  <ul class="nav nav-tabs px-3 pt-3" id="reportTabs" style="border-bottom:1px solid var(--border)">
+    <li class="nav-item"><a class="nav-link active" data-target="#salesSec" href="javascript:void(0)">Sales Report</a></li>
+    <li class="nav-item"><a class="nav-link" data-target="#orderSec" href="javascript:void(0)">Order Report</a></li>
+  </ul>
+
+  <!-- Sales Report -->
+  <div class="section active" id="salesSec">
+    <!-- Filters -->
+    <div class="p-3 border-bottom">
+      <form id="sales-filters">
+        @csrf
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label small">Select Salesperson</label>
+            <select class="form-select" name="salesperson" id="salesperson">
+              <option value="All Salespersons">All Salespersons</option>
+              @foreach($salespeople as $id => $name)
+                <option value="{{ $id }}">{{ $name }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Time Period</label>
+            <div class="btn-group w-100" role="group" id="sales-period-group">
+              <button type="button" class="btn btn-outline-dark btn-sm" data-period="yearly">Yearly</button>
+              <button type="button" class="btn btn-outline-dark btn-sm" data-period="quarterly">Quarterly</button>
+              <button type="button" class="btn btn-outline-dark btn-sm active" data-period="monthly">Monthly</button>
+            </div>
+            <input type="hidden" name="period" id="sales-period" value="monthly">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small">Date Range</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="date" name="start_date" id="sales-start-date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}">
+              <span class="text-muted small">to</span>
+              <input type="date" name="end_date" id="sales-end-date" class="form-control" value="{{ now()->endOfMonth()->format('Y-m-d') }}">
+            </div>
+          </div>
+          <div class="col-md-2 text-md-end d-flex gap-2">
+            <button type="button" id="sales-generate" class="btn btn-primary btn-sm-compact">Generate</button>
+            <button type="submit" formaction="{{ route('admin.report.export-sales') }}" class="btn btn-dark-compact btn-sm-compact">
+              <i class="bi bi-download me-1"></i> Export
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- KPI -->
+    <div class="p-3">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="card soft kpi p-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <p class="title mb-1">Total Leads Added</p>
+              <span class="icon-pill"><i class="bi bi-magnet"></i></span>
+            </div>
+            <div class="num" id="total-leads">0</div>
+            <span class="delta" id="leads-delta"></span>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card soft kpi p-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <p class="title mb-1">Total Meetings Held</p>
+              <span class="icon-pill"><i class="bi bi-calendar3"></i></span>
+            </div>
+            <div class="num" id="total-meetings">0</div>
+            <span class="delta" id="meetings-delta"></span>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card soft kpi p-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <p class="title mb-1">Accepted Meetings</p>
+              <span class="icon-pill"><i class="bi bi-check2-square"></i></span>
+            </div>
+            <div class="num" id="accepted-meetings">0</div>
+            <span class="text-muted small" id="acceptance-rate">0% acceptance rate</span>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card soft kpi p-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <p class="title mb-1">Rejected</p>
+              <span class="icon-pill"><i class="bi bi-x-square"></i></span>
+            </div>
+            <div class="num" id="rejected-meetings">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="p-3">
+      <div class="row g-3 align-items-stretch charts-row">
+        <!-- Performance -->
+        <div class="col-lg-7">
+          <div class="card soft p-3 h-100 d-flex flex-column">
+            <h6 class="fw-bold mb-0">Performance</h6>
+
+            <div class="d-flex flex-wrap gap-3 legend-row mb-2 mt-2">
+              <span><i class="legend-dot" style="background:#60a5fa"></i>Leads Added</span>
+              <span><i class="legend-dot" style="background:#22c55e"></i>Accepted</span>
+              <span><i class="legend-dot" style="background:#ef4444"></i>Rejected</span>
+              <span><i class="legend-dot" style="background:#06b6d4"></i>50/50</span>
+              <span><i class="legend-dot" style="background:#a78bfa"></i>Low Chance</span>
+            </div>
+
+            <div class="chart-wrap flex-grow-1"><canvas id="barMonthly"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Sales Outcomes -->
+        <div class="col-lg-5">
+          <div class="card soft p-3 h-100 d-flex flex-column">
+            <h6 class="fw-bold mb-0">Sales Outcomes</h6>
+
+            <div class="chart-wrap"><canvas id="pieOutcome"></canvas></div>
+            <div class="mt-2 small">
+              <span class="legend-dot" style="background:#22c55e"></span>Accepted
+              <span class="legend-dot" style="background:#ef4444;margin-left:14px"></span>Rejected
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  {{-- ===== Metrics ===== --}}
-  <div class="metrics-grid mb-3">
-    <div class="metric color-indigo">
-      <div class="pill"><i class='bx bx-puzzle'></i></div>
-      <div class="txt"><div class="label">Total Orders</div><div class="value">{{ $totalOrders ?? 0 }}</div></div>
-    </div>
-    <div class="metric color-amber">
-      <div class="pill"><i class='bx bx-refresh'></i></div>
-      <div class="txt"><div class="label">In Progress</div><div class="value">{{ $inProgress ?? 0 }}</div></div>
-    </div>
-    <div class="metric color-cyan">
-      <div class="pill"><i class='bx bx-check'></i></div>
-      <div class="txt"><div class="label">Completed</div><div class="value">{{ $completed ?? 0 }}</div></div>
-    </div>
-    <div class="metric color-rose">
-      <div class="pill"><i class='bx bx-x'></i></div>
-      <div class="txt"><div class="label">Rejected</div><div class="value">{{ $rejected ?? 0 }}</div></div>
-    </div>
-  </div>
-
-  {{-- ===== Toolbar ===== --}}
-  <form class="toolbar mb-3" method="GET" action="">
-    <div class="toolbar-grid">
-      <div style="grid-column:span 3">
-        <div class="cell">
-          <div class="tool-chip"><i class='bx bx-hash'></i>
-            <input type="text" name="order_id" value="{{ request('order_id') }}" placeholder="Search Order ID">
+  <!-- Order Report -->
+  <div class="section" id="orderSec">
+    <!-- Filters -->
+    <div class="p-3 border-bottom">
+      <form id="order-filters">
+        @csrf
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label small">Time Period</label>
+            <select class="form-select" name="period" id="order-period">
+              <option>Monthly</option>
+              <option>Quarterly</option>
+              <option>Yearly</option>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small">Date Range</label>
+            <div class="d-flex gap-2">
+              <input type="date" name="start_date" id="order-start-date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}">
+              <input type="date" name="end_date" id="order-end-date" class="form-control" value="{{ now()->endOfMonth()->format('Y-m-d') }}">
+            </div>
+          </div>
+          <div class="col-md-2 ms-auto text-md-end d-flex gap-2">
+            <button type="button" id="order-generate" class="btn btn-primary btn-sm-compact">Generate</button>
+            <button type="submit" formaction="{{ route('admin.report.export-orders') }}" class="btn btn-dark-compact btn-sm-compact">
+              <i class="bi bi-download me-1"></i> Export
+            </button>
           </div>
         </div>
-      </div>
-      <div style="grid-column:span 3">
-        <div class="cell">
-          <div class="tool-chip"><i class='bx bx-user'></i>
-            <input type="text" name="artist" value="{{ request('artist') }}" placeholder="Search artist name...">
-          </div>
-        </div>
-      </div>
-      <div style="grid-column:span 4">
-        <div class="cell">
-          <div class="tool-chip"><i class='bx bx-search'></i>
-            <input type="text" name="q" value="{{ request('q') }}" placeholder="Search orders or product details">
-          </div>
-        </div>
-      </div>
-      <div style="grid-column:span 2">
-        <div class="cell">
-          @php $s = request('status'); @endphp
-          <select class="tool-select" name="status" onchange="this.form.submit()">
-            <option value="">All statuses</option>
-            <option value="in_progress" {{ $s==='in_progress'?'selected':'' }}>In Progress</option>
-            <option value="completed"   {{ $s==='completed'?'selected':'' }}>Completed</option>
-            <option value="rejected"    {{ $s==='rejected'?'selected':'' }}>Rejected</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="grid-column:span 6">
-        <div class="cell">
-          <div class="tool-chip"><i class='bx bx-calendar'></i>
-            <input type="text" id="dateRange" name="date_range"
-                   value="{{ request('date_range') }}"
-                   placeholder="Select date range (dd/mm/yyyy - dd/mm/yyyy)">
-          </div>
-        </div>
-      </div>
-      <div style="grid-column:span 2">
-        <div class="cell"><button class="tool-btn primary" type="submit">Filter</button></div>
-      </div>
-      <div style="grid-column:span 2">
-        <div class="cell"><a class="tool-btn link" href="{{ url()->current() }}">Reset</a></div>
-      </div>
-      <div style="grid-column:span 2">
-        <div class="cell">
-          <a class="tool-btn" href="{{ request()->fullUrlWithQuery(['export'=>1]) }}">
-            <i class='bx bx-export me-1'></i>Export
-          </a>
-        </div>
-      </div>
-    </div>
-  </form>
-
-  {{-- ===== Table ===== --}}
-  <div class="table-card">
-    <div class="hd">Job Orders</div>
-    <div class="table-responsive">
-      <table class="table mb-0">
-        <thead>
-          <tr>
-            <th style="width:12%">Order ID</th>
-            <th style="width:24%">Job Title</th>
-            <th style="width:18%">Company</th>
-            <th style="width:16%">Artist</th>
-            <th style="width:14%">Status</th>
-            <th style="width:10%">Deadline</th>
-            <th style="width:6%">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          @forelse($orders as $order)
-            @php
-              $label = $order->getStatusLabelAttribute();
-              $badge = $label==='Completed'   ? 'badge-soft soft-complete' :
-                       ($label==='In Progress'? 'badge-soft soft-progress' :
-                       ($label==='Rejected'   ? 'badge-soft soft-reject'   : 'badge-soft soft-pending'));
-            @endphp
-            <tr>
-              <td class="text-nowrap">#{{ $order->order_number }}</td>
-              <td class="text-truncate" style="max-width:320px">{{ $order->orderTitle }}</td>
-              <td>{{ $order->company?->name ?? '-' }}</td>
-              <td>{{ $order->artist?->name ?? '-' }}</td>
-              <td><span class="{{ $badge }}">{{ $label }}</span></td>
-              <td class="text-nowrap">{{ $order->deadline ? $order->deadline->format('M d, Y') : '-' }}</td>
-              <td class="actions">
-                <a title="View" href="{{ url('admin/orders/'.$order->id) }}"><i class='bx bx-show-alt'></i></a>
-              </td>
-            </tr>
-          @empty
-            <tr><td colspan="7" class="text-center text-muted py-4">No job orders found.</td></tr>
-          @endforelse
-        </tbody>
-      </table>
+      </form>
     </div>
 
-    {{-- Pagination --}}
-    <div class="pager-wrap">
-      <div class="pager-left">
-        Show
-        <select id="perPageSelect"
-                style="border:1px solid var(--border);border-radius:8px;height:34px;padding:4px 8px;">
-          @php $pp=(int)request('per_page',10); @endphp
-          @foreach([10,20,50] as $n)
-            <option value="{{ $n }}" {{ $pp===$n?'selected':'' }}>{{ $n }}</option>
-          @endforeach
-        </select>
-        entries
-      </div>
-
-      <div class="pager-right">
-        {{ $orders->withQueryString()->onEachSide(1)->links('pagination::bootstrap-5') }}
+    <!-- Chart -->
+    <div class="p-3">
+      <div class="card soft p-3">
+        <h6 class="fw-bold mb-2">Job Order Fulfillment</h6>
+        <div class="chart-wrap"><canvas id="orderFulfill"></canvas></div>
+        <div class="small mt-2">
+          <span class="badge-dot" style="background:#22c55e"></span>New Order
+          <span class="badge-dot" style="background:#f59e0b;margin-left:14px"></span>In Progress
+          <span class="badge-dot" style="background:#06b6d4;margin-left:14px"></span>Completed
+          <span class="badge-dot" style="background:#ef4444;margin-left:14px"></span>Overdue
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-{{-- Scripts --}}
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  flatpickr("#dateRange", {
-    mode: "range",
-    dateFormat: "d/m/Y",
-    allowInput: true,
-    locale: { rangeSeparator: " - " }
-  });
-
-  const sel = document.getElementById('perPageSelect');
-  if (sel){
-    sel.addEventListener('change', function(){
-      const url = new URL(window.location.href);
-      const p = url.searchParams;
-      p.set('per_page', sel.value);
-      p.delete('page');
-      window.location.href = url.toString();
-    });
+// Initialize charts with zeros
+const mpLabels = ['Leads Added', 'Accepted', 'Rejected', '50/50', 'Low Chance'];
+const mpColors = ['#60a5fa', '#22c55e', '#ef4444', '#06b6d4', '#a78bfa'];
+let barMonthly = new Chart(document.getElementById('barMonthly'), {
+  type: 'bar',
+  data: { labels: mpLabels, datasets: [{ data: [0, 0, 0, 0, 0], backgroundColor: mpColors, borderRadius: 6, borderSkipped: false }] },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed.y}` } }
+    },
+    scales: {
+      x: { grid: { display: false } },
+      y: { beginAtZero: true, ticks: { stepSize: 20 } }
+    }
   }
+});
+
+let pieOutcome = new Chart(document.getElementById('pieOutcome'), {
+  type: 'pie',
+  data: { labels: ['Accepted', 'Rejected'], datasets: [{ data: [0, 0], backgroundColor: ['#22c55e', '#ef4444'], borderWidth: 0 }] },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+});
+
+let orderFulfill = new Chart(document.getElementById('orderFulfill'), {
+  type: 'bar',
+  data: { labels: ['New Order', 'In Progress', 'Completed', 'Overdue'], datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#22c55e', '#f59e0b', '#06b6d4', '#ef4444'] }] },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true } }
+  }
+});
+
+// Tabs
+document.querySelectorAll('#reportTabs .nav-link').forEach(a => {
+  a.addEventListener('click', () => {
+    document.querySelectorAll('#reportTabs .nav-link').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+    document.querySelector(a.dataset.target).classList.add('active');
+  });
+});
+
+// Function to update date range inputs
+function updateDateRange(section, period) {
+  const startInput = document.querySelector(`#${section}-start-date`);
+  const endInput = document.querySelector(`#${section}-end-date`);
+  const today = new Date();
+  let startDate, endDate;
+
+  if (period === 'yearly') {
+    startDate = new Date(today.getFullYear(), 0, 1);
+    endDate = new Date(today.getFullYear(), 11, 31);
+  } else if (period === 'quarterly') {
+    const quarter = Math.floor(today.getMonth() / 3);
+    startDate = new Date(today.getFullYear(), quarter * 3, 1);
+    endDate = new Date(today.getFullYear(), (quarter + 1) * 3 - 1, new Date(today.getFullYear(), (quarter + 1) * 3, 0).getDate());
+  } else {
+    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  }
+
+  startInput.value = startDate.toISOString().split('T')[0];
+  endInput.value = endDate.toISOString().split('T')[0];
+}
+
+// Sales Period buttons
+document.querySelectorAll('#sales-period-group button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#sales-period-group button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector('#sales-period').value = btn.dataset.period;
+    updateDateRange('sales', btn.dataset.period);
+    document.getElementById('sales-generate').click();
+  });
+});
+
+// Order Period select
+document.getElementById('order-period').addEventListener('change', (e) => {
+  updateDateRange('order', e.target.value.toLowerCase());
+  document.getElementById('order-generate').click();
+});
+
+// Sales Generate
+document.getElementById('sales-generate').addEventListener('click', () => {
+  const formData = new FormData(document.getElementById('sales-filters'));
+  fetch('{{ route('admin.report.sales-kpis') }}', {
+    method: 'POST',
+    body: formData
+  })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('total-leads').textContent = data.total_leads;
+      document.getElementById('leads-delta').textContent = `${data.leads_delta}% from last period`;
+      document.getElementById('leads-delta').className = data.leads_delta >= 0 ? 'delta text-success' : 'delta text-danger';
+      document.getElementById('total-meetings').textContent = data.total_meetings;
+      document.getElementById('meetings-delta').textContent = `${data.meetings_delta}% from last period`;
+      document.getElementById('meetings-delta').className = data.meetings_delta >= 0 ? 'delta text-success' : 'delta text-danger';
+      document.getElementById('accepted-meetings').textContent = data.accepted;
+      document.getElementById('acceptance-rate').textContent = `${data.acceptance_rate}% acceptance rate`;
+      document.getElementById('rejected-meetings').textContent = data.rejected;
+    })
+    .catch(err => console.error('Error fetching sales KPIs:', err));
+
+  fetch('{{ route('admin.report.sales-monthly') }}', {
+    method: 'POST',
+    body: formData
+  })
+    .then(res => res.json())
+    .then(data => {
+      barMonthly.data.datasets[0].data = [data.leads_added, data.accepted, data.rejected, data.fifty_fifty, data.low_chance];
+      barMonthly.update();
+    })
+    .catch(err => console.error('Error fetching performance:', err));
+
+  fetch('{{ route('admin.report.sales-outcomes') }}', {
+    method: 'POST',
+    body: formData
+  })
+    .then(res => res.json())
+    .then(data => {
+      pieOutcome.data.datasets[0].data = [data.accepted, data.rejected];
+      pieOutcome.update();
+    })
+    .catch(err => console.error('Error fetching sales outcomes:', err));
+});
+
+// Order Generate
+document.getElementById('order-generate').addEventListener('click', () => {
+  const formData = new FormData(document.getElementById('order-filters'));
+  fetch('{{ route('admin.report.order-fulfillment') }}', {
+    method: 'POST',
+    body: formData
+  })
+    .then(res => res.json())
+    .then(data => {
+      orderFulfill.data.datasets[0].data = [data.new_orders, data.in_progress, data.completed, data.overdue];
+      orderFulfill.update();
+    })
+    .catch(err => console.error('Error fetching order fulfillment:', err));
+});
+
+// Initial data fetch on page load
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('sales-generate').click();
+  document.getElementById('order-generate').click();
 });
 </script>
 @endsection

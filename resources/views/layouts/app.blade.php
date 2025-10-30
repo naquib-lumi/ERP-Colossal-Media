@@ -171,12 +171,6 @@ $configData = \App\Helpers\Helpers::appClasses();
                     <div data-i18n="Fulfillment">Fulfillment</div>
                 </a>
             </li>
-            <li class="menu-item {{ request()->routeIs('admin.data-key-in') ? 'active' : '' }}">
-                <a href="{{ route('admin.data-key-in') }}" class="menu-link">
-                    <i class="menu-icon icon-base bx bx-key"></i>
-                    <div data-i18n="Data Key In">Data Key In</div>
-                </a>
-            </li>
         @endif
             @if (in_array(auth()->user()->role, ['operations-printing']))
               <li class="menu-item {{ request()->routeIs('printing.history') ? 'active' : '' }}">

@@ -21,12 +21,13 @@ class AdminReportController extends Controller
         return view('admin.reports', compact('salespeople'));
     }
 
-         public function reportstest()
+    public function reportstest()
     {
         $leads  = Lead::latest()->get();
         $orders = Order::latest()->get();
         return view('admin.reports-bk20251027', compact('leads', 'orders'));
     }
+
     public function salesKpis(Request $request)
     {
         $user = auth()->user();
@@ -54,8 +55,8 @@ class AdminReportController extends Controller
         if ($salesperson) $mq->where('salesperson_id', $salesperson);
 
         $totalMeetings = $mq->count();
-        $accepted = $mq->where('status', 'accept')->count();
-        $rejected = $mq->where('status', 'reject')->count();
+        $accepted = $q->clone()->whereHas('orders')->count();
+        $rejected = $q->clone()->whereDoesntHave('orders')->count();
 
         $prevStart = $start->copy()->subMonth();
         $prevEnd = $end->copy()->subMonth();
@@ -72,42 +73,11 @@ class AdminReportController extends Controller
             'rejected' => $rejected,
             'leads_delta' => $leadsDelta,
             'meetings_delta' => $meetingsDelta,
-            'acceptance_rate' => $totalMeetings > 0 ? round($accepted / $totalMeetings * 100, 1) : 0,
+            'acceptance_rate' => $totalLeads > 0 ? round($accepted / $totalLeads * 100, 1) : 0,
         ]);
     }
 
     public function salesMonthlyPerformance(Request $request)
-    {
-        $user = auth()->user();
-        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
-
-        $month = $request->month ?? Carbon::now()->format('M');
-        $year = Carbon::now()->year;
-        $salesperson = $request->salesperson;
-
-        $monthNum = ['Jan' => 1, 'Feb' => 2, 'Mar' => 3, 'Apr' => 4, 'May' => 5, 'Jun' => 6, 'Jul' => 7, 'Aug' => 8, 'Sep' => 9, 'Oct' => 10, 'Nov' => 11, 'Dec' => 12][$month] ?? 1;
-        $start = Carbon::create($year, $monthNum, 1)->startOfMonth();
-        $end = $start->copy()->endOfMonth();
-
-        $lq = Lead::whereBetween('created_at', [$start, $end]);
-        if ($salesperson) $lq->where('salesperson_id', $salesperson);
-
-        $leadsAdded = $lq->count();
-        $accepted = $lq->where('status', 'accept')->count();
-        $rejected = $lq->where('status', 'reject')->count();
-        $fiftyFifty = $lq->where('opportunity', '50/50')->count();
-        $lowChance = $lq->where('opportunity', 'Low Chance')->count();
-
-        return response()->json([
-            'leads_added' => $leadsAdded,
-            'accepted' => $accepted,
-            'rejected' => $rejected,
-            'fifty_fifty' => $fiftyFifty,
-            'low_chance' => $lowChance,
-        ]);
-    }
-
-    public function salesMeetingOutcomes(Request $request)
     {
         $user = auth()->user();
         if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
@@ -125,11 +95,46 @@ class AdminReportController extends Controller
             $end = Carbon::now()->endOfQuarter();
         }
 
-        $q = Meeting::whereBetween('start_time', [$start, $end]);
+        $lq = Lead::whereBetween('created_at', [$start, $end]);
+        if ($salesperson) $lq->where('salesperson_id', $salesperson);
+        $leadsAdded = $lq->count();
+        $accepted = $lq->clone()->where('status', 'accept')->count();
+        $rejected = $lq->clone()->where('status', 'reject')->count();
+        $fiftyFifty = $lq->clone()->where('opportunity', '50/50')->count();
+        $lowChance = $lq->clone()->where('opportunity', 'Low Chance')->count();
+
+        return response()->json([
+            'leads_added' => $leadsAdded,
+            'accepted' => $accepted,
+            'rejected' => $rejected,
+            'fifty_fifty' => $fiftyFifty,
+            'low_chance' => $lowChance,
+        ]);
+    }
+
+    public function salesOutcomes(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
+
+        $salesperson = $request->salesperson === 'All Salespersons' ? null : $request->salesperson;
+        $period = strtolower($request->period ?? 'monthly');
+        $start = $request->start_date ? Carbon::parse($request->start_date) : Carbon::now()->startOfMonth();
+        $end = $request->end_date ? Carbon::parse($request->end_date) : Carbon::now()->endOfMonth();
+
+        if ($period === 'yearly') {
+            $start = Carbon::now()->startOfYear();
+            $end = Carbon::now()->endOfYear();
+        } elseif ($period === 'quarterly') {
+            $start = Carbon::now()->startOfQuarter();
+            $end = Carbon::now()->endOfQuarter();
+        }
+
+        $q = Lead::whereBetween('created_at', [$start, $end]);
         if ($salesperson) $q->where('salesperson_id', $salesperson);
 
-        $accepted = $q->where('status', 'accept')->count();
-        $rejected = $q->where('status', 'reject')->count();
+        $accepted = $q->clone()->whereHas('orders')->count();
+        $rejected = $q->clone()->whereDoesntHave('orders')->count();
 
         return response()->json([
             'accepted' => $accepted,
@@ -257,13 +262,11 @@ class AdminReportController extends Controller
             $end = Carbon::now()->endOfQuarter();
         }
 
+        $excluded = Order::whereNotNull('redo')->pluck('redo')->toArray();
+
         $orders = Order::with('lead', 'salesperson', 'originalOrder')
             ->whereBetween('orderDate', [$start, $end])
-            ->whereNotExists(function ($query) {
-                $query->select(DB::raw(1))
-                    ->from('orders as child')
-                    ->whereColumn('child.redo', 'orders.id');
-            })
+            ->whereNotIn('id', $excluded)
             ->orderBy('created_at', 'desc')
             ->get();
 

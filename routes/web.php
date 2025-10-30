@@ -385,14 +385,14 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
     Route::get('/calendar/admin-events', [CalendarController::class, 'events'])->name('calendar.events');
     Route::get('/calendar/order-events', [CalendarController::class, 'orderEvents'])->name('calendar.order-events');
-Route::get('/admin/reports', [AdminReportController::class, 'index'])->name('admin.reports');
-Route::get('/admin/reportstest', [AdminReportController::class, 'reportstest'])->name('admin.reportstest');
+    Route::get('/admin/reports', [AdminReportController::class, 'index'])->name('admin.reports');
+    Route::get('/admin/reportstest', [AdminReportController::class, 'reportstest'])->name('admin.reportstest');
 
     Route::post('/admin/reports/sales-kpis', [AdminReportController::class, 'salesKpis'])->name('admin.report.sales-kpis');
     Route::post('/admin/reports/sales-monthly', [AdminReportController::class, 'salesMonthlyPerformance'])->name('admin.report.sales-monthly');
-    Route::post('/admin/reports/sales-outcomes', [AdminReportController::class, 'salesMeetingOutcomes'])->name('admin.report.sales-outcomes');
+    Route::post('/admin/reports/sales-outcomes', [AdminReportController::class, 'salesOutcomes'])->name('admin.report.sales-outcomes');
     Route::post('/admin/reports/order-fulfillment', [AdminReportController::class, 'orderFulfillment'])->name('admin.report.order-fulfillment');
-    Route::post('/admin/reports/export-sales', [AdminReportController::class, 'exportSales'])->name('admin.report.export-sales');
+    Route::get('/admin/reports/export-sales', [AdminReportController::class, 'exportSales'])->name('admin.report.export-sales');
     Route::post('/admin/reports/export-orders', [AdminReportController::class, 'exportOrders'])->name('admin.report.export-orders');
     Route::get('/admin/data-key-in', [AdminController::class, 'dataKeyIn'])->name('admin.data-key-in');
     Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
