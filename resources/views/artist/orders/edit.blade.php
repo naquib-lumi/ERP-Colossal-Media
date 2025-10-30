@@ -724,7 +724,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
@@ -733,7 +733,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -752,7 +752,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -761,7 +761,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -770,7 +770,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -779,7 +779,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
                                   </div>
 

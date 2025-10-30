@@ -119,57 +119,64 @@ class Product extends Model
     }
 
     public function syncTaskTypeFromSpecs(): void
-{
-    $pid = $this->getAttribute('ProductID') ?? $this->getKey();
+    {
+        $pid = $this->getAttribute('ProductID') ?? $this->getKey();
 
-    // 1) Does this product already exist?
-    $existsInDb = $this->exists
-        ? true
-        : ($pid ? DB::table('products')->where('ProductID', $pid)->exists() : false);
+        // 1) Does this product already exist?
+        $existsInDb = $this->exists
+            ? true
+            : ($pid ? DB::table('products')->where('ProductID', $pid)->exists() : false);
 
-    // 2) Decide taskType
-    //    - If taskType already set on the model, KEEP it (do not override).
-    //    - Only infer from specs when taskType is empty.
-    $currentType = strtolower((string) $this->getAttribute('taskType'));
-    $newType = $currentType; // default: keep existing
+        // 2) Decide taskType
+        //    - If taskType already set on the model, KEEP it (do not override).
+        //    - Only infer from specs when taskType is empty.
+        $currentType = strtolower((string) $this->getAttribute('taskType'));
+        $newType = $currentType; // default: keep existing
 
-    if ($newType === '' || $newType === '0' || $newType === 'null' || $newType === null) {
-        $hasPrinter = $pid
-            ? DB::table('product_items as pi')
-                ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
-                ->where('pi.ProductID', $pid)
-                ->whereNotNull('s.printer')
-                ->whereRaw("TRIM(s.printer) <> ''")
-                ->whereRaw("LOWER(TRIM(s.printer)) <> 'null'")
-                ->exists()
-            : false;
+        if ($newType === '' || $newType === '0' || $newType === 'null' || $newType === null) {
+            // detect if there is any *real* printer value
+            $hasRealPrinter = false;
 
-        $newType = $hasPrinter ? 'printing' : 'furnishing';
-    }
+            if ($pid) {
+                $hasRealPrinter = DB::table('product_items as pi')
+                    ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
+                    ->where('pi.ProductID', $pid)
+                    // keep rows that have some printer text
+                    ->whereNotNull('s.printer')
+                    ->whereRaw("TRIM(s.printer) <> ''")
+                    // 👇 extra guard: ignore values that literally mean "no printer"
+                    ->whereRaw("LOWER(TRIM(s.printer)) NOT IN ('no','none','n','0')")
+                    // also ignore literal string "null"
+                    ->whereRaw("LOWER(TRIM(s.printer)) <> 'null'")
+                    ->exists();
+            }
 
-    $changes = [];
-
-    // Only write taskType if it actually changes
-    if ($this->getAttribute('taskType') !== $newType) {
-        $changes['taskType'] = $newType;
-    }
-
-    // 3) If the row exists, move it back to in_progress and clear accepted
-    if ($existsInDb) {
-        if ($this->getAttribute('status') !== 'in_progress') {
-            $changes['status'] = 'in_progress';
+            // if we got a real printer -> printing, else -> furnishing
+            $newType = $hasRealPrinter ? 'printing' : 'furnishing';
         }
-        // Always clear accepted to NULL
-        if ($this->getAttribute('accepted') !== null) {
-            $changes['accepted'] = null;
+
+        $changes = [];
+
+        // Only write taskType if it actually changes
+        if ($this->getAttribute('taskType') !== $newType) {
+            $changes['taskType'] = $newType;
+        }
+
+        // 3) If the row exists, move it back to in_progress and clear accepted
+        if ($existsInDb) {
+            if ($this->getAttribute('status') !== 'in_progress') {
+                $changes['status'] = 'in_progress';
+            }
+            // Always clear accepted to NULL
+            if ($this->getAttribute('accepted') !== null) {
+                $changes['accepted'] = null;
+            }
+        }
+
+        if (!empty($changes)) {
+            $this->forceFill($changes)->save();
         }
     }
-
-    if (!empty($changes)) {
-        $this->forceFill($changes)->save();
-    }
-}
-
 
     public function getDisplayCodeAttribute(): string
     {

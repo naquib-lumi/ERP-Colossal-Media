@@ -21,5 +21,6 @@ class DatabaseSeeder extends Seeder
         $this->call(FulfillmentProgressSeeder::class);
         $this->call(BossSeeder::class);
         $this->call(MaterialSeederLatest::class);
+        $this->call(MachineSeeder::class);
     }
 }
