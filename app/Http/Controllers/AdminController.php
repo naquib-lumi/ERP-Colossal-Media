@@ -798,4 +798,172 @@ class AdminController extends Controller
     {
         return response()->noContent();
     }
+   
+public function dispatchControl()
+{
+    $tasks = [
+        ['id' => '#ORD006-P3', 'name' => 'Posters',        'type' => 'Self Pick up', 'deadline' => '2025-07-30', 'status' => 'In Progress'],
+        ['id' => '#ORD003-P1', 'name' => 'Business Cards', 'type' => 'Self Pick up', 'deadline' => '2025-08-15', 'status' => 'In Progress'],
+        ['id' => '#ORD007-P2', 'name' => 'Banner Signs',   'type' => 'Courier',      'deadline' => '2025-08-20', 'status' => 'Completed'],
+        ['id' => '#ORD009-P4', 'name' => 'Vinyl Decals',   'type' => 'Courier',      'deadline' => '2025-08-25', 'status' => 'Completed'],
+    ];
+
+    return view('admin.dispatch', compact('tasks')); // 对应 resources/views/admin/dispatch.blade.php
+}
+
+public function dispatchExport()
+{
+    return back()->with('status', 'CSV export is not implemented yet.');
+}
+
+// Delivery & Installation — 列表页（带筛选 + 分页）
+// Delivery & Installation — 列表页（用 orders 表，带筛选 + 分页）
+public function installation(Request $request)
+{
+    $q         = trim($request->get('q', ''));
+    $artist    = trim($request->get('artist', ''));
+    $details   = trim($request->get('details', ''));
+    $taskType  = $request->get('task_type', 'all');
+    $status    = $request->get('status', 'all');
+    $dateRange = trim($request->get('date_range', '')); // 01/07/2025 - 31/07/2025
+
+    // 兼容你表结构里两种可能字段名
+    $taskCol     = \Schema::hasColumn('orders','task_type')
+                    ? 'task_type'
+                    : (\Schema::hasColumn('orders','delivery_installation_type') ? 'delivery_installation_type' : null);
+    $deadlineCol = \Schema::hasColumn('orders','deadline') ? 'deadline' : 'created_at';
+    $statusCol   = \Schema::hasColumn('orders','orderStatus') ? 'orderStatus' : 'status';
+
+    $rows = Order::query()
+        ->with('artist')
+        // 关键词：订单号 / 标题
+        ->when($q !== '', function ($qb) use ($q) {
+            $qb->where(function ($sub) use ($q) {
+                $sub->where('order_number','like',"%{$q}%")
+                    ->orWhere('orderTitle','like',"%{$q}%");
+            });
+        })
+        // 艺术家
+        ->when($artist !== '', function ($qb) use ($artist) {
+            $qb->whereHas('artist', fn($w)=>$w->where('name','like',"%{$artist}%"));
+        })
+        // 明细（标题 / 描述）
+        ->when($details !== '', function ($qb) use ($details) {
+            $qb->where(function ($sub) use ($details) {
+                $sub->where('orderTitle','like',"%{$details}%")
+                    ->orWhere('description','like',"%{$details}%");
+            });
+        })
+        // 任务类型
+        ->when($taskCol && $taskType !== 'all' && $taskType !== '', function ($qb) use ($taskCol,$taskType) {
+            $qb->where($taskCol, $taskType);
+        })
+        // 状态
+        ->when($status !== 'all' && $status !== '', function ($qb) use ($statusCol,$status) {
+            $qb->where($statusCol, $status);
+        })
+        // 日期范围
+        ->when($dateRange !== '', function ($qb) use ($deadlineCol,$dateRange) {
+            $parts = preg_split('/\s*-\s*/', $dateRange);
+            if (count($parts) === 2) {
+                try {
+                    $start = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[0]))->startOfDay();
+                    $end   = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[1]))->endOfDay();
+                    $qb->whereBetween($deadlineCol, [$start, $end]);
+                } catch (\Exception $e) {}
+            }
+        })
+        ->orderBy($deadlineCol, 'asc')
+        ->paginate(20)
+        ->appends($request->query());
+
+    // 视图里用到的字段名做一次统一映射（不改表结构也能渲染）
+    $rows->getCollection()->transform(function($o) use ($taskCol,$deadlineCol,$statusCol){
+        $o->order_id       = $o->order_number ?? ('ORD-'.$o->id);
+        $o->product_name   = $o->orderTitle ?? ($o->product_name ?? ''); // 你的 blade 用的是 product_name
+        $o->task_type      = $taskCol ? $o->{$taskCol} : null;
+        $o->deadline       = $o->{$deadlineCol} ? \Carbon\Carbon::parse($o->{$deadlineCol}) : null;
+        $o->status         = $o->{$statusCol};
+        $o->permit_confirm = $o->permit_confirm ?? null; // 若没有此列，前端会显示图标占位
+        return $o;
+    });
+
+    return view('admin.installation', compact('rows'));
+}
+// Delivery & Installation — 导出（CSV；与上面的筛选一致）
+public function installationExport(Request $request)
+{
+    $q         = trim($request->get('q', ''));
+    $artist    = trim($request->get('artist', ''));
+    $details   = trim($request->get('details', ''));
+    $taskType  = $request->get('task_type', 'all');
+    $status    = $request->get('status', 'all');
+    $dateRange = trim($request->get('date_range', ''));
+
+    $taskCol     = \Schema::hasColumn('orders','task_type')
+                    ? 'task_type'
+                    : (\Schema::hasColumn('orders','delivery_installation_type') ? 'delivery_installation_type' : null);
+    $deadlineCol = \Schema::hasColumn('orders','deadline') ? 'deadline' : 'created_at';
+    $statusCol   = \Schema::hasColumn('orders','orderStatus') ? 'orderStatus' : 'status';
+
+    $query = Order::query()->with('artist')
+        ->when($q !== '', function ($qb) use ($q) {
+            $qb->where(function ($sub) use ($q) {
+                $sub->where('order_number','like',"%{$q}%")
+                    ->orWhere('orderTitle','like',"%{$q}%");
+            });
+        })
+        ->when($artist !== '', function ($qb) use ($artist) {
+            $qb->whereHas('artist', fn($w)=>$w->where('name','like',"%{$artist}%"));
+        })
+        ->when($details !== '', function ($qb) use ($details) {
+            $qb->where(function ($sub) use ($details) {
+                $sub->where('orderTitle','like',"%{$details}%")
+                    ->orWhere('description','like',"%{$details}%");
+            });
+        })
+        ->when($taskCol && $taskType !== 'all' && $taskType !== '', function ($qb) use ($taskCol,$taskType) {
+            $qb->where($taskCol, $taskType);
+        })
+        ->when($status !== 'all' && $status !== '', function ($qb) use ($statusCol,$status) {
+            $qb->where($statusCol, $status);
+        })
+        ->when($dateRange !== '', function ($qb) use ($deadlineCol,$dateRange) {
+            $parts = preg_split('/\s*-\s*/', $dateRange);
+            if (count($parts) === 2) {
+                try {
+                    $start = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[0]))->startOfDay();
+                    $end   = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[1]))->endOfDay();
+                    $qb->whereBetween($deadlineCol, [$start, $end]);
+                } catch (\Exception $e) {}
+            }
+        })
+        ->orderBy($deadlineCol, 'asc');
+
+    $data = $query->get();
+
+    $headers = [
+        'Content-Type'        => 'text/csv; charset=UTF-8',
+        'Content-Disposition' => 'attachment; filename="installation_export.csv"',
+    ];
+
+    $callback = function () use ($data, $taskCol, $deadlineCol, $statusCol) {
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Product ID','Product Name','Task Type','Deadline','Status','Permit/Confirm']);
+        foreach ($data as $o) {
+            $orderId   = $o->order_number ?? ('ORD-'.$o->id);
+            $name      = $o->orderTitle ?? ($o->product_name ?? '');
+            $taskType  = $taskCol ? ($o->{$taskCol} ?? '') : '';
+            $deadline  = $o->{$deadlineCol} ? \Carbon\Carbon::parse($o->{$deadlineCol})->format('Y-m-d') : '';
+            $status    = $o->{$statusCol} ?? '';
+            $permit    = $o->permit_confirm ?? '';
+            fputcsv($out, [$orderId, $name, $taskType, $deadline, $status, $permit]);
+        }
+        fclose($out);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
+
+
 }

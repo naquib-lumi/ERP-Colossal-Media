@@ -412,6 +412,14 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
 });
 
+    Route::get('/admin/dispatch-control', [AdminController::class, 'dispatchControl'])->name('admin.dispatch');
+    Route::get('/admin/dispatch-control/export', [AdminController::class, 'dispatchExport'])->name('admin.dispatch.export');
+Route::get('/admin/installation', [AdminController::class, 'installation'])->name('admin.installation');
+Route::get('/admin/installation/export', [AdminController::class, 'installationExport'])->name('admin.installation.export');
+
+
+
+
 
     Route::middleware('role:printing,installation,delivery,furnishing')->group(function () {
         Route::get('/operations/tasks', [OperationsController::class, 'tasks'])->name('operations.tasks');
