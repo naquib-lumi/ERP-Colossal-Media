@@ -353,14 +353,14 @@ $isRedoOrder = (bool) $order->redo;
 
                                             <div class="row gy-2 mt-2">
                                                 <div class="text-muted col-md-4">
-                                                    <small class="text-muted d-block">Size</small>
+                                                    <small class="text-muted d-block">Size (W • H)</small>
                                                     <span class="text-body fw-semibold">{{ $w }} × {{ $h }} {{ $szUnit }}</span>
                                                 </div>
 
                                                 <div class="text-muted col-md-4">
-                                                    <small class="text-muted d-block">Bleed (T • R • B • L)</small>
+                                                    <small class="text-muted d-block">Bleed (T • B • L • R)</small>
                                                     <span class="text-body fw-semibold">
-                                                        {{ $bt }} {{ $blUnit }} • {{ $br }} {{ $blUnit }} • {{ $bb }} {{ $blUnit }} • {{ $bl }} {{ $blUnit }}
+                                                        {{ $bt }} {{ $blUnit }} • {{ $bb }} {{ $blUnit }} • {{ $bl }} {{ $blUnit }} • {{ $br }} {{ $blUnit }}
                                                     </span>
                                                 </div>
 

@@ -449,18 +449,39 @@
           <div class="accordion" id="productsAcc">
             @foreach($order->products as $pIndex => $product)
               @php
-                $isRedo = (bool) $order->redo;
-                $selectedForRedo = $isRedo && (int) ($product->editable ?? 0) === 1;
-                $locked = $isRedo && !$selectedForRedo;
+                $isRedo          = (bool) $order->redo;
+                $selectedForRedo = $isRedo && (int)($product->editable ?? 0) === 1;
+                $hasEditableFlag = !is_null($product->editable);
+                $lockedByEditable = $hasEditableFlag && (int)$product->editable !== 1;
+                $locked = ($isRedo && !$selectedForRedo) || $lockedByEditable;
 
-                // 👇 fetch redo info (created by & reason) if available
                 $redoRecord = DB::table('report_redo')
-                ->where('OrderID', $order->redo ?: $order->id)
-                ->latest('ReportID') // ✅ use correct primary key
-                ->first();
+                  ->where('OrderID', $order->redo ?: $order->id)
+                  ->latest('ReportID')
+                  ->first();
+
                 $redoBy = null;
                 if ($redoRecord && $redoRecord->user_id) {
                     $redoBy = \App\Models\User::find($redoRecord->user_id)?->name;
+                }
+
+                // --- REJECT record (latest) — only if we intend to show the banner
+                $isRejected          = strtolower((string)($product->status ?? '')) === 'rejected';
+                $showRejectedBanner  = $isRejected && (int)($product->editable ?? 0) === 1;
+
+                $rejectRecord = null;
+                $rejectBy     = null;
+
+                if ($showRejectedBanner) {
+                    $rejectRecord = DB::table('report_redo')
+                        ->where('OrderID', $order->id)
+                        ->when(Schema::hasColumn('report_redo','type'), fn($q) => $q->where('type','reject'))
+                        ->latest('ReportID')
+                        ->first();
+
+                    if ($rejectRecord && !empty($rejectRecord->user_id)) {
+                        $rejectBy = \App\Models\User::find($rejectRecord->user_id)?->name;
+                    }
                 }
               @endphp
 
@@ -481,15 +502,29 @@
                       Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
 
                       @if ($selectedForRedo)
-                        <span class="redo-banner redo-offset ms-2" title="{{ $redoReason ?? '' }}">
+                        <span class="redo-banner redo-offset ms-2" title="{{ $redoRecord->reason ?? '' }}">
                           <i class="bi bi-exclamation-octagon-fill icon"></i>
                           <span class="tag" style="font-size: 12px;">REDO</span>
+                          @if(!empty($redoRecord->reason))
+                            <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                                  title="{{ $redoRecord->reason }}">{{ Str::limit($redoRecord->reason, 90) }}</span>
+                          @endif
                           @if($redoBy)
                             <span class="by" style="font-size: 12px;">by {{ $redoBy }}</span>
                           @endif
-                          @if(!empty($redoReason))
+                        </span>
+                      @endif
+
+                      @if ($showRejectedBanner)
+                        <span class="redo-banner redo-offset ms-2 bg-danger text-white" title="{{ $rejectRecord->reason ?? '' }}">
+                          <i class="bi bi-x-octagon-fill icon"></i>
+                          <span class="tag" style="font-size: 12px;">REJECTED</span>
+                          @if(!empty($rejectRecord->reason))
                             <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
-                                  title="{{ $redoReason }}">{{ Str::limit($redoReason, 90) }}</span>
+                                  title="{{ $rejectRecord->reason }}">{{ \Illuminate\Support\Str::limit($rejectRecord->reason, 90) }}</span>
+                          @endif
+                          @if($rejectBy)
+                            <span class="by" style="font-size: 12px;">by {{ $rejectBy }}</span>
                           @endif
                         </span>
                       @endif
@@ -1441,7 +1476,8 @@
                       <select id="assignee_artist_id" class="form-select" style="width:100%">
                         @if(!empty($order->artist_id) && !empty($order->artist))
                           <option value="{{ $order->artist_id }}" selected>
-                            {{ $order->artist->name }} ({{ $order->artist->role }})
+                            {{ $order->artist->name }} 
+                            <!-- ({{ $order->artist->role }}) -->
                           </option>
                         @endif
 
