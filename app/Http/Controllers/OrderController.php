@@ -362,7 +362,7 @@ public function exportCsv(Request $request)
                 'OrderID' => $order->id,
                 'productName' => $productData['product_name'],
                 'totalQuantity' => $productData['quantity'],
-                'materialRemark' => $productData['material_info'] ?? null,
+                'materixalRemark' => $productData['material_info'] ?? null,
             ]);
 
             foreach ($productData['remarks'] ?? [] as $remarkData) {
@@ -376,12 +376,12 @@ public function exportCsv(Request $request)
         }
 
         // Notify all head-artists
-        $headArtists = User::whereHas('roles', fn($q) => $q->where('name', 'head-artist'))->get();
-        $message = "New order '{$order->orderTitle}' (ID: {$order->id}) needs assignment to artist.";
-        $url = route('artist.orders.assign.show', $order->id);
-        foreach ($headArtists as $headArtist) {
-            self::notify($headArtist, $message, $url);
-        }
+        // $headArtists = User::whereHas('roles', fn($q) => $q->where('name', 'head-artist'))->get();
+        // $message = "New order '{$order->orderTitle}' (ID: {$order->id}) needs assignment to artist.";
+        // $url = route('artist.orders.assign.show', $order->id);
+        // foreach ($headArtists as $headArtist) {
+        //     self::notify($headArtist, $message, $url);
+        // }
 
         return redirect()->route('sales.orders')->with('success', 'Order created successfully');
     } catch (\Illuminate\Validation\ValidationException $e) {

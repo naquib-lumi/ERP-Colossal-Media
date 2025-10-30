@@ -2,6 +2,11 @@
 
 @section('title', 'Lead Management')
 @section('content')
+<style>
+.swal2-popup.z-index-1060 {
+    z-index: 1060 !important;
+}
+</style>
 <div class="container-xxl flex-grow-1 container-p-y">
     <!-- Lead Management Table -->
     <div class="card">
@@ -116,23 +121,23 @@
         </div>
     </div>
     <!-- Modal for Reminder Confirmation -->
-    <div class="modal fade" id="reminderConfirmModal" tabindex="-1" aria-labelledby="reminderConfirmLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="reminderConfirmLabel">Confirm Reminder Completion</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="reminderConfirmText"></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
-                    <button type="button" class="btn btn-primary" id="confirmReminderDoneBtn">Yes</button>
-                </div>
+<div class="modal fade" id="reminderConfirmModal" tabindex="-1" aria-labelledby="reminderConfirmLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reminderConfirmLabel">Confirm Reminder Completion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="reminderConfirmText"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
+                <button type="button" class="btn btn-primary" id="confirmReminderDoneBtn">Yes</button>
             </div>
         </div>
     </div>
+</div>
     <!--/ Lead Management Table -->
     <hr class="my-12" />
 </div>
@@ -302,38 +307,59 @@
             $('#reminderConfirmModal').data('lead-id', leadId).data('reminder-id', reminderId).modal('show');
         });
 
-        $(document).on('click', '#confirmReminderDoneBtn', function() {
-            let leadId = $('#reminderConfirmModal').data('lead-id');
-            let reminderId = $('#reminderConfirmModal').data('reminder-id');
+  $(document).on('click', '#confirmReminderDoneBtn', function() {
+    let leadId = $('#reminderConfirmModal').data('lead-id');
+    let reminderId = $('#reminderConfirmModal').data('reminder-id');
 
-            $.ajax({
-                url: '{{ route('leads.confirm.reminder.status', ['id' => ':leadId', 'reminderId' => ':reminderId']) }}'.replace(':leadId', leadId).replace(':reminderId', reminderId),
-                type: 'POST',
-                data: {
-                    _token: $('meta[name="csrf-token"]').attr('content'),
-                    confirm: 'yes'
-                },
-                success: function(response) {
-                    console.log('Reminder confirmed:', response);
-                    $('#reminderConfirmModal').modal('hide');
-                    let $link = $(`a.confirm-reminder[data-reminder-id="${reminderId}"]`);
-                    if ($link.length) {
-                        let $li = $link.closest('li');
-                        $li.addClass('text-secondary text-decoration-line-through').fadeOut(2500, function() {
-                            $li.remove();
-                            let $ul = $li.parent('ul');
-                            if ($ul.children('li').length === 0) {
-                                $ul.replaceWith('<span class="text-muted">No Reminders</span>');
-                            }
-                        });
+    $.ajax({
+        url: '{{ route('leads.confirm.reminder.status', ['id' => ':leadId', 'reminderId' => ':reminderId']) }}'.replace(':leadId', leadId).replace(':reminderId', reminderId),
+        type: 'POST',
+        data: {
+            _token: $('meta[name="csrf-token"]').attr('content'),
+            confirm: 'yes'
+        },
+        success: function(response) {
+            console.log('Reminder confirmed:', response);
+            $('#reminderConfirmModal').modal('hide');
+            let $link = $(`a.confirm-reminder[data-reminder-id="${reminderId}"]`);
+            if ($link.length) {
+                let $li = $link.closest('li');
+                $li.addClass('text-secondary text-decoration-line-through').fadeOut(2500, function() {
+                    $li.remove();
+                    let $ul = $li.parent('ul');
+                    if ($ul.children('li').length === 0) {
+                        $ul.replaceWith('<span class="text-muted">No Reminders</span>');
                     }
-                },
-                error: function(xhr) {
-                    console.error('Reminder confirm error:', xhr.status, xhr.responseText);
-                    alert('Error confirming reminder: ' + xhr.responseText);
+                });
+            }
+        },
+        error: function(xhr) {
+            console.error('Reminder confirm error:', xhr.status, xhr.responseText);
+            $('#reminderConfirmModal').modal('hide');
+            let errorMsg = 'Error confirming reminder';
+            if (xhr.status === 403) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.error === 'Unauthorized') {
+                        errorMsg = 'Only the assigned salesperson can confirm this reminder.';
+                    }
+                } catch (e) {
+                    // fallback
                 }
+            } else {
+                errorMsg += ': ' + (xhr.responseText || 'Unknown error');
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: errorMsg,
+                confirmButtonText: 'OK',
+                allowOutsideClick: true,
+                allowEscapeKey: true
             });
-        });
+        }
+    });
+});
 
         $('#leadTable').on('click', '.view-attachments', function(e) {
             e.stopPropagation();

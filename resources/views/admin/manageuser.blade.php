@@ -351,6 +351,7 @@ modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && modal.classList.contains('open')) closeModal(); });
 
 /** 新增模式 */
+/** 新增模式 */
 function prepareCreate(){
   form.action = @json(route('admin.user.store'));
   methodSpoof.value = 'POST';
@@ -366,6 +367,7 @@ function prepareCreate(){
   if (togglePwdBtn) togglePwdBtn.disabled = false;
 
   fMode.value = 'create';
+  fRole.disabled = false; // Enable role select for create
 
   // 回填旧值（失败返回）
   fName.value  = @json(old('name',''));
@@ -393,6 +395,7 @@ function prepareEdit(u){
   if (togglePwdBtn) togglePwdBtn.disabled = true;
 
   fMode.value = 'edit';
+  fRole.disabled = true; // Disable role select for edit
 
   fName.value = u.name;
   fEmail.value = u.email;
@@ -403,7 +406,6 @@ function prepareEdit(u){
   fStatus.value = active ? 'active' : 'inactive';
   statusText.textContent = active ? 'Active' : 'Inactive';
 }
-
 /** 行内编辑按钮 */
 document.querySelector('tbody').addEventListener('click', function(e){
   const btn = e.target.closest('button[data-mode="edit"]');

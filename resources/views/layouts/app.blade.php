@@ -141,14 +141,8 @@ $configData = \App\Helpers\Helpers::appClasses();
                     <div data-i18n="Manage User">Manage User</div>
                 </a>
             </li>
-            <li class="menu-item {{ request()->routeIs('admin.orders') ? 'active' : '' }}">
-                <a href="{{ route('admin.orders') }}" class="menu-link">
-                    <i class="menu-icon icon-base bx bx-file"></i>
-                    <div data-i18n="Orders">Orders</div>
-                </a>
-            </li>
-            <li class="menu-item {{ request()->routeIs('admin.coasing-data') ? 'active' : '' }}">
-                <a href="{{ route('admin.coasing-data') }}" class="menu-link">
+            <li class="menu-item {{ request()->routeIs('admin.costing-data') ? 'active' : '' }}">
+                <a href="{{ route('admin.costing-data') }}" class="menu-link">
                     <i class="menu-icon icon-base bx bx-data"></i>
                     <div data-i18n="Coasing Data">Coasing Data</div>
                 </a>

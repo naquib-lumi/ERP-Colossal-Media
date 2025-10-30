@@ -268,26 +268,26 @@ class LeadController extends Controller
         ->toJson();
 }
 
-    public function confirmReminderStatus(Request $request, $id, $reminderId)
-    {
-        \Log::info('confirmReminderStatus called for lead ID: ' . $id . ', reminder ID: ' . $reminderId, $request->all());
+ public function confirmReminderStatus(Request $request, $id, $reminderId)
+{
+    \Log::info('confirmReminderStatus called for lead ID: ' . $id . ', reminder ID: ' . $reminderId, $request->all());
 
-        $lead = Lead::findOrFail($id);
-        if ($lead->salesperson_id !== Auth::id()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+    $lead = Lead::findOrFail($id);
+    $reminder = Reminder::where('lead_id', $id)->findOrFail($reminderId);
 
-        $reminder = Reminder::where('lead_id', $id)->findOrFail($reminderId);
-
-        if ($request->input('confirm') === 'yes') {
-            $reminder->update(['status' => 'completed']);
-            \Log::info("Reminder ID {$reminderId} marked as completed for lead ID {$id}");
-        } else {
-            \Log::info("Reminder ID {$reminderId} not marked as completed for lead ID {$id}");
-        }
-
-        return response()->json(['success' => true, 'message' => 'Reminder status updated']);
+    if ($reminder->created_by !== Auth::id()) {
+        return response()->json(['error' => 'Unauthorized'], 403);
     }
+
+    if ($request->input('confirm') === 'yes') {
+        $reminder->update(['status' => 'completed']);
+        \Log::info("Reminder ID {$reminderId} marked as completed for lead ID {$id}");
+    } else {
+        \Log::info("Reminder ID {$reminderId} not marked as completed for lead ID {$id}");
+    }
+
+    return response()->json(['success' => true, 'message' => 'Reminder status updated']);
+}
 
     public function create()
     {

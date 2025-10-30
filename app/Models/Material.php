@@ -15,22 +15,35 @@ class Material extends Model
     protected $keyType = 'int';
     public $timestamps = true;
 
-    protected $fillable = ['UserID','materialName', 'materialType', 'materialDescription','unitType','unitCost','pastUsageReference'];
+    protected $fillable = [
+        'UserID', 'materialName', 'materialDescription', 'material_type_id', 'unit_id', 'unitCost', 'pastUsageReference'
+    ];
 
+    protected $casts = [
+        'unitCost' => 'decimal:6'
+    ];
 
-    // ── Relations
+    // Relations
     public function user()
     {
         return $this->belongsTo(User::class, 'UserID', 'id');
     }
 
-    // The item that this material is attached to (via materials.ItemID)
+    public function materialType()
+    {
+        return $this->belongsTo(MaterialType::class, 'material_type_id');
+    }
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class, 'unit_id');
+    }
+
     public function item()
     {
         return $this->belongsTo(ProductItem::class, 'ItemID', 'ItemID');
     }
 
-    // If an item selected this material as its “primary” (via product_items.MaterialID)
     public function primaryOfItems()
     {
         return $this->hasMany(ProductItem::class, 'MaterialID', 'MaterialID');
