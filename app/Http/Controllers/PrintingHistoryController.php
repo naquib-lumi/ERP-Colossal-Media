@@ -107,6 +107,7 @@ class PrintingHistoryController extends Controller
                 'p.ProductID',
                 'p.productName as product_name',
                 'p.materialRemark',
+                'p.status',
                 DB::raw('fpx.completed_date'),
                 'o.id as order_id',
                 'o.order_number',

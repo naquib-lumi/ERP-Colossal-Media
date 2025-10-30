@@ -5,22 +5,44 @@
 @section('content')
 @push('styles')
 <style>
-  .ti-disabled { opacity: 0.6; }
-  .redo-reason{
-    display:inline-flex;
-    align-items:center;
-    max-width: 48ch;             /* stays on one line */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: .20rem .55rem;
-    border-radius: 999px;
-    font-size: .875rem;
-    font-weight: 500;
-    background: #F4F6FF;         /* gentle indigo tint */
-    color: #3842b0;
-    border: 1px solid #E3E7FF;
+  .redo-banner{
+    display:inline-flex; align-items:center; gap:.5rem;
+    background:#dc3545;           /* Bootstrap danger red */
+    color:#fff;
+    padding:.2rem .35rem;
+    border-radius:12px;
+    box-shadow:0 6px 14px rgba(220,53,69,.25);
+    border:1px solid #b02a37;     /* darker red border */
   }
+  .redo-banner .icon{ font-size:1.1rem; line-height:1; }
+  .redo-banner .tag{
+    background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);
+    color:#fff;
+    border-radius:999px;
+    padding:.2rem .55rem;
+    font-weight:700;
+    letter-spacing:.02em;
+  }
+  .redo-banner .by{
+    font-weight:700;
+    padding:.15rem .45rem;
+    background:rgba(255,255,255,.12);
+    border-radius:999px;
+  }
+  .redo-banner .reason{
+    max-width:420px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    padding:.15rem .45rem;
+    background:#fff;
+    color:#b02a37;
+    border-radius:999px;
+    border:1px solid #f1aeb5; /* bs-danger-subtle border */
+  }
+  /* small spacing helper so it doesn't crash into the title */
+  .redo-offset { margin-left:.75rem; }
+
+  .ti-disabled { opacity: 0.6; }
 
   .remove-item {
     display: flex;
@@ -426,51 +448,100 @@
 
           <div class="accordion" id="productsAcc">
             @foreach($order->products as $pIndex => $product)
-            @php
-            $isRedo = (bool) $order->redo;
-            $selectedForRedo = $isRedo && (int) ($product->editable ?? 0) === 1;
-            $locked = $isRedo && !$selectedForRedo;
-            @endphp
-            <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
-            <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}" data-product-row data-product-id="{{ $product->ProductID }}" data-url="{{ route('artist.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
-              <h2 class="accordion-header" id="pHead{{ $pIndex }}">
-                <div class="d-flex justify-content-between align-items-center w-100">
-                  <button
-                    class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#pCollapse{{ $pIndex }}"
-                    aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
-                    aria-controls="pCollapse{{ $pIndex }}">
-                    Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
-                    @if ($selectedForRedo)
-                      <span class="badge bg-primary ms-2">REDO</span>
-                      @if (!empty($redoReason))
-                        <span
-                          class="redo-reason ms-2"
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="top"
-                          title="{{ $redoReason }}"
-                        >
-                          <i class="bi bi-chat-left-text me-1"></i>
-                          {{ Str::limit($redoReason, 60) }}
+              @php
+                $isRedo          = (bool) $order->redo;
+                $selectedForRedo = $isRedo && (int)($product->editable ?? 0) === 1;
+                $hasEditableFlag = !is_null($product->editable);
+                $lockedByEditable = $hasEditableFlag && (int)$product->editable !== 1;
+                $locked = ($isRedo && !$selectedForRedo) || $lockedByEditable;
+
+                $redoRecord = DB::table('report_redo')
+                  ->where('OrderID', $order->redo ?: $order->id)
+                  ->latest('ReportID')
+                  ->first();
+
+                $redoBy = null;
+                if ($redoRecord && $redoRecord->user_id) {
+                    $redoBy = \App\Models\User::find($redoRecord->user_id)?->name;
+                }
+
+                // --- REJECT record (latest) — only if we intend to show the banner
+                $isRejected          = strtolower((string)($product->status ?? '')) === 'rejected';
+                $showRejectedBanner  = $isRejected && (int)($product->editable ?? 0) === 1;
+
+                $rejectRecord = null;
+                $rejectBy     = null;
+
+                if ($showRejectedBanner) {
+                    $rejectRecord = DB::table('report_redo')
+                        ->where('OrderID', $order->id)
+                        ->when(Schema::hasColumn('report_redo','type'), fn($q) => $q->where('type','reject'))
+                        ->latest('ReportID')
+                        ->first();
+
+                    if ($rejectRecord && !empty($rejectRecord->user_id)) {
+                        $rejectBy = \App\Models\User::find($rejectRecord->user_id)?->name;
+                    }
+                }
+              @endphp
+
+              <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
+              <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}"
+                  data-product-row
+                  data-product-id="{{ $product->ProductID }}"
+                  data-url="{{ route('artist.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
+                <h2 class="accordion-header" id="pHead{{ $pIndex }}">
+                  <div class="d-flex justify-content-between align-items-center w-100">
+                    <button
+                      class="accordion-button {{ !$loop->first ? 'collapsed' : '' }}"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#pCollapse{{ $pIndex }}"
+                      aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
+                      aria-controls="pCollapse{{ $pIndex }}">
+                      Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
+
+                      @if ($selectedForRedo)
+                        <span class="redo-banner redo-offset ms-2" title="{{ $redoRecord->reason ?? '' }}">
+                          <i class="bi bi-exclamation-octagon-fill icon"></i>
+                          <span class="tag" style="font-size: 12px;">REDO</span>
+                          @if(!empty($redoRecord->reason))
+                            <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                                  title="{{ $redoRecord->reason }}">{{ Str::limit($redoRecord->reason, 90) }}</span>
+                          @endif
+                          @if($redoBy)
+                            <span class="by" style="font-size: 12px;">by {{ $redoBy }}</span>
+                          @endif
                         </span>
                       @endif
-                    @endif
-                  </button>
 
-                  @if ($submitted)
-                    <button type="button"
-                            class="btn btn-link text-danger p-0 ms-2 me-3"
-                            data-delete-product
-                            aria-label="Delete product"
-                            title="Delete this product"
-                            style="text-decoration:none;">
-                      <i class="bx bx-trash fs-5"></i>
+                      @if ($showRejectedBanner)
+                        <span class="redo-banner redo-offset ms-2 bg-danger text-white" title="{{ $rejectRecord->reason ?? '' }}">
+                          <i class="bi bi-x-octagon-fill icon"></i>
+                          <span class="tag" style="font-size: 12px;">REJECTED</span>
+                          @if(!empty($rejectRecord->reason))
+                            <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                                  title="{{ $rejectRecord->reason }}">{{ \Illuminate\Support\Str::limit($rejectRecord->reason, 90) }}</span>
+                          @endif
+                          @if($rejectBy)
+                            <span class="by" style="font-size: 12px;">by {{ $rejectBy }}</span>
+                          @endif
+                        </span>
+                      @endif
                     </button>
-                  @endif
-                </div>
-              </h2>
+
+                    @if ($submitted)
+                      <button type="button"
+                              class="btn btn-link text-danger p-0 ms-2 me-3"
+                              data-delete-product
+                              aria-label="Delete product"
+                              title="Delete this product"
+                              style="text-decoration:none;">
+                        <i class="bx bx-trash fs-5"></i>
+                      </button>
+                    @endif
+                  </div>
+                </h2>
 
               <div
                 id="pCollapse{{ $pIndex }}"
@@ -508,6 +579,8 @@
                               class="form-control"
                               placeholder="1000"
                               onkeydown="return !['e','E','+','-'].includes(event.key)"
+                              onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                              oninput="restrictInteger(event)"
                               value="{{ old("products.$pIndex.qty_total", $product->totalQuantity ?? '') }}"
                               {{ $readonly }}>
                           </div>
@@ -614,6 +687,8 @@
                                     <input type="number" min="0" class="form-control"
                                       name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                      oninput="restrictInteger(event)"
                                       value="{{ old("items.$i.quantity", data_get($it,'quantity')) }}" {{ $readonly }}>
                                   </div>
 
@@ -648,7 +723,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeWidth]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
@@ -656,7 +732,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][sizeHeight]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -674,7 +751,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedTop]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -682,7 +760,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedBottom]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -690,7 +769,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedLeft]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -698,7 +778,8 @@
                                     <input name="products[{{ $pIndex }}][items][{{ $i }}][bleedRight]"
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                      oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                      onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -836,7 +917,8 @@
                                     <label class="form-label">Quantity</label>
                                     <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                                     {{ $readonly }}>
                                   </div>
 
@@ -864,14 +946,16 @@
                                     <label class="form-label">Width</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeWidth]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
                                     <label class="form-label">Height</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][sizeHeight]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
 
@@ -888,28 +972,32 @@
                                     <label class="form-label">Top</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedTop]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Bottom</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedBottom]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Left</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedLeft]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
                                     <label class="form-label">Right</label>
                                     <input name="products[__PINDEX__][items][__INDEX__][bleedRight]" type="number" min="0" step="0.01" class="form-control" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                                    oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
 
@@ -1133,7 +1221,8 @@
                                     name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]"
                                     value="{{ $d->quantity }}" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             
+                                    onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                                     {{ $readonly }}>
                                 </div>
 
@@ -1205,7 +1294,8 @@
                                 <div class="col-12 col-md-4">
                                   <label class="form-label">Quantity</label>
                                   <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty"
-                                  onkeydown="return !['e','E','+','-'].includes(event.key)"
+                                  onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)"
                              >
                                 </div>
 
@@ -1386,7 +1476,8 @@
                       <select id="assignee_artist_id" class="form-select" style="width:100%">
                         @if(!empty($order->artist_id) && !empty($order->artist))
                           <option value="{{ $order->artist_id }}" selected>
-                            {{ $order->artist->name }} ({{ $order->artist->role }})
+                            {{ $order->artist->name }} 
+                            <!-- ({{ $order->artist->role }}) -->
                           </option>
                         @endif
 
@@ -1447,8 +1538,8 @@
         <div class="col-md-2">
           <label class="form-label">Quantity</label>
           <input name="items[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
-          onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             >
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
         </div>
         <div class="col-md-6">
           <label class="form-label">Material</label>
@@ -1458,33 +1549,39 @@
         <div class="col-12 col-md-3">
           <label class="form-label">Width</label>
           <input name="items[IDX][size][w]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Height</label>
           <input name="items[IDX][size][h]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
 
         <div class="col-12 col-md-3">
           <label class="form-label">Top</label>
           <input name="items[IDX][bleed][top]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Bottom</label>
           <input name="items[IDX][bleed][bottom]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Left</label>
           <input name="items[IDX][bleed][left]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''" class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)" class="form-control">
         </div>
         <div class="col-12 col-md-3">
           <label class="form-label">Right</label>
           <input name="items[IDX][bleed][right]" type="number" type="number" min="0" step="0.01"
-          onkeydown="return !['e','E','+','-'].includes(event.key)" oninput="this.value = this.value.match(/^\d+(\.\d{0,2})?/)?.[0] || ''"class="form-control">
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+  oninput="restrict2dp(event)"class="form-control">
         </div>
 
         <div class="col-md-3">
@@ -1542,8 +1639,8 @@
         <div class="col-12 col-md-2">
           <label class="form-label">Quantity</label>
           <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
-          onkeydown="return !['e','E','+','-'].includes(event.key)"
-                             >
+          onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
         </div>
         <div class="col-12 col-md-4">
           <label class="form-label">Date & Time</label>
@@ -1634,7 +1731,8 @@
             <div class="col-md-4">
               <label class="form-label">Quantity</label>
               <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1"
-              onkeydown="return !['e','E','+','-'].includes(event.key)">
+              onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
+                                    oninput="restrictInteger(event)">
             </div>
             <div class="col-12">
               <label class="form-label">Material Remark</label>
@@ -3845,6 +3943,127 @@
     productForm.submit();
   });
 })();
+function restrict2dp(e) {
+  const el = e.target;
+  const v  = el.value;
 
+  // ✅ allow "in-progress" states so caret doesn't jump:
+  // '', '123', '123.', '123.4', '123.45'
+  const partialOK = /^\d*(?:\.)?\d{0,2}$/.test(v);
+
+  if (partialOK) {
+    // accept and remember this state (no rewrite → no jump)
+    el.dataset.last = v;
+    el.dataset.pos  = el.selectionStart;
+    return;
+  }
+
+  // ❌ invalid (extra dots, letters, >2 decimals, etc.) → revert
+  const last = el.dataset.last ?? '';
+  const pos  = parseInt(el.dataset.pos ?? last.length, 10);
+  el.value = last;
+
+  // restore caret gracefully
+  requestAnimationFrame(() => {
+    const p = Math.min(pos, el.value.length);
+    el.setSelectionRange(p, p);
+  });
+}
+
+function restrictInteger(e){
+  const el = e.target;
+  const v  = el.value;
+
+  // ✅ allow only whole numbers (empty or digits)
+  const partialOK = /^\d*$/.test(v);
+
+  if (partialOK) {
+    el.dataset.last = v;
+    el.dataset.pos  = el.selectionStart;
+    return;
+  }
+
+  // ❌ invalid → revert to last valid
+  const last = el.dataset.last ?? '';
+  const pos  = parseInt(el.dataset.pos ?? last.length, 10);
+  el.value = last;
+  requestAnimationFrame(() => {
+    const p = Math.min(pos, el.value.length);
+    el.setSelectionRange(p, p);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form      = document.getElementById('productForm');
+  const saveBtn   = form.querySelector('button[type="submit"]');
+  const pName     = document.getElementById('p_name');
+  const pQty      = document.getElementById('p_qty');
+  const pMaterial = document.getElementById('p_material');
+  const remarksBox= document.getElementById('remarkRows');
+  const addBtn    = document.getElementById('addRemarkRow');
+  const modalEl   = document.getElementById('addProductModal');
+
+  // disable initially
+  saveBtn.disabled = true;
+
+  // core validator
+  function checkAllFilled() {
+    const baseFilled = pName.value.trim() !== '' &&
+                       pQty.value.trim()  !== '' &&
+                       pMaterial.value.trim() !== '';
+
+    // remark validation: at least 1 row, each row must have operation + remark
+    const rows = Array.from(remarksBox.querySelectorAll('.remark-row'));
+    const hasRows = rows.length > 0;
+
+    const eachValid = rows.every(row => {
+      const op = row.querySelector('select[name^="remarks"]');
+      const tx = row.querySelector('input[name^="remarks"]');
+      const opOk = !!(op && op.value && op.value.trim() !== '');
+      const txOk = !!(tx && tx.value && tx.value.trim() !== '');
+      return opOk && txOk;
+    });
+
+    saveBtn.disabled = !(baseFilled && hasRows && eachValid);
+  }
+
+  // base fields listeners
+  [pName, pQty, pMaterial].forEach(el => {
+    el.addEventListener('input', checkAllFilled);
+    el.addEventListener('change', checkAllFilled);
+  });
+
+  // delegate changes inside remark rows (selects & inputs)
+  remarksBox.addEventListener('input', checkAllFilled);
+  remarksBox.addEventListener('change', checkAllFilled);
+
+  // handle remove buttons via delegation
+  remarksBox.addEventListener('click', (e) => {
+    const btn = e.target.closest('.remove-remark');
+    if (!btn) return;
+    const row = btn.closest('.remark-row');
+    if (row) row.remove();
+    checkAllFilled();
+  });
+
+  // if you create rows via the "+ Add Remarks" button, revalidate after adding
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      // if your own code injects the row, just delay-validate
+      setTimeout(checkAllFilled, 0);
+    });
+  }
+
+  // re-check when modal opens (in case fields were cleared)
+  modalEl.addEventListener('shown.bs.modal', checkAllFilled);
+
+  // optional: clear + disable when closed
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    saveBtn.disabled = true;
+  });
+
+  // initial
+  checkAllFilled();
+});
 </script>
 @endpush

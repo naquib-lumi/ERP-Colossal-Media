@@ -48,46 +48,215 @@
   }
 
   /* ===== Table ===== */
-  .table-progress{table-layout:fixed}
-  .table-progress col.col-id{width:170px}
-  .table-progress col.col-stage{width:18%}
-  .table-progress col.col-date{width:140px}
-  .table-progress col.col-deadline{width:140px}
-  .table-progress col.col-actions{width:120px}
-  .table-progress thead th{position:sticky;top:0;z-index:2;background:#F8FAFC;font-size:12px;color:#475467;font-weight:700;border-bottom:1px solid #EDF1F6}
-  .table-progress tbody tr:nth-child(odd){background:#FCFCFD}
-  .table-progress td,.table-progress th{padding:14px 14px;vertical-align:middle}
-  .table-progress tbody tr:hover{background:#FAFBFF}
+  .table-progress {
+    table-layout: fixed
+  }
+
+  .table-progress col.col-id {
+    width: 170px
+  }
+
+  .table-progress col.col-stage {
+    width: 18%
+  }
+
+  .table-progress col.col-date {
+    width: 140px
+  }
+
+  .table-progress col.col-deadline {
+    width: 140px
+  }
+
+  .table-progress col.col-actions {
+    width: 120px
+  }
+
+  .table-progress thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #F8FAFC;
+    font-size: 12px;
+    color: #475467;
+    font-weight: 700;
+    border-bottom: 1px solid #EDF1F6
+  }
+
+  .table-progress tbody tr:nth-child(odd) {
+    background: #FCFCFD
+  }
+
+  .table-progress td,
+  .table-progress th {
+    padding: 14px 14px;
+    vertical-align: middle
+  }
+
+  .table-progress tbody tr:hover {
+    background: #FAFBFF
+  }
 
   /* ===== Pipeline ===== */
-  .pipeline{position:relative;height:18px}
-  .pipeline .track{position:absolute;left:0;right:0;top:50%;height:6px;transform:translateY(-50%);border-radius:999px;background:#E5E7EB}
-  .pipeline .fill{position:absolute;top:50%;transform:translateY(-50%);height:6px;border-radius:999px;background:#12B76A;left:var(--start,0%);width:calc(var(--end,0%)-var(--start,0%))}
-  .dot{position:absolute;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:#12B76A;box-shadow:0 0 0 2px #fff}
-  .dot.gray{background:#98A2B3}
-  .dot.red{background:#F04438}
-  .dot.p1{left:8%}
-  .dot.p2{left:35%}
-  .dot.p3{left:60%}
-  .dot.p4{left:87.5%}
+  .pipeline {
+    position: relative;
+    height: 18px;
+  }
 
-  /* ===== Row actions ===== */
-  .action-btn{width:34px;height:34px;border:1px solid #D6DAE1;border-radius:10px;background:#fff;color:#475467;display:inline-flex;align-items:center;justify-content:center;transition:.15s}
-  .action-btn:hover{background:#EEF2F7;color:#1F2937}
+  .pipeline .track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 6px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: #E5E7EB;
+  }
+
+  .pipeline .fill {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 6px;
+    border-radius: 999px;
+    background: #12B76A;
+    left: var(--start, 0%);
+    /* NEW: where the green segment begins */
+    width: calc(var(--end, 0%) - var(--start, 0%));
+    /* NEW: segment length */
+  }
+
+  .dot {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #12B76A;
+    box-shadow: 0 0 0 2px #fff;
+  }
+
+  .dot.gray {
+    background: #98A2B3;
+  }
+
+  .dot.red {
+    background: #F04438;
+  }
+
+  .dot.p1 {
+    left: 8%
+  }
+
+  .dot.p2 {
+    left: 35%
+  }
+
+  .dot.p3 {
+    left: 60%
+  }
+
+  .dot.p4 {
+    left: 87.5%
+  }
+
+  /* Node positions */
+  .dot.p1 {
+    left: 8%
+  }
+
+  .dot.p2 {
+    left: 35%
+  }
+
+  .dot.p3 {
+    left: 60%
+  }
+
+  .dot.p4 {
+    left: 87.5%
+  }
+
+  /* Actions (compact, consistent) */
+  .action-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #D6DAE1;
+    border-radius: 10px;
+    background: #fff;
+    color: #475467;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: .15s
+  }
+
+  .action-btn:hover {
+    background: #EEF2F7;
+    color: #1F2937
+  }
 
   /* ===== Pagination ===== */
-  .card-ft{padding:12px 16px;border-top:1px solid #EDF1F6;background:#fff}
-  .pagination{display:flex;justify-content:center;gap:6px;margin:0}
-  .pagination li{display:inline-block}
-  .pagination .page-link{color:#475467;border:1px solid #D0D5DD;border-radius:10px;padding:8px 12px;background:#fff;font-weight:600;font-size:13px;line-height:1;transition:.15s}
-  .pagination .page-link:hover{background:#F2F4F7;border-color:#CBD3DD}
-  .pagination .active .page-link{background:#12B76A;border-color:#12B76A;color:#fff}
-  .pagination .disabled .page-link{color:#A3AAB5;background:#F8FAFB;border-color:#E5E7EB;cursor:not-allowed}
-  .table-responsive+nav[role="navigation"]{display:none!important}
-  nav[role="navigation"]{margin:0!important}
+  .card-ft {
+    padding: 12px 16px;
+    border-top: 1px solid #EDF1F6;
+    background: #fff
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin: 0
+  }
+
+  .pagination li {
+    display: inline-block
+  }
+
+  .pagination .page-link {
+    color: #475467;
+    border: 1px solid #D0D5DD;
+    border-radius: 10px;
+    padding: 8px 12px;
+    background: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1;
+    transition: .15s
+  }
+
+  .pagination .page-link:hover {
+    background: #F2F4F7;
+    border-color: #CBD3DD
+  }
+
+  .pagination .active .page-link {
+    background: #12B76A;
+    border-color: #12B76A;
+    color: #fff
+  }
+
+  .pagination .disabled .page-link {
+    color: #A3AAB5;
+    background: #F8FAFB;
+    border-color: #E5E7EB;
+    cursor: not-allowed
+  }
+
+  .table-responsive+nav[role="navigation"] {
+    display: none !important;
+  }
+
+  /* tighten any paginator margins globally */
+  nav[role="navigation"] {
+    margin: 0 !important;
+  }
 
   /* ===== Modal ===== */
-  .cx-mask{position:fixed;inset:0;background:#0005;display:none;align-items:center;justify-content:center;z-index:1000}
+  .cx-mask {position:fixed;inset:0;background:#0005;display:none;align-items:center;justify-content:center;z-index:1000}
   .cx-mask.show{display:flex}
   .cx-wrap{width:100%;padding:16px}
   .cx-modal{background:#fff;border-radius:12px;box-shadow:0 10px 30px #0003;margin:0 auto;max-width:640px}
@@ -95,12 +264,31 @@
   .cx-body{padding:0 20px 16px 20px}
   .cx-title{font-weight:600}
   .cx-close{margin-left:auto;background:none;border:0}
-  .cx-footer .btn{min-width:140px;border-radius:10px;padding:10px 14px;font-weight:600;transition:transform .04s ease, box-shadow .15s ease}
-  .cx-footer .btn:active{transform:translateY(1px)}
-  .cx-footer .btn.btn-back{background:#f3f4f6;border:1px solid #e5e7eb;color:#374151}
-  .cx-footer .btn.btn-back:hover{background:#edeef1}
-  .cx-footer .btn.btn-accept{background:#16a34a;border:1px solid #15803d;color:#fff;box-shadow:0 6px 18px rgba(22,163,74,.22)}
-  .cx-footer .btn.btn-accept:hover{background:#15803d}
+
+  .cx-footer .btn {
+    min-width: 140px;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 600;
+    transition: transform .04s ease, box-shadow .15s ease;
+  }
+
+  .cx-footer .btn:active { transform: translateY(1px); }
+
+  .cx-footer .btn.btn-back {
+    background: #f3f4f6;      /* light gray */
+    border: 1px solid #e5e7eb;
+    color: #374151;
+  }
+  .cx-footer .btn.btn-back:hover { background: #edeef1; }
+
+  .cx-footer .btn.btn-accept {
+    background: #16a34a;      /* emerald-600 */
+    border: 1px solid #15803d;
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(22,163,74,.22);
+  }
+  .cx-footer .btn.btn-accept:hover { background: #15803d; }
 </style>
 
 <div class="container-fluid py-4 px-4" style="max-width:1200px;margin:0 auto">
@@ -282,10 +470,23 @@
             $STAGES=['printing','furnishing','delivery','installation'];
             $POS=['printing'=>8,'furnishing'=>35,'delivery'=>60,'installation'=>87.5];
             $DOT=['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
+            // helper to render a dot class or skip entirely if stage missing
+            $dotClass = function(array $p, string $stage) use ($DOT) {
+            if (!isset($p['stages'][$stage])) return null; // skip dot for missing stage
+            $s = $p['stages'][$stage]['status'] ?? null;
+            $posClass = $DOT[$stage];
+            if ($s === 'completed') return "dot {$posClass}";
+            if ($s === 'rejected') return "dot red {$posClass}";
+            return "dot gray {$posClass}";
+            };
           @endphp
 
           @forelse($rows as $r)
             @php
+            $STAGES = ['printing','furnishing','delivery','installation'];
+                $POS = ['printing'=>8,'furnishing'=>35,'delivery'=>60,'installation'=>87.5];
+                $DOT = ['printing'=>'p1','furnishing'=>'p2','delivery'=>'p3','installation'=>'p4'];
+                
               $currentStage = $r['current_stage'] ?? null;
               $currentStatus = $r['current_status'] ?? null;
 
@@ -429,5 +630,61 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const modal   = document.getElementById('proofModal');
+  const files   = document.getElementById('proofFiles');
+  const preview = document.getElementById('proofPreview');
+  const form    = document.getElementById('proofForm');
+
+  function openProof(productId) {
+    // set action to PATCH /installation/jobs/{product}/complete
+    const urlTmpl = "{{ route('dispatchcontrol.jobs.complete', ['product' => '___ID___']) }}";
+    form.action = urlTmpl.replace('___ID___', productId);
+    form.style.display = 'block'; // needed so the FormData sees inputs
+
+    // reset inputs & preview
+    files.value = '';
+    preview.innerHTML = '';
+
+    modal.classList.add('show');
+  }
+  function closeProof() { modal.classList.remove('show'); }
+
+  document.querySelectorAll('.js-open-proof').forEach(btn => {
+    btn.addEventListener('click', () => openProof(btn.dataset.id));
+  });
+
+  document.querySelectorAll('[data-close="proofModal"]').forEach(btn => {
+    btn.addEventListener('click', closeProof);
+  });
+  modal?.addEventListener('click', e => { if (e.target === modal) closeProof(); });
+
+  // live preview
+  files?.addEventListener('change', () => {
+    preview.innerHTML = '';
+    const list = Array.from(files.files || []);
+    list.slice(0, 12).forEach(f => {
+      const url = URL.createObjectURL(f);
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.maxWidth = '120px';
+      img.style.maxHeight = '90px';
+      img.style.objectFit = 'cover';
+      img.className = 'border rounded';
+      preview.appendChild(img);
+    });
+  });
+
+  document.getElementById('confirmProof')?.addEventListener('click', () => {
+    if (!files?.files?.length) {
+      alert('Please upload at least one photo.');
+      return;
+    }
+    // Move input into form (it already is), submit
+    form.appendChild(files);
+    form.submit();
+  });
+});
 </script>
 @endsection

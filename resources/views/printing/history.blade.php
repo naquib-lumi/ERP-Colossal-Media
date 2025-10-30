@@ -224,7 +224,6 @@
                 <col class="col-id">
                 <col class="col-name">
                 <col class="col-date">
-                <col class="col-remarks">   {{-- narrower --}}
                 <col class="col-actions">
               </colgroup>
 
@@ -239,7 +238,6 @@
                     <span class="sort-caret">{{ $dir === 'asc' ? '↑' : '↓' }}</span>
                   </a>
                 </th>
-                <th>REMARKS</th>
                 <th class="text-center">PRODUCT DETAILS</th>
               </tr>
             </thead>
@@ -260,11 +258,17 @@
                     {{ $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—' }}
                   </td>
 
-                  <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
                   <td class="text-center">
                     <a href="{{ route('printing.history.show', $row->ProductID) }}" class="icon-btn" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
+
+                    {{-- Only show Report button if status is NOT rejected --}}
+                    @if (strtolower($row->status ?? '') !== 'rejected')
+                      <a class="icon-btn" title="Report" href="{{ route('printing.report', ['productId' => $row->ProductID]) }}">
+                        <i class="bi bi-exclamation-triangle"></i>
+                      </a>
+                    @endif
                   </td>
                 </tr>
               @empty

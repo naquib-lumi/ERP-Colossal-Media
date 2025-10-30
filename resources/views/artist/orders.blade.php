@@ -253,9 +253,11 @@
           <div id="orders-date-range" class="mt-2" style="display:none;">
             <div class="input-group" style="min-width:360px;max-width:520px;">
               <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
-              <input type="date" name="from" class="form-control" value="{{ request('from') }}" form="ordersFilterForm">
+              <input type="date" id="fromDate" name="from" class="form-control"
+                    value="{{ request('from') }}" form="ordersFilterForm">
               <span class="input-group-text">~</span>
-              <input type="date" name="to" class="form-control" value="{{ request('to') }}" form="ordersFilterForm">
+              <input type="date" id="toDate" name="to" class="form-control"
+                    value="{{ request('to') }}" form="ordersFilterForm">
             </div>
           </div>
 
@@ -491,6 +493,25 @@
       });
     });
   })();
+
+  document.addEventListener('DOMContentLoaded', () => {
+  const fromInput = document.getElementById('fromDate');
+  const toInput   = document.getElementById('toDate');
+
+  // when 'from' changes → update min for 'to'
+  fromInput.addEventListener('change', () => {
+    if (fromInput.value) {
+      toInput.min = fromInput.value;
+
+      // auto-correct if current 'to' < 'from'
+      if (toInput.value && toInput.value < fromInput.value) {
+        toInput.value = fromInput.value;
+      }
+    } else {
+      toInput.removeAttribute('min');
+    }
+  });
+});
 </script>
 @endpush
 @endsection

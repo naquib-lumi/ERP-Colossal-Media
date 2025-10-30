@@ -61,7 +61,9 @@ class RedoOrderController extends Controller
         $isOthers  = strcasecmp($reasonRaw, 'Others') === 0;
         $reasonText = $isOthers ? $reasonAlt : ($reasonAlt !== '' ? "{$reasonRaw}: {$reasonAlt}" : $reasonRaw);
 
-        DB::transaction(function () use ($order, $selectedCurrentIds, $reasonText) {
+        $actorId = auth()->id();
+
+        DB::transaction(function () use ($order, $selectedCurrentIds, $reasonText, $actorId) {
 
             $baseId    = $order->redo ? (int) $order->redo : (int) $order->id;
             $baseOrder = $order->redo ? Order::findOrFail($baseId) : $order;
@@ -94,6 +96,7 @@ class RedoOrderController extends Controller
             if ($reasonText !== '') {
                 DB::table('report_redo')->insert([
                     'OrderID'    => $baseId,
+                    'user_id'    => $actorId,
                     'reason'     => $reasonText,
                     'created_at' => now(),
                     'updated_at' => now(),

@@ -518,70 +518,92 @@ class FurnishingProductOrderController extends Controller
         return back()->with('ok', 'Product accepted for furnishing.');
     }
 
-    public function reject(Request $request, int $product)
-    {
-        $this->assertRoleMatchesProductStage($product);
+    public function reject(\Illuminate\Http\Request $request, int $product)
+{
+    $this->assertRoleMatchesProductStage($product);
 
-        $data = $request->validate([
-            'reason' => 'required|string|max:2000',
-        ]);
+    $request->validate([
+        'reason' => 'required|string|max:2000',
+    ]);
 
-        $stage   = 'furnishing';
-        $now     = now();
-        $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
-        abort_if(!$orderId, 404, 'Product not found.');
+    $stage = 'furnishing';
+    $now   = now();
 
-        // --- Load product & order info up-front (for notifications) ---
-        $p = DB::table('products')
-            ->where('ProductID', $product)
-            ->select('ProductID', 'productName', 'OrderID')
-            ->first();
+    // ---- Load product & order (for notifications) ----
+    $p = DB::table('products')
+        ->where('ProductID', (int)$product)
+        ->select('ProductID', 'productName', 'OrderID')
+        ->first();
+    abort_if(!$p, 404, 'Product not found.');
 
-        if (!$p) {
-            abort(404, 'Product not found.');
-        }
+    $o = DB::table('orders')
+        ->where('id', (int)$p->OrderID)
+        ->select('id', 'order_number', 'artist_id', 'salesperson_id')
+        ->first();
+    abort_if(!$o, 404, 'Order not found for this product.');
 
-        $o = DB::table('orders')
-            ->where('id', $p->OrderID)  // products.OrderID -> orders.id
-            ->select('id', 'order_number', 'artist_id', 'salesperson_id')
-            ->first();
+    $orderId = (int) $o->id;
+    $actorId = (int) auth()->id();
 
-        if (!$o) {
-            abort(404, 'Order not found for this product.');
-        }
+    DB::transaction(function () use ($product, $orderId, $stage, $now, $request, $actorId) {
 
-        DB::transaction(function () use ($product, $orderId, $stage, $now, $data) {
-            // 1) product flags
-            DB::table('products')
-                ->where('ProductID', $product)
-                ->update(['accepted' => 0, 'status' => 'rejected', 'updated_at' => $now]);
-
-            // 2) order becomes rejected
-            DB::table('orders')
-                ->where('id', $orderId)
-                ->update(['orderStatus' => 'rejected', 'updated_at' => $now]);
-
-            // 3) (optional) store reason
-            DB::table('report_redo')->insert([
-                'OrderID'    => $orderId,
-                'reason'     => $data['reason'],
-                'created_at' => $now,
+        // 1) Force ALL *other* products in this order to editable = 0
+        //    (do not touch rows already rejected)
+        DB::table('products')
+            ->where('OrderID', $orderId)
+            ->where('ProductID', '<>', (int)$product)
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', '!=', 'rejected');
+            })
+            ->update([
+                'editable'   => 0,
                 'updated_at' => $now,
             ]);
 
-            // 4) progress row for THIS product at furnishing -> rejected
-            DB::table('fulfillment_progress')->upsert(
-                [[
-                    'ProductID'  => (int)$product,
-                    'stage'      => $stage,
-                    'status'     => 'rejected',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]],
-                ['ProductID', 'stage'],
-                ['status', 'updated_at']
-            );
-        });
+        // 2) ONLY the selected product -> rejected + not accepted + editable=1
+        DB::table('products')
+            ->where('ProductID', (int)$product)
+            ->update([
+                'accepted'   => 0,
+                'status'     => 'rejected',
+                'editable'   => 1,
+                'updated_at' => $now,
+            ]);
+
+        // 3) Order flags (your spec)
+        DB::table('orders')
+            ->where('id', $orderId)
+            ->update([
+                'orderStatus'   => 'rejected',
+                'draft'         => 1,
+                'submit'        => 0,
+                'pending'       => 0,
+                'data_entry_id' => null,
+                'updated_at'    => $now,
+            ]);
+
+        // 4) Reason (+ who rejected)
+        DB::table('report_redo')->insert([
+            'OrderID'    => $orderId,
+            'reason'     => (string) $request->reason,
+            'user_id'    => $actorId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        // 5) Fulfillment progress for THIS product
+        DB::table('fulfillment_progress')->upsert(
+            [[
+                'ProductID'  => (int)$product,
+                'stage'      => $stage,
+                'status'     => 'rejected',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]],
+            ['ProductID', 'stage'],
+            ['status', 'updated_at']
+        );
+    });
 
         // --- Build and send notifications (after commit) ---
         $actor      = Auth::user();

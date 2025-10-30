@@ -119,25 +119,57 @@ class Product extends Model
     }
 
     public function syncTaskTypeFromSpecs(): void
-    {
-        $pid = $this->getAttribute('ProductID') ?? $this->getKey();
+{
+    $pid = $this->getAttribute('ProductID') ?? $this->getKey();
 
-        $hasPrinter = DB::table('product_items as pi')
-            ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
-            ->where('pi.ProductID', $pid)
-            ->where(function ($q) {
-                $q->whereNotNull('s.printer')
-                  ->whereRaw("TRIM(s.printer) <> ''")
-                  ->whereRaw("LOWER(TRIM(s.printer)) <> 'null'");
-            })
-            ->exists();
+    // 1) Does this product already exist?
+    $existsInDb = $this->exists
+        ? true
+        : ($pid ? DB::table('products')->where('ProductID', $pid)->exists() : false);
+
+    // 2) Decide taskType
+    //    - If taskType already set on the model, KEEP it (do not override).
+    //    - Only infer from specs when taskType is empty.
+    $currentType = strtolower((string) $this->getAttribute('taskType'));
+    $newType = $currentType; // default: keep existing
+
+    if ($newType === '' || $newType === '0' || $newType === 'null' || $newType === null) {
+        $hasPrinter = $pid
+            ? DB::table('product_items as pi')
+                ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
+                ->where('pi.ProductID', $pid)
+                ->whereNotNull('s.printer')
+                ->whereRaw("TRIM(s.printer) <> ''")
+                ->whereRaw("LOWER(TRIM(s.printer)) <> 'null'")
+                ->exists()
+            : false;
 
         $newType = $hasPrinter ? 'printing' : 'furnishing';
+    }
 
-        if ($this->taskType !== $newType) {
-            $this->forceFill(['taskType' => $newType])->save();
+    $changes = [];
+
+    // Only write taskType if it actually changes
+    if ($this->getAttribute('taskType') !== $newType) {
+        $changes['taskType'] = $newType;
+    }
+
+    // 3) If the row exists, move it back to in_progress and clear accepted
+    if ($existsInDb) {
+        if ($this->getAttribute('status') !== 'in_progress') {
+            $changes['status'] = 'in_progress';
+        }
+        // Always clear accepted to NULL
+        if ($this->getAttribute('accepted') !== null) {
+            $changes['accepted'] = null;
         }
     }
+
+    if (!empty($changes)) {
+        $this->forceFill($changes)->save();
+    }
+}
+
 
     public function getDisplayCodeAttribute(): string
     {

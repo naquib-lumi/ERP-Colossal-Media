@@ -216,9 +216,9 @@ class PrintingProductOrderController extends Controller
                 if ($r->bleedTop !== null || $r->bleedRight !== null || $r->bleedBottom !== null || $r->bleedLeft !== null) {
                     $bleed = implode(' / ', [
                         $fmt($r->bleedTop)    ?? '0',
-                        $fmt($r->bleedRight)  ?? '0',
                         $fmt($r->bleedBottom) ?? '0',
                         $fmt($r->bleedLeft)   ?? '0',
+                        $fmt($r->bleedRight)  ?? '0',
                     ]) . ' ' . (string)($r->bleedUnit ?? '');
                 }
 
@@ -524,130 +524,127 @@ class PrintingProductOrderController extends Controller
 
     
     public function reject(\Illuminate\Http\Request $request, int $product)
-    {
-        $this->assertRoleMatchesProductStage($product);
+{
+    $this->assertRoleMatchesProductStage($product);
 
-        $request->validate([
-            'reason' => 'required|string|max:2000',
-        ]);
+    $request->validate([
+        'reason' => 'required|string|max:2000',
+    ]);
 
-        $stage   = 'printing';
-        $now     = now();
-        $orderId = DB::table('products')->where('ProductID', $product)->value('OrderID');
-        abort_if(!$orderId, 404, 'Product not found.');
+    $stage = 'printing';
+    $now   = now();
 
-        // --- Load product & order info up-front (for notifications) ---
-        $p = DB::table('products')
-            ->where('ProductID', $product)
-            ->select('ProductID', 'productName', 'OrderID')
-            ->first();
+    // ---- Load product & order (for notifications) ----
+    $p = DB::table('products')
+        ->where('ProductID', (int)$product)
+        ->select('ProductID', 'productName', 'OrderID')
+        ->first();
+    abort_if(!$p, 404, 'Product not found.');
 
-        if (!$p) {
-            abort(404, 'Product not found.');
-        }
+    $o = DB::table('orders')
+        ->where('id', (int)$p->OrderID)
+        ->select('id', 'order_number', 'artist_id', 'salesperson_id')
+        ->first();
+    abort_if(!$o, 404, 'Order not found for this product.');
 
-        $o = DB::table('orders')
-            ->where('id', $p->OrderID)  // products.OrderID -> orders.id
-            ->select('id', 'order_number', 'artist_id', 'salesperson_id')
-            ->first();
+    $orderId = (int) $o->id;
+    $actorId = (int) auth()->id();
 
-        if (!$o) {
-            abort(404, 'Order not found for this product.');
-        }
+    DB::transaction(function () use ($product, $orderId, $stage, $now, $request, $actorId) {
 
-        DB::transaction(function () use ($product, $orderId, $stage, $now, $request) {
-            // 1) product flags
-            DB::table('products')
-                ->where('ProductID', $product)
-                ->update(['accepted' => 0, 'status' => 'rejected', 'updated_at' => $now]);
-
-            // 2) order becomes rejected
-            DB::table('orders')
-                ->where('id', $orderId)
-                ->update(['orderStatus' => 'rejected', 'updated_at' => $now]);
-
-            // 3) (optional) store reason per order
-            DB::table('report_redo')->insert([
-                'OrderID'    => $orderId,
-                'reason'     => $request->reason,
-                'created_at' => $now,
+        // 1) Force ALL *other* products in this order to editable = 0
+        //    (do not touch rows already rejected)
+        DB::table('products')
+            ->where('OrderID', $orderId)
+            ->where('ProductID', '<>', (int)$product)
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', '!=', 'rejected');
+            })
+            ->update([
+                'editable'   => 0,
                 'updated_at' => $now,
             ]);
 
-            // 4) progress row for THIS product at printing -> rejected
-            DB::table('fulfillment_progress')->upsert(
-                [[
-                    'ProductID'  => (int)$product,
-                    'stage'      => $stage,
-                    'status'     => 'rejected',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]],
-                ['ProductID', 'stage'],
-                ['status', 'updated_at']
-            );
-        });
+        // 2) ONLY the selected product -> rejected + not accepted + editable=1
+        DB::table('products')
+            ->where('ProductID', (int)$product)
+            ->update([
+                'accepted'   => 0,
+                'status'     => 'rejected',
+                'editable'   => 1,
+                'updated_at' => $now,
+            ]);
 
-        // --- Build and send notifications (after commit) ---
-        $actor      = Auth::user();
-        $actorName  = $actor?->name ?? 'System';
-        $actorRole  = str_replace('-', ' ', $actor?->role ?? 'user');
+        // 3) Order flags (your spec)
+        DB::table('orders')
+            ->where('id', $orderId)
+            ->update([
+                'orderStatus'   => 'rejected',
+                'draft'         => 1,
+                'submit'        => 0,
+                'pending'       => 0,
+                'data_entry_id' => null,
+                'updated_at'    => $now,
+            ]);
 
-        $productId   = (int) $p->ProductID;
-        $productName = (string) $p->productName;
-        $orderNo     = (string) $o->order_number;
-        $orderId     = (int) $o->id;
-
-        // Trim very long reasons in the notification text to stay readable
-        $reason = trim((string) $request->reason);
-        $reasonPreview = mb_strimwidth($reason, 0, 60, '…', 'UTF-8');
-
-        $message = "Product {$productName} was rejected by {$actorName} ({$actorRole}). Reason: {$reasonPreview}";
-
-        // Role-aware destination
-        $urlFor = function (User $user) use ($orderId) {
-            $role = strtolower($user->role);
-
-            if (in_array($user->role, ['artist','head-artist'])) {
-                return url("/artist/orders/{$orderId}");
-            }
-            if (in_array($user->role, ['salesperson','head-salesperson'])) {
-                return url("/orders/{$orderId}");
-            }
-            if ($role === 'boss') {
-                return url("/boss/orders/{$orderId}");
-            } 
-            if ($role === 'admin') {
-                return url("/admin/orders/{$orderId}");
-            }
-            return url("/");
-        };
-
-        // Targeted recipients: assigned salesperson & artist for this order
-        $targetIds = array_filter([
-            $o->salesperson_id ?? null,
-            $o->artist_id      ?? null,
+        // 4) Reason (+ who rejected)
+        DB::table('report_redo')->insert([
+            'OrderID'    => $orderId,
+            'reason'     => (string) $request->reason,
+            'user_id'    => $actorId,
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
 
-        if (!empty($targetIds)) {
-            User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
-                Helpers::notify($u, $message, $urlFor($u), ['database']);
-            });
-        }
+        // 5) Fulfillment progress for THIS product
+        DB::table('fulfillment_progress')->upsert(
+            [[
+                'ProductID'  => (int)$product,
+                'stage'      => $stage,
+                'status'     => 'rejected',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]],
+            ['ProductID', 'stage'],
+            ['status', 'updated_at']
+        );
+    });
 
-        // Optional broadcasts (keep/remove as you prefer)
-        User::whereIn('role', ['head-salesperson','head-artist'])->get()
-            ->each(function (User $u) use ($message, $urlFor) {
-                Helpers::notify($u, $message, $urlFor($u), ['database']);
-            });
+    // ----- notifications -----
+    $actor      = Auth::user();
+    $actorName  = $actor?->name ?? 'System';
+    $actorRole  = str_replace('-', ' ', $actor?->role ?? 'user');
 
-        User::whereIn('role', ['admin','boss'])->get()
-            ->each(function (User $u) use ($message, $urlFor) {
-                Helpers::notify($u, $message, $urlFor($u), ['database']);
-            });
+    $productName   = (string) $p->productName;
+    $orderNo       = (string) $o->order_number;
+    $reason        = trim((string) $request->reason);
+    $reasonPreview = mb_strimwidth($reason, 0, 60, '…', 'UTF-8');
 
-        return back()->with('ok', 'Product rejected and order marked rejected.');
+    $message = "Product {$productName} was rejected by {$actorName} ({$actorRole}). Reason: {$reasonPreview}";
+
+    $urlFor = function (\App\Models\User $user) use ($orderId) {
+        $role = strtolower($user->role);
+        return match (true) {
+            in_array($user->role, ['artist','head-artist'])           => url("/artist/orders/{$orderId}"),
+            in_array($user->role, ['salesperson','head-salesperson']) => url("/orders/{$orderId}"),
+            $role === 'boss'                                          => url("/boss/orders/{$orderId}"),
+            $role === 'admin'                                         => url("/admin/orders/{$orderId}"),
+            default                                                   => url("/"),
+        };
+    };
+
+    $targetIds = array_filter([$o->salesperson_id ?? null, $o->artist_id ?? null]);
+    if ($targetIds) {
+        \App\Models\User::whereIn('id', $targetIds)->get()
+            ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database']));
     }
+    \App\Models\User::whereIn('role', ['head-salesperson','head-artist'])->get()
+        ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database']));
+    \App\Models\User::whereIn('role', ['admin','boss'])->get()
+        ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database']));
+
+    return back()->with('ok', 'Product rejected; editable flags updated correctly.');
+}
 
 
     private function ensureCanEdit(int $orderId): void

@@ -759,9 +759,9 @@
               <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed">
                 <i class="bi bi-check2"></i>
               </button>
-              <a class="icon-pill" title="Report" href="{{ route('printing.report', ['productId' => $row->ProductID]) }}">
+              <!-- <a class="icon-pill" title="Report" href="{{ route('printing.report', ['productId' => $row->ProductID]) }}">
                 <i class="bi bi-exclamation-triangle"></i>
-              </a>
+              </a> -->
               <a href="{{ route('printing.orders.show', $row->ProductID) }}" class="icon-pill" title="Edit">
                 <i class="bi bi-pencil"></i>
               </a>

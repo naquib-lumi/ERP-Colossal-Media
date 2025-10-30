@@ -425,15 +425,15 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label>Product Name</label>
-                            <input id="product_name" class="form-control">
+                            <input id="product_name" class="form-control" required>
                         </div>
                         <div class="col-md-6">
                             <label>Quantity</label>
-                            <input id="quantity" type="number" class="form-control">
+                            <input id="quantity" type="number" class="form-control" required>
                         </div>
                         <div class="col-12">
                             <label>Material Remark</label>
-                            <textarea id="material_info" class="form-control"></textarea>
+                            <textarea id="material_info" class="form-control" required></textarea>
                         </div>
                         <div class="col-12">
                             <label>Remarks</label>

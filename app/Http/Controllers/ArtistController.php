@@ -461,26 +461,48 @@ class ArtistController extends Controller
         $isHead = $this->isHeadArtist($user);
         if (!$this->isHeadArtist($user) && $order->artist_id !== $user->id) abort(403);
 
-        if (!$this->isHeadArtist(Auth::user())
-            && $order->orderStatus === 'assigned'
-            && (int) $order->pending === 1) {
+        /**
+         * A) If currently REJECTED and we enter Edit:
+         *    Bring it back to work-in-progress, make it a draft, not submitted, not pending.
+         */
+        if (strtolower((string)$order->orderStatus) === 'rejected') {
+            $order->orderStatus = 'in_progress';
+            $order->submit      = 0;
+            $order->draft       = 1;
+            $order->pending     = 0;
+
+            // ensure ownership to the editing artist (if not head-artist and artist not set)
+            if (!$isHead && empty($order->artist_id)) {
+                $order->artist_id = $user->id;
+            }
+
+            $order->save();
+        }
+        /**
+         * B) Original behavior: if assigned + pending=1 and non-head artist opens Edit,
+         *    flip to in_progress and clear pending.
+         */
+        elseif (!$isHead
+            && strtolower((string)$order->orderStatus) === 'assigned'
+            && (int)$order->pending === 1) {
 
             $order->orderStatus = 'in_progress';
             $order->pending     = 0;
 
-            // make sure the order is owned by this artist from now on
-            if (!$order->artist_id) {
-                $order->artist_id = Auth::id();
+            if (empty($order->artist_id)) {
+                $order->artist_id = $user->id;
             }
 
-            $order->loadMissing([
-                'products' => fn ($q) => $q->orderBy('ProductID'),
-                'products.items' => fn ($q) => $q->orderBy('ItemID'), // relation on Product model
-                'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
-            ]);
-            $order->load('artist:id,name');
             $order->save();
         }
+
+        // Load relations AFTER any status/ownership changes
+        $order->loadMissing([
+            'products' => fn ($q) => $q->orderBy('ProductID'),
+            'products.items' => fn ($q) => $q->orderBy('ItemID'),
+            'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+            'artist:id,name',
+        ]);
 
         $orderCode = sprintf('ORD-%04d', $order->id);
         $today     = now()->format('M d, Y');
@@ -1156,16 +1178,22 @@ class ArtistController extends Controller
                     $keepRemarkIds = [];
 
                     foreach (collect($group['remarks'] ?? [])->filter(fn ($v) => is_array($v)) as $row) {
-                        $op = strtolower(trim((string)($row['operation'] ?? '')));
+                        $op  = strtolower(trim((string)($row['operation'] ?? '')));
                         $txt = trim((string)($row['remark'] ?? ''));
 
+                        // skip empty rows
                         if ($op === '' && $txt === '') {
                             continue;
                         }
 
+                        // block "artist" when no artist assigned
                         if ($op === 'artist' && empty($order->artist_id)) {
                             continue;
                         }
+
+                        // normalize to null / canonical values
+                        $newOp  = $op ?: null;
+                        $newTxt = $txt ?: null;
 
                         $remark = null;
                         if (!empty($row['id'])) {
@@ -1173,23 +1201,41 @@ class ArtistController extends Controller
                                 ->where('ProductID', $productRow->ProductID)
                                 ->first();
                         }
+
                         if (!$remark) {
+                            // NEW REMARK → set creator
                             $remark = new ProductRemark();
                             $remark->ProductID = $productRow->ProductID;
+                            $remark->operation = $newOp;
+                            $remark->remark    = $newTxt;
+                            $remark->user_id   = $authorId;     // creator only on create
+                            $remark->save();
+                        } else {
+                            // EXISTING REMARK → only change user_id if content changed
+                            $dirty = false;
+
+                            if ($remark->operation !== $newOp) {
+                                $remark->operation = $newOp;
+                                $dirty = true;
+                            }
+                            if ($remark->remark !== $newTxt) {
+                                $remark->remark = $newTxt;
+                                $dirty = true;
+                            }
+
+                            if ($dirty) {
+                                // content changed → attribute the edit to current user
+                                $remark->user_id = $authorId;
+                                $remark->save();
+                            }
+                            // if not dirty, leave user_id (creator) untouched
                         }
-
-                        $remark->user_id   = $authorId;
-
-                        $remark->operation = $op ?: null;
-                        $remark->remark    = $txt ?: null;
-
-                        $remark->save();
 
                         $keepRemarkIds[] = $remark->RemarkID;
                     }
 
                     $toDelete = collect($group['delete_remarks'] ?? [])
-                        ->merge($request->input('delete_remarks', []))  
+                        ->merge($request->input('delete_remarks', []))
                         ->map(fn ($id) => (int)$id)
                         ->filter();
 

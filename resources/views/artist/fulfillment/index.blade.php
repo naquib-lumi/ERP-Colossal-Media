@@ -69,9 +69,9 @@ $tasks = [
       <!-- 日期 + 按钮组 -->
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <div class="input-group" style="max-width: 320px;">
-          <input type="date" name="from" class="form-control" value="{{ $filters['from'] ?? '' }}">
+          <input type="date" id="fromDate" name="from" class="form-control" value="{{ $filters['from'] ?? '' }}">
           <span class="input-group-text">~</span>
-          <input type="date" name="to" class="form-control" value="{{ $filters['to'] ?? '' }}">
+          <input type="date" id="toDate" name="to" class="form-control" value="{{ $filters['to'] ?? '' }}">
         </div>
         <button type="submit" form="ff-filter-form" class="btn btn-primary px-4">Filter</button>
         <a href="{{ route('artist.fulfillment.index') }}" class="btn btn-outline-secondary">Reset</a>
@@ -362,6 +362,25 @@ $tasks = [
     // If you want clickable header to toggle, give the Delivery Date <th> an id and attach a click handler;
     // otherwise you can push a hidden input named delivery_sort with 'nearest'/'furthest' and submit form.
   })();
+
+  document.addEventListener('DOMContentLoaded', () => {
+  const fromInput = document.getElementById('fromDate');
+  const toInput   = document.getElementById('toDate');
+
+  // when 'from' changes → update min for 'to'
+  fromInput.addEventListener('change', () => {
+    if (fromInput.value) {
+      toInput.min = fromInput.value;
+
+      // auto-correct if current 'to' < 'from'
+      if (toInput.value && toInput.value < fromInput.value) {
+        toInput.value = fromInput.value;
+      }
+    } else {
+      toInput.removeAttribute('min');
+    }
+  });
+});
 </script>
 
 @endpush
