@@ -159,15 +159,15 @@ class ArtistOrderController extends Controller
             $request->validate([
                 'lead_id'     => 'nullable|exists:leads,id',
                 'orderTitle'  => 'required|string|max:255',
-                'deadline'    => 'nullable|date|after_or_equal:today',
+                'deadline'    => 'required|date|after_or_equal:today',
                 'approval'    => 'required|boolean',
                 'orderDetail' => 'nullable|string',
 
                 'products'                       => ['required','array','min:1'],
                 'products.*.product_name'        => ['required','string','max:255'],
                 'products.*.quantity'            => ['required','integer','min:1'],
-                'products.*.material_info'       => ['nullable','string'],
-                'products.*.remarks'             => ['nullable','array'],
+                'products.*.material_info'       => ['required','string'],
+                'products.*.remarks'             => ['required','array'],
                 'products.*.remarks.*.operation' => [
                 'required_with:products.*.remarks.*.remark',
                 Rule::in(['printing','furnishing','installation','courier','self_pickup','artist']),
@@ -406,34 +406,34 @@ class ArtistOrderController extends Controller
     public function csvTemplate()
     {
         header("Content-type: text/csv");
-    header("Content-Disposition: attachment; filename=products_template.csv");
+        header("Content-Disposition: attachment; filename=products_template.csv");
 
-    $output = fopen("php://output", "w");
+        $output = fopen("php://output", "w");
 
-    // Add column headers
-    $headers = ['Product_Name', 'Quantity', 'Material_Info', 'Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
-    fputcsv($output, $headers);
+        // Add column headers
+        $headers = ['Product_Name', 'Quantity', 'Material_Info', 'Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
+        fputcsv($output, $headers);
 
-    // Generate example data with material info and up to 5 remarks, some empty
-    $data = [
-        ['Banner Print', 100, 'Vinyl 12oz', 'High resolution', '', '', 'Next day', ''],
-        ['Flyer A5', 5000, 'Art Paper 128gsm', '', 'Glossy finish', '', '', ''],
-        ['T-Shirt', 50, 'Cotton', 'Front print', '', 'Embroidery', '', ''],
-        ['Poster A3', 200, 'Art Card 260gsm', '', '', '', 'Fragile', ''],
-        ['Sticker Roll', 1000, 'PP Synthetic', '', '', '', '', 'Call ahead'],
-        ['Name Card', 300, 'Art Card 310gsm', '', 'Double sided', '', '', ''],
-        ['Booklet A4', 100, '80gsm Simili', 'Color print', '', '', 'Express', ''],
-        ['Backdrop', 5, 'Tarpaulin', '', 'Sturdy frame', '', '', ''],
-        ['Mug Print', 40, 'Ceramic', 'Heat resistant', '', '', '', ''],
-        ['Cap Embroidery', 25, 'Polyester', '', 'Red thread', '', '', ''],
-    ];
+        // Generate example data with material info and up to 5 remarks, some empty
+        $data = [
+            ['Banner Print', 100, 'Vinyl 12oz', 'High resolution', '', '', 'Next day', ''],
+            ['Flyer A5', 5000, 'Art Paper 128gsm', '', 'Glossy finish', '', '', ''],
+            ['T-Shirt', 50, 'Cotton', 'Front print', '', 'Embroidery', '', ''],
+            ['Poster A3', 200, 'Art Card 260gsm', '', '', '', 'Fragile', ''],
+            ['Sticker Roll', 1000, 'PP Synthetic', '', '', '', '', 'Call ahead'],
+            ['Name Card', 300, 'Art Card 310gsm', '', 'Double sided', '', '', ''],
+            ['Booklet A4', 100, '80gsm Simili', 'Color print', '', '', 'Express', ''],
+            ['Backdrop', 5, 'Tarpaulin', '', 'Sturdy frame', '', '', ''],
+            ['Mug Print', 40, 'Ceramic', 'Heat resistant', '', '', '', ''],
+            ['Cap Embroidery', 25, 'Polyester', '', 'Red thread', '', '', ''],
+        ];
 
-    foreach ($data as $row) {
-        fputcsv($output, $row);
-    }
+        foreach ($data as $row) {
+            fputcsv($output, $row);
+        }
 
-    fclose($output);
-    exit;
+        fclose($output);
+        exit;
     }
 
     public function edit($id)
