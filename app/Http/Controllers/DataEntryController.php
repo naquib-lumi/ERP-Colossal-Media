@@ -361,6 +361,18 @@ class DataEntryController extends Controller
             ->orderByDesc('created_at')
             ->value('reason');
 
+        $printerMachines = \App\Models\Machine::where('machine_type', 'printer')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
+        $cutterMachines = \App\Models\Machine::where('machine_type', 'cutter')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
+        $laminationMachines = \App\Models\Machine::where('machine_type', 'lamination')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
         return view('data-entry.order.edit', compact(
             'order',
             'orderCode',
@@ -372,7 +384,8 @@ class DataEntryController extends Controller
             'allMaterials',
             'leadAttachments',
             'orderFiles',
-            'redoReason'
+            'redoReason',
+            'printerMachines', 'cutterMachines', 'laminationMachines'
         ));
     }
 
