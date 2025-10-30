@@ -642,13 +642,6 @@ class AdminController extends Controller
 
     /* -------------------- Other Admin Pages -------------------- */
 
-    public function coasingData()
-    {
-        $user = Auth::user();
-        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
-        return view('admin.coasing-data');
-    }
-
     public function calendar()
    {
         $user = Auth::user();

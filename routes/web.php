@@ -6,6 +6,7 @@ use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminReportController;
+use App\Http\Controllers\MaterialsController;
 use App\Http\Controllers\CalendarController;
 
 
@@ -381,7 +382,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/orders', [AdminController::class, 'orders'])->name('admin.orders');
     Route::get('/admin/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
     Route::post('/admin/orders/data', [AdminController::class, 'getOrders'])->name('admin.orders.data');
-    Route::get('/admin/coasing-data', [AdminController::class, 'coasingData'])->name('admin.coasing-data');
+
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
     Route::get('/calendar/admin-events', [CalendarController::class, 'events'])->name('calendar.events');
     Route::get('/calendar/order-events', [CalendarController::class, 'orderEvents'])->name('calendar.order-events');
@@ -394,8 +395,17 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/reports/order-fulfillment', [AdminReportController::class, 'orderFulfillment'])->name('admin.report.order-fulfillment');
     Route::get('/admin/reports/export-sales', [AdminReportController::class, 'exportSales'])->name('admin.report.export-sales');
     Route::post('/admin/reports/export-orders', [AdminReportController::class, 'exportOrders'])->name('admin.report.export-orders');
-    Route::get('/admin/data-key-in', [AdminController::class, 'dataKeyIn'])->name('admin.data-key-in');
-    Route::get('/admin/settings', [AdminController::class, 'settings'])->name('admin.settings');
+  
+   Route::get('/admin/costing-data', [MaterialsController::class, 'index'])->name('admin.costing-data');
+    Route::post('/admin/material-types', [MaterialsController::class, 'storeType'])->name('admin.material-types.store');
+    Route::put('/admin/material-types/{id}', [MaterialsController::class, 'updateType'])->name('admin.material-types.update');
+    Route::delete('/admin/material-types/{id}', [MaterialsController::class, 'destroyType'])->name('admin.material-types.destroy');
+    Route::post('/admin/units', [MaterialsController::class, 'storeUnit'])->name('admin.units.store');
+    Route::put('/admin/units/{id}', [MaterialsController::class, 'updateUnit'])->name('admin.units.update');
+    Route::delete('/admin/units/{id}', [MaterialsController::class, 'destroyUnit'])->name('admin.units.destroy');
+    Route::post('/admin/materials', [MaterialsController::class, 'store'])->name('admin.materials.store');
+    Route::put('/admin/materials/{id}', [MaterialsController::class, 'update'])->name('admin.materials.update');
+    Route::delete('/admin/materials/{id}', [MaterialsController::class, 'destroy'])->name('admin.materials.destroy');
 
     // Profile
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
