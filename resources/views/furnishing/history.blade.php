@@ -227,7 +227,6 @@
               <col class="col-id">
               <col class="col-name">
               <col class="col-date">
-              <col class="col-remarks">   {{-- narrower --}}
               <col class="col-actions">
             </colgroup>
             <thead class="table-light">
@@ -237,11 +236,10 @@
                 <th>
                   <a class="th-sort is-active"
                     href="{{ $urlWith(['sort' => 'completed', 'dir' => $nextDir]) }}">
-                    COMPLETED DATE
+                    COMPLETION DATE
                     <span class="sort-caret">{{ $dir === 'asc' ? '↑' : '↓' }}</span>
                   </a>
                 </th>
-                <th>REMARKS</th>
                 <th class="text-center">PRODUCT DETAILS</th>
               </tr>
             </thead>
@@ -257,7 +255,6 @@
                   <td class="fw-semibold">{{ $row->product_code }}</td>
                   <td><span class="truncate" title="{{ $prodName }}">{{ $prodName }}</span></td>
                   <td class="td-completed" data-date="{{ $row->completed_date ?: '' }}">{{ $completed }}</td>
-                  <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
                   <td class="text-center">
                     <a href="{{ $detailsUrl }}" class="icon-btn" title="View details"><i class="bi bi-eye"></i></a>
                   </td>
