@@ -69,12 +69,15 @@
               <a href="{{ route('data-entry.orders.show', ['order' => $oid]) }}" class="text-secondary fw-bold" title="View">
                 <i class="bx bx-show fs-5"></i>
               </a>
-              <form action="{{ route('data-entry.orders.begin', ['order' => $oid]) }}" method="POST">
-                @csrf @method('PATCH')
-                <button type="submit" class="border-0 bg-transparent text-secondary fw-bold" title="Edit">
-                  <i class="bx bx-edit-alt fs-5"></i>
-                </button>
-              </form>
+              @if(strtolower($row->orderStatus) !== 'completed')
+                <a href="{{ route('data-entry.orders.edit', ['order' => $oid]) }}" class="text-secondary fw-bold">
+                  <i class="bx bx-edit-alt"></i>
+                </a>
+              @else
+                <span class="text-secondary fw-bold text-muted" title="Editing disabled for completed orders" style="cursor: not-allowed; opacity: 0.5;">
+                  <i class="bx bx-edit-alt"></i>
+                </span>
+              @endif
             @endif
           </div>
         </td>

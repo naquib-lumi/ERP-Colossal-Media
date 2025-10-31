@@ -716,10 +716,19 @@
                                   $prtLc = strtolower((string) $prtVal);
                                   $cutLc = strtolower((string) $cutVal);
                                   $assLc = strtolower((string) $assVal);
+
+                                  $currentLam = old("products.$pIndex.items.$i.lamination", data_get($it, 'spec.lamination'));
+                                  $currentPrinter = old("products.$pIndex.items.$i.printer", data_get($it, 'spec.printer'));
+                                  $currentCutter = old("products.$pIndex.items.$i.cutter", data_get($it, 'spec.cutter'));
                                   @endphp
                                   <div class="col-md-3">
                                     <label class="form-label">Lamination</label>
                                     <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }} >
+                                      @if($currentLam !== '')
+                                          <option value="{{ $currentLam }}" selected>{{ $currentLam }}</option>
+                                      @else
+                                          <option value="" selected>-</option>
+                                      @endif
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
                                       <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
@@ -736,6 +745,11 @@
                                   <div class="col-md-3">
                                     <label class="form-label">Printer</label>
                                     <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select" {{ $disabled }} >
+                                      @if($currentPrinter !== '')
+                                          <option value="{{ $currentPrinter }}" selected>{{ $currentPrinter }}</option>
+                                      @else
+                                          <option value="" selected>-</option>
+                                      @endif  
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->printer) && $item->printer === 'no') ? 'selected' : '' }}>No</option>
                                       <option value="TBC" {{ (isset($item->printer) && $item->printer === 'TBC') ? 'selected' : '' }}>TBC</option>
@@ -752,6 +766,11 @@
                                   <div class="col-md-3">
                                     <label class="form-label">Cutter</label>
                                     <select name="products[{{ $pIndex }}][items][{{ $i }}][cutter]" class="form-select" {{ $disabled }} >
+                                      @if($currentCutter !== '')
+                                          <option value="{{ $currentCutter }}" selected>{{ $currentCutter }}</option>
+                                      @else
+                                          <option value="" selected>-</option>
+                                      @endif
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->cutter) && $item->cutter === 'no') ? 'selected' : '' }}>No</option>
                                       <option value="TBC" {{ (isset($item->cutter) && $item->cutter === 'TBC') ? 'selected' : '' }}>TBC</option>
@@ -921,7 +940,6 @@
   oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
-
                                   <div class="col-md-3">
                                     <label class="form-label">Lamination</label>
                                     <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }} >
