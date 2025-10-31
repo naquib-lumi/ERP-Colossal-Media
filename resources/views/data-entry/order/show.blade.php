@@ -29,23 +29,112 @@
     // Yes/No from tinyint/nullable
     function yn($v) { return ((int)$v) === 1 ? 'Yes' : 'No'; }
 @endphp
+@php
+// base order id for redo context
+$baseOrderId = $order->redo ?: $order->id;
+
+// latest redo record for this base order
+$redoRecord = DB::table('report_redo')
+->where('OrderID', $baseOrderId)
+->orderByDesc('ReportID') // use correct PK
+->first();
+
+$redoBy = null;
+if ($redoRecord && $redoRecord->user_id) {
+$redoBy = \App\Models\User::find($redoRecord->user_id)?->name;
+}
+$redoReason = $redoRecord->reason ?? null;
+
+// helper: whether a product is the selected redo copy
+$isRedoOrder = (bool) $order->redo;
+@endphp
+<style>
+    .btn-purple:hover {
+        background: #5a4cd9 !important;
+        transform: translateY(-1px);
+    }
+
+    .redo-banner {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        background: #dc3545;
+        color: #fff;
+        padding: .1rem .35rem;
+        border-radius: 12px;
+        box-shadow: 0 6px 14px rgba(220, 53, 69, .25);
+        border: 1px solid #b02a37;
+    }
+
+    .redo-banner .icon {
+        font-size: 1.1rem;
+        line-height: 1;
+    }
+
+    .redo-banner .tag {
+        background: rgba(255, 255, 255, .18);
+        border: 1px solid rgba(255, 255, 255, .35);
+        color: #fff;
+        border-radius: 999px;
+        padding: .1rem .55rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+    }
+
+    .redo-banner .by {
+        font-weight: 700;
+        padding: .15rem .45rem;
+        background: rgba(255, 255, 255, .12);
+        border-radius: 999px;
+    }
+
+    .redo-banner .reason {
+        max-width: 420px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: .1rem .45rem;
+        background: #fff;
+        color: #b02a37;
+        border-radius: 999px;
+        border: 1px solid #f1aeb5;
+    }
+
+    .redo-offset {
+        margin-left: .5rem;
+    }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
 <div class="container-xxl py-3">
 
     {{-- Header & Export --}}
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h4 class="mb-0">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <a href="{{ route('data-entry.orders') }}"
+            class="text-decoration-none text-muted me-3"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="bi bi-arrow-left-circle fw-semibold"
+                style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        </a>
+        <h4 class="mb-0 flex-grow-1">
             @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
-                @php
-                $order->loadMissing('originalOrder:id,order_number');
-                @endphp
-                Job Order Details – {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
+            @php
+            $order->loadMissing('originalOrder:id,order_number');
+            @endphp
+            Job Order Details – {{ optional($order->originalOrder)->order_number ? '#'.ltrim($order->originalOrder->order_number,'#').'R' : ('#ORD-'.str_pad($order->redo,4,'0',STR_PAD_LEFT).'R') }}
+            @else
+            Job Order Details – {{ $order->order_number }}
             @endif
         </h4>
 
-        {{-- hook up to your existing export if available --}}
-        <a href="{{ route('artist.orders.edit', $order->id) }}?export=pdf" class="btn btn-dark">
-            <i class="bx bx-printer me-1"></i> Export PDF
-        </a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('data-entry.orders.edit', $order->id) }}"
+                class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
+                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+                <i class="bx bx-edit-alt fs-5"></i>
+                <span>Edit Order</span>
+            </a>
+        </div>
     </div>
 
     {{-- Job order information --}}
@@ -118,8 +207,24 @@
     <div class="card mb-4">
         <div class="card-header d-flex align-items-center justify-content-between">
             <div>Product &amp; Breakdown Details</div>
-            <div class="badge bg-secondary">
-                {{ optional($order->artist)->name ? 'Artist: '. $order->artist->name : 'Unassigned' }}
+            <div>
+                <div class="d-flex gap-2">
+                    {{-- Artist badge --}}
+                    @if(!empty($order->artist_id) && !empty($order->artist))
+                    <span class="badge bg-secondary">
+                        {{ 'Artist: ' . $order->artist->name }}
+                    </span>
+                    @else
+                    <span class="badge bg-secondary">Unassigned</span>
+                    @endif
+
+                    {{-- Data Entry badge --}}
+                    @if(!empty($order->data_entry_id) && !empty($order->dataEntry))
+                    <span class="badge fw-semibold px-3 py-2" style="background:#E0F7FF; color:#00AEEF;">
+                        {{ 'Data Entry: ' . $order->dataEntry->name }}
+                    </span>
+                    @endif
+                </div>
             </div>
         </div>
 
@@ -142,6 +247,18 @@
                 $origPid   = (int) ($product->redoOf ?: $product->ProductID);
                 $pidPadded = sprintf('%04d', $origPid);
                 $pidLabel  = '#'.$pidPadded . (($product->redoOf && (int)$product->editable === 1) ? 'R' : '');
+
+                $isRejected = strtolower((string)($product->status ?? '')) === 'rejected';
+
+                $rejectRecord = DB::table('report_redo')
+                    ->where('OrderID', $order->id)
+                    ->orderByDesc('ReportID')
+                    ->first();
+
+                $rejectBy = null;
+                if ($rejectRecord && $rejectRecord->user_id) {
+                    $rejectBy = \App\Models\User::find($rejectRecord->user_id)?->name;
+                }
                 @endphp
 
                 <div class="accordion-item mb-2">
@@ -153,6 +270,42 @@
                                 <div class="me-auto">
                                     <strong>Product</strong>
                                     <span class="fw-semibold">{{ $pidLabel }} — {{ data_get($product,'productName','-') }}</span>
+                                    @php
+                                    $selectedForRedo = $isRedoOrder && (int)($product->editable ?? 0) === 1;
+                                    @endphp
+
+                                    @if($selectedForRedo)
+                                    <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                                        <i class="bi bi-exclamation-octagon-fill icon"></i>
+                                        <span class="tag" style="font-size: 10px;">REDO</span>
+                                        @if($redoBy)
+                                        <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                                        @endif
+                                        @if(!empty($redoReason))
+                                        <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                                            title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
+                                        @endif
+                                    </span>
+                                    @endif
+
+                                    @if((int)($product->editable ?? 0) === 1 && strtolower((string)($product->status ?? '')) === 'rejected')
+                                        <span class="redo-banner redo-offset" style="background-color:rgb(255, 62, 29); border-color:#b02a37 !important;"
+                                            title="{{ $rejectRecord->reason ?? '' }}">
+                                            <i class="bi bi-x-octagon-fill icon"></i>
+                                            <span class="tag" style="font-size: 10px;">REJECTED</span>
+                                            @if(!empty($rejectRecord?->reason))
+                                                <span style="font-size: 12px;" class="reason"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    title="{{ $rejectRecord->reason }}">
+                                                    {{ \Illuminate\Support\Str::limit($rejectRecord->reason, 90) }}
+                                                </span>
+                                            @endif
+                                            @if($rejectBy)
+                                                <span class="by" style="font-size: 10px;">by {{ $rejectBy }}</span>
+                                            @endif
+                                        </span>
+                                    @endif
                                 </div>
                                 <div>
                                     <small class="text-muted">Qty:</small>
@@ -294,23 +447,73 @@
         $products = $order->relationLoaded('products')
             ? $order->products
             : \App\Models\Product::with('deliveryBreakdowns')->where('OrderID', $order->id)->get();
+
+            // latest reject/redo for THIS order (order-level)
+            $orderReject = DB::table('report_redo')
+                ->where('OrderID', $order->id)
+                ->orderByDesc('ReportID')
+                ->first();
+
+            $orderRejectBy = null;
+            if ($orderReject && $orderReject->user_id) {
+                $orderRejectBy = \App\Models\User::find($orderReject->user_id)?->name;
+            }
+
+            // if this is a redo order we still need that too (you already had this above)
+            $isRedoOrder = (bool) $order->redo;
         @endphp
 
         @forelse($products as $pIndex => $p)
         @php
-            $isRedoOrder = !empty($order->redo);
-
             $origPid = $isRedoOrder && !empty($p->redoOf)
-                ? (int) $p->redoOf
-                : (int) $p->ProductID;
+            ? (int) $p->redoOf
+            : (int) $p->ProductID;
 
             $pidLabel = '#'.str_pad((string)$origPid, 4, '0', STR_PAD_LEFT);
-            if ($isRedoOrder && (int)($p->editable ?? 0) === 1) {
-                $pidLabel .= 'R';
+
+            // show R if redo & selected
+            $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
+            if ($selectedForRedo) {
+            $pidLabel .= 'R';
             }
+
+            // ✅ product-level rejected detection
+            $isRejectedSelected = (int)($p->editable ?? 0) === 1
+                                && strtolower((string)$p->status) === 'rejected';
         @endphp
         <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
             Product {{ $pidLabel }} — {{ data_get($product,'productName','-') }}
+
+            {{-- REDO banner (existing) --}}
+            @if($selectedForRedo)
+            <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                <i class="bi bi-exclamation-octagon-fill icon"></i>
+                <span class="tag" style="font-size: 10px;">REDO</span>
+                @if($redoBy ?? false)
+                <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                @endif
+                @if(!empty($redoReason ?? ''))
+                <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                        title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
+                @endif
+            </span>
+            @endif
+
+            {{-- ✅ NEW: REJECTED banner (order-level text, product-level flag) --}}
+            @if($isRejectedSelected)
+            <span class="redo-banner redo-offset bg-danger text-white"
+                    title="{{ $orderReject->reason ?? '' }}">
+                <i class="bi bi-x-octagon-fill icon"></i>
+                <span class="tag" style="font-size: 10px;">REJECTED</span>
+                @if($orderRejectBy)
+                <span class="by" style="font-size: 10px;">by {{ $orderRejectBy }}</span>
+                @endif
+                @if(!empty($orderReject?->reason))
+                <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                        title="{{ $orderReject->reason }}">{{ \Illuminate\Support\Str::limit($orderReject->reason, 90) }}</span>
+                @endif
+            </span>
+            @endif
         </div>
 
         @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
@@ -390,41 +593,128 @@
 
     {{-- Product Remarks --}}
     @php
-        // Get products with their remarks (works even if controller didn't eager load)
-        $remarkProducts = method_exists($order, 'products')
-            ? $order->products()->with(['remarks' => function ($q) { $q->orderBy('RemarkID'); }])
-                    ->orderBy('ProductID')->get()
-            : collect();
+    // Pull products + remarks (+ remark user) even if the controller didn't eager-load them
+    $remarkProducts = method_exists($order, 'products')
+    ? $order->products()
+    ->with([
+    'remarks' => fn ($q) => $q->orderBy('RemarkID'),
+    'remarks.user:id,name', // <- creator
+        ])
+        ->orderBy('ProductID')
+        ->get()
+        : collect();
 
-        // helper: display code for the product id with the "R" rule
+        // Product code like "#...-P0001R" logic (R only for selected redo)
         $productCode = function ($p) {
-            $baseId = $p->redoOf ?: $p->ProductID;                   // show original id if redo
-            $suffix = ($p->redoOf && (int)($p->editable ?? 0) === 1) // only selected redo gets R
-                    ? 'R' : '';
-            return 'Product #'.str_pad($baseId, 4, '0', STR_PAD_LEFT).$suffix;
+        $baseId = $p->redoOf ?: $p->ProductID;
+        $suffix = ($p->redoOf && (int)($p->editable ?? 0) === 1) ? 'R' : '';
+        return 'Product #'.str_pad($baseId, 4, '0', STR_PAD_LEFT).$suffix;
         };
 
-        // helper: human operation label
-        $opLabel = function ($op) {
-            $op = strtolower((string)$op);
-            return match ($op) {
-                'printing'               => 'Printing',
-                'furnishing'             => 'Furnishing',
-                'installation'           => 'Installation',
-                'courier'                => 'Delivery',
-                'self_pickup', 'pickup'  => 'Self Pickup',
-                default                  => ($op !== '' ? ucfirst($op) : 'General'),
-            };
+        // Display label for each operation
+        $opLabel = function (?string $op) {
+        $op = strtolower((string)$op);
+        return match ($op) {
+        'printing' => 'Printing',
+        'furnishing' => 'Furnishing',
+        'installation' => 'Installation',
+        'courier' => 'Delivery',
+        'self_pickup', 'pickup' => 'Self Pickup',
+        'artist' => 'Artist',
+        default => ($op !== '' ? ucfirst($op) : 'General'),
         };
-    @endphp
+        };
+
+        // Colors (same set you asked for in Fulfillment)
+        $opStyle = function (?string $op) {
+        $op = strtolower((string)$op);
+        return match ($op) {
+        'printing' => ['#EEF2FF', '#4F46E5'],
+        'furnishing' => ['#FFF7ED', '#C2410C'],
+        'installation' => ['#ECFEFF', '#0E7490'],
+        'courier' => ['#ECFDF5', '#047857'],
+        'self_pickup' => ['#F3F4F6', '#111827'],
+        'artist' => ['#eaecf9ff', '#8295fdff'],
+        default => ['#F3F4F6', '#111827'],
+        };
+        };
+        @endphp
 
     <div class="card mb-4">
     <div class="card-header">Product Remarks</div>
     <div class="card-body">
+        @php
+        $orderReject = DB::table('report_redo')
+            ->where('OrderID', $order->id)
+            ->orderByDesc('ReportID')
+            ->first();
+
+        $orderRejectBy = null;
+        if ($orderReject && $orderReject->user_id) {
+            $orderRejectBy = \App\Models\User::find($orderReject->user_id)?->name;
+        }
+
+        $isRedoOrder = (bool) $order->redo;
+        @endphp
+
         @forelse($remarkProducts as $p)
+        @php
+            $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
+
+            // ✅ product-level reject flag
+            $isRejectedSelected = (int)($p->editable ?? 0) === 1
+                                && strtolower((string)$p->status) === 'rejected';
+
+            $productCode = function($prod) {
+            $orig = $prod->redoOf ?: $prod->ProductID;
+            return '#'.str_pad($orig, 4, '0', STR_PAD_LEFT).(
+                $prod->redoOf && (int)($prod->editable ?? 0) === 1 ? 'R' : ''
+            );
+            };
+        @endphp
+
         <div class="mb-3">
             <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
             {{ $productCode($p) }} — {{ data_get($product,'productName','-') }}
+
+            {{-- existing REDO banner --}}
+            @if($selectedForRedo)
+                <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                <i class="bi bi-exclamation-octagon-fill icon"></i>
+                <span class="tag" style="font-size: 10px;">REDO</span>
+                @if($redoBy ?? false)
+                    <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                @endif
+                @if(!empty($redoReason ?? ''))
+                    <span style="font-size: 12px;" class="reason"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        title="{{ $redoReason }}">
+                    {{ \Illuminate\Support\Str::limit($redoReason, 90) }}
+                    </span>
+                @endif
+                </span>
+            @endif
+
+            {{-- ✅ NEW: REJECTED banner --}}
+            @if($isRejectedSelected)
+                <span class="redo-banner redo-offset bg-danger text-white"
+                    title="{{ $orderReject->reason ?? '' }}">
+                <i class="bi bi-x-octagon-fill icon"></i>
+                <span class="tag" style="font-size: 10px;">REJECTED</span>
+                @if($orderRejectBy)
+                    <span class="by" style="font-size: 10px;">by {{ $orderRejectBy }}</span>
+                @endif
+                @if(!empty($orderReject?->reason))
+                    <span style="font-size: 12px;" class="reason"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        title="{{ $orderReject->reason }}">
+                    {{ \Illuminate\Support\Str::limit($orderReject->reason, 90) }}
+                    </span>
+                @endif
+                </span>
+            @endif
             </div>
 
             @if(($p->remarks ?? collect())->isEmpty())
@@ -432,9 +722,22 @@
             @else
             <div class="vstack gap-2">
                 @foreach($p->remarks as $rm)
-                <div class="d-flex align-items-start gap-2 p-2 border rounded">
-                    <span class="badge bg-secondary me-2">{{ $opLabel($rm->operation) }}</span>
-                    <div class="flex-grow-1">{{ $rm->remark ?? '—' }}</div>
+                @php [$bg,$fg] = $opStyle($rm->operation); @endphp
+                <div class="border rounded-2 p-3 d-flex flex-column gap-1">
+                    <div class="d-flex align-items-center gap-3">
+                    <span class="px-2 py-1 rounded-pill fw-semibold flex-shrink-0"
+                            style="background:{{ $bg }}; color:{{ $fg }}; font-size:.8rem; min-width:max-content;">
+                        {{ $opLabel($rm->operation) }}
+                    </span>
+                    <div class="flex-grow-1">
+                        <div class="mb-0" style="line-height:1.5;">
+                        {{ $rm->remark ?: '—' }}
+                        </div>
+                    </div>
+                    </div>
+                    <div class="text-muted small ms-1" style="font-weight: 700;">
+                    by {{ optional($rm->user)->name ?? '—' }}
+                    </div>
                 </div>
                 @endforeach
             </div>
@@ -478,8 +781,13 @@
         </div>
     </div>
 
-    <div class="text-end">
-        <a href="{{ route('data-entry.orders') }}" class="btn btn-secondary mt-6">Close</a>
+    <div class="d-flex justify-content-end mt-4">
+        <a href="{{ route('data-entry.orders.edit', $order->id) }}"
+            class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
+            style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+            <i class="bx bx-edit-alt fs-5"></i>
+            <span>Edit Order</span>
+        </a>
     </div>
 </div>
 @endsection
