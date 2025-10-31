@@ -102,30 +102,13 @@
     <div class="col app-calendar-content">
       {{-- TOP TOOLBAR (single row) --}}
       <div id="calendarToolbar" class="d-flex align-items-center">
-        <div class="input-group" style="min-width:260px;max-width:280px;">
-          <span class="input-group-text">From</span>
-          <input type="date" class="form-control" id="filterStart">
-        </div>
-
-        <div class="input-group" style="min-width:240px;max-width:260px;">
-          <span class="input-group-text">To</span>
-          <input type="date" class="form-control" id="filterEnd">
-        </div>
-
-
-        <input type="text" class="form-control" id="searchClient" placeholder="Search by title / client" style="min-width:180px;max-width:240px;">
+        <input type="text" class="form-control" id="searchClient" placeholder="Search by title / client" style="width:100%;">
+        <button type="button" class="btn btn-outline-secondary" id="btnToday">Today</button>
+        <button type="button" class="btn btn-outline-secondary" id="btnReset">Reset</button>
       </div>
 
       <div class="d-flex align-items-center gap-4 btn-toolbar justify-content-start" style="margin-bottom: 3rem;">
       
-
-      <div class="d-flex align-items-center gap-2 ms-auto">
-        <button type="button" class="btn btn-outline-secondary" id="btnToday">Today</button>
-        <button type="button" class="btn btn-outline-secondary" id="btnReset">Reset</button>
-        <button type="button" class="btn btn-outline-primary" id="btnExport">
-          <i class="bx bx-download me-1"></i> Export PDF
-        </button>
-      </div>
     </div>
 
       <div class="card shadow-none border-0">
