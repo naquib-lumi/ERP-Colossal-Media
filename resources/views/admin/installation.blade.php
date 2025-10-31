@@ -1,201 +1,200 @@
 @extends('layouts.app')
+
 @section('title','Delivery & Installation Overview')
 
 @section('content')
 <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
 <style>
 :root{
   --bg:#F6F8FC; --card:#fff; --border:#E5E7EB; --text:#0F172A; --muted:#64748B;
-  --shadow:0 8px 24px rgba(15,23,42,.06); --primary:#5956E9; --r:16px;
+  --shadow:0 8px 24px rgba(15,23,42,.06); --primary:#5c5cff; --r:16px;
 }
 body{background:var(--bg);}
 .page{max-width:1200px;margin:0 auto;padding:24px;}
-.h1{font-weight:800;font-size:32px;color:var(--text);margin:10px 0 18px;}
+.h1{font-weight:800;font-size:28px;color:var(--text);margin-bottom:16px}
 
-/* Filter bar */
-.filterbar{
-  background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);
-  padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr 220px 220px;gap:12px;align-items:center;margin-bottom:16px;
+/* ===== Toolbar Layout ===== */
+.tbar{background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:14px;margin-bottom:18px}
+.trow-top{display:grid;gap:10px;grid-template-columns:1.2fr 1fr 1.2fr 200px}
+.trow-btm{display:grid;gap:10px;grid-template-columns:1.7fr .9fr .6fr auto;align-items:center}
+@media (max-width:1200px){
+  .trow-top{grid-template-columns:1fr 1fr}
+  .trow-btm{grid-template-columns:1fr 1fr 1fr}
 }
-.filterbar .span-3{grid-column:1 / span 3;}
-.filterbar .btn-wrap{grid-column:4 / span 2;display:flex;gap:14px;justify-content:space-between;}
-.fb-input,.fb-select{
-  height:48px;border:1px solid var(--border);border-radius:14px;background:#fff;outline:0;padding:0 16px;font-size:15px;color:var(--text);width:100%;
+@media (max-width:780px){
+  .trow-top,.trow-btm{grid-template-columns:1fr}
 }
-.fb-input::placeholder{color:#9AA4B2;}
-.fb-btn{height:48px;border-radius:14px;border:1px solid var(--border);background:#fff;font-weight:800;padding:0 24px;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;}
-.fb-btn-primary{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 10px 18px rgba(89,86,233,.25);}
-.fb-btn-reset{background:#F4F3FF;color:var(--primary);border-color:#ECEBFF;}
-.fb-btn-export{background:#fff;color:#0F172A;}
+.tinp,.tsel{height:44px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 12px;font-size:14px;outline:0;width:100%}
+.tinp::placeholder{color:#A3AEC3}
+.tinp:focus,.tsel:focus{border-color:#C8D1EA;box-shadow:0 0 0 4px rgba(79,70,229,.08)}
+.tbtn{height:44px;border-radius:12px;padding:0 22px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--border);background:#fff;cursor:pointer}
+.tbtn-primary{background:var(--primary);color:#fff;border-color:var(--primary);width:100%}
+.tbtn-soft{background:#F3F3FF;color:#5c5cff}
+.tbtn-ghost{background:#fff;color:#0F172A}
+.tico{font-size:18px;vertical-align:middle}
+.t-export{justify-self:end}
 
-/* Table */
-.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;}
-.table{width:100%;border-collapse:separate;border-spacing:0}
-.table thead th{
-  position:sticky; top:0; z-index:1;
-  background:#F9FAFB;
-  font-size:12px;text-transform:uppercase;color:#64748B;letter-spacing:.04em;padding:12px 16px;border-bottom:1px solid var(--border);text-align:left
+/* Back button (light) */
+.tbtn-back{
+  border:0;background:transparent;color:var(--primary);
+  font-weight:800;display:inline-flex;align-items:center;gap:8px;
 }
-.table tbody td{padding:14px 16px;border-bottom:1px solid var(--border);color:#0F172A}
-.pill{display:inline-block;padding:.2rem .55rem;border-radius:999px;background:#EEF2FF;color:#4F46E5;font-size:.75rem;font-weight:700}
-.badge{display:inline-block;padding:.2rem .55rem;border-radius:999px;font-size:.75rem;font-weight:700}
-.badge.orange{background:#FFF7ED;color:#C2410C}
+.tbtn-back:hover{color:#2e2eff}
+
+/* ===== Table ===== */
+.table-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
+.table{width:100%;border-collapse:collapse}
+.table th{font-size:12px;text-transform:uppercase;color:#64748B;letter-spacing:.04em;padding:12px 16px;border-bottom:1px solid var(--border);text-align:left}
+.table td{padding:14px 16px;border-bottom:1px solid var(--border);color:#0F172A;font-size:14px}
+.pill{display:inline-block;padding:.25rem .6rem;border-radius:999px;background:#EEF2FF;color:#4F46E5;font-size:.75rem;font-weight:700}
+.badge{display:inline-block;padding:.25rem .6rem;border-radius:999px;font-size:.75rem;font-weight:700}
 .badge.green{background:#ECFDF5;color:#067647}
 .badge.blue{background:#E0F2FE;color:#075985}
-.i16{font-size:18px;vertical-align:middle}
-.op-upload{color:#C2410C}
-.op-check{color:#067647}
+.badge.orange{background:#FFF7ED;color:#C2410C}
+
 .action i{font-size:18px;margin:0 6px;color:#64748B;cursor:pointer}
 .action i:hover{color:#111827}
+.op-upload{color:#C2410C}
+.op-check{color:#067647}
 
-/* Pagination */
-.pagination{display:flex;gap:6px;justify-content:flex-end;padding:12px}
-.pagination a, .pagination span{padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;color:#111827;text-decoration:none}
-.pagination .active span{background:var(--primary);border-color:var(--primary);color:#fff}
-
-/* Responsive */
-@media (max-width:1200px){
-  .filterbar{grid-template-columns:1fr 1fr 1fr 180px 180px;}
-}
-@media (max-width:1100px){
-  .filterbar{grid-template-columns:1fr 1fr;}
-  .filterbar .span-3{grid-column:1 / span 2;}
-  .filterbar .btn-wrap{grid-column:1 / span 2;justify-content:flex-start;}
-}
+.pagination{margin:0;padding:20px;display:flex;justify-content:end}
 </style>
 
 <div class="page">
-  <div class="h1">Delivery & Installation Overview</div>
 
-  {{-- 过滤表单（GET） --}}
-  <form method="GET" action="{{ route('admin.installation') }}" id="filterForm">
-    <div class="filterbar">
-      <!-- 第一排 -->
-      <input type="text" class="fb-input" name="q" value="{{ request('q') }}" placeholder="Search by Order ID or Job Title">
-      <input type="text" class="fb-input" name="artist" value="{{ request('artist') }}" placeholder="Search artist name...">
-      <input type="text" class="fb-input" name="details" value="{{ request('details') }}" placeholder="Search orders or product details">
-      <select class="fb-select" name="task_type">
-        @php $tt = request('task_type','all'); @endphp
-        <option value="all" {{ $tt==='all'?'selected':'' }}>All Task Types</option>
-        <option value="Installation" {{ $tt==='Installation'?'selected':'' }}>Installation</option>
-        <option value="Self Pick up" {{ $tt==='Self Pick up'?'selected':'' }}>Self Pick up</option>
-        <option value="Courier" {{ $tt==='Courier'?'selected':'' }}>Courier</option>
+  {{-- ===== Header + Back ===== --}}
+  <div class="d-flex" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:6px;">
+    <div class="h1" style="margin:0;">Delivery & Installation Overview</div>
+    <a href="{{ route('admin.fulfillment') }}" class="tbtn-back">
+      <i class='bx bx-arrow-back'></i> Back to Fulfillment
+    </a>
+  </div>
+
+  {{-- ===== Toolbar ===== --}}
+  <form method="GET" action="{{ route('admin.installation') }}" class="tbar">
+    {{-- 上排：3输入 + 状态下拉 --}}
+    <div class="trow-top">
+      <input class="tinp" type="text" name="q" value="{{ request('q') }}" placeholder="Search by Order ID or Job Title">
+      <input class="tinp" type="text" name="artist" value="{{ request('artist') }}" placeholder="Search artist name...">
+      <input class="tinp" type="text" name="details" value="{{ request('details') }}" placeholder="Search orders or product details">
+
+      <select class="tsel" name="status">
+        <option value="all" @selected(request('status','all')==='all')>All statuses</option>
+        <option value="pending_permit" @selected(request('status')==='pending_permit')>Pending Permit</option>
+        <option value="in_progress" @selected(request('status')==='in_progress')>In progress</option>
+        <option value="assigned" @selected(request('status')==='assigned')>Assigned</option>
+        <option value="to_assign" @selected(request('status')==='to_assign')>To assign</option>
+        <option value="completed" @selected(request('status')==='completed')>Completed</option>
+        <option value="rejected" @selected(request('status')==='rejected')>Rejected</option>
       </select>
-      <select class="fb-select" name="status">
-        @php $st = request('status','all'); @endphp
-        <option value="all" {{ $st==='all'?'selected':'' }}>All statuses</option>
-        <option value="Pending Permit" {{ $st==='Pending Permit'?'selected':'' }}>Pending Permit</option>
-        <option value="In Progress" {{ $st==='In Progress'?'selected':'' }}>In Progress</option>
-        <option value="Completed" {{ $st==='Completed'?'selected':'' }}>Completed</option>
-      </select>
+    </div>
 
-      <!-- 第二排 -->
-      <input type="text" class="fb-input span-3" id="date_range" name="date_range"
-             value="{{ request('date_range') }}" placeholder="Select date range (dd/mm/yyyy - dd/mm/yyyy)">
-      <div class="btn-wrap">
-        <button class="fb-btn fb-btn-primary" type="submit">Filter</button>
+    {{-- 下排：日期 + 按钮组 --}}
+    <div class="trow-btm" style="margin-top:10px">
+      <input class="tinp" id="date_range" type="text" name="date_range"
+             value="{{ request('date_range') }}"
+             placeholder="Select date range (dd/mm/yyyy - dd/mm/yyyy)">
 
-        {{-- Reset：跳到无参数的路由，彻底清空 --}}
-        <a class="fb-btn fb-btn-reset" href="{{ route('admin.installation') }}" id="btnReset">Reset</a>
+      <button type="submit" class="tbtn tbtn-primary">Filter</button>
+      <a href="{{ route('admin.installation') }}" class="tbtn tbtn-soft">Reset</a>
 
-        {{-- Export：用隐藏表单携带当前筛选并在新标签打开 --}}
-        <button type="button" class="fb-btn fb-btn-export" id="btnExport">
-          <i class='bx bx-export'></i> Export
-        </button>
-      </div>
+      <a href="{{ route('admin.installation.export', request()->query()) }}" class="tbtn tbtn-ghost t-export">
+        <i class='bx bx-export tico'></i> Export
+      </a>
     </div>
   </form>
 
-  {{-- 导出隐藏表单（target="_blank" 新标签） --}}
-  <form method="GET" action="{{ route('admin.installation.export') }}" id="exportForm" target="_blank" style="display:none;">
-    <input type="hidden" name="q" value="{{ request('q') }}">
-    <input type="hidden" name="artist" value="{{ request('artist') }}">
-    <input type="hidden" name="details" value="{{ request('details') }}">
-    <input type="hidden" name="task_type" value="{{ request('task_type','all') }}">
-    <input type="hidden" name="status" value="{{ request('status','all') }}">
-    <input type="hidden" name="date_range" value="{{ request('date_range') }}">
-  </form>
-
-  {{-- 表格 --}}
-  <div class="table-wrap">
+  {{-- ===== Data Table ===== --}}
+  <div class="table-card">
     <table class="table">
       <thead>
         <tr>
-          <th>Product ID</th>
-          <th>Product Name</th>
-          <th>Task Type</th>
-          <th>Deadline</th>
-          <th>Status</th>
-          <th>Permit / Confirm</th>
-          <th>Action</th>
+          <th>PRODUCT ID</th>
+          <th>PRODUCT NAME</th>
+          <th>TASK TYPE</th>
+          <th>DEADLINE</th>
+          <th>STATUS</th>
+          <th>PERMIT / CONFIRM</th>
+          <th>ACTION</th>
         </tr>
       </thead>
       <tbody>
         @forelse($rows as $item)
-          @php $status = $item->status; @endphp
+          @php
+            $status = strtolower($item->status ?? '');
+            $badgeClass = match(true){
+              $status === 'completed' => 'green',
+              in_array($status, ['rejected','pending_permit']) => 'orange',
+              default => 'blue',
+            };
+            $rowId = $item->id ?? $item->order_id;
+          @endphp
           <tr>
             <td>{{ $item->order_id }}</td>
             <td>{{ $item->product_name }}</td>
-            <td><span class="pill">{{ $item->task_type }}</span></td>
-            <td>{{ optional($item->deadline)->format('Y-m-d') }}</td>
+            <td><span class="pill">{{ $item->task_type ? ucfirst($item->task_type) : 'N/A' }}</span></td>
+            <td>{{ $item->deadline ? $item->deadline->format('Y-m-d') : '—' }}</td>
+            <td><span class="badge {{ $badgeClass }}">{{ $status ? ucwords(str_replace('_',' ',$status)) : 'N/A' }}</span></td>
             <td>
-              @if($status === 'Pending Permit')
-                <span class="badge orange">Pending Permit</span>
-              @elseif($status === 'Completed')
-                <span class="badge green">Completed</span>
+              @if(!empty($item->has_permit) || !empty($item->permit_file))
+                <i class='bx bx-check op-check' title="Confirmed"></i>
+                @if(!empty($item->permit_file))
+                  <a href="{{ Storage::url($item->permit_file) }}" target="_blank" style="margin-left:6px;font-size:12px;">View</a>
+                @endif
               @else
-                <span class="badge blue">{{ $status }}</span>
-              @endif
-            </td>
-            <td>
-              @if($status === 'Pending Permit')
-                <i class='bx bx-upload i16 op-upload' title="Upload Permit"></i>
-              @elseif($status === 'Completed')
-                <i class='bx bx-check i16 op-check' title="Confirmed"></i>
-              @else
-                <i class='bx bx-dots-horizontal-rounded i16' title="N/A"></i>
+                {{-- 上传 Permit（提交到 admin.installation.permit.upload） --}}
+                <form id="permit-form-{{ $rowId }}" action="{{ route('admin.installation.permit.upload', $item->id) }}" method="POST" enctype="multipart/form-data" style="display:inline;">
+                  @csrf
+                  <input type="file" name="permit_file" id="permit-file-{{ $rowId }}" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+                  <i class='bx bx-upload op-upload' title="Upload Permit" onclick="document.getElementById('permit-file-{{ $rowId }}').click()"></i>
+                </form>
+                <script>
+                  (function(){
+                    const input = document.getElementById('permit-file-{{ $rowId }}');
+                    if (!input) return;
+                    input.addEventListener('change', function(){
+                      if (this.files && this.files.length > 0) {
+                        document.getElementById('permit-form-{{ $rowId }}').submit();
+                      }
+                    });
+                  })();
+                </script>
               @endif
             </td>
             <td class="action">
-              <i class='bx bx-show-alt' title="View"></i>
-              <i class='bx bx-edit' title="Edit"></i>
+              <a href="{{ route('admin.fulfillment.show', $item->id ?? 0) }}"><i class='bx bx-show-alt' title="View"></i></a>
+              <a href="{{ route('admin.fulfillment.edit', $item->id ?? 0) }}"><i class='bx bx-edit' title="Edit"></i></a>
             </td>
           </tr>
         @empty
-          <tr><td colspan="7" style="color:#64748B;">No records found.</td></tr>
+          <tr><td colspan="7" style="text-align:center;color:#999;">No records found.</td></tr>
         @endforelse
       </tbody>
     </table>
 
-    {{-- 分页 --}}
     <div class="pagination">
-      {{ $rows->onEachSide(1)->links() }}
+      {{ $rows->withQueryString()->links('pagination::bootstrap-5') }}
     </div>
   </div>
 </div>
 
-{{-- 交互逻辑：导出携带当前筛选；日期范围初始化（可选） --}}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-  // 同步当前筛选到隐藏导出表单
-  document.getElementById('btnExport').addEventListener('click', function(){
-    const f = document.getElementById('filterForm');
-    const e = document.getElementById('exportForm');
-    ['q','artist','details','task_type','status','date_range'].forEach(name=>{
-      const src = f.querySelector(`[name="${name}"]`);
-      const dst = e.querySelector(`[name="${name}"]`);
-      if(src && dst){ dst.value = src.value; }
-    });
-    e.submit();
+document.addEventListener('DOMContentLoaded', () => {
+  const dr = document.getElementById('date_range');
+  if(!dr) return;
+  const fp = flatpickr(dr, {
+    mode:'range',
+    dateFormat:'d/m/Y',
+    allowInput:true,
+    locale:{ rangeSeparator:' - ' }
   });
-
-  // （可选）Flatpickr 绑定：请先在布局中引入 flatpickr 的 js/css
-  if (window.flatpickr) {
-    flatpickr('#date_range', {
-      mode: 'range',
-      dateFormat: 'd/m/Y',
-      allowInput: true
-    });
+  if (dr.value && dr.value.includes('-')) {
+    const p = dr.value.split('-').map(s=>s.trim());
+    if (p.length===2 && p[0] && p[1]) fp.setDate([p[0], p[1]], false, 'd/m/Y');
   }
+});
 </script>
 @endsection

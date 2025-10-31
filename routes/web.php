@@ -416,6 +416,10 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/dispatch-control/export', [AdminController::class, 'dispatchExport'])->name('admin.dispatch.export');
 Route::get('/admin/installation', [AdminController::class, 'installation'])->name('admin.installation');
 Route::get('/admin/installation/export', [AdminController::class, 'installationExport'])->name('admin.installation.export');
+Route::post('/admin/installation/{order}/permit', [AdminController::class, 'installationPermitUpload'])->name('admin.installation.permit.upload');
+Route::post('/admin/installation/permit', [AdminController::class,'installationPermitStore'])->name('admin.installation.permit.store');
+Route::get('/admin/installation/permit/{permit}/download', [AdminController::class,'installationPermitDownload'])->name('admin.installation.permit.download');
+Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'installationPermitDestroy'])->name('admin.installation.permit.destroy');
 
 
 

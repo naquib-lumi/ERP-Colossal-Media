@@ -148,15 +148,16 @@
     </div>
   </a>
 
-  {{-- 第二张：Dispatch Control Overview（保持样式尺寸，但可点击） --}}
-  <a href="{{ route('admin.installation') }}" class="metric"
-     style="text-decoration:none; color:inherit; cursor:pointer;">
-    <div class="ic"><i class='bx bx-send'></i></div>
-    <div>
-      <div class="caption">Dispatch Control Needing Permit Upload</div>
-      <div class="num">{{ $dispatchCount }}</div>
-    </div>
-  </a>
+{{-- 第二张：Dispatch Control Overview（保持样式尺寸，但可点击） --}}
+<a href="{{ route('admin.dispatch') }}" class="metric"
+   style="text-decoration:none; color:inherit; cursor:pointer;">
+  <div class="ic"><i class='bx bx-send'></i></div>
+  <div>
+    <div class="caption">Dispatch Control Needing Permit Upload</div>
+    <div class="num">{{ $dispatchCount }}</div>
+  </div>
+</a>
+
 </div>
 
 
