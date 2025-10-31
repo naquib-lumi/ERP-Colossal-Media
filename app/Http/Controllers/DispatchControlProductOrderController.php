@@ -264,7 +264,13 @@ class DispatchControlProductOrderController extends Controller
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 $paths = array_values(array_filter($decoded));
             } else {
-                $paths = preg_split('/[\s,]+/', $rawAtt, -1, PREG_SPLIT_NO_EMPTY);
+                if (str_contains($rawAtt, ',')) {
+                    $paths = array_map('trim', explode(',', $rawAtt));
+                    $paths = array_filter($paths);
+                } else {
+                    // single file path (may contain spaces)
+                    $paths = [trim($rawAtt)];
+                }
             }
             foreach ($paths as $p) {
                 $p = ltrim($p, '/');

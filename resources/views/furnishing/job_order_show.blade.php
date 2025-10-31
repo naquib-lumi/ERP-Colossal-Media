@@ -9,11 +9,11 @@
   .remark-head{display:flex;gap:.5rem;align-items:center;margin-bottom:.25rem}
   .op-badge{display:inline-block;padding:.15rem .5rem;font-size:.75rem;font-weight:700}
   .op-printing{background:#EEF2FF;color:#4F46E5}
-  .op-furnishing{background:#FFF7ED;color:#C2410C}
+  .op-furnishing{background: #FFF7ED;color: #C2410C}
   .op-installation{background:#ECFEFF;color:#0E7490}
   .op-courier{background:#ECFDF5;color:#047857}
   .op-self_pickup{background:#F3F4F6;color:#111827}
-  .op-artist{background:#F9FAE2;color:#836500}
+  .op-artist{background: #f9fae2ff; color: #ffd500ff;}
   .remark-meta{color:#6B7280;font-size:.8rem}
   .remark-text{white-space:pre-wrap}
 
@@ -169,11 +169,7 @@
   .remark-card .head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
   .remark-card .meta{color:#6B7280;font-size:.85rem}
   .remark-card .body{color:#111827;white-space:pre-wrap}
-  .op-badge{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:.22rem .55rem;font-size:.75rem;font-weight:700;
-    border-radius:.5rem;background:#EEF2FF;color:#4F46E5;
-  }
+
 </style>
 
 <div class="resize-guide" id="colGuide"></div>
@@ -309,7 +305,7 @@
                     <th>Item <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Quantity <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Size (W • H) <span class="resize-handle" aria-hidden="true"></span></th>
-                    <th>Bleed (T • L • B • R) <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Bleed (T • B • L • R) <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Material <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Prime Centre <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Lamination <span class="resize-handle" aria-hidden="true"></span></th>
