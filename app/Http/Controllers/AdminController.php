@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\Lead;
 use App\Models\Order;
 use Carbon\Carbon;
+use App\Models\ProductPermit;
+use App\Models\Product;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -798,4 +800,268 @@ class AdminController extends Controller
     {
         return response()->noContent();
     }
+   
+public function dispatchControl()
+{
+    $tasks = [
+        ['id' => '#ORD006-P3', 'name' => 'Posters',        'type' => 'Self Pick up', 'deadline' => '2025-07-30', 'status' => 'In Progress'],
+        ['id' => '#ORD003-P1', 'name' => 'Business Cards', 'type' => 'Self Pick up', 'deadline' => '2025-08-15', 'status' => 'In Progress'],
+        ['id' => '#ORD007-P2', 'name' => 'Banner Signs',   'type' => 'Courier',      'deadline' => '2025-08-20', 'status' => 'Completed'],
+        ['id' => '#ORD009-P4', 'name' => 'Vinyl Decals',   'type' => 'Courier',      'deadline' => '2025-08-25', 'status' => 'Completed'],
+    ];
+
+    return view('admin.dispatch', compact('tasks')); // 对应 resources/views/admin/dispatch.blade.php
+}
+
+public function dispatchExport()
+{
+    return back()->with('status', 'CSV export is not implemented yet.');
+}
+
+// Delivery & Installation — 列表页（带筛选 + 分页）
+// Delivery & Installation — 列表页（用 orders 表，带筛选 + 分页）
+public function installation(Request $request)
+{
+    $q         = trim($request->get('q', ''));
+    $artist    = trim($request->get('artist', ''));
+    $details   = trim($request->get('details', ''));
+    $status    = $request->get('status', 'all');
+    $dateRange = trim($request->get('date_range', ''));
+
+    $taskCol     = \Schema::hasColumn('orders','task_type')
+                    ? 'task_type'
+                    : (\Schema::hasColumn('orders','delivery_installation_type') ? 'delivery_installation_type' : null);
+    $deadlineCol = \Schema::hasColumn('orders','deadline') ? 'deadline' : 'created_at';
+    $statusCol   = \Schema::hasColumn('orders','orderStatus') ? 'orderStatus' : 'status';
+
+    $rows = Order::query()
+        ->with([
+            'artist',
+            // 只拿最需要的列，避免负担
+            'products:ProductID,OrderID'
+        ])
+        // 仅显示 Installation
+        ->when($taskCol, fn($qb) => $qb->where($taskCol, 'installation'))
+        // 搜索
+        ->when($q !== '', function ($qb) use ($q) {
+            $qb->where(function ($sub) use ($q) {
+                $sub->where('order_number','like',"%{$q}%")
+                    ->orWhere('orderTitle','like',"%{$q}%");
+            });
+        })
+        ->when($artist !== '', fn($qb) => $qb->whereHas('artist', fn($w)=>$w->where('name','like',"%{$artist}%")))
+        ->when($details !== '', function ($qb) use ($details) {
+            $qb->where(function ($sub) use ($details) {
+                $sub->where('orderTitle','like',"%{$details}%")
+                    ->orWhere('description','like',"%{$details}%");
+            });
+        })
+        ->when($status !== 'all' && $status !== '', fn($qb) => $qb->where($statusCol, $status))
+        ->when($dateRange !== '', function ($qb) use ($deadlineCol,$dateRange) {
+            $parts = preg_split('/\s*-\s*/', $dateRange);
+            if (count($parts) === 2) {
+                try {
+                    $start = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[0]))->startOfDay();
+                    $end   = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[1]))->endOfDay();
+                    $qb->whereBetween($deadlineCol, [$start, $end]);
+                } catch (\Exception $e) {}
+            }
+        })
+        ->orderBy($deadlineCol, 'asc')
+        ->paginate(20)
+        ->appends($request->query());
+
+    // ==== 批量取本页所有产品的 ProductID，并一次性查 product_permit ====
+    $productIds = $rows->getCollection()
+        ->flatMap(fn($o) => $o->products?->pluck('ProductID') ?? collect())
+        ->filter()
+        ->unique()
+        ->values();
+
+    $permitMap = ProductPermit::whereIn('product_id', $productIds)
+        ->orderByDesc('uploaded_at')
+        ->get()
+        ->groupBy('product_id'); // product_id => [ProductPermit,...]
+
+    // 统一映射到视图对象
+    $rows->getCollection()->transform(function($o) use ($taskCol,$deadlineCol,$statusCol,$permitMap){
+        $o->order_id       = $o->order_number ?? ('ORD-'.$o->id);
+        $o->product_name   = $o->orderTitle ?? ($o->product_name ?? '');
+        $o->task_type      = $taskCol ? $o->{$taskCol} : null;
+        $o->deadline       = $o->{$deadlineCol} ? \Carbon\Carbon::parse($o->{$deadlineCol}) : null;
+        $o->status         = $o->{$statusCol};
+
+        // 本订单的所有产品 id
+        $productIdList     = $o->products?->pluck('ProductID')->filter()->values() ?? collect();
+        // 用于“上传”的主 product_id（取第一个）
+        $o->product_primary_id = $productIdList->first();
+
+        // 若任一产品有 permit，则认为此行 has_permit = true，并给一个可用的 permit 记录
+        $firstPermit = null;
+        foreach ($productIdList as $pid) {
+            if (isset($permitMap[$pid]) && $permitMap[$pid]->isNotEmpty()) {
+                $firstPermit = $permitMap[$pid]->first();
+                break;
+            }
+        }
+        $o->permit     = $firstPermit;                 // ProductPermit|null
+        $o->has_permit = $firstPermit !== null;        // bool
+
+        return $o;
+    });
+
+    return view('admin.installation', compact('rows'));
+}
+public function installationExport(Request $request)
+{
+    $q         = trim($request->get('q', ''));
+    $artist    = trim($request->get('artist', ''));
+    $details   = trim($request->get('details', ''));
+    $status    = $request->get('status', 'all');
+    $dateRange = trim($request->get('date_range', ''));
+
+    $taskCol     = \Schema::hasColumn('orders','task_type')
+                    ? 'task_type'
+                    : (\Schema::hasColumn('orders','delivery_installation_type') ? 'delivery_installation_type' : null);
+    $deadlineCol = \Schema::hasColumn('orders','deadline') ? 'deadline' : 'created_at';
+    $statusCol   = \Schema::hasColumn('orders','orderStatus') ? 'orderStatus' : 'status';
+
+    $query = Order::query()
+        ->with(['artist','products:ProductID,OrderID'])
+        ->when($taskCol, fn($qb) => $qb->where($taskCol, 'installation'))
+        ->when($q !== '', function ($qb) use ($q) {
+            $qb->where(function ($sub) use ($q) {
+                $sub->where('order_number','like',"%{$q}%")
+                    ->orWhere('orderTitle','like',"%{$q}%");
+            });
+        })
+        ->when($artist !== '', fn($qb) => $qb->whereHas('artist', fn($w)=>$w->where('name','like',"%{$artist}%")))
+        ->when($details !== '', function ($qb) use ($details) {
+            $qb->where(function ($sub) use ($details) {
+                $sub->where('orderTitle','like',"%{$details}%")
+                    ->orWhere('description','like',"%{$details}%");
+            });
+        })
+        ->when($status !== 'all' && $status !== '', fn($qb) => $qb->where($statusCol, $status))
+        ->when($dateRange !== '', function ($qb) use ($deadlineCol,$dateRange) {
+            $parts = preg_split('/\s*-\s*/', $dateRange);
+            if (count($parts) === 2) {
+                try {
+                    $start = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[0]))->startOfDay();
+                    $end   = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[1]))->endOfDay();
+                    $qb->whereBetween($deadlineCol, [$start, $end]);
+                } catch (\Exception $e) {}
+            }
+        })
+        ->orderBy($deadlineCol, 'asc');
+
+    $data = $query->get();
+
+    // 批量查 permit
+    $productIds = $data->flatMap(fn($o) => $o->products?->pluck('ProductID') ?? collect())
+                       ->filter()->unique()->values();
+
+    $permitMap = ProductPermit::whereIn('product_id', $productIds)
+                  ->get()->groupBy('product_id');
+
+    $headers = [
+        'Content-Type'        => 'text/csv; charset=UTF-8',
+        'Content-Disposition' => 'attachment; filename="installation_export.csv"',
+    ];
+
+    $callback = function () use ($data, $taskCol, $deadlineCol, $statusCol, $permitMap) {
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Product ID','Product Name','Task Type','Deadline','Status','Permit/Confirm']);
+
+        foreach ($data as $o) {
+            $orderId  = $o->order_number ?? ('ORD-'.$o->id);
+            $name     = $o->orderTitle ?? ($o->product_name ?? '');
+            $task     = $taskCol ? ($o->{$taskCol} ?? '') : '';
+            $deadline = $o->{$deadlineCol} ? \Carbon\Carbon::parse($o->{$deadlineCol})->format('Y-m-d') : '';
+            $status   = $o->{$statusCol} ?? '';
+
+            // 任一产品有 permit 即 Yes
+            $productIdList = $o->products?->pluck('ProductID')->filter()->values() ?? collect();
+            $hasPermit = false;
+            foreach ($productIdList as $pid) {
+                if (isset($permitMap[$pid]) && $permitMap[$pid]->isNotEmpty()) {
+                    $hasPermit = true; break;
+                }
+            }
+            $permitVal = $hasPermit ? 'Yes' : '';
+
+            fputcsv($out, [$orderId, $name, $task, $deadline, $status, $permitVal]);
+        }
+        fclose($out);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
+/**
+ * 上传 Permit（保存到 product_permit 表 & storage/app/public/permits/{product_id}/）
+ * 表单字段：product_id, file
+ */
+public function installationPermitStore(Request $request)
+{
+    // 权限按你项目需要自行限制
+    // if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
+
+    $data = $request->validate([
+        'product_id' => ['required','integer','exists:products,ProductID'],
+        'file'       => ['required','file','mimetypes:image/jpeg,image/png,image/webp,image/gif,application/pdf','max:8192'], // 8MB
+    ],[
+        'file.mimetypes' => 'Only images (jpg/png/webp/gif) or PDF are allowed.',
+        'file.max'       => 'File must be <= 8MB.',
+    ]);
+
+    $productId = (int)$data['product_id'];
+    $userId    = auth()->id();
+
+    // 目标目录：public/permits/{product_id}/
+    $dir  = "permits/{$productId}";
+    $ext  = $request->file('file')->getClientOriginalExtension();
+    $name = 'permit_'.now()->format('Ymd_His').'_'.$productId.'.'.$ext;
+
+    // 保存到 public 磁盘（确保已 php artisan storage:link）
+    $path = $request->file('file')->storeAs($dir, $name, 'public');
+
+    // 记录到 DB
+    $permit = ProductPermit::create([
+        'user_id'     => $userId,
+        'product_id'  => $productId,
+        'permit_file' => $path,          // 相对路径，前端用 Storage::url() 输出
+        'uploaded_at' => now(),
+    ]);
+
+    return back()->with('success', 'Permit uploaded successfully.');
+}
+
+/** 下载 Permit（按记录 id 下载） */
+public function installationPermitDownload(ProductPermit $permit)
+{
+    // if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
+
+    if (!$permit->permit_file || !Storage::disk('public')->exists($permit->permit_file)) {
+        return back()->withErrors(['file' => 'File not found.']);
+    }
+
+    $absPath  = Storage::disk('public')->path($permit->permit_file);
+    $download = 'permit_'.$permit->product_id.'_'.basename($permit->permit_file);
+    return Response::download($absPath, $download);
+}
+
+/** 删除 Permit（删库 + 删文件） */
+public function installationPermitDestroy(ProductPermit $permit)
+{
+    // if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
+
+    if ($permit->permit_file && Storage::disk('public')->exists($permit->permit_file)) {
+        Storage::disk('public')->delete($permit->permit_file);
+    }
+    $permit->delete();
+
+    return back()->with('success', 'Permit deleted.');
+}
+
+
 }

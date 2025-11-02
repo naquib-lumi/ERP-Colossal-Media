@@ -137,26 +137,30 @@
   }
 </style>
 
-<div class="wrap">
-  <h2 class="h2">Fulfillment Overview</h2>
+<div class="metrics">
+  {{-- 第一张：Delivery Needing Permit Upload（可点击跳转 installation 页面） --}}
+  <a href="{{ route('admin.installation') }}" class="metric"
+     style="text-decoration:none; color:inherit; cursor:pointer;">
+    <div class="ic"><i class='bx bx-file-find'></i></div>
+    <div>
+      <div class="caption">Delivery Needing Permit Upload</div>
+      <div class="num">{{ $needPermit }}</div>
+    </div>
+  </a>
 
-  {{-- Metrics --}}
-  <div class="metrics">
-    <div class="metric">
-      <div class="ic"><i class='bx bx-file-find'></i></div>
-      <div>
-        <div class="caption">Delivery Needing Permit Upload</div>
-        <div class="num">{{ $needPermit }}</div>
-      </div>
-    </div>
-    <div class="metric">
-      <div class="ic"><i class='bx bx-send'></i></div>
-      <div>
-        <div class="caption">Dispatch Control Overview</div>
-        <div class="num">{{ $dispatchCount }}</div>
-      </div>
-    </div>
+{{-- 第二张：Dispatch Control Overview（保持样式尺寸，但可点击） --}}
+<a href="{{ route('admin.dispatch') }}" class="metric"
+   style="text-decoration:none; color:inherit; cursor:pointer;">
+  <div class="ic"><i class='bx bx-send'></i></div>
+  <div>
+    <div class="caption">Dispatch Control Needing Permit Upload</div>
+    <div class="num">{{ $dispatchCount }}</div>
   </div>
+</a>
+
+</div>
+
+
 
   {{-- Toolbar --}}
   <form class="toolbar" method="get" action="{{ route('admin.fulfillment') }}">
