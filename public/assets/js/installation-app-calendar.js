@@ -46,7 +46,6 @@ document.addEventListener('DOMContentLoaded', function () {
           if (text) text.textContent = 'Hide Sidebar';
         }
       }
-      // Let FullCalendar recompute width
       setTimeout(() => calendar.updateSize(), 10);
     }
 
@@ -78,7 +77,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderUpcoming(events) {
       if (!upcomingList) return;
 
-      // Top 5 in-progress installation events, ordered by start date (soonest first).
       const items = events
         .filter(ev =>
           (ev?.extendedProps?.type === 'installation') &&
@@ -122,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function populateSalespeople(events) {
       if (!selArtist) return;
-      const map = new Map(); // id -> name
+      const map = new Map();
       events.forEach(ev => {
         const id = ev.extendedProps?.artist_id;
         const name = ev.extendedProps?.artist_name;
@@ -139,7 +137,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const q = (inputSearch?.value || '').trim().toLowerCase();
       const artistFilter = selArtist?.value || '';
 
-      // If date range fields are empty, just use FullCalendar's visible window.
       const startStr = inputStart?.value ? (inputStart.value + 'T00:00:00') : info.startStr;
       const endStr = inputEnd?.value ? (inputEnd.value + 'T23:59:59') : info.endStr;
 
@@ -149,10 +146,8 @@ document.addEventListener('DOMContentLoaded', function () {
         data: { start: startStr, end: endStr },
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         success: function (data) {
-          // We trust server colors – just ensure DOM gets them
           let evs = data.map(ev => ({ ...ev, allDay: ev.allDay ?? false }));
           console.log('Calendar events (raw):', evs);
-          // Filters
           if (artistFilter) evs = evs.filter(ev => String(ev.extendedProps?.artist_id || '') === String(artistFilter));
           if (q) evs = evs.filter(ev => (ev.title || '').toLowerCase().includes(q));
 
@@ -164,24 +159,73 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
+    // 🔴 helper ONLY for display
+    function formatStatusDisplay(s) {
+      if (!s) return '—';
+      return s
+        .toString()
+        .split('_')
+        .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(' ');
+    }
+
+    // 🔴 1) LEFT-SIDEBAR ITEM → MODAL
     function openInstallModalFromEvent(e) {
       const safeId = (e.id || 'evt').toString().replace(/[^a-zA-Z0-9]/g, '');
       const modalId = 'eventDetailModal_' + safeId;
 
+      // --- pull data from extendedProps, prefer orderTitle etc ---
+      const xp = e.extendedProps || {};
+
+      const jobTitle =
+        xp.order_title ||
+        xp.orderTitle ||
+        xp.product_name ||
+        e.title ||
+        'Installation';
+
+      const deadline =
+        xp.deadline ||
+        xp.order_deadline ||
+        '';
+
+      const deliveryDate =
+        xp.delivery_date ||
+        xp.date ||
+        (e.start ? moment(e.start).format('YYYY-MM-DD') : '');
+
+      const deliveryTime =
+        xp.delivery_time ||
+        xp.time ||
+        (e.start ? moment(e.start).format('HH:mm:ss') : '');
+
+      const deliveryMethod =
+        xp.method ||
+        xp.delivery_method ||
+        xp.deliver_install_type ||
+        '—';
+
+      const productName = xp.product_name || e.title || 'Installation';
+      const productCode = xp.product_code || '';
+      const company = xp.company_name || '—';
+      const assigned = xp.artist_name || 'Not assigned yet';
+
+      const statusRaw = xp.status || 'scheduled';
+      const statusText = formatStatusDisplay(statusRaw);
+
       const bg = e.backgroundColor || '#3b82f6';
       const tx = e.textColor || '#fff';
-      const status = (e.extendedProps?.status || 'scheduled').toLowerCase();
 
-      const whenDate = e.start ? moment(e.start).format('MMMM D, YYYY') : '—';
-      const whenTime = e.start ? moment(e.start).format('h:mm A') : '—';
+      const whenDate = deliveryDate
+        ? moment(deliveryDate).format('MMM D, YYYY')
+        : (e.start ? moment(e.start).format('MMM D, YYYY') : '—');
 
-      const productName = e.extendedProps?.product_name || e.title || 'Installation';
-      const productCode = e.extendedProps?.product_code || '';
-      const company = e.extendedProps?.company_name || '—';
-      const assigned = e.extendedProps?.artist_name || 'Not assigned yet';
+      const whenTime = deliveryTime
+        ? moment(`1970-01-01 ${deliveryTime}`).format('h:mm A')
+        : (e.start ? moment(e.start).format('h:mm A') : '—');
 
-      const viewHref = e.extendedProps?.product_id
-        ? (`/installation/job/${e.extendedProps.product_id}`)
+      const viewHref = xp.product_id
+        ? (`/installation/job/${xp.product_id}`)
         : '#';
 
       // remove old
@@ -200,32 +244,68 @@ document.addEventListener('DOMContentLoaded', function () {
               </div>
               <div class="modal-body pt-0">
                 <div class="border rounded-3 p-3" style="background:#fff;">
-                  <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="d-flex align-items-start justify-content-between mb-2">
+                    <div>
+                      <div class="text-uppercase small text-muted mb-1" style="letter-spacing:.04em;">Job Title</div>
+                      <div class="fw-bold" style="font-size:1.2rem;">${jobTitle}</div>
+                    </div>
+                    <div class="text-end">
+                      <div class="text-uppercase small text-muted mb-1">Product ID</div>
+                      <div class="fw-semibold">${productCode}</div>
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-2 mb-3">
                     <span class="badge d-inline-flex align-items-center gap-2"
                           style="background:#eef2ff;color:#3730a3;border-radius:999px;padding:.35rem .6rem;font-weight:600">
-                      <i class="bi bi-truck"></i> Installation
+                      <i class="bi bi-truck"></i> Delivery / Installation
                     </span>
-                    <div class="text-muted small">${productCode}</div>
+                    <span class="badge"
+                          style="background:${bg};color:${tx};border-radius:999px;padding:.35rem .6rem">
+                      ${statusText}
+                    </span>
                   </div>
-                  <div class="fw-bold mb-1" style="font-size:1.2rem;">${productName}</div>
-                  <div class="d-flex flex-column gap-2 mt-2">
-                    <div class="d-flex align-items-center gap-2">
-                      <i class="bi bi-clock-history text-muted"></i>
-                      <span>${whenTime}</span>
+
+                  <div class="row mb-2">
+                    <div class="col-6">
+                      <div class="text-uppercase small text-muted">Company</div>
+                      <div class="fw-semibold">${company}</div>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                      <i class="bi bi-building text-muted"></i>
-                      <span>${company}</span>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                      <i class="bi bi-person text-muted"></i>
-                      <span>Assigned: ${assigned}</span>
-                      <span class="ms-auto badge"
-                            style="background:${bg};color:${tx};border-radius:999px;padding:.35rem .6rem">
-                        ${status.charAt(0).toUpperCase() + status.slice(1)}
-                      </span>
+                    <div class="col-6 text-end">
+                      <div class="text-uppercase small text-muted">Deadline</div>
+                      <div class="fw-semibold">${deadline ? moment(deadline).format('MMM D, YYYY') : '—'}</div>
                     </div>
                   </div>
+
+                  <div class="row mb-2 pt-2 border-top">
+                    <div class="col-6">
+                      <div class="text-uppercase small text-muted">Delivery date</div>
+                      <div class="fw-semibold">${whenDate}</div>
+                    </div>
+                    <div class="col-6 text-end">
+                      <div class="text-uppercase small text-muted">Delivery time</div>
+                      <div class="fw-semibold">${whenTime}</div>
+                    </div>
+                  </div>
+
+                  <div class="row mb-2">
+                    <div class="col-12">
+                      <div class="text-uppercase small text-muted">Delivery method</div>
+                      <div class="fw-semibold">${deliveryMethod}</div>
+                    </div>
+                  </div>
+
+                  <div class="row mb-1">
+                    <div class="col-6">
+                      <div class="text-uppercase small text-muted">Product</div>
+                      <div class="fw-semibold">${productName}</div>
+                    </div>
+                    <div class="col-6 text-end">
+                      <div class="text-uppercase small text-muted">Assigned artist</div>
+                      <div class="fw-semibold">${assigned}</div>
+                    </div>
+                  </div>
+
                   <a href="${viewHref}" class="btn w-100 mt-3"
                     style="background:#111827;color:#fff;border-radius:10px;">
                     <i class="bi bi-eye me-1"></i> View Job Order
@@ -250,7 +330,6 @@ document.addEventListener('DOMContentLoaded', function () {
       events: fetchEvents,
       dateClick: null,
 
-      // Enforce server colors on the element (prevents theme overrides)
       eventDidMount: function (info) {
         const e = info.event;
         if (e.backgroundColor) info.el.style.backgroundColor = e.backgroundColor;
@@ -260,31 +339,65 @@ document.addEventListener('DOMContentLoaded', function () {
         if (dot && e.borderColor) dot.style.borderColor = e.borderColor;
       },
 
-      // Read-only detail modal
+      // 🔴 2) CALENDAR EVENT → MODAL (same info as above)
       eventClick: function (info) {
         const e = info.event;
         const safeId = (e.id || 'evt').toString().replace(/[^a-zA-Z0-9]/g, '');
         const modalId = 'eventDetailModal_' + safeId;
 
+        const xp = e.extendedProps || {};
+
+        const jobTitle =
+          xp.order_title ||
+          xp.orderTitle ||
+          xp.product_name ||
+          e.title ||
+          'Installation';
+
+        const deadline =
+          xp.deadline ||
+          xp.order_deadline ||
+          '';
+
+        const deliveryDate =
+          xp.delivery_date ||
+          xp.date ||
+          (e.start ? moment(e.start).format('YYYY-MM-DD') : '');
+
+        const deliveryTime =
+          xp.delivery_time ||
+          xp.time ||
+          (e.start ? moment(e.start).format('HH:mm:ss') : '');
+
+        const deliveryMethod =
+          xp.method ||
+          xp.delivery_method ||
+          xp.deliver_install_type ||
+          '—';
+
+        const productName = xp.product_name || e.title || 'Installation';
+        const productCode = xp.product_code || '';
+        const company = xp.company_name || '—';
+        const assigned = xp.artist_name || 'Not assigned yet';
+
+        const statusRaw = xp.status || 'scheduled';
+        const statusText = formatStatusDisplay(statusRaw);
+
         const bg = e.backgroundColor || '#3b82f6';
         const tx = e.textColor || '#fff';
-        const status = (e.extendedProps?.status || 'scheduled').toLowerCase();
 
-        // date + time
-        const whenDate = e.start ? moment(e.start).format('MMMM D, YYYY') : '—';
-        const whenTime = e.start ? moment(e.start).format('h:mm A') : '—';
+        const whenDate = deliveryDate
+          ? moment(deliveryDate).format('MMM D, YYYY')
+          : (e.start ? moment(e.start).format('MMM D, YYYY') : '—');
 
-        // data
-        const productName = e.extendedProps?.product_name || e.title || 'Installation';
-        const productCode = e.extendedProps?.product_code || '';
-        const company = e.extendedProps?.company_name || '—';
-        const assigned = e.extendedProps?.artist_name || 'Not assigned yet'; // ✅ Actual artist if provided
+        const whenTime = deliveryTime
+          ? moment(`1970-01-01 ${deliveryTime}`).format('h:mm A')
+          : (e.start ? moment(e.start).format('h:mm A') : '—');
 
-        const viewHref = e.extendedProps?.product_id
-          ? (`/installation/job/${e.extendedProps.product_id}`)
+        const viewHref = xp.product_id
+          ? (`/installation/job/${xp.product_id}`)
           : '#';
 
-        // remove old modal if exists
         document.getElementById(modalId)?.remove();
 
         const html = `
@@ -293,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function () {
               <div class="modal-content" style="border-radius:16px;">
                 <div class="modal-header border-0 pb-0">
                   <div style="margin-bottom: 10px;">
-                    <h6 class="text-muted fw-semibold mb-0" style="font-size:1rem; ">You have 1 scheduled task</h6> <!-- smaller -->
+                    <h6 class="text-muted fw-semibold mb-0" style="font-size:1rem; ">You have 1 scheduled task</h6>
                     <div class="small text-muted mb-1">Tasks on ${whenDate}</div>
                   </div>
                   <button style="background:#ef4444;" type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -301,30 +414,66 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 <div class="modal-body pt-0">
                   <div class="border rounded-3 p-3" style="background:#fff;">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                      <span class="badge d-inline-flex align-items-center gap-2"
-                            style="background:#eef2ff;color:#3730a3;border-radius:999px;padding:.35rem .6rem;font-weight:600">
-                        <i class="bi bi-truck"></i> Installation
-                      </span>
-                      <div class="text-muted small">${productCode}</div>
+
+                    <div class="d-flex align-items-start justify-content-between mb-2">
+                      <div>
+                        <div class="text-uppercase small text-muted mb-1" style="letter-spacing:.04em;">Job Title</div>
+                        <div class="fw-bold" style="font-size:1.2rem;">${jobTitle}</div>
+                      </div>
+                      <div class="text-end">
+                        <div class="text-uppercase small text-muted mb-1">Product ID</div>
+                        <div class="fw-semibold">${productCode}</div>
+                      </div>
                     </div>
 
-                    <div class="fw-bold mb-1" style="font-size:1.2rem; margin-bottom: 5px;">${productName}</div> <!-- bigger font -->
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                      <span class="badge d-inline-flex align-items-center gap-2"
+                            style="background:#eef2ff;color:#3730a3;border-radius:999px;padding:.35rem .6rem;font-weight:600">
+                        <i class="bi bi-truck"></i> Delivery / Installation
+                      </span>
+                      <span class="badge"
+                            style="background:${bg};color:${tx};border-radius:999px;padding:.35rem .6rem">
+                        ${statusText}
+                      </span>
+                    </div>
 
-                    <div class="d-flex flex-column gap-2 mt-2">
-                      <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-clock-history text-muted"></i>
-                        <span>${whenTime}</span>
+                    <div class="row mb-2">
+                      <div class="col-6">
+                        <div class="text-uppercase small text-muted">Company</div>
+                        <div class="fw-semibold">${company}</div>
                       </div>
-                      <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-building text-muted"></i>
-                        <span>${company}</span>
+                      <div class="col-6 text-end">
+                        <div class="text-uppercase small text-muted">Deadline</div>
+                        <div class="fw-semibold">${deadline ? moment(deadline).format('MMM D, YYYY') : '—'}</div>
                       </div>
-                      <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-person text-muted"></i>
-                        <span>Assigned: ${assigned}</span> <!-- actual artist -->
-                        <span class="ms-auto badge"
-                              style="background:${bg};color:${tx};border-radius:999px;padding:.35rem .6rem">${status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                    </div>
+
+                    <div class="row mb-2 pt-2 border-top">
+                      <div class="col-6">
+                        <div class="text-uppercase small text-muted">Delivery date</div>
+                        <div class="fw-semibold">${whenDate}</div>
+                      </div>
+                      <div class="col-6 text-end">
+                        <div class="text-uppercase small text-muted">Delivery time</div>
+                        <div class="fw-semibold">${whenTime}</div>
+                      </div>
+                    </div>
+
+                    <div class="row mb-2">
+                      <div class="col-12">
+                        <div class="text-uppercase small text-muted">Delivery method</div>
+                        <div class="fw-semibold">${deliveryMethod}</div>
+                      </div>
+                    </div>
+
+                    <div class="row mb-1">
+                      <div class="col-6">
+                        <div class="text-uppercase small text-muted">Product</div>
+                        <div class="fw-semibold">${productName}</div>
+                      </div>
+                      <div class="col-6 text-end">
+                        <div class="text-uppercase small text-muted">Assigned artist</div>
+                        <div class="fw-semibold">${assigned}</div>
                       </div>
                     </div>
 
@@ -343,13 +492,12 @@ document.addEventListener('DOMContentLoaded', function () {
         new bootstrap.Modal(document.getElementById(modalId)).show();
       },
 
-      datesSet: function () { /* keep empty */ }
-
-      
+      datesSet: function () { }
     });
 
     calendar.render();
 
+    // LEFT panel click -> use our first modal function
     upcomingList?.addEventListener('click', function (e) {
       const item = e.target.closest('.upcoming-item');
       if (!item) return;
@@ -368,7 +516,6 @@ document.addEventListener('DOMContentLoaded', function () {
     btnExport?.addEventListener('click', () => window.print());
 
     btnReset?.addEventListener('click', () => {
-      // Clear EVERYTHING including date range
       if (inputStart) inputStart.value = '';
       if (inputEnd) inputEnd.value = '';
       if (inputSearch) inputSearch.value = '';
@@ -376,7 +523,6 @@ document.addEventListener('DOMContentLoaded', function () {
       if (selectAll) selectAll.checked = true;
       filterInputs.forEach(c => c.checked = true);
 
-      // Optional: reset mini calendar visual
       if (inlineCalendar && inlineCalendar._flatpickr) {
         inlineCalendar._flatpickr.clear();
         inlineCalendar._flatpickr.setDate(new Date(), true);
@@ -391,8 +537,8 @@ document.addEventListener('DOMContentLoaded', function () {
     inputSearch?.addEventListener('input', refetch);
     selArtist?.addEventListener('change', () => calendar.refetchEvents());
 
-    // Sidebar collapse (remember)
-    function setSidebar(collapsed) {
+    // (this second setSidebar at the end is from your original file – left intact)
+    function setSidebar2(collapsed) {
       if (!wrapper) return;
       if (collapsed) {
         wrapper.classList.add('sidebar-collapsed');
@@ -406,10 +552,10 @@ document.addEventListener('DOMContentLoaded', function () {
       setTimeout(() => calendar.updateSize(), 10);
     }
     const stored = localStorage.getItem('artistCalSidebarCollapsed') === '1';
-    setSidebar(stored);
+    setSidebar2(stored);
     btnToggleSidebar?.addEventListener('click', () => {
       const collapsed = !wrapper.classList.contains('sidebar-collapsed');
-      setSidebar(collapsed);
+      setSidebar2(collapsed);
       localStorage.setItem('artistCalSidebarCollapsed', collapsed ? '1' : '0');
     });
   })();
