@@ -6,6 +6,9 @@
 <meta name="user-id" content="{{ $artistId ?? Auth::id() }}">
 
 <style>
+  .modal .btn-close::before {
+    background-color: white !important;
+  }
   .app-calendar-wrapper .row.g-0 {
     align-items: flex-start;
   }
