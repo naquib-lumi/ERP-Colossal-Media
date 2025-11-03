@@ -1138,7 +1138,7 @@
             <div class="alert alert-danger mb-2" style="font-weight:500;">
               This product <strong>{{ $productName }}</strong> has been rejected.
             </div>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            <a href="{{ route('installation.dashboard') }}" class="btn btn-back">Back</a>
           @endif
           
           @if ($isPending && $canSeeDecision)
@@ -1148,7 +1148,7 @@
             <button type="button" id="btnReject" class="btn btn-reject">
               <i class="bi bi-x-lg"></i> Reject
             </button>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            <a href="{{ route('installation.dashboard') }}" class="btn btn-back">Back</a>
           @endif
 
           @if ($isAccepted && $canEditThisStage && !$isCompleted)
@@ -1156,7 +1156,7 @@
               <button type="button" id="btnEdit" class="btn btn-back">
                 <i class="bi bi-pencil"></i> Edit
               </button>
-              <a href="javascript:history.back()" class="btn btn-accept">
+              <a href="{{ route('installation.dashboard') }}" class="btn btn-accept">
                 <i class="bi bi-arrow-left"></i> Back
               </a>
             </div>
