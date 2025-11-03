@@ -546,4 +546,203 @@ class InstallationController extends Controller
 
         return back()->with('ok', 'Installation marked completed with photo proof.');
     }
+
+    public function index(Request $request)
+    {
+        // ---------- FILTER INPUTS ----------
+        $pid       = trim((string)$request->query('pid', ''));              // Product ID/code (all pages)
+        $q         = trim((string)$request->query('q', ''));                // keyword: order title/company/product/remarks
+        $artist    = trim((string)$request->query('artist', ''));           // orders.artist_id
+        $taskType  = trim((string)$request->query('task_type', $request->query('type',''))); // keep old 'type'
+        $status    = trim((string)$request->query('status', ''));
+
+        // Nearest/furthest sort
+        $sortBy    = trim((string)$request->query('sort_by', ''));          // 'deadline' | 'delivery_date' | ''
+        $sortMode  = trim((string)$request->query('sort_mode', 'near'));    // 'near' | 'far'
+
+        // ---------- OVERVIEW TILES (unchanged) ----------
+        $stats = [
+            'printing' => DB::table('products as p')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(p.taskType) = "printing"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'furnishing' => DB::table('products as p')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(p.taskType) = "furnishing"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'delivery_needing_permit' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(d.deliver_install_type) = "delivery"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'installation_needing_permit' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(d.deliver_install_type) = "installation"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'self_pickup' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->where(function ($q) {
+                    $q->whereRaw('LOWER(d.method) = "self pickup"')
+                    ->orWhereRaw('LOWER(d.method) = "self_pickup"');
+                })
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'courier' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(d.method) = "courier"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+        ];
+
+        // ---------- ARTIST DROPDOWN ----------
+        $artists = DB::table('users')
+            ->select('id','name')
+            ->whereIn(DB::raw('LOWER(role)'), ['artist','head-artist'])
+            ->orderBy('name')
+            ->get();
+
+        // ---------- TABLE QUERY ----------
+        $orders = DB::table('products as p')
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->leftJoin('delivery_breakdowns as db', 'db.ProductID', '=', 'p.ProductID')
+
+            // EXCLUDE archived/rejected orders (status = 1)
+            ->where(function ($w) {
+                $w->whereNull('o.status')->orWhere('o.status', 0);
+            })
+            // EXCLUDE products with NULL/blank taskType
+            ->whereNotNull('p.taskType')
+            ->whereRaw("TRIM(p.taskType) <> ''")
+
+            ->selectRaw("
+                p.ProductID,
+                p.productName                                     as product_name,
+                p.taskType                                        as task_type,
+                p.status                                          as status,
+
+                DATE_FORMAT(COALESCE(o.deadline, p.updated_at), '%Y-%m-%d') as deadline,
+                DATE_FORMAT(db.date, '%Y-%m-%d')                  as delivery_date,
+                db.location                                       as delivery_location,
+                o.id                                              as order_id,
+                o.orderTitle,
+                o.companyName,
+                o.artist_id,
+
+                -- Code: #ORD-YYYY-<baseOrderId>-P<baseProductId>[R]
+                CONCAT(
+                    '#ORD-',
+                    LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
+                    '-',
+                    LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
+                    '-P',
+                    LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                    CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
+                ) as product_code
+            ")
+
+            // PRODUCT ID / CODE search (works across all pages)
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = "%{$pid}%";
+                $qb->where(function ($w) use ($pid, $like) {
+                    // numeric convenience
+                    if (ctype_digit($pid)) {
+                        $w->where('p.ProductID', (int)$pid)
+                        ->orWhere('o.id', (int)$pid);
+                    } else {
+                        $w->where('p.ProductID', 'like', $like)
+                        ->orWhere('o.id', 'like', $like);
+                    }
+
+                    // also match the formatted product code with base ids + optional R
+                    $w->orWhereRaw("
+                        CONCAT(
+                            '#ORD-',
+                            LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
+                            '-',
+                            LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
+                            '-P',
+                            LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                            CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
+                        ) LIKE ?
+                    ", [$like]);
+                });
+            })
+
+            // KEYWORD: order title / company name / product name / delivery location
+            ->when($q !== '', function ($qb) use ($q) {
+                $like = "%{$q}%";
+                $qb->where(function ($w) use ($like) {
+                    $w->where('o.orderTitle',   'like', $like)
+                    ->orWhere('o.companyName','like', $like)
+                    ->orWhere('p.productName','like', $like)
+                    ->orWhere('db.location',  'like', $like);
+                });
+            })
+
+            // ARTIST filter
+            ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', $artist))
+
+            // TASK TYPE & STATUS filter
+            ->when($taskType !== '', fn($qb) => $qb->whereRaw('LOWER(p.taskType) = ?', [strtolower($taskType)]))
+            ->when($status   !== '', fn($qb) => $qb->where('p.status', $status));
+
+        // SORTING: nearest/furthest by date, or default latest updated
+        if (in_array($sortBy, ['deadline', 'delivery_date'], true)) {
+            $colSql = $sortBy === 'deadline'
+                ? 'COALESCE(o.deadline, p.updated_at)'
+                : 'db.date';
+
+            $dir = ($sortMode === 'far') ? 'DESC' : 'ASC';
+
+            $orders->orderByRaw("CASE WHEN {$colSql} IS NULL THEN 1 ELSE 0 END ASC")
+                ->orderByRaw("ABS(DATEDIFF({$colSql}, CURDATE())) {$dir}");
+        } else {
+            $orders->orderByDesc('p.updated_at');
+        }
+
+        // PAGINATION
+        $orders = $orders->paginate(10)->appends($request->query());
+
+        $orders->getCollection()->transform(function ($r) {
+            $r->details_url = route('installation.job.show', $r->ProductID);
+            return $r;
+        });
+
+        return view('installation.job-order', [
+            'stats'      => $stats,
+            'orders'     => $orders,
+            'q'          => $q,
+            'pid'        => $pid,
+            'artist'     => $artist,
+            'task_type'  => $taskType,
+            'status'     => $status,
+            'artists'    => $artists,
+            'sort_by'    => $sortBy,
+            'sort_mode'  => $sortMode,
+        ]);
+    }
 }
