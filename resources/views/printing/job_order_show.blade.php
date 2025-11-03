@@ -98,32 +98,33 @@
 
   /* ===== 编辑态：仅显示备注块 + Cutter 下拉 ===== */
   .edit-only{display:none !important;}
-  .is-editing .edit-only{display:flex !important;}
+  .is-editing-any .edit-only{display:block!important}
   .td-printer .edit-input{display:none}
-  .is-editing .td-printer{background:#FFFBEB}
-  .is-editing .td-printer .view-text{display:none}
-  .is-editing .td-printer .edit-input{display:block}
+  .subcard-body.is-editing{outline:2px solid rgba(255,200,0,.18);outline-offset:2px;border-radius:12px}
+  .subcard-body.is-editing .td-printer{background:#FFF8E7}
+  .subcard-body.is-editing .td-printer .view-text{display:none}
+  .subcard-body.is-editing .td-printer .edit-input{display:inline-block}
+
   .form-select-sm,.form-control-sm{min-height:34px}
 
   /* ===== Actionbar 三状态（方角+定制色） ===== */
-  .actionbar{margin-top:12px}
-  .actionbar .action-pre,.actionbar .action-post,.actionbar .action-edit{display:none !important;width:100%}
-  .actionbar .action-pre{display:block !important}
-  .is-accepted .actionbar .action-pre{display:none !important}
-  .is-accepted .actionbar .action-post{display:block !important}
-  .is-editing .actionbar .action-pre,.is-editing .actionbar .action-post{display:none !important}
-  .is-editing .actionbar .action-edit{display:block !important}
-  .actionbar .toolbar{width:100%;display:flex;justify-content:flex-end;gap:18px}
-  .actionbar .btn{border-radius:8px;padding:10px 16px;font-weight:700;letter-spacing:.2px;display:inline-flex;align-items:center;gap:8px;transition:all .15s ease;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .actionbar{margin-top:12px;position:sticky;bottom:12px;z-index:5}
+  .actionbar .action-pre,.actionbar .action-post,.actionbar .action-edit{display:none!important;width:100%}
+  .actionbar .action-pre{display:block!important}
+  .is-accepted .actionbar .action-pre{display:none!important}
+  .is-accepted .actionbar .action-post{display:block!important}
+  .is-editing-any .actionbar .action-pre,
+  .is-editing-any .actionbar .action-post{display:none!important}
+  .is-editing-any .actionbar .action-edit{display:block!important}
+
+  .actionbar .toolbar{width:100%;display:flex;justify-content:flex-end;gap:18px;background:#fff;padding:10px 12px;border-radius:12px;border:1px solid #E5E7EB;box-shadow:0 6px 24px rgba(16,24,40,.08)}
+  .actionbar .btn{border-radius:8px;padding:9px 14px;font-weight:700;letter-spacing:.2px;display:inline-flex;align-items:center;gap:8px;transition:all .15s ease;box-shadow:0 2px 8px rgba(0,0,0,.06)}
   .actionbar .btn-accept{background:#23263A;color:#fff;border:1px solid #23263A}
   .actionbar .btn-accept:hover{background:#1D2033;border-color:#1D2033;box-shadow:0 3px 12px rgba(35,38,58,.25)}
-  .actionbar .btn-accept:active{transform:translateY(1px)}
   .actionbar .btn-reject{background:#fff;color:#E11D48;border:2px solid #F43F5E;box-shadow:none}
   .actionbar .btn-reject:hover{background:#FFF1F2}
-  .actionbar .btn-reject:active{background:#FFE4E6;transform:translateY(1px)}
   .actionbar .btn-back{background:#E9EDF2;color:#0F172A;border:1px solid #DDE3EA}
   .actionbar .btn-back:hover{background:#E2E8F0}
-  .actionbar .btn-back:active{transform:translateY(1px)}
   .actionbar .btn i{font-size:14px;line-height:1}
 
   /* ===== 自定义弹窗 ===== */
@@ -170,6 +171,17 @@
   .resize-table thead th:last-child{border-right:none;}
   .resize-table tbody td{border-right:1px solid #f0f0f0;}
   .resize-table tbody td:last-child{border-right:none;}
+
+  .remark-card{
+    border:1px dashed #E5E7EB;
+    background:#FBFDFF;
+    border-radius:12px;
+    padding:14px 16px;
+  }
+  .remark-card + .remark-card{margin-top:10px;}
+  .remark-card .head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .remark-card .meta{color:#6B7280;font-size:.85rem}
+  .remark-card .body{color:#111827;white-space:pre-wrap}
 </style>
 
 @php
@@ -179,7 +191,7 @@
 
 <div class="resize-guide" id="colGuide"></div>
 <div class="container-fluid py-4 px-4">
-  <div class="page-wrap {{ $autoEdit ? 'is-editing' : '' }}" id="pageRoot">
+  <div class="page-wrap" id="pageRoot">
     {{-- 顶部 --}}
     @php
       $assignee = $header->artist_name ?? '—';
@@ -192,7 +204,13 @@
 
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
-        <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
+        <!-- <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a> -->
+         <a href="{{ route('printing.dashboard') }}"
+            class="text-decoration-none text-muted me-3"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="bi bi-arrow-left-circle fw-semibold"
+                style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        </a>
         <h1 class="h4 fw-bold mb-0">Printing Task — <span class="text-muted">{{ $product_code }}</span></h1>
       </div>
       <div class="d-flex align-items-center gap-2">
@@ -242,7 +260,10 @@
         @endphp
 
         <div class="mt-3">
-          <div class="section-hd" style="margin-bottom:8px"><i class="bi bi-chat-square-text"></i> Product Remarks</div>
+          <div class="section-hd" style="margin-bottom:8px">
+            <i class="bi bi-chat-square-text"></i> Product Remarks
+          </div>
+
           <div class="chips">
             @if(!empty($remarkLabels) && count($remarkLabels))
               <div class="remarks-block mt-2">
@@ -362,9 +383,7 @@
           </div>
         </div>
 
-        <form id="saveForm" method="POST" action="{{ route('printing.jobs.save', $header->ProductID) }}" style="display:none">
-          @csrf
-        </form>
+        <form id="saveForm" method="POST" action="{{ route('printing.jobs.save', $header->ProductID) }}" style="display:none">@csrf</form>
 
         {{-- Delivery Breakdown --}}
         @if(!empty($block['deliveries']))
@@ -580,7 +599,7 @@
       </div>
       <div class="cx-body">
         <div class="help">Please provide a reason for rejecting this task.</div>
-        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."'></textarea>
+        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."' required></textarea>
       </div>
       <div class="cx-footer">
         <button type="button" class="btn btn-back" data-close="modalReject">Cancel</button>
@@ -632,8 +651,10 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   /* ---------- Edit mode helpers ---------- */
-  function syncPrinterSelects(){
-    document.querySelectorAll('.td-printer').forEach(td => {
+  const productId = {{ (int)$header->ProductID }};
+
+  function syncPrinterSelects(scopeEl){
+    (scopeEl || document).querySelectorAll('.td-printer').forEach(td => {
       const span = td.querySelector('.view-text');
       const sel  = td.querySelector('.edit-input');
       if (span && sel) {
@@ -642,13 +663,37 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  document.getElementById('btnEdit')?.addEventListener('click', () => {
-    document.getElementById('pageRoot')?.classList.add('is-editing');
-    syncPrinterSelects();
-  });
-  document.getElementById('btnCancel')?.addEventListener('click', () => {
-    document.getElementById('pageRoot')?.classList.remove('is-editing');
-  });
+  function enterEditForProduct(pid){
+    document.querySelectorAll('.subcard-body.is-editing').forEach(b => b.classList.remove('is-editing'));
+    document.getElementById('pageRoot')?.classList.add('is-editing-any');
+
+    const target = document.querySelector(`.subcard-body[data-block-product='${pid}']`);
+    if (!target) return;
+
+    target.classList.remove('hidden');
+    target.classList.add('is-editing');
+
+    const btn = target.closest('.subcard')?.querySelector('[data-toggle="subcard"]');
+    btn?.classList.add('open');
+
+    syncPrinterSelects(target);
+
+    const offset = 84;
+    const rect   = target.getBoundingClientRect();
+    const y      = rect.top + window.pageYOffset - offset;
+    window.scrollTo({ top: Math.max(0,y), behavior: 'smooth' });
+  }
+
+  function exitEdit(){
+    document.querySelectorAll('.subcard-body.is-editing').forEach(b => b.classList.remove('is-editing'));
+    document.getElementById('pageRoot')?.classList.remove('is-editing-any');
+  }
+
+  document.getElementById('btnEdit')?.addEventListener('click', () => enterEditForProduct(productId));
+  document.getElementById('btnCancel')?.addEventListener('click', exitEdit);
+
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('edit') === '1') { enterEditForProduct(productId); }
 
   /* ---------- Add Remarks (client-side rows) ---------- */
   (function initDynamicRemarks(){
@@ -736,21 +781,21 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   /* ---------- 自动进入编辑态（来自 ?mode=edit / ?edit=1） ---------- */
-  const AUTO_EDIT = {{ $autoEdit ? 'true' : 'false' }};
-  if (AUTO_EDIT) {
-    document.getElementById('pageRoot')?.classList.add('is-editing');
-    (function sync(){ /* 初次也同步一次下拉选中的值 */
-      document.querySelectorAll('.td-printer').forEach(td => {
-        const span = td.querySelector('.view-text');
-        const sel  = td.querySelector('.edit-input');
-        if (span && sel) {
-          [...sel.options].forEach(o => o.selected = (o.text.trim() === span.textContent.trim()));
-        }
-      });
-    })();
-    const firstBlock = document.querySelector('[data-block-product]');
-    if (firstBlock) firstBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  // const AUTO_EDIT = {{ $autoEdit ? 'true' : 'false' }};
+  // if (AUTO_EDIT) {
+  //   document.getElementById('pageRoot')?.classList.add('is-editing');
+  //   (function sync(){ /* 初次也同步一次下拉选中的值 */
+  //     document.querySelectorAll('.td-printer').forEach(td => {
+  //       const span = td.querySelector('.view-text');
+  //       const sel  = td.querySelector('.edit-input');
+  //       if (span && sel) {
+  //         [...sel.options].forEach(o => o.selected = (o.text.trim() === span.textContent.trim()));
+  //       }
+  //     });
+  //   })();
+  //   const firstBlock = document.querySelector('[data-block-product]');
+  //   if (firstBlock) firstBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // }
 });
 
 /* ---------- 列宽拖拽 ---------- */

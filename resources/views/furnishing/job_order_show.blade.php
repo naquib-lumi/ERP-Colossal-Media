@@ -561,7 +561,7 @@
       </div>
       <div class="cx-body">
         <div class="help">Please provide a reason for rejecting this task.</div>
-        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."'></textarea>
+        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."' required></textarea>
       </div>
       <div class="cx-footer">
         <button type="button" class="btn btn-back" data-close="modalReject">Cancel</button>
