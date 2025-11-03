@@ -351,24 +351,56 @@
                     <td>{!! !empty($it['prime']) ? '<span class="badge-yes">Yes</span>' : '<span class="badge-no">No</span>' !!}</td>
                     <td>{{ $it['lamination'] ?? '—' }}</td>
                     <td class="td-printer">
-                      <span class="view-text">{{ $it['printer'] ?? '—' }}</span>
-                      @if($canEdit)
-                        <select class="form-select form-select-sm edit-input" data-item-id="{{ $it['item_id'] }}">
-                          <option value="">-</option>
-                          <option>HT 1 RTR 3.2</option>
-                          <option>HT 2 HYB 3.2</option>
-                          <option>Latex 3.2</option>
-                          <option>Solvent 3.2</option>
-                          <option>L1 UV6C 1.8</option>
-                          <option>L2 UV6C 1.8 B</option>
-                          <option>A1 UV4C 1.8</option>
-                          <option>YF4C 5ft</option>
-                          <option>HTP8C 5ft</option>
-                          <option>flatbed 3.2</option>
-                          <option>Flatbed A2 DTF</option>
-                          <option>Minolta DGFP</option>
-                          <option>Crystal label printer</option>
-                        </select>
+                      @php
+                          // Are we inside the currently selected product block?
+                          $isSelectedProduct = ((int)($block['id'] ?? 0) === (int)($header->ProductID ?? 0));
+
+                          // Item context (you used $it above, so keep it consistent)
+                          $itemId = (int)($it['item_id'] ?? 0);
+
+                          // Prefer value from specifications; fallback to legacy field on THIS item ($it)
+                          $curPrinterName = trim((string)($specPrinters[$itemId] ?? ($it['printer'] ?? '')));
+
+                          // Helper: does this name exist in machines list?
+                          $existsInList = function($name) use ($printers) {
+                              if ($name === '') return false;
+                              foreach ($printers as $p) {
+                                  if (strcasecmp(trim($p->machine_name), trim($name)) === 0) return true;
+                              }
+                              return false;
+                          };
+                      @endphp
+
+                      @if($canEdit && $isSelectedProduct)
+                          <select
+                            class="form-select form-select-sm printer-select"
+                            name="items[{{ $itemId }}][printer_id]"
+                            data-product-id="{{ $block['id'] ?? '' }}"
+                            data-item-id="{{ $itemId }}"
+                          >
+                            <option value="">-</option>
+
+                            @foreach($printers as $m)
+                              <option
+                                value="{{ $m->id }}"
+                                data-name="{{ $m->machine_name }}"
+                                {{ strcasecmp($curPrinterName, $m->machine_name) === 0 ? 'selected' : '' }}
+                              >
+                                {{ $m->machine_name }}
+                              </option>
+                            @endforeach
+
+                            {{-- If saved name isn't in machines, still show it so user sees what's stored --}}
+                            @if($curPrinterName !== '' && !$existsInList($curPrinterName))
+                              <option value="" selected>{{ $curPrinterName }}</option>
+                            @endif
+                          </select>
+
+                          {{-- Optional: keep legacy text column in sync if controller still reads it as fallback --}}
+                          <input type="hidden" name="items[{{ $itemId }}][printer]" value="{{ $curPrinterName }}">
+                      @else
+                          {{-- Read-only for non-selected products OR when cannot edit --}}
+                          <span class="text-gray-600">{{ $curPrinterName !== '' ? $curPrinterName : '—' }}</span>
                       @endif
                     </td>
                     <td><span class="view-text">{{ $it['cutter'] ?? '—' }}</span></td>
@@ -745,14 +777,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
     block.querySelectorAll('tr[data-itemid]').forEach(tr => {
       const itemId = tr.getAttribute('data-itemid');
-      const sel    = tr.querySelector('.td-printer .edit-input');
-      if (itemId && sel) {
-        const h = document.createElement('input');
-        h.type  = 'hidden';
-        h.name  = `printers[${itemId}]`;
-        h.value = sel.value.trim();
-        form.appendChild(h);
-      }
+      const sel = tr.querySelector('.td-printer select.printer-select');
+      if (!itemId || !sel) return;
+
+      // selected machine id
+      const machineId = (sel.value || '').trim();
+
+      // selected printer name (from data-name or text)
+      const opt = sel.options[sel.selectedIndex];
+      const printerName = opt ? ((opt.getAttribute('data-name') || opt.textContent || '').trim()) : '';
+
+      // Post the NEW shape the controller expects:
+      // items[<ItemID>][printer_id] = <machine id>
+      const hId = document.createElement('input');
+      hId.type = 'hidden';
+      hId.name = `items[${itemId}][printer_id]`;
+      hId.value = machineId; // may be '' to clear
+      form.appendChild(hId);
+
+      // And also post the printer name as fallback
+      const hName = document.createElement('input');
+      hName.type = 'hidden';
+      hName.name = `items[${itemId}][printer]`;
+      hName.value = printerName; // controller will prefer id→name but can fallback
+      form.appendChild(hName);
     });
 
     const rows = document.querySelectorAll('#remarks-list .remark-row');
