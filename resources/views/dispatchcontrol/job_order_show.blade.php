@@ -897,8 +897,8 @@
                   <tr>
                     <th>Item <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Quantity <span class="resize-handle" aria-hidden="true"></span></th>
-                    <th>Size <span class="resize-handle" aria-hidden="true"></span></th>
-                    <th>Bleed <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Size (W • H)<span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Bleed (T • B • L • R)<span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Material <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Prime Centre <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Lamination <span class="resize-handle" aria-hidden="true"></span></th>
