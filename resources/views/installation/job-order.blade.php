@@ -294,7 +294,7 @@ default => \Illuminate\Support\Str::title($t),
         <small class="text-muted">Filter &amp; search</small>
       </div>
       <div class="d-flex gap-2">
-        <a href="{{ route('dispatchcontrol.job-order') }}" class="btn btn-light border">
+        <a href="{{ route('installation.job-order') }}" class="btn btn-light border">
           <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
         </a>
         <button form="dispatch-filter" class="btn btn-dark">
@@ -304,7 +304,7 @@ default => \Illuminate\Support\Str::title($t),
     </div>
 
     {{-- Toolbar (single row on desktop) --}}
-    <form id="dispatch-filter" method="GET" action="{{ route('dispatchcontrol.job-order') }}" class="dc-toolbar">
+    <form id="dispatch-filter" method="GET" action="{{ route('installation.job-order') }}" class="dc-toolbar">
       <input type="hidden" name="method" value="{{ request('method') }}">
 
       {{-- Product ID --}}
@@ -464,7 +464,7 @@ default => \Illuminate\Support\Str::title($t),
                 <div class="empty-text mb-2">
                   Try adjusting your filters or clear them to see more results.
                 </div>
-                <a href="{{ route('dispatchcontrol.job-order') }}" class="btn btn-light border">
+                <a href="{{ route('installation.job-order') }}" class="btn btn-light border">
                   <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters
                 </a>
               </div>
@@ -502,7 +502,7 @@ default => \Illuminate\Support\Str::title($t),
   });
 
   (function() {
-    const base = "{{ route('dispatchcontrol.job-order') }}";
+    const base = "{{ route('installation.job-order') }}";
 
     function setParam(url, key, val) {
       if (val === '' || val == null) {

@@ -203,6 +203,22 @@ class PrintingController extends Controller
                     ->orderBy('o.id')->orderBy('p.ProductID');
                 break;
 
+            case 'accepted_first':
+                // accepted = 1 first, then newest
+                $jobs->orderByRaw('CASE WHEN COALESCE(p.accepted,0) = 1 THEN 0 ELSE 1 END')
+                    ->orderBy('p.updated_at', 'desc')
+                    ->orderBy('o.id')
+                    ->orderBy('p.ProductID');
+                break;
+
+            case 'accepted_last':
+                // accepted = 1 last
+                $jobs->orderByRaw('CASE WHEN COALESCE(p.accepted,0) = 1 THEN 1 ELSE 0 END')
+                    ->orderBy('p.updated_at', 'desc')
+                    ->orderBy('o.id')
+                    ->orderBy('p.ProductID');
+                break;
+
             case 'deadline_nearest':
             default:
                 $jobs->orderByRaw('o.deadline IS NULL')

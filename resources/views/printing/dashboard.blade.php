@@ -24,13 +24,34 @@
   .table td{color:#1F2937;padding:14px 16px;border-top:1px solid #F1F4F8;vertical-align:middle}
   .table tbody tr:hover{background:#FAFBFC}
   .table td:first-child{font-weight:700;color:#111827}
-  .col-actions{width:210px}
+  .col-actions{ width:120px; } 
+  .table td.col-actions{
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;   /* 改为靠左对齐 */
+    gap:8px;                      /* 两个 icon 间距 */
+    padding-left:18px;            /* 左边内距控制视觉距离 */
+    padding-right:0;              /* 去掉右边多余空白 */
+  }
   .empty{padding:28px;text-align:center;color:#667085}
 
   /* Action buttons */
-  .icon-pill{width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #E3E8EF;background:#fff;color:#475467}
-  .icon-pill+.icon-pill{margin-left:8px}
-  .icon-pill:hover{background:#F4F6FA;color:#111827;border-color:#D7DFE7}
+  .icon-pill{
+    width:32px;
+    height:32px;
+    border-radius:10px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #E3E8EF;
+    background:#fff;
+    color:#475467;
+    transition:background .15s ease, border-color .15s ease, color .15s ease, transform .12s ease;
+  }
+  .icon-pill i{ font-size:14px; line-height:1; }
+  .icon-pill:hover{ background:#F4F6FA; color:#111827; border-color:#D7DFE7; transform:translateY(-1px); }
+  .icon-pill:active{ transform:translateY(0); }
+  .icon-pill:focus-visible{ outline:2px solid #C7D2FE; outline-offset:2px; border-color:#A5B4FC; }
 
   /* Modal (confirmation) */
   .cx-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;z-index:1080}
@@ -246,7 +267,22 @@
                 @if($sbLabel)<span class="badge bg-light text-dark ms-1">{{ $sbLabel }}</span>@endif
               </a>
             </th>
-            <th class="col-actions">ACTIONS</th>
+            @php
+              // for actions sort
+              $acNext  = $sort === 'accepted_last' ? 'accepted_first' : 'accepted_last';
+              $acLabel = str_starts_with($sort,'accepted_')
+                  ? ($sort === 'accepted_last' ? 'last' : 'first')
+                  : '';
+            @endphp
+            <th class="col-actions">
+              <a class="th-sort {{ str_starts_with($sort,'accepted_') ? 'is-active' : '' }}"
+                href="{{ $urlWith(['sort' => $acNext]) }}">
+                ACTIONS
+                @if($acLabel)
+                  <span class="badge bg-light text-dark ms-1">{{ $acLabel }}</span>
+                @endif
+              </a>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -270,13 +306,13 @@
               <td class="td-deadline" data-date="{{ $row->deadline ?: '' }}">{{ $deadline }}</td>
               <td class="td-submitted" data-date="{{ $row->submission_date ?: '' }}">{{ $submitted }}</td>
               <td class="text-nowrap">
-                {{-- 视图按钮（总是安全） --}}
+                @if (!$accepted || !$isPrinting)
                 <a href="{{ $showUrl }}" class="icon-pill" title="View"><i class="bi bi-eye"></i></a>
-
+                @endif
                 {{-- 仅当 printing 且已接受：显示“完成”与“编辑(直入编辑态)” --}}
                 @if ($isPrinting && $accepted)
-                  <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark Completed">
-                    <i class="bi bi-check2"></i>
+                  <button class="icon-pill js-mark" data-id="{{ $row->ProductID }}" title="Mark as Completed" style="background-color:#4CAF50; color:white; border:none; border-radius:50%; padding:6px 8px; cursor:pointer; transition:0.3s; box-shadow:0 2px 5px rgba(0,0,0,0.15);">
+                    <i class="bi bi-check2" style="font-size:16px;"></i>
                   </button>
                   <a href="{{ $editUrl }}" class="icon-pill" title="Edit (jump to edit mode)">
                     <i class="bi bi-pencil"></i>

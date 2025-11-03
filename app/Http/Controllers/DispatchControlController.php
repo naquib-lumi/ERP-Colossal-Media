@@ -30,6 +30,7 @@ class DispatchControlController extends Controller
         $dFrom   = trim((string)$request->query('deadline_from', ''));
         $dTo     = trim((string)$request->query('deadline_to', ''));
         $mine = $request->boolean('mine');
+        $sort   = (string) $request->get('sort');
 
         $search  = $q;
         $status  = $request->query('status', 'all');
@@ -296,37 +297,57 @@ class DispatchControlController extends Controller
         //     }));
         // }
 
-        // 5) Sort by lesser progress FIRST (ascending)
-        usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
-
+        // ----- UNIFIED SORT (primary accepted/progress, secondary proximity by deadline/date_in) -----
         $sortBy   = $request->query('sort_by', '');       // 'deadline' | 'date_in' | ''
         $sortMode = $request->query('sort_mode', 'near'); // 'near' | 'far'
 
-        if (in_array($sortBy, ['deadline', 'date_in'], true)) {
-            $today = new \DateTimeImmutable('today');
-            $key   = $sortBy === 'deadline' ? 'deadline' : 'orderDate';
+        $today = new \DateTimeImmutable('today');
+        $parseDate = static function ($raw): ?\DateTimeImmutable {
+            if (!$raw) return null;
+            try { return new \DateTimeImmutable($raw); } catch (\Throwable $e) { return null; }
+        };
+        $proximity = static function (array $row, string $key) use ($today, $parseDate): int {
+            $d = $parseDate($row[$key] ?? null);
+            return $d ? abs($d->getTimestamp() - $today->getTimestamp()) : PHP_INT_MAX;
+        };
 
-            $getDate = static function(array $row, string $key) {
-                $raw = $row[$key] ?? null;
-                if (!$raw) return null;
-                try { return new \DateTimeImmutable($raw); } catch (\Throwable $e) { return null; }
-            };
-            $distance = static function (? \DateTimeImmutable $d, \DateTimeImmutable $t): int {
-                if (!$d) return PHP_INT_MAX; // missing dates go last
-                return abs((int)$d->format('U') - (int)$t->format('U'));
-            };
+        usort($list, function ($a, $b) use ($sort, $sortBy, $sortMode, $proximity) {
+            // 1) PRIMARY: accepted_* or progress
+            switch ($sort) {
+                case 'accepted_first':
+                    // accepted=1 first
+                    $cmp = ($b['accepted'] ?? 0) <=> ($a['accepted'] ?? 0);
+                    break;
+                case 'accepted_last':
+                    // accepted=1 last
+                    $cmp = ($a['accepted'] ?? 0) <=> ($b['accepted'] ?? 0);
+                    break;
+                default:
+                    // least progress first
+                    $cmp = ($a['progress'] ?? 0) <=> ($b['progress'] ?? 0);
+                    break;
+            }
+            if ($cmp !== 0) return $cmp;
 
-            usort($list, function ($a, $b) use ($today, $getDate, $distance, $key, $sortMode) {
-                $ad = $getDate($a, $key); $bd = $getDate($b, $key);
-                $da = $distance($ad, $today);
-                $db = $distance($bd, $today);
-                $cmp = $da <=> $db;
-                return $sortMode === 'far' ? -$cmp : $cmp;
-            });
-        } else {
-            // your original "least progress first" sort stays the default
-            usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
-        }
+            // 2) SECONDARY: proximity to today by deadline/date_in (optional)
+            if ($sortBy === 'deadline' || $sortBy === 'date_in') {
+                $key = $sortBy === 'deadline' ? 'deadline' : 'orderDate';
+                $da  = $proximity($a, $key);
+                $db  = $proximity($b, $key);
+                $cmp = $da <=> $db;                         // smaller = nearer
+                if ($cmp !== 0) return $sortMode === 'far' ? -$cmp : $cmp;
+            }
+
+            // 3) TERTIARY: recent first by "installation done" or orderDate
+            $au = $a['stages']['installation']['done'] ?? $a['orderDate'] ?? null;
+            $bu = $b['stages']['installation']['done'] ?? $b['orderDate'] ?? null;
+            if ($au !== $bu) return strcmp((string)$bu, (string)$au); // newer first
+
+            // 4) TIE-BREAKERS
+            $cmp = ((int)($a['OrderID']   ?? 0)) <=> ((int)($b['OrderID']   ?? 0));
+            if ($cmp !== 0) return $cmp;
+            return ((int)($a['ProductID'] ?? 0)) <=> ((int)($b['ProductID'] ?? 0));
+        });
 
         if ($mine) {
             $role = strtolower(Auth::user()->role ?? '');
@@ -373,6 +394,7 @@ class DispatchControlController extends Controller
             'completed'  => $completed,
             'rows'       => $rowsPaginated,
             'pid'           => $pid,
+            'sort'          => $sort,
             'q'             => $q,
             'artist'        => $artist,
             'deadline_from' => $dFromY,

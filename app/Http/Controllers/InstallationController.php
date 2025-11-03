@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Helpers\Helpers;
+use Carbon\Carbon;
 
 class InstallationController extends Controller
 {
@@ -25,16 +26,17 @@ class InstallationController extends Controller
         ];
 
         // NEW: unified filter inputs
-        $pid     = trim((string) $request->query('pid', ''));      // Product ID (all pages)
-        $q       = trim((string) $request->query('q', ''));        // keyword: orderTitle/companyName/productName
-        $artist  = trim((string) $request->query('artist', ''));   // orders.artist_id
-        $dFrom   = trim((string) $request->query('deadline_from', ''));
-        $dTo     = trim((string) $request->query('deadline_to', ''));
-        $mine = $request->boolean('mine');
+        $pid    = trim((string) $request->query('pid', ''));      // Product ID (all pages)
+        $q      = trim((string) $request->query('q', ''));        // keyword: orderTitle/companyName/productName
+        $artist = trim((string) $request->query('artist', ''));   // orders.artist_id
+        $dFrom  = trim((string) $request->query('deadline_from', ''));
+        $dTo    = trim((string) $request->query('deadline_to', ''));
+        $mine   = $request->boolean('mine');
+        $sort   = (string) $request->get('sort'); // accepted_first | accepted_last | progress(default)
 
         // Keep your existing params too
-        $search  = $q;                                             // keep name used in view, but uses new 'q'
-        $status  = $request->query('status', 'all');
+        $search = $q;                                             // keep name used in view, but uses new 'q'
+        $status = $request->query('status', 'all');
 
         // Date parser (yyyy-mm-dd from <input type="date">)
         $toYmd = static function (?string $v): ?string {
@@ -114,8 +116,8 @@ class InstallationController extends Controller
                 'fp.acceptedAt',
                 'fp.completedAt',
                 'fp.created_at as fp_created_at',
-                'o.redo',                    
-                'rr.redoOf as redo_marker',   
+                'o.redo',
+                'rr.redoOf as redo_marker',
                 'p.redoOf',
                 'p.editable',
                 'o.id as order_id',
@@ -147,7 +149,7 @@ class InstallationController extends Controller
             ->orderBy('p.ProductID')
             ->get();
 
-        // 2) Reduce to "latest row per stage" for each product  (UNCHANGED)
+        // 2) Reduce to "latest row per stage" for each product
         $byProduct = [];
         foreach ($rows as $r) {
             $pidKey = $r->ProductID;
@@ -172,8 +174,8 @@ class InstallationController extends Controller
 
                     'order_base_id'    => $r->redo ?? $r->order_id,                 // COALESCE(o.redo, o.id)
                     'product_base_id'  => $r->redoOf ?? $r->ProductID,              // COALESCE(p.redoOf, p.ProductID)
-                    'append_R'         => ((isset($r->redoOf) && (int)$r->editable === 1)  // own redoOf + editable=1
-                                        || !is_null($r->redo_marker)), 
+                    'append_R'         => ((isset($r->redoOf) && (int)$r->editable === 1)
+                                        || !is_null($r->redo_marker)),
                 ];
             }
 
@@ -192,7 +194,7 @@ class InstallationController extends Controller
             }
         }
 
-        // 3) Convert to list, compute product code and progress width (UNCHANGED)
+        // 3) Convert to list, compute product code and progress width
         $STAGES    = ['printing', 'furnishing', 'delivery', 'installation'];
         $positions = [12.5, 37.5, 62.5, 87.5];
 
@@ -233,7 +235,7 @@ class InstallationController extends Controller
             ->where('fp.status', 'completed')
             ->distinct('fp.ProductID')
             ->count('fp.ProductID');
-            
+
         $list = [];
         foreach ($byProduct as $p) {
             $year = $p['orderDate'] ? substr($p['orderDate'], 0, 4) : date('Y');
@@ -242,11 +244,9 @@ class InstallationController extends Controller
 
             $p['product_code'] = "#ORD-{$year}-{$ord}-P{$prod}" . ($p['append_R'] ? 'R' : '');
 
-            // (keep the rest)
             $p['progress'] = $progressWidth($p);
             $instStatus = $p['stages']['installation']['status'] ?? null;
             $p['installation_completed'] = $instStatus === 'completed' ? 1 : 0;
-            
 
             $list[] = $p;
         }
@@ -293,64 +293,78 @@ class InstallationController extends Controller
             }));
         }
 
-        // 5) Sort by lesser progress FIRST (ascending)  (UNCHANGED)
-        usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
-
+        // ----- UNIFIED SORT (primary accepted/progress, secondary proximity by deadline/date_in) -----
         $sortBy   = $request->query('sort_by', '');       // 'deadline' | 'date_in' | ''
-        $sortMode = $request->query('sort_mode', 'near'); // 'near' | 'far' (proximity to today)
+        $sortMode = $request->query('sort_mode', 'near'); // 'near' | 'far'
 
-        if (in_array($sortBy, ['deadline', 'date_in'], true)) {
-            // Proximity sort to TODAY (nearest/furthest)
-            $today = new \DateTimeImmutable('today');
+        $today = new \DateTimeImmutable('today');
+        $parseDate = static function ($raw): ?\DateTimeImmutable {
+            if (!$raw) return null;
+            try { return new \DateTimeImmutable($raw); } catch (\Throwable $e) { return null; }
+        };
+        $proximity = static function (array $row, string $key) use ($today, $parseDate): int {
+            $d = $parseDate($row[$key] ?? null);
+            return $d ? abs($d->getTimestamp() - $today->getTimestamp()) : PHP_INT_MAX;
+        };
 
-            $getDate = static function(array $row, string $key) {
-                $raw = $row[$key] ?? null;
-                if (!$raw) return null;
-                try { return new \DateTimeImmutable($raw); } catch (\Throwable $e) { return null; }
-            };
-            $distance = static function (? \DateTimeImmutable $d, \DateTimeImmutable $t): int {
-                if (!$d) return PHP_INT_MAX; // missing dates go last/farthest
-                return abs((int)$d->format('U') - (int)$t->format('U'));
-            };
+        usort($list, function ($a, $b) use ($sort, $sortBy, $sortMode, $proximity) {
+            // 1) PRIMARY: accepted_* or progress
+            switch ($sort) {
+                case 'accepted_first':
+                    // accepted=1 first
+                    $cmp = ($b['accepted'] ?? 0) <=> ($a['accepted'] ?? 0);
+                    break;
+                case 'accepted_last':
+                    // accepted=1 last
+                    $cmp = ($a['accepted'] ?? 0) <=> ($b['accepted'] ?? 0);
+                    break;
+                default:
+                    // least progress first
+                    $cmp = ($a['progress'] ?? 0) <=> ($b['progress'] ?? 0);
+                    break;
+            }
+            if ($cmp !== 0) return $cmp;
 
-            $key = $sortBy === 'deadline' ? 'deadline' : 'orderDate';
+            // 2) SECONDARY: proximity to today by deadline/date_in (optional)
+            if ($sortBy === 'deadline' || $sortBy === 'date_in') {
+                $key = $sortBy === 'deadline' ? 'deadline' : 'orderDate';
+                $da  = $proximity($a, $key);
+                $db  = $proximity($b, $key);
+                $cmp = $da <=> $db;                         // smaller = nearer
+                if ($cmp !== 0) return $sortMode === 'far' ? -$cmp : $cmp;
+            }
 
-            usort($list, function ($a, $b) use ($today, $getDate, $distance, $key, $sortMode) {
-                $ad = $getDate($a, $key); $bd = $getDate($b, $key);
-                $da = $distance($ad, $today);
-                $db = $distance($bd, $today);
-                $cmp = $da <=> $db; // smaller distance = nearer
-                return $sortMode === 'far' ? -$cmp : $cmp;
-            });
+            // 3) TERTIARY: recent first by "installation done" or orderDate
+            $au = $a['stages']['installation']['done'] ?? $a['orderDate'] ?? null;
+            $bu = $b['stages']['installation']['done'] ?? $b['orderDate'] ?? null;
+            if ($au !== $bu) return strcmp((string)$bu, (string)$au); // newer first
 
-        } else {
-            // Default: least progress first (what you had before)
-            usort($list, fn($a, $b) => $a['progress'] <=> $b['progress']);
-        }
+            // 4) TIE-BREAKERS
+            $cmp = ((int)($a['OrderID']   ?? 0)) <=> ((int)($b['OrderID']   ?? 0));
+            if ($cmp !== 0) return $cmp;
+            return ((int)($a['ProductID'] ?? 0)) <=> ((int)($b['ProductID'] ?? 0));
+        });
 
+        // If "mine" is on, filter AFTER computing all fields but BEFORE paginate
         if ($mine) {
             $role = strtolower(Auth::user()->role ?? '');
-
-            // Match your roles to the production stage name used in the table
             $stageForRole = match ($role) {
                 'operations-printing'             => 'printing',
                 'operations-furnishing'           => 'furnishing',
-                'operations-dispatch-control'     => 'delivery',      // dispatch control column in UI
-                'operations-delivery-installation'=> 'installation',  // delivery & installation column in UI
+                'operations-dispatch-control'     => 'delivery',
+                'operations-delivery-installation'=> 'installation',
                 default => null,
             };
 
             if ($stageForRole) {
-                // Keep only the products currently in *my* stage
                 $list = array_values(array_filter($list, function ($row) use ($stageForRole) {
                     return ($row['current_stage'] ?? null) === $stageForRole
-                        // Some teams want to see the whole family of their stage;
-                        // if you prefer strictly current stage only, keep just the line above.
-                        || in_array($stageForRole, $row['stages'] ?? [], true);
+                        || array_key_exists($stageForRole, ($row['stages'] ?? []));
                 }));
             }
         }
 
+        // ----- paginate AFTER the unified sort -----
         $perPage = 10;
         $page    = max(1, (int)$request->query('page', 1));
         $total   = count($list);
@@ -372,6 +386,7 @@ class InstallationController extends Controller
             // expose filters & artists to the view
             'pid'           => $pid,
             'q'             => $q,
+            'sort'          => $sort,
             'artist'        => $artist,
             'deadline_from' => $dFromY,
             'deadline_to'   => $dToY,
@@ -530,5 +545,204 @@ class InstallationController extends Controller
             });
 
         return back()->with('ok', 'Installation marked completed with photo proof.');
+    }
+
+    public function index(Request $request)
+    {
+        // ---------- FILTER INPUTS ----------
+        $pid       = trim((string)$request->query('pid', ''));              // Product ID/code (all pages)
+        $q         = trim((string)$request->query('q', ''));                // keyword: order title/company/product/remarks
+        $artist    = trim((string)$request->query('artist', ''));           // orders.artist_id
+        $taskType  = trim((string)$request->query('task_type', $request->query('type',''))); // keep old 'type'
+        $status    = trim((string)$request->query('status', ''));
+
+        // Nearest/furthest sort
+        $sortBy    = trim((string)$request->query('sort_by', ''));          // 'deadline' | 'delivery_date' | ''
+        $sortMode  = trim((string)$request->query('sort_mode', 'near'));    // 'near' | 'far'
+
+        // ---------- OVERVIEW TILES (unchanged) ----------
+        $stats = [
+            'printing' => DB::table('products as p')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(p.taskType) = "printing"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'furnishing' => DB::table('products as p')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(p.taskType) = "furnishing"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'delivery_needing_permit' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(d.deliver_install_type) = "delivery"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'installation_needing_permit' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(d.deliver_install_type) = "installation"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'self_pickup' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->where(function ($q) {
+                    $q->whereRaw('LOWER(d.method) = "self pickup"')
+                    ->orWhereRaw('LOWER(d.method) = "self_pickup"');
+                })
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'courier' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(d.method) = "courier"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+        ];
+
+        // ---------- ARTIST DROPDOWN ----------
+        $artists = DB::table('users')
+            ->select('id','name')
+            ->whereIn(DB::raw('LOWER(role)'), ['artist','head-artist'])
+            ->orderBy('name')
+            ->get();
+
+        // ---------- TABLE QUERY ----------
+        $orders = DB::table('products as p')
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->leftJoin('delivery_breakdowns as db', 'db.ProductID', '=', 'p.ProductID')
+
+            // EXCLUDE archived/rejected orders (status = 1)
+            ->where(function ($w) {
+                $w->whereNull('o.status')->orWhere('o.status', 0);
+            })
+            // EXCLUDE products with NULL/blank taskType
+            ->whereNotNull('p.taskType')
+            ->whereRaw("TRIM(p.taskType) <> ''")
+
+            ->selectRaw("
+                p.ProductID,
+                p.productName                                     as product_name,
+                p.taskType                                        as task_type,
+                p.status                                          as status,
+
+                DATE_FORMAT(COALESCE(o.deadline, p.updated_at), '%Y-%m-%d') as deadline,
+                DATE_FORMAT(db.date, '%Y-%m-%d')                  as delivery_date,
+                db.location                                       as delivery_location,
+                o.id                                              as order_id,
+                o.orderTitle,
+                o.companyName,
+                o.artist_id,
+
+                -- Code: #ORD-YYYY-<baseOrderId>-P<baseProductId>[R]
+                CONCAT(
+                    '#ORD-',
+                    LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
+                    '-',
+                    LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
+                    '-P',
+                    LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                    CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
+                ) as product_code
+            ")
+
+            // PRODUCT ID / CODE search (works across all pages)
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = "%{$pid}%";
+                $qb->where(function ($w) use ($pid, $like) {
+                    // numeric convenience
+                    if (ctype_digit($pid)) {
+                        $w->where('p.ProductID', (int)$pid)
+                        ->orWhere('o.id', (int)$pid);
+                    } else {
+                        $w->where('p.ProductID', 'like', $like)
+                        ->orWhere('o.id', 'like', $like);
+                    }
+
+                    // also match the formatted product code with base ids + optional R
+                    $w->orWhereRaw("
+                        CONCAT(
+                            '#ORD-',
+                            LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
+                            '-',
+                            LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
+                            '-P',
+                            LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                            CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
+                        ) LIKE ?
+                    ", [$like]);
+                });
+            })
+
+            // KEYWORD: order title / company name / product name / delivery location
+            ->when($q !== '', function ($qb) use ($q) {
+                $like = "%{$q}%";
+                $qb->where(function ($w) use ($like) {
+                    $w->where('o.orderTitle',   'like', $like)
+                    ->orWhere('o.companyName','like', $like)
+                    ->orWhere('p.productName','like', $like)
+                    ->orWhere('db.location',  'like', $like);
+                });
+            })
+
+            // ARTIST filter
+            ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', $artist))
+
+            // TASK TYPE & STATUS filter
+            ->when($taskType !== '', fn($qb) => $qb->whereRaw('LOWER(p.taskType) = ?', [strtolower($taskType)]))
+            ->when($status   !== '', fn($qb) => $qb->where('p.status', $status));
+
+        // SORTING: nearest/furthest by date, or default latest updated
+        if (in_array($sortBy, ['deadline', 'delivery_date'], true)) {
+            $colSql = $sortBy === 'deadline'
+                ? 'COALESCE(o.deadline, p.updated_at)'
+                : 'db.date';
+
+            $dir = ($sortMode === 'far') ? 'DESC' : 'ASC';
+
+            $orders->orderByRaw("CASE WHEN {$colSql} IS NULL THEN 1 ELSE 0 END ASC")
+                ->orderByRaw("ABS(DATEDIFF({$colSql}, CURDATE())) {$dir}");
+        } else {
+            $orders->orderByDesc('p.updated_at');
+        }
+
+        // PAGINATION
+        $orders = $orders->paginate(10)->appends($request->query());
+
+        $orders->getCollection()->transform(function ($r) {
+            $r->details_url = route('installation.job.show', $r->ProductID);
+            return $r;
+        });
+
+        return view('installation.job-order', [
+            'stats'      => $stats,
+            'orders'     => $orders,
+            'q'          => $q,
+            'pid'        => $pid,
+            'artist'     => $artist,
+            'task_type'  => $taskType,
+            'status'     => $status,
+            'artists'    => $artists,
+            'sort_by'    => $sortBy,
+            'sort_mode'  => $sortMode,
+        ]);
     }
 }
