@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Models\Lead;
 use App\Models\Meeting;
 use App\Models\Order;
@@ -23,7 +24,7 @@ class SalesController extends Controller
         return view('auth.login');
     }
 
-    public function dashboard()
+  public function dashboard(Request $request)
 {
     $user = Auth::user();
     if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
@@ -32,32 +33,40 @@ class SalesController extends Controller
 
     $currentYear  = Carbon::now()->year;
     $currentMonth = Carbon::now()->month;
+    $selectedSalespersonId = $request->get('salesperson_id');
 
-    // ✅ Leads scope
+    // Salespeople list for head-salesperson
+    $salespeople = collect();
     if ($user->hasRole('head-salesperson')) {
-        $leads = Lead::whereYear('created_at', $currentYear)->get();
-    } else {
-        $leads = $user->leads()->whereYear('created_at', $currentYear)->get();
+        $salespeople = User::role(['salesperson', 'head-salesperson'])->get(['id', 'name']);
     }
 
-    // ✅ Meetings scope
-   
-       $meetings = $user->meetings()
-    ->where('status', 'scheduled')
-    ->where('start_time', '>=', Carbon::now())
-    ->orderBy('start_time', 'asc') // earliest first
-    ->limit(3)
-    ->get() ?? collect();
+    // Leads scope
+    $leadsQuery = Lead::whereYear('created_at', $currentYear);
+    if ($user->hasRole('head-salesperson')) {
+        if ($selectedSalespersonId) {
+            $leadsQuery->whereHas('user', fn($q) => $q->where('id', $selectedSalespersonId));
+        }
+    } else {
+        $leadsQuery->where('salesperson_id', $user->id);
+    }
+    $leads = $leadsQuery->get();
+
+    // Meetings scope (unchanged)
+    $meetings = $user->meetings()
+        ->where('status', 'scheduled')
+        ->where('start_time', '>=', Carbon::now())
+        ->orderBy('start_time', 'asc')
+        ->limit(3)
+        ->get() ?? collect();
 
     $orders = []; // Placeholder
 
     /**
-     * ✅ 月度统计（含 Meeting）
-     * 你 leads 表的 status enum: 'accept','reject','followup','new','meeting'
-     * 这里把 meeting 一并统计
+     * Monthly stats (with Meeting)
      */
     $monthlyData = $leads->groupBy(function ($lead) {
-        return Carbon::parse($lead->created_at)->format('M'); // Jan, Feb, ...
+        return Carbon::parse($lead->created_at)->format('M');
     })->map(function ($group) {
         return [
             'accept'   => $group->where('status', 'accept')->count(),
@@ -67,14 +76,13 @@ class SalesController extends Controller
         ];
     });
 
-    // 保证到当前月都有占位
+    // Fill arrays to current month
     $acceptCounts   = array_fill(0, $currentMonth, 0);
     $rejectCounts   = array_fill(0, $currentMonth, 0);
     $followupCounts = array_fill(0, $currentMonth, 0);
     $meetingCounts  = array_fill(0, $currentMonth, 0);
 
     foreach ($monthlyData as $month => $counts) {
-        // $month 是 'Jan' 这类字符串，Carbon 能解析
         $monthIndex = Carbon::parse("$currentYear-$month-01")->month - 1;
         if ($monthIndex < $currentMonth) {
             $acceptCounts[$monthIndex]   = $counts['accept']   ?? 0;
@@ -84,7 +92,7 @@ class SalesController extends Controller
         }
     }
 
-    // 汇总（右侧 legend 数字）
+    // Totals
     $acceptCount   = $leads->where('status', 'accept')->count();
     $rejectCount   = $leads->where('status', 'reject')->count();
     $followupCount = $leads->where('status', 'followup')->count();
@@ -93,23 +101,11 @@ class SalesController extends Controller
     $monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     return view('sales.dashboard', compact(
-        'leads',
-        'meetings',
-        'orders',
-        // 右侧统计
-        'acceptCount',
-        'rejectCount',
-        'followupCount',
-        'meetingCount',
-        // 图表序列
-        'acceptCounts',
-        'rejectCounts',
-        'followupCounts',
-        'meetingCounts',
-        // 其它
-        'currentYear',
-        'currentMonth',
-        'monthNames'
+        'leads', 'meetings', 'orders',
+        'acceptCount', 'rejectCount', 'followupCount', 'meetingCount',
+        'acceptCounts', 'rejectCounts', 'followupCounts', 'meetingCounts',
+        'currentYear', 'currentMonth', 'monthNames',
+        'salespeople', 'selectedSalespersonId'
     ));
 }
 

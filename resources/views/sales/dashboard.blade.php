@@ -9,11 +9,31 @@
             <!-- Left Column: Sales Activity -->
             <div class="col-md-6 mb-4">
                 <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between">
+                    <div class="card-header d-flex justify-content-between align-items-start">
                         <div class="card-title me-2">
                             <h5 class="mb-1">Sales Activity</h5>
-                            <p class="card-subtitle">Monthly lead status counts for {{ $currentYear }}</p>
+                            <p class="card-subtitle">
+                                @if (auth()->user()->hasRole('head-salesperson') && $selectedSalespersonId)
+                                    Monthly lead status counts for {{ $currentYear }} - {{ $salespeople->find($selectedSalespersonId)?->name }}
+                                @else
+                                    Monthly lead status counts for {{ $currentYear }}
+                                @endif
+                            </p>
                         </div>
+                        @if (auth()->user()->hasRole('head-salesperson'))
+                        <div class="ms-auto">
+                            <form method="GET" action="{{ route('sales.dashboard') }}" class="d-inline">
+                                <select name="salesperson_id" id="salesperson_id" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
+                                    <option value="">All</option>
+                                    @foreach ($salespeople as $sp)
+                                        <option value="{{ $sp->id }}" {{ $selectedSalespersonId == $sp->id ? 'selected' : '' }}>
+                                            {{ $sp->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </form>
+                        </div>
+                        @endif
                     </div>
                     <div class="p-3 rounded w-100">
                         <div class="d-flex justify-content-between align-items-center mb-2">

@@ -57,7 +57,7 @@
                         <div class="col-12 col-lg-3">
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="bx bx-search"></i></span>
-                                <input id="globalSearch" type="text" class="form-control" placeholder="Search by company" value="{{ request('q', '') }}">
+                                <input id="globalSearch" type="text" class="form-control" placeholder="Search by company or Lead Name" value="{{ request('q', '') }}">
                             </div>
                         </div>
                         {{-- Date from --}}
