@@ -5,16 +5,11 @@
 @section('content')
     <div class="container-xxl py-3">
 
-        {{-- Header & Export --}}
-        <div class="d-flex align-items-center justify-content-between mb-3">
+        {{-- Header (no export) --}}
+        <div class="d-flex align-items-center mb-3">
             <h4 class="mb-0">
-                Job Order Details –  {{ $order->order_number }}
+                Job Order Details – {{ $order->order_number }}
             </h4>
-
-            {{-- hook up to your existing export if available --}}
-            <a href="{{ route('artist.orders.edit', $order->id) }}?export=pdf" class="btn btn-dark">
-                <i class="bx bx-printer me-1"></i> Export PDF
-            </a>
         </div>
 
         {{-- Job order information --}}
@@ -55,27 +50,27 @@
                         </div>
                     </div>
 
-<div class="col-md-6 col-lg-6">
-    <small class="text-muted d-block mb-1">Attachments from Lead</small>
-    @if ($leadAttachments->isEmpty())
-        <div class="fw-medium">-</div>
-    @else
-        <ul class="list-group list-group-flush">
-            @foreach ($leadAttachments as $att)
-                <li class="list-group-item d-flex align-items-center gap-2">
-                    <i class="bx bx-paperclip"></i>
-                    <span title="{{ $att['name'] }}">{{ Str::limit($att['name'], 20, '...') }}</span>
-                    @if ($att['size'])
-                        <small class="text-muted fs-6">{{ number_format($att['size'] / 1024, 0) }} KB</small>
-                    @endif
-                    <a class="btn btn-icon btn-sm btn-outline-secondary" href="{{ $att['url'] }}" download title="Download">
-                        <i class="bx bx-download"></i>
-                    </a>
-                </li>
-            @endforeach
-        </ul>
-    @endif
-</div>
+                    <div class="col-md-6 col-lg-6">
+                        <small class="text-muted d-block mb-1">Attachments from Lead</small>
+                        @if ($leadAttachments->isEmpty())
+                            <div class="fw-medium">-</div>
+                        @else
+                            <ul class="list-group list-group-flush">
+                                @foreach ($leadAttachments as $att)
+                                    <li class="list-group-item d-flex align-items-center gap-2">
+                                        <i class="bx bx-paperclip"></i>
+                                        <span title="{{ $att['name'] }}">{{ Str::limit($att['name'], 20, '...') }}</span>
+                                        @if ($att['size'])
+                                            <small class="text-muted fs-6">{{ number_format($att['size'] / 1024, 0) }} KB</small>
+                                        @endif
+                                        <a class="btn btn-icon btn-sm btn-outline-secondary" href="{{ $att['url'] }}" download title="Download">
+                                            <i class="bx bx-download"></i>
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
@@ -91,8 +86,6 @@
         </div>
 
         <div class="card-body">
-
-            {{-- Products accordion --}}
             @php $products = $order->products ?? collect(); @endphp
 
             @if ($products->isEmpty())
@@ -109,8 +102,8 @@
                         <div class="accordion-item mb-2">
                             <h2 class="accordion-header" id="h_{{ $pId }}">
                                 <button class="accordion-button {{ $pi ? 'collapsed' : '' }}" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#c_{{ $pId }}"
-                                    aria-expanded="{{ $pi ? 'false' : 'true' }}" aria-controls="c_{{ $pId }}">
+                                        data-bs-toggle="collapse" data-bs-target="#c_{{ $pId }}"
+                                        aria-expanded="{{ $pi ? 'false' : 'true' }}" aria-controls="c_{{ $pId }}">
                                     <div class="w-100 d-flex flex-wrap gap-3">
                                         <div class="me-auto">
                                             <strong>Product</strong>
@@ -130,7 +123,7 @@
                             </h2>
 
                             <div id="c_{{ $pId }}" class="accordion-collapse collapse {{ $pOpen }}"
-                                aria-labelledby="h_{{ $pId }}" data-bs-parent="#productsAcc">
+                                 aria-labelledby="h_{{ $pId }}" data-bs-parent="#productsAcc">
                                 <div class="accordion-body">
 
                                     {{-- Items accordion (nested) --}}
@@ -148,10 +141,10 @@
                                                 <div class="accordion-item mb-2">
                                                     <h2 class="accordion-header" id="h_{{ $iId }}">
                                                         <button class="accordion-button {{ $ii ? 'collapsed' : '' }}"
-                                                            type="button" data-bs-toggle="collapse"
-                                                            data-bs-target="#c_{{ $iId }}"
-                                                            aria-expanded="{{ $ii ? 'false' : 'true' }}"
-                                                            aria-controls="c_{{ $iId }}">
+                                                                type="button" data-bs-toggle="collapse"
+                                                                data-bs-target="#c_{{ $iId }}"
+                                                                aria-expanded="{{ $ii ? 'false' : 'true' }}"
+                                                                aria-controls="c_{{ $iId }}">
                                                             <div class="w-100 d-flex flex-wrap gap-3">
                                                                 <div class="me-auto">
                                                                     <strong>Item {{ $ii + 1 }}</strong>
@@ -160,56 +153,47 @@
                                                                 </div>
                                                                 <div>
                                                                     <small class="text-muted">Qty/Item:</small>
-                                                                    <span
-                                                                        class="fw-semibold">{{ data_get($item, 'quantity', '-') }}</span>
+                                                                    <span class="fw-semibold">{{ data_get($item, 'quantity', '-') }}</span>
                                                                 </div>
                                                                 <div>
                                                                     <small class="text-muted">Material:</small>
-                                                                    <span
-                                                                        class="fw-semibold">{{ $materials ?: '-' }}</span>
+                                                                    <span class="fw-semibold">{{ $materials ?: '-' }}</span>
                                                                 </div>
                                                             </div>
                                                         </button>
                                                     </h2>
 
                                                     <div id="c_{{ $iId }}"
-                                                        class="accordion-collapse collapse {{ $iOpen }}"
-                                                        aria-labelledby="h_{{ $iId }}"
-                                                        data-bs-parent="#itemsAcc_{{ $pId }}">
+                                                         class="accordion-collapse collapse {{ $iOpen }}"
+                                                         aria-labelledby="h_{{ $iId }}"
+                                                         data-bs-parent="#itemsAcc_{{ $pId }}">
                                                         <div class="accordion-body">
 
                                                             <div class="row gy-2">
                                                                 <div class="col-md-6">
-                                                                    <small class="text-muted d-block">Size (inches) –
-                                                                        Width</small>
-                                                                    <div class="fw-medium">
-                                                                        {{ data_get($item, 'sizeWidth', '-') }}</div>
+                                                                    <small class="text-muted d-block">Size (inches) – Width</small>
+                                                                    <div class="fw-medium">{{ data_get($item, 'sizeWidth', '-') }}</div>
                                                                 </div>
                                                                 <div class="col-md-6">
                                                                     <small class="text-muted d-block">Height</small>
-                                                                    <div class="fw-medium">
-                                                                        {{ data_get($item, 'sizeHeight', '-') }}</div>
+                                                                    <div class="fw-medium">{{ data_get($item, 'sizeHeight', '-') }}</div>
                                                                 </div>
 
                                                                 <div class="col-md-3">
                                                                     <small class="text-muted d-block">Bleed (Top)</small>
-                                                                    <div class="fw-medium">
-                                                                        {{ data_get($item, 'bleedTop', '-') }}</div>
+                                                                    <div class="fw-medium">{{ data_get($item, 'bleedTop', '-') }}</div>
                                                                 </div>
                                                                 <div class="col-md-3">
                                                                     <small class="text-muted d-block">Bottom</small>
-                                                                    <div class="fw-medium">
-                                                                        {{ data_get($item, 'bleedBottom', '-') }}</div>
+                                                                    <div class="fw-medium">{{ data_get($item, 'bleedBottom', '-') }}</div>
                                                                 </div>
                                                                 <div class="col-md-3">
                                                                     <small class="text-muted d-block">Left</small>
-                                                                    <div class="fw-medium">
-                                                                        {{ data_get($item, 'bleedLeft', '-') }}</div>
+                                                                    <div class="fw-medium">{{ data_get($item, 'bleedLeft', '-') }}</div>
                                                                 </div>
                                                                 <div class="col-md-3">
                                                                     <small class="text-muted d-block">Right</small>
-                                                                    <div class="fw-medium">
-                                                                        {{ data_get($item, 'bleedRight', '-') }}</div>
+                                                                    <div class="fw-medium">{{ data_get($item, 'bleedRight', '-') }}</div>
                                                                 </div>
 
                                                                 @php
@@ -230,8 +214,7 @@
                                                                 </div>
                                                                 <div class="col-12">
                                                                     <small class="text-muted d-block">Finishing</small>
-                                                                    <div class="fw-medium">
-                                                                        {{ data_get($item, 'finishing', '-') }}</div>
+                                                                    <div class="fw-medium">{{ data_get($item, 'finishing', '-') }}</div>
                                                                 </div>
                                                             </div>
 
@@ -302,7 +285,6 @@
 
     {{-- Product Remarks --}}
     @php
-        // Adjust keys to your schema; these are examples if you store remarks per product or globally
         $remarks = collect([data_get($order, 'productRemark'), data_get($order, 'furnishingRemark')])->filter();
     @endphp
 
@@ -351,6 +333,5 @@
 
     <div class="text-end">
         <a href="{{ route('sales.orders') }}" class="btn btn-secondary mt-6">Close</a>
-    </div>
     </div>
 @endsection
