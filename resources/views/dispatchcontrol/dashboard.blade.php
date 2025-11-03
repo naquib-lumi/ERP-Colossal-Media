@@ -474,7 +474,7 @@
             @endphp
             <th class="col-actions">
               <a class="th-sort {{ str_starts_with($sort,'accepted_') ? 'is-active' : '' }}"
-                href="{{ $urlWith(['sort' => $acNext]) }}">
+                href="{{ $urlWith(['sort' => $acNext]) }}" style="color: rgb(43, 44, 64);">
                 ACTIONS
                 @if($acLabel)
                   <span class="badge bg-light text-dark ms-1">{{ $acLabel }}</span>

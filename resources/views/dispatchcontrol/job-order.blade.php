@@ -86,7 +86,8 @@
     padding: 18px;
     border-radius: 14px;
     border: 1px solid #ECEFF3;
-    background: #fff
+    background: #fff;
+    height: 100px;
   }
 
   .stat i {
