@@ -119,10 +119,13 @@ class OrderController extends Controller
                 'rejected'    => 'danger',
                 default       => 'secondary',
             };
-            return '<span class="btn btn-sm btn-label-' . $color . '" 
+            return '<span class="badge bg-label-' . $color . '" 
                      style="white-space: nowrap; min-width:120px; text-align:center;">'
                 . ucwords(str_replace('_', ' ', $order->orderStatus)) .
                 '</span>';
+        })
+        ->addColumn('view_url', function ($order) {
+            return route('orders.show', $order->id);
         })
         ->addColumn('actions', function ($order) {
             $editRoute = route('orders.edit', $order->id);
@@ -278,7 +281,7 @@ public function exportCsv(Request $request)
             'products' => 'required|array|min:1',
             'products.*.product_name' => 'required|string|max:255',
             'products.*.quantity' => 'required|integer|min:1',
-            'products.*.material_info' => 'nullable|string',
+            'products.*.material_remark' => 'nullable|string',
             'products.*.remarks' => 'nullable|array',
             'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
@@ -332,7 +335,7 @@ public function exportCsv(Request $request)
                 $product = [
                     'product_name' => $rowData[array_search('Product Name', $headers)] ?? '',
                     'quantity' => $rowData[array_search('Quantity', $headers)] ?? '',
-                    'material_info' => $rowData[array_search('Material Info', $headers)] ?? '',
+                    'material_remark' => $rowData[array_search('Material Info', $headers)] ?? '',
                     'remarks' => [],
                 ];
                 // Map remarks based on exact header names
@@ -362,7 +365,7 @@ public function exportCsv(Request $request)
                 'OrderID' => $order->id,
                 'productName' => $productData['product_name'],
                 'totalQuantity' => $productData['quantity'],
-                'materixalRemark' => $productData['material_info'] ?? null,
+                'materialRemark' => $productData['material_remark'] ?? null,
             ]);
 
             foreach ($productData['remarks'] ?? [] as $remarkData) {
@@ -427,60 +430,108 @@ public function csvTemplate()
 }
     public function edit($id)
     {
-        $order = Order::with('products')->findOrFail($id);
+        $order = Order::with(['lead', 'salesperson', 'products.remarks'])->findOrFail($id);
         if ($order->salesperson_id !== Auth::id()) {
             abort(403, 'Unauthorized');
         }
         return view('sales.order-edit', compact('order'));
     }
 
-   public function update(Request $request, $id)
+public function update(Request $request, $id)
 {
+    $user = Auth::user();
     $order = Order::findOrFail($id);
     if ($order->salesperson_id !== Auth::id()) {
         abort(403, 'Unauthorized');
     }
 
-    $request->validate([
-        'products' => 'required|array',
-        'products.*.id' => 'required|exists:products,ProductID',
-        'products.*.product_name' => 'required|string|max:255',
-        'products.*.quantity' => 'required|integer|min:1',
-        'products.*.material_remark' => 'nullable|string',
-        'products.*.remarks' => 'nullable|array',
-        'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
-        'products.*.remarks.*.remark' => 'nullable|string',
-    ]);
-
-    foreach ($request->products as $productData) {
-        $product = Product::findOrFail($productData['id']);
-        if ($product->OrderID !== $order->id) abort(403);
-        $product->update([
-            'productName' => $productData['product_name'],
-            'totalQuantity' => $productData['quantity'],
-            'materialRemark' => $productData['material_remark'] ?? null,
+    try {
+        $request->validate([
+            'orderTitle' => 'required|string|max:255',
+            'deadline' => 'required|date|after_or_equal:today',
+            'approval' => 'boolean',
+            'orderDetail' => 'nullable|string',
+            'products' => 'required|array|min:1',
+            'products.*.id' => 'nullable|exists:products,ProductID',
+            'products.*.product_name' => 'required|string|max:255',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.material_remark' => 'nullable|string',
+            'products.*.remarks' => 'nullable|array',
+            'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
+            'products.*.remarks.*.remark' => 'nullable|string',
         ]);
 
-        // Sync remarks
-        $existingRemarks = $product->remarks()->pluck('remark', 'operation')->toArray();
-        $newRemarks = [];
-        foreach ($productData['remarks'] ?? [] as $remarkData) {
-            $newRemarks[$remarkData['operation']] = $remarkData['remark'] ?? null;
+        $order->update([
+            'orderTitle' => $request->orderTitle,
+            'deadline' => $request->deadline,
+            'approval' => $request->boolean('approval', false),
+            'orderDetail' => $request->orderDetail,
+        ]);
+
+        $currentProductIds = $order->products->pluck('ProductID')->toArray();
+        $submittedProductIds = collect($request->products)->pluck('id')->filter()->unique()->values()->toArray();
+        $deletedProductIds = array_diff($currentProductIds, $submittedProductIds);
+
+        if (!empty($deletedProductIds)) {
+            ProductRemark::whereIn('ProductID', $deletedProductIds)->delete();
+            Product::destroy($deletedProductIds);
         }
-        foreach ($existingRemarks as $operation => $remark) {
-            if (!array_key_exists($operation, $newRemarks)) {
-                $product->remarks()->where('operation', $operation)->delete();
+
+        foreach ($request->products as $index => $productData) {
+            if (isset($productData['id']) && $productData['id']) {
+                // Update existing
+                $product = Product::findOrFail($productData['id']);
+                if ($product->OrderID !== $order->id) {
+                    abort(403);
+                }
+                $product->update([
+                    'productName' => $productData['product_name'],
+                    'totalQuantity' => $productData['quantity'],
+                    'materialRemark' => $productData['material_remark'] ?? null,
+                ]);
+
+                ProductRemark::where('ProductID', $product->ProductID)->delete();
+
+                foreach ($productData['remarks'] ?? [] as $remarkData) {
+                    ProductRemark::create([
+                        'ProductID' => $product->ProductID,
+                        'operation' => $remarkData['operation'],
+                        'remark' => $remarkData['remark'] ?? null,
+                        'user_id' => $user->id,
+                    ]);
+                }
+            } else {
+                // Create new
+                $product = Product::create([
+                    'OrderID' => $order->id,
+                    'productName' => $productData['product_name'],
+                    'totalQuantity' => $productData['quantity'],
+                    'materialRemark' => $productData['material_remark'] ?? null,
+                ]);
+
+                foreach ($productData['remarks'] ?? [] as $remarkData) {
+                    ProductRemark::create([
+                        'ProductID' => $product->ProductID,
+                        'operation' => $remarkData['operation'],
+                        'remark' => $remarkData['remark'] ?? null,
+                        'user_id' => $user->id,
+                    ]);
+                }
             }
         }
-        foreach ($newRemarks as $operation => $remark) {
-            $product->remarks()->updateOrCreate(
-                ['operation' => $operation],
-                ['remark' => $remark]
-            );
-        }
-    }
 
-    return redirect()->route('sales.orders')->with('success', 'Order updated successfully');
+        if ($request->has('from') && $request->input('from') === 'lead' && $request->has('lead_id')) {
+            return redirect()->route('leads.show', $request->input('lead_id'))
+                             ->withFragment('order-history')
+                             ->with('success', 'Order updated successfully');
+        }
+
+        return redirect()->route('sales.orders')->with('success', 'Order updated successfully');
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return redirect()->back()->withErrors($e->validator)->withInput();
+    } catch (\Exception $e) {
+        return redirect()->back()->with('error', $e->getMessage());
+    }
 }
 
 public function show($id)

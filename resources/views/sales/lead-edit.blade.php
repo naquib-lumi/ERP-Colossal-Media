@@ -8,12 +8,13 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Edit Lead</h5>
-                    <a href="{{ route('sales.leads') }}" class="btn btn-secondary">Back to Leads</a>
+                    <a href="{{ request()->get('highlight') == 'remark' ? route('leads.show', $lead->id) : route('sales.leads') }}" class="btn btn-secondary">Back</a>
                 </div>
                 <div class="card-body">
                     <form action="{{ route('leads.update', $lead->id) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="highlight" value="{{ request()->get('highlight') }}">
                         <div class="row g-4">
                             <!-- Company Name and Company Phone -->
                             <div class="col-md-6">
@@ -144,7 +145,7 @@
                         <!-- Remark (Full Width) -->
                         <div class="mb-4 mt-4">
                             <div class="form-floating">
-                                <textarea class="form-control" id="remarks" name="remark" placeholder="Enter any additional remarks or notes" rows="3">{{ old('remark', $lead->remark) }}</textarea>
+                                <textarea class="form-control {{ request()->get('highlight') == 'remark' ? 'border-warning' : '' }}" id="remarks" name="remark" placeholder="Enter any additional remarks or notes" rows="3">{{ old('remark', $lead->remark) }}</textarea>
                                 <label for="remarks">Remarks</label>
                                 @error('remark')
                                     <div class="text-danger">{{ $message }}</div>
@@ -158,9 +159,9 @@
                             <div id="dropzone" class="dropzone" 
                                 style="min-height: 150px; border: 2px dashed #ccc; padding: 20px; text-align: center; background-color: #f8f9fa;">
                                 <p id="dropzone-message">Drag and drop files here, or click to browse</p>
-                                <p>Supported formats: PDF, DOC, JPG, PNG (Max 10MB)</p>
+                                <p>Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB)</p>
                                 <input type="file" class="form-control" id="attachments" name="attachments[]" multiple
-                                    accept=".pdf,.doc,.jpg,.png" style="display: none;">
+                                    accept=".pdf,.doc,.docx,.jpg,.png" style="display: none;">
                                 <button type="button" class="btn btn-secondary"
                                         onclick="document.getElementById('attachments').click();">Choose File</button>
                             </div>
@@ -169,7 +170,7 @@
                                 <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
-
+                        <a href="{{ request()->get('highlight') == 'remark' ? route('leads.show', $lead->id) : route('sales.leads') }}" class="btn btn-secondary">Back</a>
                         <button type="submit" class="btn btn-primary">Update</button>
                     </form>
                     @if ($lead->attachments->isNotEmpty())
@@ -179,7 +180,7 @@
                                 @foreach ($lead->attachments as $attachment)
                                     <li data-attachment-id="{{ $attachment->id }}">
                                         {{ basename($attachment->file_location) }} (<a href="{{ asset('storage/' . $attachment->file_location) }}" target="_blank">View</a>)
-                                        <button type="button" class="btn btn-sm btn-danger delete-attachment" data-url="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}" onclick="return confirm('Are you sure?')">Delete</button>
+                                        <button type="button" class="btn btn-sm btn-danger delete-attachment" data-url="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}">Delete</button>
                                     </li>
                                 @endforeach
                             </ul>
@@ -196,6 +197,9 @@
     const message = document.getElementById('dropzone-message');
     const selectedFilesList = document.getElementById('selected-files-list');
     let selectedFiles = [];
+
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/jpg'];
+    const maxSize = 10240 * 1024; // 10MB
 
     // Prevent default behaviors for drag/drop
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -217,25 +221,49 @@
 
     // Handle dropped files
     dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
         dropzone.style.borderColor = '#ccc';
         dropzone.style.backgroundColor = '#f8f9fa';
 
         const files = e.dataTransfer.files;
-        addFiles(files);
+        processFiles(files);
     });
 
     // Update on file input change
     fileInput.addEventListener('change', () => {
-        addFiles(fileInput.files);
-        //fileInput.value = ''; // Clear input to allow re-selecting same files
+        processFiles(fileInput.files);
     });
 
-    function addFiles(files) {
+    function processFiles(files) {
+        let validFiles = [];
+        let sizeErrors = [];
+        let typeErrors = [];
+
         Array.from(files).forEach(file => {
+            if (file.size > maxSize) {
+                sizeErrors.push(file.name);
+                return;
+            }
+            if (!allowedTypes.includes(file.type)) {
+                typeErrors.push(file.name);
+                return;
+            }
             if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
-                selectedFiles.push(file);
+                validFiles.push(file);
             }
         });
+
+        // Add valid files
+        selectedFiles.push(...validFiles);
+
+        // Show consolidated errors with SweetAlert
+        if (sizeErrors.length > 0) {
+            Swal.fire('Warning!', `${sizeErrors.join(', ')} exceed 10MB limit.`, 'warning');
+        }
+        if (typeErrors.length > 0) {
+            Swal.fire('Warning!', `${typeErrors.join(', ')} not allowed. Only PDF, DOC, DOCX, JPG, PNG permitted.`, 'warning');
+        }
+
         updateFileInput();
         updateFileList();
     }
@@ -281,29 +309,54 @@
             const url = this.dataset.url;
             const li = this.closest('li');
 
-            if (!confirm('Are you sure?')) return;
-
-            fetch(url, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            li.remove();
+                            if (document.querySelectorAll('#existing-attachments li').length === 0) {
+                                document.getElementById('existing-attachments').innerHTML = '<p>No attachments available.</p>';
+                            }
+                            Swal.fire('Deleted!', 'Attachment has been deleted.', 'success');
+                        } else {
+                            Swal.fire('Error!', 'Failed to delete attachment', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('Error!', 'Error deleting attachment', 'error');
+                    });
                 }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    li.remove();
-                } else {
-                    alert('Failed to delete attachment');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error deleting attachment');
             });
         });
     });
+
+    // Highlight remark if requested
+    if (new URLSearchParams(window.location.search).get('highlight') === 'remark') {
+        const remarksField = document.getElementById('remarks');
+        remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        remarksField.focus();
+        remarksField.classList.add('border-warning');
+        setTimeout(() => {
+            remarksField.classList.remove('border-warning');
+        }, 3000);
+    }
 </script>
 @endsection

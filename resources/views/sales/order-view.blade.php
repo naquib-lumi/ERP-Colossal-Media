@@ -349,8 +349,9 @@
         </div>
     </div>
 
-    <div class="text-end">
-        <a href="{{ route('sales.orders') }}" class="btn btn-secondary mt-6">Close</a>
-    </div>
+<div class="text-end">
+    <button type="button" class="btn btn-secondary mt-3" onclick="history.back()">Close</button>
+</div>
+
     </div>
 @endsection

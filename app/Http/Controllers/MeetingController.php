@@ -62,28 +62,30 @@ class MeetingController extends Controller
 
 
 
-    public function index()
-    {
-        $user = Auth::user();
-        $now = Carbon::now();
+  public function index()
+{
+    $user = Auth::user();
+    $now = Carbon::now();
+    $start = $now->copy()->startOfMonth();
+    $end = $now->copy()->endOfMonth();
 
-        if (in_array($user->role, ['head-artist', 'head-salesperson'])) {
-            $meetings = Meeting::with('lead', 'user')
-                ->whereMonth('start_time', $now->month)
-                ->whereYear('start_time', $now->year)
-                ->orderBy('start_time', 'asc')
-                ->get();
-        } else {
-            $meetings = Meeting::with('lead', 'user')
-                ->where('user_id', $user->id)
-                ->whereMonth('start_time', $now->month)
-                ->whereYear('start_time', $now->year)
-                ->orderBy('start_time', 'asc')
-                ->get();
-        }
-
-        return response()->json($meetings);
+    if (in_array($user->role, ['head-artist', 'head-salesperson'])) {
+        $meetings = Meeting::with('lead', 'user')
+            ->where('start_time', '>=', $start)
+            ->where('start_time', '<=', $end)
+            ->orderBy('start_time', 'asc')
+            ->get();
+    } else {
+        $meetings = Meeting::with('lead', 'user')
+            ->where('user_id', $user->id)
+            ->where('start_time', '>=', $start)
+            ->where('start_time', '<=', $end)
+            ->orderBy('start_time', 'asc')
+            ->get();
     }
+
+    return response()->json($meetings);
+}
 
 
 
@@ -96,11 +98,11 @@ class MeetingController extends Controller
     }
 
     public function storeFromCalendar(Request $request)
-    {
-        $user = Auth::user();
-        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+{
+    $user = Auth::user();
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
 
     $validated = $request->validate([
         'lead_id' => 'required|exists:leads,id',
@@ -113,29 +115,34 @@ class MeetingController extends Controller
         'note' => 'nullable|string',
     ]);
 
-        $lead = Lead::findOrFail($validated['lead_id']);
-        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $validated['user_id'] = $user->id;
-        $validated['end_time'] = Carbon::parse($validated['start_time'])->addMinutes((int) $validated['duration']);
-        unset($validated['duration']);
-        if ($validated['type'] === 'online') {
-            $validated['location'] = null;
-        } else {
-            $validated['url'] = null;
-        }
-
-        try {
-            $meeting = Meeting::create($validated);
-            Log::info("Meeting ID {$meeting->id} created for lead ID {$validated['lead_id']}");
-            return response()->json(['success' => true, 'meeting' => $meeting]);
-        } catch (\Exception $e) {
-            Log::error("Error creating meeting: " . $e->getMessage());
-            return response()->json(['error' => 'Failed to create meeting'], 500);
-        }
+    $lead = Lead::findOrFail($validated['lead_id']);
+    if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
     }
+
+    if ($user->hasRole('head-salesperson')) {
+        $validated['user_id'] = $lead->salesperson_id;
+    } else {
+        $validated['user_id'] = $user->id;
+    }
+
+    $validated['end_time'] = Carbon::parse($validated['start_time'])->addMinutes((int) $validated['duration']);
+    unset($validated['duration']);
+    if ($validated['type'] === 'online') {
+        $validated['location'] = null;
+    } else {
+        $validated['url'] = null;
+    }
+
+    try {
+        $meeting = Meeting::create($validated);
+        Log::info("Meeting ID {$meeting->id} created for lead ID {$validated['lead_id']}");
+        return response()->json(['success' => true, 'meeting' => $meeting]);
+    } catch (\Exception $e) {
+        Log::error("Error creating meeting: " . $e->getMessage());
+        return response()->json(['error' => 'Failed to create meeting'], 500);
+    }
+}
 
     public function updateFromCalendar(Request $request, $id)
 {

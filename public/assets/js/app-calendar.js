@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         error: function (xhr) {
           console.error('Error fetching events:', xhr.status, xhr.responseText);
-          alert('Failed to load calendar events.');
+          Swal.fire('Error!', 'Failed to load calendar events.', 'error');
         }
       });
     }
@@ -212,6 +212,7 @@ document.addEventListener('DOMContentLoaded', function () {
       dragScroll: false,
       dayMaxEvents: 2,
       eventResizableFromStart: true,
+      showNonCurrentDates: false,
       customButtons: {
         sidebarToggle: { text: 'Sidebar' }
       },
@@ -238,108 +239,119 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('reminderRemindAt').value = date;
         }
       },
-      eventClick: function (info) {
-        console.log('Event Click Data:', info.event.extendedProps);
-        let modalId = 'eventDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
-        if (!$('#' + modalId).length) {
-          const isReminder = info.event.extendedProps.type === 'reminder';
-          const isHeadSalesperson = window.currentUserRole === 'head-salesperson';
-          let extraInfo = '';
-          if (isHeadSalesperson && info.event.extendedProps.created_by) {
-            extraInfo = `<p><strong>Created by:</strong> <span id="eventCreatorDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}">${info.event.extendedProps.created_by}</span></p>`;
-          }
-          let modalBody = `
+     eventClick: function (info) {
+  console.log('Event Click Data:', info.event.extendedProps);
+  let modalId = 'eventDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
+  if (!$('#' + modalId).length) {
+    console.log(info.event.extendedProps.is_head_salesperson);
+    const isReminder = info.event.extendedProps.type === 'reminder';
+    const isHeadSalesperson = info.event.extendedProps.is_head_salesperson;
+    let extraInfo = '';
+    if (isHeadSalesperson && info.event.extendedProps.created_by) {
+      extraInfo = `<p><strong>Created by:</strong> <span id="eventCreatorDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}">${info.event.extendedProps.created_by}</span></p>`;
+    }
+    let statusSelect = '';
+    if (isReminder) {
+      statusSelect = `
+        <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
+          <option value="upcoming" ${info.event.extendedProps.status === "upcoming" ? "selected" : ""}>Upcoming</option>
+          <option value="overdue" ${info.event.extendedProps.status === "overdue" ? "selected" : ""}>Overdue</option>
+          <option value="completed" ${info.event.extendedProps.status === "completed" ? "selected" : ""}>Completed</option>
+        </select>`;
+    } else {
+      statusSelect = `
+        <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
+          <option value="scheduled" ${info.event.extendedProps.status === "scheduled" ? "selected" : ""}>Scheduled</option>
+          <option value="canceled" ${info.event.extendedProps.status === "canceled" ? "selected" : ""}>Canceled</option>
+          <option value="postponed" ${info.event.extendedProps.status === "postponed" ? "selected" : ""}>Postponed</option>
+        </select>`;
+    }
+    let modalBody = `
 <p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Lead:</strong> <span id="eventLeadDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 ${extraInfo}
-<p><strong>Status:</strong> 
-  <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
-    ${isReminder
-      ? `
-        <option value="completed" ${info.event.extendedProps.status === "completed" ? "selected" : ""}>Completed</option>
-        <option value="overdue" ${info.event.extendedProps.status === "overdue" ? "selected" : ""}>Overdue</option>
-      `
-      : `
-        <option value="scheduled" ${info.event.extendedProps.status === "scheduled" ? "selected" : ""}>Scheduled</option>
-        <option value="canceled" ${info.event.extendedProps.status === "canceled" ? "selected" : ""}>Canceled</option>
-        <option value="postponed" ${info.event.extendedProps.status === "postponed" ? "selected" : ""}>Postponed</option>
-      `
-    }
-  </select>
-</p>`;
+<p><strong>Status:</strong> ${statusSelect}</p>`;
 
-          if (isReminder) {
-            modalBody += `
+    if (isReminder) {
+      modalBody += `
 <p><strong>Remind At:</strong> <span id="eventRemindAtDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Description:</strong> <span id="eventDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
-          } else {
-            modalBody += `
+    } else {
+      modalBody += `
 <p><strong>Start Time:</strong> <span id="eventStartTimeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Duration:</strong> <span id="eventDurationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Meeting Type:</strong> <span id="eventMeetingTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>URL/Location:</strong> <span id="eventUrlLocationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Description:</strong> <span id="eventDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
-          }
+    }
 
-          $('body').append(`
-            <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
-              <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h5 class="modal-title" id="${modalId}Label">${isReminder ? 'Reminder' : 'Meeting'} Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                  </div>
-                  <div class="modal-body">
-                    ${modalBody}
-                  </div>
-                  <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-danger btn-delete-event" data-event-id="${info.event.id}" data-event-type="${info.event.extendedProps.type}">Delete</button>
-                    <button type="button" class="btn btn-primary btn-edit-event" data-event-id="${info.event.id}" data-event-type="${info.event.extendedProps.type}">Edit</button>
-                  </div>
-                </div>
+    $('body').append(`
+      <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="${modalId}Label">${isReminder ? 'Reminder' : 'Meeting'} Details</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              ${modalBody}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-danger btn-delete-event" data-event-id="${info.event.id}" data-event-type="${info.event.extendedProps.type}">Delete</button>
+              <button type="button" class="btn btn-primary btn-edit-event" data-event-id="${info.event.id}" data-event-type="${info.event.extendedProps.type}">Edit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      ${isReminder ? `
+        <div class="modal fade" id="confirmCompleteModal_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" tabindex="-1" aria-labelledby="confirmCompleteLabel_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="confirmCompleteLabel_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}">Confirm Completion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <p id="confirmCompleteText_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}">Is the reminder "${info.event.title || 'Untitled'}" completed?</p>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
+                <button type="button" class="btn btn-primary" id="confirmCompleteBtn_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" data-event-id="${info.event.id}">Yes</button>
               </div>
             </div>
-            ${isReminder ? `
-              <div class="modal fade" id="confirmCompleteModal_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" tabindex="-1" aria-labelledby="confirmCompleteLabel_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" aria-hidden="true">
-                <div class="modal-dialog">
-                  <div class="modal-content">
-                    <div class="modal-header">
-                      <h5 class="modal-title" id="confirmCompleteLabel_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}">Confirm Completion</h5>
-                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                      <p id="confirmCompleteText_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}">Is the reminder "${info.event.title || 'Untitled'}" completed?</p>
-                    </div>
-                    <div class="modal-footer">
-                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
-                      <button type="button" class="btn btn-primary" id="confirmCompleteBtn_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" data-event-id="${info.event.id}">Yes</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-          `);
-        }
+          </div>
+        </div>
+      ` : ''}
+    `);
+  }
 
-        const safeId = info.event.id.replace(/[^a-zA-Z0-9]/g, '');
-        $('#eventTitleDetail_' + safeId).text(info.event.title || 'N/A');
-        $('#eventTypeDetail_' + safeId).text(info.event.extendedProps.type || 'N/A');
-        const isReminder = info.event.extendedProps.type === 'reminder';
-        if (isReminder) {
-          $('#eventRemindAtDetail_' + safeId).text(info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('YYYY-MM-DD HH:mm') : 'N/A');
-          $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
-        } else {
-          $('#eventStartTimeDetail_' + safeId).text(moment(info.event.start).format('YYYY-MM-DD HH:mm') || 'N/A');
-          $('#eventDurationDetail_' + safeId).text(moment(info.event.end).diff(moment(info.event.start), 'minutes') + ' minutes' || 'N/A');
-          $('#eventMeetingTypeDetail_' + safeId).text(info.event.extendedProps.meeting_type || 'N/A');
-          const urlLocation = info.event.extendedProps.url || info.event.extendedProps.location || 'N/A';
-          $('#eventUrlLocationDetail_' + safeId).text(urlLocation);
-          $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
-        }
+  const safeId = info.event.id.replace(/[^a-zA-Z0-9]/g, '');
+  $('#eventTitleDetail_' + safeId).text(info.event.title || 'N/A');
+  $('#eventTypeDetail_' + safeId).text(info.event.extendedProps.type || 'N/A');
+  $('#eventLeadDetail_' + safeId).text(info.event.extendedProps.lead_text || 'N/A');
+   const isHeadSalesperson = info.event.extendedProps.is_head_salesperson;
+  if (isHeadSalesperson && info.event.extendedProps.created_by) {
+    $('#eventCreatorDetail_' + safeId).text(info.event.extendedProps.created_by);
+  }
+  const isReminder = info.event.extendedProps.type === 'reminder';
+  if (isReminder) {
+    $('#eventRemindAtDetail_' + safeId).text(info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('YYYY-MM-DD HH:mm') : 'N/A');
+    $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
+  } else {
+    $('#eventStartTimeDetail_' + safeId).text(moment(info.event.start).format('YYYY-MM-DD HH:mm') || 'N/A');
+    $('#eventDurationDetail_' + safeId).text(moment(info.event.end).diff(moment(info.event.start), 'minutes') + ' minutes' || 'N/A');
+    $('#eventMeetingTypeDetail_' + safeId).text(info.event.extendedProps.meeting_type || 'N/A');
+    const urlLocation = info.event.extendedProps.url || info.event.extendedProps.location || 'N/A';
+    $('#eventUrlLocationDetail_' + safeId).text(urlLocation);
+    $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
+  }
 
-        const eventModal = new bootstrap.Modal(document.getElementById(modalId));
-        eventModal.show();
+  const eventModal = new bootstrap.Modal(document.getElementById(modalId));
+  eventModal.show();
+
+  // Rest of the event handlers remain the same...
 
         $('.btn-edit-event').off('click').on('click', function () {
           eventModal.hide();
@@ -386,9 +398,9 @@ ${extraInfo}
                     console.error('Failed to fetch lead text:', xhr.status, xhr.responseText);
                     $leadSelect.append(new Option('Unknown Lead', leadId, true, true)).trigger('change');
                     if (xhr.status === 403) {
-                      alert('You do not have permission to access this lead.');
+                      Swal.fire('Error!', 'You do not have permission to access this lead.', 'error');
                     } else {
-                      alert('Failed to load lead data.');
+                      Swal.fire('Error!', 'Failed to load lead data.', 'error');
                     }
                   }
                 });
@@ -429,27 +441,38 @@ ${extraInfo}
         });
 
         $('.btn-delete-event').off('click').on('click', function () {
-          if (confirm('Are you sure you want to delete this event?')) {
-            const eventId = $(this).data('event-id');
-            const type = $(this).data('event-type');
-            const id = eventId.replace(`${type}-`, '');
-            $.ajax({
-              url: `/calendar/${type}s/${id}`,
-              type: 'DELETE',
-              headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-              success: function (response) {
-                if (response.success) {
-                  calendar.refetchEvents();
-                  eventModal.hide();
-                } else {
-                  alert('Error deleting event');
+          Swal.fire({
+            title: 'Are you sure?',
+            text: 'You won\'t be able to revert this!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              const eventId = $(this).data('event-id');
+              const type = $(this).data('event-type');
+              const id = eventId.replace(`${type}-`, '');
+              $.ajax({
+                url: `/calendar/${type}s/${id}`,
+                type: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                success: function (response) {
+                  if (response.success) {
+                    calendar.refetchEvents();
+                    eventModal.hide();
+                    Swal.fire('Deleted!', 'Event has been deleted.', 'success');
+                  } else {
+                    Swal.fire('Error!', 'Error deleting event', 'error');
+                  }
+                },
+                error: function () {
+                  Swal.fire('Error!', 'Failed to delete event', 'error');
                 }
-              },
-              error: function () {
-                alert('Failed to delete event');
-              }
-            });
-          }
+              });
+            }
+          });
         });
 
         $('.btn-confirm-complete').off('click').on('click', function () {
@@ -471,14 +494,14 @@ ${extraInfo}
               if (response.success) {
                 calendar.refetchEvents();
                 $('#confirmCompleteModal_' + eventId.replace(/[^a-zA-Z0-9]/g, '')).modal('hide');
-                alert(response.message || 'Reminder marked as completed.');
+                Swal.fire('Success!', response.message || 'Reminder marked as completed.', 'success');
               } else {
-                alert('Error: ' + response.error);
+                Swal.fire('Error!', 'Error: ' + response.error, 'error');
               }
             },
             error: function (xhr) {
               console.error('Error confirming completion:', xhr.status, xhr.responseText);
-              alert('Failed to confirm completion');
+              Swal.fire('Error!', 'Failed to confirm completion', 'error');
             }
           });
         });
@@ -498,12 +521,13 @@ ${extraInfo}
               if (response.success) {
                 calendar.refetchEvents();
                 eventModal.hide();
+                Swal.fire('Updated!', 'Status has been updated.', 'success');
               } else {
-                alert('Error updating status');
+                Swal.fire('Error!', 'Error updating status', 'error');
               }
             },
             error: function (xhr) {
-              alert('Failed to update status');
+              Swal.fire('Error!', 'Failed to update status', 'error');
             }
           });
         });
@@ -587,8 +611,9 @@ ${extraInfo}
               submitBtn.innerHTML = 'Add';
               document.querySelector('#addReminderSidebar .offcanvas-title').innerHTML = 'Add Reminder';
               $(reminderForm.querySelector('[name="lead_id"]')).val(null).trigger('change');
+              Swal.fire('Success!', 'Reminder added/updated successfully.', 'success');
             } else {
-              alert('Error: ' + data.message);
+              Swal.fire('Error!', 'Error: ' + data.message, 'error');
             }
           },
           error: function (xhr) {
@@ -599,9 +624,9 @@ ${extraInfo}
               for (let key in errors) {
                 errorMsg += `${key}: ${errors[key].join(', ')}\n`;
               }
-              alert(errorMsg);
+              Swal.fire('Validation Error!', errorMsg, 'error');
             } else {
-              alert('Failed to add/update reminder');
+              Swal.fire('Error!', 'Failed to add/update reminder', 'error');
             }
           },
           complete: function () {
@@ -641,20 +666,20 @@ ${extraInfo}
         const urlField = formData.get('url');
         const location = formData.get('location');
 
-        if (!leadId || !title || !startTime || !duration ) {
-          alert('Please fill in all required fields: Lead, Title, Start Time, Duration, and Type.');
+        if (!leadId || !title || !startTime || !duration || !type) {
+          Swal.fire('Warning!', 'Please fill in all required fields: Lead, Title, Start Time, Duration, and Type.', 'warning');
           meetingSubmitting = false;
           submitBtn.disabled = false;
           return;
         }
         // if (type === 'online' && (!urlField || urlField.trim() === '')) {
-        //   alert('Please provide a valid URL for online meetings.');
+        //   Swal.fire('Warning!', 'Please provide a valid URL for online meetings.', 'warning');
         //   meetingSubmitting = false;
         //   submitBtn.disabled = false;
         //   return;
         // }
         // if (type === 'offline' && (!location || location.trim() === '')) {
-        //   alert('Please provide a location for offline meetings.');
+        //   Swal.fire('Warning!', 'Please provide a location for offline meetings.', 'warning');
         //   meetingSubmitting = false;
         //   submitBtn.disabled = false;
         //   return;
@@ -676,12 +701,14 @@ ${extraInfo}
               meetingForm.reset();
               submitBtn.classList.remove('btn-update-event');
               submitBtn.innerHTML = 'Add';
-              meetingForm.querySelector('.offcanvas-title').innerHTML = 'Add Meeting';
+             const meetingTitleEl = document.querySelector('#addMeetingSidebar .offcanvas-title');
+if (meetingTitleEl) meetingTitleEl.innerHTML = 'Add Meeting';
               $(meetingForm.querySelector('[name="lead_id"]')).val(null).trigger('change');
-              document.getElementById('onlineUrl').style.display = 'block';
+              document.getElementById('onlineUrl').style.display = 'none';
               document.getElementById('offlineLocation').style.display = 'none';
+              Swal.fire('Success!', 'Meeting added/updated successfully.', 'success');
             } else {
-              alert('Error: ' + data.message);
+              Swal.fire('Error!', 'Error: ' + data.message, 'error');
             }
           },
           error: function (xhr) {
@@ -692,9 +719,9 @@ ${extraInfo}
               for (let key in errors) {
                 errorMsg += `${key}: ${errors[key].join(', ')}\n`;
               }
-              alert(errorMsg);
+              Swal.fire('Validation Error!', errorMsg, 'error');
             } else {
-              alert('Failed to add/update meeting: ' + xhr.responseText);
+              Swal.fire('Error!', 'Failed to add/update meeting: ' + xhr.responseText, 'error');
             }
           },
           complete: function () {
@@ -745,5 +772,30 @@ ${extraInfo}
         refetch();
       });
     }
+
+    reminderSidebar.addEventListener('hidden.bs.offcanvas', function () {
+      reminderForm.reset();
+const reminderTitleEl = document.querySelector('#addReminderSidebar .offcanvas-title');
+if (reminderTitleEl) reminderTitleEl.innerHTML = 'Add Reminder';
+      const submitBtn = reminderForm.querySelector('button[type="submit"]');
+      submitBtn.innerHTML = 'Add';
+      submitBtn.classList.remove('btn-update-event');
+      submitBtn.disabled = false;
+      reminderLeadId.val(null).trigger('change');
+      reminderForm.querySelector('[name="id"]').value = '';
+    });
+    
+    meetingSidebar.addEventListener('hidden.bs.offcanvas', function () {
+      meetingForm.reset();
+      document.querySelector('#addMeetingSidebar .offcanvas-title').innerHTML = 'Add Meeting';
+      const submitBtn = meetingForm.querySelector('button[type="submit"]');
+      submitBtn.innerHTML = 'Add';
+      submitBtn.classList.remove('btn-update-event');
+      submitBtn.disabled = false;
+      meetingLeadId.val(null).trigger('change');
+      document.getElementById('onlineUrl').style.display = 'none';
+      document.getElementById('offlineLocation').style.display = 'none';
+      meetingForm.querySelector('[name="id"]').value = '';
+    });
   })();
 });

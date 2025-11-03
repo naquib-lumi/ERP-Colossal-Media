@@ -98,20 +98,20 @@
             <!-- Calendar & Modals -->
             <div class="col app-calendar-content">
                 {{-- TOP TOOLBAR --}}
-        <div id="calendarToolbar" class="d-flex align-items-center justify-content-start mt-2">
-    @if (Auth::user()->hasRole('head-salesperson'))
-        <div class="input-group" style="min-width:230px; max-width:260px;">
-            <select id="filter-salesperson" class="form-select">
-                <option value="">All Salesperson</option>
-                @foreach ($salespeople as $sp)
-                    <option value="{{ $sp->id }}" {{ $sp->id == Auth::id() ? 'selected' : '' }}>
-                        {{ $sp->name }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-    @endif
-</div>
+                <div id="calendarToolbar" class="d-flex align-items-center justify-content-start mt-2">
+                    @if (Auth::user()->hasRole('head-salesperson'))
+                        <div class="input-group" style="min-width:230px; max-width:260px;">
+                            <select id="filter-salesperson" class="form-select">
+                                <option value="">All Salesperson</option>
+                                @foreach ($salespeople as $sp)
+                                    <option value="{{ $sp->id }}" {{ $sp->id == Auth::id() ? 'selected' : '' }}>
+                                        {{ $sp->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+                </div>
 
 
                 <div class="d-flex flex-wrap align-items-start gap-4 btn-toolbar justify-content-start">
@@ -137,10 +137,13 @@
                         <h6 class="mb-2">Reminder Status</h6>
                         <ul class="list-unstyled d-flex flex-wrap gap-3 mb-0 ps-2">
                             <li class="d-flex align-items-center">
+                                <span class="status-dot me-2" style="background-color:#6c757d;"></span> Upcoming
+                            </li>
+                            <li class="d-flex align-items-center">
                                 <span class="status-dot me-2" style="background-color:#dc3545;"></span> Overdue
                             </li>
                             <li class="d-flex align-items-center">
-                                <span class="status-dot me-2" style="background-color:#6c757d;"></span> Completed
+                                <span class="status-dot me-2" style="background-color:#28a745;"></span> Completed
                             </li>
                         </ul>
                     </div>
@@ -229,18 +232,19 @@
                                     min="1" required />
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Type</label>
+                                <label class="form-label">Type <span class="text-danger">*</span></label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="type" id="typeOnline"
-                                        value="online" />
+                                        value="online" required />
                                     <label class="form-check-label" for="typeOnline">Online</label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="type" id="typeOffline"
-                                        value="offline" />
+                                        value="offline" required />
                                     <label class="form-check-label" for="typeOffline">Offline</label>
                                 </div>
                             </div>
+
                             <div class="mb-3" id="onlineUrl" style="display: none;">
                                 <label class="form-label" for="meetingUrl">URL</label>
                                 <input type="url" class="form-control" id="meetingUrl" name="url"

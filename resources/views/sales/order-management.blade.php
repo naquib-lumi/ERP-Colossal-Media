@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-xxl flex-grow-1 container-p-y">
 @if(session('success'))
-<div class="alert alert-secondary alert-dismissible fade show mt-3 border-0 shadow-sm" role="alert" style="background-color: #f8f9fa; color: #6c757d;">
+<div class="alert alert-secondary alert-dismissible fade show mt-3 border-0 shadow-sm" role="alert" style="background-color: #f8f9fa; color: #6c757d;" id="successAlert">
     <i class="bx bx-check-circle me-2"></i>{{ session('success') }}
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
@@ -57,7 +57,7 @@
                         <div class="col-12 col-lg-3">
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="bx bx-search"></i></span>
-                                <input id="globalSearch" type="text" class="form-control" placeholder="Search by company, lead name" value="{{ request('q', '') }}">
+                                <input id="globalSearch" type="text" class="form-control" placeholder="Search by company" value="{{ request('q', '') }}">
                             </div>
                         </div>
                         {{-- Date from --}}
@@ -163,7 +163,8 @@
                 { data: 'company_info' },
                 { data: 'lead_details' },
                 { data: 'status' },
-                { data: 'actions' }
+                { data: 'actions' },
+                { data: 'view_url', visible: false }
             ],
             order: [[0, 'desc']],
             initComplete: function() {
@@ -183,6 +184,12 @@
                 $('#statusFilter').on('change', function() {
                     table.draw();
                 });
+            }
+        });
+        $(document).on('dblclick', '#orderTable tbody tr', function() {
+            var data = table.row(this).data();
+            if (data && data.view_url) {
+                window.location.href = data.view_url;
             }
         });
         $(document).on('click', '.view-products', function() {

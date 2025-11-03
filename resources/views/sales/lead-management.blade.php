@@ -57,21 +57,24 @@
                                 </div>
                             </div>
 
-                            {{-- Date from --}}
-                            <div class="col-6 col-lg-2">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
-                                    <input type="date" id="fromDate" name="from_date" class="form-control" value="{{ request('from_date') }}">
-                                </div>
-                            </div>
+                                                        {{-- 
+                                            Date filters temporarily disabled
 
-                            {{-- Date to --}}
-                            <div class="col-6 col-lg-2">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
-                                    <input type="date" id="toDate" name="to_date" class="form-control" value="{{ request('to_date') }}">
-                                </div>
-                            </div>
+                                            <div class="col-6 col-lg-2">
+                                                <div class="input-group">
+                                                    <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
+                                                    <input type="date" id="fromDate" name="from_date" class="form-control" value="{{ request('from_date') }}">
+                                                </div>
+                                            </div>
+
+                                            <div class="col-6 col-lg-2">
+                                                <div class="input-group">
+                                                    <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
+                                                    <input type="date" id="toDate" name="to_date" class="form-control" value="{{ request('to_date') }}">
+                                                </div>
+                                            </div>
+                                        --}}
+
 
                             {{-- Actions --}}
                             <div class="col-12 col-lg d-flex gap-2 justify-content-lg-end">

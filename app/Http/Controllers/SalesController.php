@@ -24,99 +24,94 @@ class SalesController extends Controller
     }
 
     public function dashboard()
-    {
-        $user = Auth::user();
-        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-            abort(403, 'Unauthorized');
-        }
-
-        $currentYear  = Carbon::now()->year;
-        $currentMonth = Carbon::now()->month;
-
-        // ✅ Leads scope
-        if ($user->hasRole('head-salesperson')) {
-            $leads = Lead::whereYear('created_at', $currentYear)->get();
-        } else {
-            $leads = $user->leads()->whereYear('created_at', $currentYear)->get();
-        }
-
-        // ✅ Meetings scope（仅用于右侧“Upcoming meetings”等用处，和图表无关）
-        if ($user->hasRole('head-salesperson')) {
-            $meetings = Meeting::where('start_time', '>=', Carbon::now())
-                ->orderBy('start_time')
-                ->take(3)
-                ->get();
-        } else {
-            $meetings = $user->meetings()
-                ->where('start_time', '>=', Carbon::now())
-                ->orderBy('start_time')
-                ->take(3)
-                ->get() ?? collect();
-        }
-
-        $orders = []; // Placeholder
-
-        /**
-         * ✅ 月度统计（含 Meeting）
-         * 你 leads 表的 status enum: 'accept','reject','followup','new','meeting'
-         * 这里把 meeting 一并统计
-         */
-        $monthlyData = $leads->groupBy(function ($lead) {
-            return Carbon::parse($lead->created_at)->format('M'); // Jan, Feb, ...
-        })->map(function ($group) {
-            return [
-                'accept'   => $group->where('status', 'accept')->count(),
-                'reject'   => $group->where('status', 'reject')->count(),
-                'followup' => $group->where('status', 'followup')->count(),
-                'meeting'  => $group->where('status', 'meeting')->count(),
-            ];
-        });
-
-        // 保证到当前月都有占位
-        $acceptCounts   = array_fill(0, $currentMonth, 0);
-        $rejectCounts   = array_fill(0, $currentMonth, 0);
-        $followupCounts = array_fill(0, $currentMonth, 0);
-        $meetingCounts  = array_fill(0, $currentMonth, 0);
-
-        foreach ($monthlyData as $month => $counts) {
-            // $month 是 'Jan' 这类字符串，Carbon 能解析
-            $monthIndex = Carbon::parse("$currentYear-$month-01")->month - 1;
-            if ($monthIndex < $currentMonth) {
-                $acceptCounts[$monthIndex]   = $counts['accept']   ?? 0;
-                $rejectCounts[$monthIndex]   = $counts['reject']   ?? 0;
-                $followupCounts[$monthIndex] = $counts['followup'] ?? 0;
-                $meetingCounts[$monthIndex]  = $counts['meeting']  ?? 0;
-            }
-        }
-
-        // 汇总（右侧 legend 数字）
-        $acceptCount   = $leads->where('status', 'accept')->count();
-        $rejectCount   = $leads->where('status', 'reject')->count();
-        $followupCount = $leads->where('status', 'followup')->count();
-        $meetingCount  = $leads->where('status', 'meeting')->count();
-
-        $monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-        return view('sales.dashboard', compact(
-            'leads',
-            'meetings',
-            'orders',
-            // 右侧统计
-            'acceptCount',
-            'rejectCount',
-            'followupCount',
-            'meetingCount',
-            // 图表序列
-            'acceptCounts',
-            'rejectCounts',
-            'followupCounts',
-            'meetingCounts',
-            // 其它
-            'currentYear',
-            'currentMonth',
-            'monthNames'
-        ));
+{
+    $user = Auth::user();
+    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        abort(403, 'Unauthorized');
     }
+
+    $currentYear  = Carbon::now()->year;
+    $currentMonth = Carbon::now()->month;
+
+    // ✅ Leads scope
+    if ($user->hasRole('head-salesperson')) {
+        $leads = Lead::whereYear('created_at', $currentYear)->get();
+    } else {
+        $leads = $user->leads()->whereYear('created_at', $currentYear)->get();
+    }
+
+    // ✅ Meetings scope
+   
+       $meetings = $user->meetings()
+    ->where('status', 'scheduled')
+    ->where('start_time', '>=', Carbon::now())
+    ->orderBy('start_time', 'asc') // earliest first
+    ->limit(3)
+    ->get() ?? collect();
+
+    $orders = []; // Placeholder
+
+    /**
+     * ✅ 月度统计（含 Meeting）
+     * 你 leads 表的 status enum: 'accept','reject','followup','new','meeting'
+     * 这里把 meeting 一并统计
+     */
+    $monthlyData = $leads->groupBy(function ($lead) {
+        return Carbon::parse($lead->created_at)->format('M'); // Jan, Feb, ...
+    })->map(function ($group) {
+        return [
+            'accept'   => $group->where('status', 'accept')->count(),
+            'reject'   => $group->where('status', 'reject')->count(),
+            'followup' => $group->where('status', 'followup')->count(),
+            'meeting'  => $group->where('status', 'meeting')->count(),
+        ];
+    });
+
+    // 保证到当前月都有占位
+    $acceptCounts   = array_fill(0, $currentMonth, 0);
+    $rejectCounts   = array_fill(0, $currentMonth, 0);
+    $followupCounts = array_fill(0, $currentMonth, 0);
+    $meetingCounts  = array_fill(0, $currentMonth, 0);
+
+    foreach ($monthlyData as $month => $counts) {
+        // $month 是 'Jan' 这类字符串，Carbon 能解析
+        $monthIndex = Carbon::parse("$currentYear-$month-01")->month - 1;
+        if ($monthIndex < $currentMonth) {
+            $acceptCounts[$monthIndex]   = $counts['accept']   ?? 0;
+            $rejectCounts[$monthIndex]   = $counts['reject']   ?? 0;
+            $followupCounts[$monthIndex] = $counts['followup'] ?? 0;
+            $meetingCounts[$monthIndex]  = $counts['meeting']  ?? 0;
+        }
+    }
+
+    // 汇总（右侧 legend 数字）
+    $acceptCount   = $leads->where('status', 'accept')->count();
+    $rejectCount   = $leads->where('status', 'reject')->count();
+    $followupCount = $leads->where('status', 'followup')->count();
+    $meetingCount  = $leads->where('status', 'meeting')->count();
+
+    $monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    return view('sales.dashboard', compact(
+        'leads',
+        'meetings',
+        'orders',
+        // 右侧统计
+        'acceptCount',
+        'rejectCount',
+        'followupCount',
+        'meetingCount',
+        // 图表序列
+        'acceptCounts',
+        'rejectCounts',
+        'followupCounts',
+        'meetingCounts',
+        // 其它
+        'currentYear',
+        'currentMonth',
+        'monthNames'
+    ));
+}
 
     public function leadManagement()
     {
