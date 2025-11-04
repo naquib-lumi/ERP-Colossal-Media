@@ -404,7 +404,7 @@
         {{-- Sticky save bar --}}
         <div class="col-12">
             <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
-                <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
+                <a type="button" class="btn btn-outline-secondary" href="{{ route('artist.orders') }}">Cancel</a>
                 <button type="submit" class="btn btn-primary">Save Order</button>
             </div>
         </div>
@@ -1335,6 +1335,80 @@ function updateIndices() {
 //   if (!isFromCsv) $('#addProductBtn').toggle(productIndex < 5);
 updateAddButton();
 }
+
+let isFormDirty = false;
+
+// mark dirty on any meaningful edit
+$(document).on('input change', '#order-form input, #order-form select, #order-form textarea', () => {
+  isFormDirty = true;
+});
+$(document).on('click', '#addProductBtn, .edit-product, .remove-product, .add-remark, .remove-remark', () => {
+  isFormDirty = true;
+});
+
+// clean on successful submit
+$('#order-form').on('submit', function () {
+  isFormDirty = false;
+});
+
+// ---- SweetAlert confirm helper ----
+function confirmLeaveWithSwal() {
+  return Swal.fire({
+    icon: 'warning',
+    title: 'Leave this page?',
+    html: 'You have unsaved changes. If you leave now, your changes will be lost.',
+    showCancelButton: true,
+    confirmButtonText: 'Leave page',
+    cancelButtonText: 'Stay here',
+    reverseButtons: true,
+    focusCancel: true
+  }).then(r => r.isConfirmed);
+}
+
+// ---- Intercept in-app navigations and show SweetAlert ----
+
+// 1) All normal links (same-tab, not anchors)
+$(document).on('click', 'a[href]:not([target]):not([href^="#"])', function (e) {
+  if (!isFormDirty) return; // allow
+  e.preventDefault();
+  const href = this.href;
+  confirmLeaveWithSwal().then(ok => {
+    if (ok) {
+      isFormDirty = false;
+      window.location.href = href;
+    }
+  });
+});
+
+// 2) Your Cancel button that calls history.back()
+$(document).on('click', 'button[onclick="history.back()"], .js-cancel-leave', function (e) {
+  if (!isFormDirty) return; // allow
+  e.preventDefault();
+  confirmLeaveWithSwal().then(ok => {
+    if (ok) {
+      isFormDirty = false;
+      history.back();
+    }
+  });
+});
+
+// 3) Any custom programmatic navigation: call askToLeave(() => { doNav(); })
+function askToLeave(next) {
+  if (!isFormDirty) return next();
+  confirmLeaveWithSwal().then(ok => {
+    if (ok) {
+      isFormDirty = false;
+      next();
+    }
+  });
+}
+
+// ---- Fallback for hard unloads (refresh/close tab/new URL) ----
+window.addEventListener('beforeunload', function (e) {
+  if (!isFormDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 </script>
 
 @endpush
