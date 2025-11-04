@@ -2661,11 +2661,9 @@
     }
   });
 
-    input.addEventListener('change', () => {
+  input.addEventListener('change', () => {
     if (!input.files?.length) return;
     const incoming = Array.from(input.files);
-
-    // collect invalids to show in one SweetAlert
     const invalids = [];
 
     incoming.forEach(f => {
@@ -2687,13 +2685,9 @@
       }
     });
 
-    // pop SweetAlert if any invalid types
     if (invalids.length) {
       const uniqAllowed = [...new Set(ALLOWED)].map(e => `.${e}`).join(', ');
-      const list = invalids
-        .map(({ name, ext }) => `<li><code>${name}</code> &nbsp;<small>(.${ext})</small></li>`)
-        .join('');
-
+      const list = invalids.map(({ name, ext }) => `<li><code>${name}</code> <small>(.${ext})</small></li>`).join('');
       Swal.fire({
         icon: 'error',
         title: 'Unsupported file type',
@@ -2706,34 +2700,50 @@
       });
     }
 
+    // Enable/disable once based on result set
+    const hasReady = [...selected.values()].length > 0;
+    // updateButtonsState();
+
     updateSummary();
     input.value = '';
   });
 
-    function addRow(file, {
-      key = null,
-      status = 'ready',
-      note = ''
-    }) {
+    function updateButtonsState() {
+      // disable only if there is ANY invalid chip in the preview list
+      const hasInvalid = document.querySelector('#preview .err') !== null;
+
+      const btnSubmit = document.getElementById('btn-submit');
+      const btnDraft  = document.getElementById('btn-draft');
+
+      // If hasInvalid → disable; otherwise enable (even when 0 files)
+      btnSubmit?.toggleAttribute('disabled', hasInvalid);
+      btnDraft ?.toggleAttribute('disabled', hasInvalid);
+    }
+
+    function addRow(file, { key = null, status = 'ready', note = '' }) {
       const li = document.createElement('li');
-      li.dataset.key = key || '';
+      li.dataset.status = status;      // 'ready' or 'error'
+      if (key) li.dataset.key = key;   // so we can delete from `selected`
+
       li.innerHTML = `
         <span>${file.name}${
           status === 'error'
-            ? ` – <span class="err">${note}</span>`
+            ? ` – <span class="err">${note || 'Invalid file type'}</span>`
             : ` – <span class="ok">ready</span>`
         }</span>
         <button class="remove-x" title="Remove">×</button>
       `;
 
       li.querySelector('.remove-x').addEventListener('click', () => {
+        // remove from selected only if it was a valid (tracked) file
         const k = li.dataset.key;
         if (k && selected.has(k)) selected.delete(k);
         li.remove();
-        updateSummary();
+        updateButtonsState();          // ✅ enable immediately if no invalids left
       });
 
-      listEl.appendChild(li);
+      document.getElementById('preview').appendChild(li);
+      updateButtonsState();            // ✅ evaluate right after adding
     }
 
     function updateSummary() {
