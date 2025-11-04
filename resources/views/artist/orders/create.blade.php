@@ -276,6 +276,7 @@
                                 <table id="product-table" class="table table-bordered">
                                     <thead>
                                         <tr>
+                                            <th style="width:56px;">#</th>
                                             <th>Product Name</th>
                                             <th>Quantity</th>
                                             <th>Material Remarks</th>
@@ -286,6 +287,7 @@
                                     <tbody>
                                         @foreach (old('products', []) as $index => $product)
                                             <tr data-index="{{ $index }}">
+                                                <td class="row-no align-middle fw-semibold text-muted">{{ $index + 1 }}</td>
                                                 <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
                                                 <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ $product['quantity'] ?? '' }}"></td>
                                                 <td><input type="text" name="products[{{ $index }}][material_info]" class="form-control" value="{{ $product['material_info'] ?? '' }}"></td>
@@ -539,17 +541,13 @@ $(function () {
   /**************************
  * PRODUCTS (+ REMARKS) UI
  **************************/
-  function escapeHtml(str) {
+        function escapeHtml(str) {
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
         let productIndex = $('#product-table tbody tr').length;
         let isFromCsv = {{ old('from_csv', 0) }};
-        if (isFromCsv) {
-            $('#addProductBtn').hide();
-        } else if (productIndex >= 5) {
-            $('#addProductBtn').hide();
-        }
+        updateAddButton();
 
         $('#productModal').on('show.bs.modal', function(e) {
             const button = $(e.relatedTarget);
@@ -614,39 +612,39 @@ $(function () {
 
         $('#saveProduct').on('click', function() {
             const nameEl = $('#product_name');
-  const qtyEl  = $('#quantity');
-  const matEl  = $('#material_info');
+            const qtyEl  = $('#quantity');
+            const matEl  = $('#material_info');
 
-  const nameVal = (nameEl.val() || '').trim();
-  const qtyVal  = (qtyEl.val()  || '').trim();
-  const matVal  = (matEl.val()  || '').trim();
+            const nameVal = (nameEl.val() || '').trim();
+            const qtyVal  = (qtyEl.val()  || '').trim();
+            const matVal  = (matEl.val()  || '').trim();
 
-  const errs = [];
-  if (!nameVal) errs.push('Product Name (in modal) is required.');
-  const q = parseInt(qtyVal, 10);
-  if (!qtyVal || isNaN(q) || q < 1) errs.push('Quantity (in modal) must be an integer ≥ 1.');
-  if (!matVal) errs.push('Material Remark (in modal) is required.');
+            const errs = [];
+            if (!nameVal) errs.push('Product Name (in modal) is required.');
+            const q = parseInt(qtyVal, 10);
+            if (!qtyVal || isNaN(q) || q < 1) errs.push('Quantity (in modal) must be an integer ≥ 1.');
+            if (!matVal) errs.push('Material Remark (in modal) is required.');
 
-  if (errs.length) {
-    if (typeof Swal !== 'undefined') {
-      Swal.fire({
-        icon: 'error',
-        title: 'Please complete the product info',
-        html: errs.map(m => `<div style="text-align:left">${m}</div>`).join(''),
-        confirmButtonText: 'OK'
-      }).then(() => {
-        if (!nameVal) return nameEl.trigger('focus');
-        if (!qtyVal || isNaN(q) || q < 1) return qtyEl.trigger('focus');
-        if (!matVal) return matEl.trigger('focus');
-      });
-    } else {
-      alert(errs.join('\n'));
-      if (!nameVal) nameEl.focus();
-      else if (!qtyVal || isNaN(q) || q < 1) qtyEl.focus();
-      else if (!matVal) matEl.focus();
-    }
-    return; // stop; do not proceed to add/update row
-  }
+            if (errs.length) {
+                if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Please complete the product info',
+                    html: errs.map(m => `<div style="text-align:left">${m}</div>`).join(''),
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    if (!nameVal) return nameEl.trigger('focus');
+                    if (!qtyVal || isNaN(q) || q < 1) return qtyEl.trigger('focus');
+                    if (!matVal) return matEl.trigger('focus');
+                });
+                } else {
+                alert(errs.join('\n'));
+                if (!nameVal) nameEl.focus();
+                else if (!qtyVal || isNaN(q) || q < 1) qtyEl.focus();
+                else if (!matVal) matEl.focus();
+                }
+                return; // stop; do not proceed to add/update row
+            }
 
             const index = $('#product_index').val();
             const data = {
@@ -711,8 +709,11 @@ $(function () {
                     return;
                 }
 
+                const nextNo = $('#product-table tbody tr').length + 1;
+
                 const html = `
                     <tr data-index="${productIndex}">
+                        <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
                         <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
                         <td><input type="number" name="products[${productIndex}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}"></td>
                         <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}"></td>
@@ -763,14 +764,18 @@ $(function () {
                     $('#addProductBtn').hide();
                 }
             }
-
-            $('#productModal').modal('hide');
+            // updateIndices();
+            updateAddButton();
+            const modalEl = document.getElementById('productModal');
+            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
         });
 
         $(document).on('click', '.remove-product', function() {
             const index = $(this).data('index');
             $(`#product-table tbody tr[data-index="${index}"]`).remove();
             $(`#hidden-products > div[data-index="${index}"]`).remove();
+            updateIndices();
+            updateAddButton();
 
             $('#product-table tbody tr').each(function(i) {
                 $(this).attr('data-index', i);
@@ -929,8 +934,10 @@ $(function () {
                         }
                     });
                     console.log('productname: '+ product.product_name);
+                    const nextNo = $('#product-table tbody tr').length + 1;
                     const html = `
                         <tr data-index="${productIndex}">
+                            <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
                             <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(product.product_name)}"></td>
                             <td><input type="number" name="products[${productIndex}][quantity]" class="form-control" value="${escapeHtml(product.quantity)}"></td>
                             <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(product.material_info)}"></td>
@@ -984,6 +991,7 @@ $(function () {
                 if (productIndex >= 5) {
                     $('#addProductBtn').hide();
                 }
+                updateAddButton();
             };
             reader.readAsText(file);
         }
@@ -1251,6 +1259,47 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+
+function updateAddButton() {
+  const count   = $('#product-table tbody tr').length;
+  const fromCsv = Number($('#from_csv').val()) === 1 || Number(window.isFromCsv) === 1;
+  // show only when: NOT from CSV and < 5 rows
+  $('#addProductBtn').toggle(!fromCsv && count < 5).prop('disabled', false);
+}
+
+function updateIndices() {
+  const $tbody = $('#product-table tbody');
+  const $rows  = $tbody.find('tr');
+
+  $rows.each(function(i) {
+    const $tr = $(this);
+    $tr.find('.row-no').text(i + 1);
+    $tr.attr('data-index', i);
+    $tr.find('.edit-product').attr('data-index', i);
+    $tr.find('.remove-product').attr('data-index', i);
+    $tr.find('.add-remark').attr('data-index', i);
+
+    const $rc = $tr.find('[id^="remarks-container-"]');
+    if ($rc.length) $rc.attr('id', `remarks-container-${i}`);
+
+    $tr.find('[name^="products["]').each(function() {
+      this.name = this.name.replace(/products\[\d+\]/, `products[${i}]`);
+    });
+  });
+
+  const $hidden = $('#hidden-products').empty();
+  $rows.each(function(i) {
+    const $div = $('<div>').attr('data-index', i);
+    $(this).find('[name^="products["]').each(function() {
+      $div.append($('<input>', { type: 'hidden', name: this.name, value: $(this).val() }));
+    });
+    $hidden.append($div);
+  });
+
+  productIndex = $rows.length;
+//   if (!isFromCsv) $('#addProductBtn').toggle(productIndex < 5);
+updateAddButton();
+}
 </script>
 
 @endpush
