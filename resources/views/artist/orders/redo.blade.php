@@ -11,8 +11,7 @@
             <i class="bi bi-arrow-left-circle fw-semibold"
                 style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
         </a>
-    Report Issue – Redo Job Order {{ $displayOrderNumber }}
-    <!-- <span class="text-muted">{{ $displayOrderNumber }}</span> -->
+    Report Issue – Redo Job Order {{ $headerOrderNumber }}
   </h4>
 
   {{-- Latest REDO Reason (if any) --}}
@@ -20,7 +19,7 @@
     <div class="alert alert-info d-flex align-items-start gap-2">
       <i class="ti ti-info-circle mt-1"></i>
       <div>
-        <div class="fw-semibold">Latest REDO Reason</div>
+        <div class="fw-semibold">Last REDO Reason</div>
         <div class="text-break">{{ $latestRedoReason }}</div>
       </div>
     </div>
@@ -146,7 +145,7 @@
         <div class="alert alert-light border">
           <div class="fw-semibold mb-1">What happens next?</div>
           <ul class="mb-0">
-            <li>A new Job Order ID will be created with <b>{{ $displayOrderNumber }}</b></li>
+            <li>A new Job Order ID will be created with <b>{{ $nextRedoNumber }}</b></li>
             <li>Only the selected products will be editable on the new order</li>
             <li>Status will be auto-set to <b>In Progress</b> for redo</li>
           </ul>
