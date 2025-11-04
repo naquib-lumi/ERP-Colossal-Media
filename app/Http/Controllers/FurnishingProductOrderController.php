@@ -128,6 +128,13 @@ class FurnishingProductOrderController extends Controller
         $displayProductCode = sprintf('#ORD-%s-%03d-P%04d%s',
             $year, (int)$baseOrderId, (int)$baseProductId, $rFlag);
 
+        $displayOrderCode = sprintf(
+            '#ORD-%s-%03d%s',
+            $year,
+            (int)$baseOrderId,
+            $rFlag
+        );
+
         $header = (object)[
             'ProductID'       => $headerRow->ProductID,
             'OrderID'         => $headerRow->OrderID,
@@ -373,6 +380,7 @@ class FurnishingProductOrderController extends Controller
             'canEdit'        => $canEdit,
             'remarksByOp'    => $remarksByOp,
             'remarks'        => $remarks,
+            'job_order_code'   => $displayOrderCode, 
 
             // NEW for Blade:
             'cutters'        => $cutters,
