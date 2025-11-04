@@ -288,35 +288,35 @@ $isRedoOrder = (bool) $order->redo;
                                     @endphp
 
                                     @if($selectedForRedo)
-                                    <span class="redo-banner redo-offset ms-2 js-reason-banner"
-      data-type="REDO"
-      data-reason="{{ $redoRecord->reason ?? '' }}"
-      data-by="{{ $redoBy ?? '' }}">
-  <i class="bi bi-exclamation-octagon-fill icon"></i>
-  <span class="tag" style="font-size:12px;">REDO</span>
-  @if(!empty($redoRecord->reason))
-    <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
-  @endif
-  @if($redoBy)
-    <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
-  @endif
-</span>
+                                    <span class="redo-banner redo-offset ms-2 js-reason-banner cursor-pointer"
+                                        data-type="REDO"
+                                        data-reason="{{ $redoRecord->reason ?? '' }}"
+                                        data-by="{{ $redoBy ?? '' }}">
+                                    <i class="bi bi-exclamation-octagon-fill icon"></i>
+                                    <span class="tag" style="font-size:12px;">REDO</span>
+                                    @if(!empty($redoRecord->reason))
+                                        <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
+                                    @endif
+                                    @if($redoBy)
+                                        <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
+                                    @endif
+                                    </span>
                                     @endif
 
                                     @if((int)($product->editable ?? 0) === 1 && strtolower((string)($product->status ?? '')) === 'rejected')
-                                        <span class="redo-banner redo-offset ms-2 bg-danger text-white js-reason-banner"
-      data-type="REJECTED"
-      data-reason="{{ $rejectRecord->reason ?? '' }}"
-      data-by="{{ $rejectBy ?? '' }}">
-  <i class="bi bi-x-octagon-fill icon"></i>
-  <span class="tag" style="font-size:12px;">REJECTED</span>
-  @if(!empty($rejectRecord->reason))
-    <span style="font-size:12px;" class="reason">{{ Str::limit($rejectRecord->reason, 90) }}</span>
-  @endif
-  @if($rejectBy)
-    <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
-  @endif
-</span>
+                                        <span class="redo-banner redo-offset ms-2 bg-danger text-white js-reason-banner cursor-pointer"
+                                            data-type="REJECTED"
+                                            data-reason="{{ $rejectRecord->reason ?? '' }}"
+                                            data-by="{{ $rejectBy ?? '' }}">
+                                        <i class="bi bi-x-octagon-fill icon"></i>
+                                        <span class="tag" style="font-size:12px;">REJECTED</span>
+                                        @if(!empty($rejectRecord->reason))
+                                            <span style="font-size:12px;" class="reason">{{ Str::limit($rejectRecord->reason, 90) }}</span>
+                                        @endif
+                                        @if($rejectBy)
+                                            <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
+                                        @endif
+                                        </span>
                                     @endif
                                 </div>
                                 <div>
@@ -501,36 +501,36 @@ $isRedoOrder = (bool) $order->redo;
 
             {{-- REDO banner (existing) --}}
             @if($selectedForRedo)
-            <span class="redo-banner redo-offset ms-2 js-reason-banner"
-      data-type="REDO"
-      data-reason="{{ $redoRecord->reason ?? '' }}"
-      data-by="{{ $redoBy ?? '' }}">
-  <i class="bi bi-exclamation-octagon-fill icon"></i>
-  <span class="tag" style="font-size:12px;">REDO</span>
-  @if(!empty($redoRecord->reason))
-    <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
-  @endif
-  @if($redoBy)
-    <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
-  @endif
-</span>
+            <span class="redo-banner redo-offset ms-2 js-reason-banner cursor-pointer"
+                data-type="REDO"
+                data-reason="{{ $redoRecord->reason ?? '' }}"
+                data-by="{{ $redoBy ?? '' }}">
+            <i class="bi bi-exclamation-octagon-fill icon"></i>
+            <span class="tag" style="font-size:12px;">REDO</span>
+            @if(!empty($redoRecord->reason))
+                <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
+            @endif
+            @if($redoBy)
+                <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
+            @endif
+            </span>
             @endif
 
             {{-- ✅ NEW: REJECTED banner (order-level text, product-level flag) --}}
             @if($isRejectedSelected)
-            <span class="redo-banner redo-offset ms-2 bg-danger text-white js-reason-banner"
-      data-type="REJECTED"
-      data-reason="{{ $rejectRecord->reason ?? '' }}"
-      data-by="{{ $rejectBy ?? '' }}">
-  <i class="bi bi-x-octagon-fill icon"></i>
-  <span class="tag" style="font-size:12px;">REJECTED</span>
-  @if(!empty($rejectRecord->reason))
-    <span style="font-size:12px;" class="reason">{{ Str::limit($rejectRecord->reason, 90) }}</span>
-  @endif
-  @if($rejectBy)
-    <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
-  @endif
-</span>
+            <span class="redo-banner redo-offset ms-2 bg-danger text-white js-reason-banner cursor-pointer"
+                data-type="REJECTED"
+                data-reason="{{ $rejectRecord->reason ?? '' }}"
+                data-by="{{ $rejectBy ?? '' }}">
+            <i class="bi bi-x-octagon-fill icon"></i>
+            <span class="tag" style="font-size:12px;">REJECTED</span>
+            @if(!empty($rejectRecord->reason))
+                <span style="font-size:12px;" class="reason">{{ Str::limit($rejectRecord->reason, 90) }}</span>
+            @endif
+            @if($rejectBy)
+                <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
+            @endif
+            </span>
             @endif
         </div>
 
@@ -690,36 +690,36 @@ $isRedoOrder = (bool) $order->redo;
 
                     {{-- existing REDO banner --}}
                     @if($selectedForRedo)
-                        <span class="redo-banner redo-offset ms-2 js-reason-banner"
-      data-type="REDO"
-      data-reason="{{ $redoRecord->reason ?? '' }}"
-      data-by="{{ $redoBy ?? '' }}">
-  <i class="bi bi-exclamation-octagon-fill icon"></i>
-  <span class="tag" style="font-size:12px;">REDO</span>
-  @if(!empty($redoRecord->reason))
-    <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
-  @endif
-  @if($redoBy)
-    <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
-  @endif
-</span>
+                        <span class="redo-banner redo-offset ms-2 js-reason-banner cursor-pointer"
+                            data-type="REDO"
+                            data-reason="{{ $redoRecord->reason ?? '' }}"
+                            data-by="{{ $redoBy ?? '' }}">
+                        <i class="bi bi-exclamation-octagon-fill icon"></i>
+                        <span class="tag" style="font-size:12px;">REDO</span>
+                        @if(!empty($redoRecord->reason))
+                            <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
+                        @endif
+                        @if($redoBy)
+                            <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
+                        @endif
+                        </span>
                     @endif
 
                     {{-- ✅ NEW: REJECTED banner --}}
                     @if($isRejectedSelected)
-                        <span class="redo-banner redo-offset ms-2 bg-danger text-white js-reason-banner"
-      data-type="REJECTED"
-      data-reason="{{ $rejectRecord->reason ?? '' }}"
-      data-by="{{ $rejectBy ?? '' }}">
-  <i class="bi bi-x-octagon-fill icon"></i>
-  <span class="tag" style="font-size:12px;">REJECTED</span>
-  @if(!empty($rejectRecord->reason))
-    <span style="font-size:12px;" class="reason">{{ Str::limit($rejectRecord->reason, 90) }}</span>
-  @endif
-  @if($rejectBy)
-    <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
-  @endif
-</span>
+                        <span class="redo-banner redo-offset ms-2 bg-danger text-white js-reason-banner cursor-pointer"
+                            data-type="REJECTED"
+                            data-reason="{{ $rejectRecord->reason ?? '' }}"
+                            data-by="{{ $rejectBy ?? '' }}">
+                        <i class="bi bi-x-octagon-fill icon"></i>
+                        <span class="tag" style="font-size:12px;">REJECTED</span>
+                        @if(!empty($rejectRecord->reason))
+                            <span style="font-size:12px;" class="reason">{{ Str::limit($rejectRecord->reason, 90) }}</span>
+                        @endif
+                        @if($rejectBy)
+                            <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
+                        @endif
+                        </span>
                     @endif
                     </div>
 
