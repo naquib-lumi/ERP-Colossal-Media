@@ -289,7 +289,7 @@
                                             <tr data-index="{{ $index }}">
                                                 <td class="row-no align-middle fw-semibold text-muted">{{ $index + 1 }}</td>
                                                 <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
-                                                <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ $product['quantity'] ?? '' }}"></td>
+                                                <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control qty-input" min="1" step="1" value="{{ $product['quantity'] ?? '' }}"></td>
                                                 <td><input type="text" name="products[{{ $index }}][material_info]" class="form-control" value="{{ $product['material_info'] ?? '' }}"></td>
                                                 <td>
                                                     <div id="remarks-container-{{ $index }}">
@@ -440,7 +440,7 @@
                         </div>
                         <div class="col-md-6">
                             <label>Quantity</label>
-                            <input id="quantity" type="number" class="form-control">
+                            <input id="quantity" type="number" class="form-control qty-input" inputmode="numeric" pattern="[1-9]\d*" min="1" step="1" autocomplete="off">
                         </div>
                         <div class="col-12">
                             <label>Material Remark</label>
@@ -670,7 +670,7 @@ $(function () {
             if (index !== '') {
                 const row = $(`#product-table tbody tr[data-index="${index}"]`);
                 row.find('td:eq(0)').html(`<input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}">`);
-                row.find('td:eq(1)').html(`<input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}">`);
+                row.find('td:eq(1)').html(`<input type="number" name="products[${index}][quantity]" class="form-control qty-input" min="1" step="1" value="${escapeHtml(data.quantity)}">`);
                 row.find('td:eq(2)').html(`<input type="text" name="products[${index}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}">`);
                 row.find('td:eq(3)').html(`
                     <div id="remarks-container-${index}">
@@ -715,7 +715,7 @@ $(function () {
                     <tr data-index="${productIndex}">
                         <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
                         <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
-                        <td><input type="number" name="products[${productIndex}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}"></td>
+                        <td><input type="number" name="products[${productIndex}][quantity]" class="form-control qty-input" min="1" step="1" value="${escapeHtml(data.quantity)}"></td>
                         <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}"></td>
                         <td>
                             <div id="remarks-container-${productIndex}">
@@ -939,7 +939,7 @@ $(function () {
                         <tr data-index="${productIndex}">
                             <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
                             <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(product.product_name)}"></td>
-                            <td><input type="number" name="products[${productIndex}][quantity]" class="form-control" value="${escapeHtml(product.quantity)}"></td>
+                            <td><input type="number" name="products[${productIndex}][quantity]" class="form-control qty-input" min="1" step="1" value="${escapeHtml(product.quantity)}"></td>
                             <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(product.material_info)}"></td>
                             <td>
                                 <div id="remarks-container-${productIndex}">
@@ -1259,6 +1259,41 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+
+$(document).on('beforeinput', '.qty-input', function (e) {
+  // Prevent inserting non-digit or a leading zero at start
+  if (e.originalEvent && e.originalEvent.data != null) {
+    const data = String(e.originalEvent.data);
+    const el = this;
+    const start = el.selectionStart;
+    const end   = el.selectionEnd;
+    const next = el.value.slice(0, start) + data + el.value.slice(end);
+
+    // only digits allowed
+    if (!/^\d*$/.test(data)) return e.preventDefault();
+
+    // no leading zero
+    // if (/^0/.test(next)) return e.preventDefault();
+  }
+});
+
+// 2) Normalize on input (e.g., strip non-digits coming from autofill/IME)
+$(document).on('input', '.qty-input', function () {
+  // keep only digits
+  let v = this.value.replace(/\D+/g, '');
+
+  // if it starts with zero and has more than one digit, remove leading zeros
+  if (v.length > 1) v = v.replace(/^0+/, '');
+
+  this.value = v;
+});
+
+// Block special chars (e, E, -, +, ., ,)
+$(document).on('keydown', '.qty-input', function (e) {
+  const blocked = ['e', 'E', '-', '+', '.', ','];
+  if (blocked.includes(e.key)) e.preventDefault();
+});
+
 
 function updateAddButton() {
   const count   = $('#product-table tbody tr').length;
