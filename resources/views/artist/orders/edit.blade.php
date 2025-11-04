@@ -5,6 +5,35 @@
 @section('content')
 @push('styles')
 <style>
+  .reason-modal .modal-content { border: 0; overflow: hidden; }
+  .reason-modal .modal-header { padding: 14px 16px; color: #fff; }
+  .reason-modal .rm-chip{
+    display:inline-flex;align-items:center;gap:.4rem;
+    font-size:.75rem;font-weight:700;letter-spacing:.02em;
+    padding:.25rem .6rem;border-radius:999px;background:#e9ecef;color:#212529
+  }
+  .reason-modal .rm-reason-box{
+    border:1px solid rgba(0,0,0,.06);
+    background:#fff;border-radius:.75rem;padding:14px
+  }
+  .reason-modal .rm-reason-text{white-space:pre-wrap;font-size:.95rem}
+  .reason-modal.is-redo .modal-header{
+    background: linear-gradient(135deg,#b00020 0%, #dc3545 60%, #ff6b6b 100%);
+  }
+  .reason-modal.is-redo .rm-chip{
+    background:#ffe3e3;color:#b00020;border:1px solid #ffb3b3;
+  }
+  .reason-modal.is-reject .modal-header{
+    background: linear-gradient(135deg,#e74c3c 0%, #ff6b6b 60%, #ffa8a8 100%);
+  }
+  .reason-modal.is-reject .rm-chip{
+    background:#ffe1e1;color:#8a0018;border:1px solid #ffb3b3;
+  }
+  .reason-modal .btn-close-white{
+    filter: brightness(0) invert(1); opacity:.85
+  }
+  .reason-modal .btn-close-white:hover{ opacity:1 }
+
   .redo-banner{
     display:inline-flex; align-items:center; gap:.5rem;
     background:#dc3545;           /* Bootstrap danger red */
@@ -502,30 +531,50 @@
                       aria-controls="pCollapse{{ $pIndex }}">
                       Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
 
+                      {{-- REDO banner --}}
                       @if ($selectedForRedo)
-                        <span class="redo-banner redo-offset ms-2" title="{{ $redoRecord->reason ?? '' }}">
+                        <span
+                          class="redo-banner redo-offset ms-2 js-reason-banner"
+                          role="button"
+                          tabindex="0"
+                          data-reason="{{ $redoRecord->reason ?? '' }}"
+                          data-by="{{ $redoBy ?? '' }}"
+                          data-type="REDO"
+                          aria-label="View redo reason"
+                        >
                           <i class="bi bi-exclamation-octagon-fill icon"></i>
-                          <span class="tag" style="font-size: 12px;">REDO</span>
-                          @if(!empty($redoRecord->reason))
-                            <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
-                                  title="{{ $redoRecord->reason }}">{{ Str::limit($redoRecord->reason, 90) }}</span>
+                          <span class="tag" style="font-size:12px;">REDO</span>
+                          @if (!empty($redoRecord->reason))
+                            <span style="font-size:12px;" class="reason">
+                              {{ Str::limit($redoRecord->reason, 90) }}
+                            </span>
                           @endif
-                          @if($redoBy)
-                            <span class="by" style="font-size: 12px;">by {{ $redoBy }}</span>
+                          @if ($redoBy)
+                            <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
                           @endif
                         </span>
                       @endif
 
+                      {{-- REJECTED banner --}}
                       @if ($showRejectedBanner)
-                        <span class="redo-banner redo-offset ms-2 bg-danger text-white" title="{{ $rejectRecord->reason ?? '' }}">
+                        <span
+                          class="redo-banner redo-offset ms-2 bg-danger text-white js-reason-banner"
+                          role="button"
+                          tabindex="0"
+                          data-reason="{{ $rejectRecord->reason ?? '' }}"
+                          data-by="{{ $rejectBy ?? '' }}"
+                          data-type="REJECTED"
+                          aria-label="View reject reason"
+                        >
                           <i class="bi bi-x-octagon-fill icon"></i>
-                          <span class="tag" style="font-size: 12px;">REJECTED</span>
-                          @if(!empty($rejectRecord->reason))
-                            <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
-                                  title="{{ $rejectRecord->reason }}">{{ \Illuminate\Support\Str::limit($rejectRecord->reason, 90) }}</span>
+                          <span class="tag" style="font-size:12px;">REJECTED</span>
+                          @if (!empty($rejectRecord->reason))
+                            <span style="font-size:12px;" class="reason">
+                              {{ \Illuminate\Support\Str::limit($rejectRecord->reason, 90) }}
+                            </span>
                           @endif
-                          @if($rejectBy)
-                            <span class="by" style="font-size: 12px;">by {{ $rejectBy }}</span>
+                          @if ($rejectBy)
+                            <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
                           @endif
                         </span>
                       @endif
@@ -1786,6 +1835,35 @@
           <button type="submit" class="btn btn-primary">Save</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade reason-modal" id="reasonModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <div class="d-flex align-items-center gap-2">
+          <span class="rm-chip" id="reasonChip">
+            <i class="bi" id="reasonIcon" aria-hidden="true"></i>
+            <span id="reasonTag">REDO</span>
+          </span>
+          <h5 class="modal-title mb-0" id="reasonModalTitle" style="color: white;">Detail</h5>
+        </div>
+      </div>
+
+      <div class="modal-body pt-0">
+        <div id="reasonBy" class="text-muted small mb-2" style="margin-top: 20px; font-weight:bold;"></div>
+
+        <div class="rm-reason-box">
+          <div class="fw-medium text-muted small mb-1" style="font-weight: bold;">Reason</div>
+          <div id="reasonText" class="rm-reason-text"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -4103,6 +4181,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // initial
   checkAllFilled();
+});
+
+document.addEventListener('click', function (e) {
+  const el = e.target.closest('.js-reason-banner');
+  if (!el) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const type   = (el.getAttribute('data-type') || '').toUpperCase(); // 'REDO' | 'REJECTED'
+  const reason = (el.getAttribute('data-reason') || '').trim();
+  const by     = (el.getAttribute('data-by') || '').trim();
+
+  const modal  = document.getElementById('reasonModal');
+  const title  = document.getElementById('reasonModalTitle');
+  const byEl   = document.getElementById('reasonBy');
+  const textEl = document.getElementById('reasonText');
+  const chip   = document.getElementById('reasonChip');
+  const icon   = document.getElementById('reasonIcon');
+  const tag    = document.getElementById('reasonTag');
+
+  // Reset theme classes
+  modal.classList.remove('is-redo','is-reject');
+
+  if (type === 'REDO') {
+    modal.classList.add('is-redo');
+    icon.className = 'bi bi-exclamation-octagon-fill';
+    tag.textContent = 'REDO';
+    title.textContent = 'Redo Detail';
+  } else { // REJECTED (or fallback)
+    modal.classList.add('is-reject');
+    icon.className = 'bi bi-x-octagon-fill';
+    tag.textContent = 'REJECTED';
+    title.textContent = 'Rejected Detail';
+  }
+
+  byEl.textContent  = by ? `By ${by}` : '';
+  textEl.textContent = reason || '(No reason provided)';
+
+  bootstrap.Modal.getOrCreateInstance(modal).show();
+});
+
+// Optional keyboard support
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return;
+  const active = document.activeElement;
+  if (active && active.classList.contains('js-reason-banner')) active.click();
 });
 </script>
 @endpush
