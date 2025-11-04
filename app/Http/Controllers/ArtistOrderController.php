@@ -167,7 +167,7 @@ class ArtistOrderController extends Controller
                 'products.*.product_name'        => ['required','string','max:255'],
                 'products.*.quantity'            => ['required','integer','min:1'],
                 'products.*.material_info'       => ['required','string'],
-                'products.*.remarks'             => ['required','array'],
+                'products.*.remarks'             => ['nullable','array'],
                 'products.*.remarks.*.operation' => [
                 'required_with:products.*.remarks.*.remark',
                 Rule::in(['printing','furnishing','installation','courier','self_pickup','artist']),

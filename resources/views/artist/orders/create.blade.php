@@ -5,6 +5,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
 
 <style>
+    .swal2-container { z-index: 200000 !important; }
+
     .alert.alert-danger,
     .text-danger ul,
     .text-danger li,
@@ -145,7 +147,7 @@
 </style>
 @endpush
 
-<form id="order-form" action="{{ route('artist.orders.store') }}" method="POST" enctype="multipart/form-data">
+<form id="order-form" action="{{ route('artist.orders.store') }}" method="POST" enctype="multipart/form-data" novalidate>
     @csrf
     <input type="hidden" name="lead_id" id="lead_id" value="{{ $lead->id ?? '' }}">
     <input type="hidden" id="from_csv" name="from_csv" value="{{ old('from_csv', 0) }}">
@@ -432,15 +434,15 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label>Product Name</label>
-                            <input id="product_name" class="form-control" required>
+                            <input id="product_name" class="form-control">
                         </div>
                         <div class="col-md-6">
                             <label>Quantity</label>
-                            <input id="quantity" type="number" class="form-control" required>
+                            <input id="quantity" type="number" class="form-control">
                         </div>
                         <div class="col-12">
                             <label>Material Remark</label>
-                            <textarea id="material_info" class="form-control" required></textarea>
+                            <textarea id="material_info" class="form-control"></textarea>
                         </div>
                         <div class="col-12">
                             <label>Remarks</label>
@@ -511,6 +513,7 @@ $(function () {
 
   $leadSel.on('select2:select', function (e) {
     const d = e.params.data || {};
+    $('input[type="hidden"][name="lead_id"]').val(d.id || '');
     const m = d.meta || {};
     if (m.company_name || m.phone || m.email) {
       set($leadNm,  d.text);
@@ -529,6 +532,7 @@ $(function () {
   });
 
   $leadSel.on('select2:clear', function () {
+    $('input[type="hidden"][name="lead_id"]').val('');
     set($leadNm,''); set($company,''); set($phone,''); set($email,'');
   });
 
@@ -609,6 +613,41 @@ $(function () {
         });
 
         $('#saveProduct').on('click', function() {
+            const nameEl = $('#product_name');
+  const qtyEl  = $('#quantity');
+  const matEl  = $('#material_info');
+
+  const nameVal = (nameEl.val() || '').trim();
+  const qtyVal  = (qtyEl.val()  || '').trim();
+  const matVal  = (matEl.val()  || '').trim();
+
+  const errs = [];
+  if (!nameVal) errs.push('Product Name (in modal) is required.');
+  const q = parseInt(qtyVal, 10);
+  if (!qtyVal || isNaN(q) || q < 1) errs.push('Quantity (in modal) must be an integer ≥ 1.');
+  if (!matVal) errs.push('Material Remark (in modal) is required.');
+
+  if (errs.length) {
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Please complete the product info',
+        html: errs.map(m => `<div style="text-align:left">${m}</div>`).join(''),
+        confirmButtonText: 'OK'
+      }).then(() => {
+        if (!nameVal) return nameEl.trigger('focus');
+        if (!qtyVal || isNaN(q) || q < 1) return qtyEl.trigger('focus');
+        if (!matVal) return matEl.trigger('focus');
+      });
+    } else {
+      alert(errs.join('\n'));
+      if (!nameVal) nameEl.focus();
+      else if (!qtyVal || isNaN(q) || q < 1) qtyEl.focus();
+      else if (!matVal) matEl.focus();
+    }
+    return; // stop; do not proceed to add/update row
+  }
+
             const index = $('#product_index').val();
             const data = {
                 product_name: $('#product_name').val() || '',
@@ -1014,83 +1053,200 @@ $(function () {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
-  const form = document.getElementById('order-form') || document.querySelector('form');
-  const productBox = document.getElementById('product-table');
+  const form = document.getElementById('order-form');
+  if (!form) return;
 
-  if (!form || !productBox) return;
+  function val(el) { return (el?.value ?? '').trim(); }
+  function err(msg) { errors.push(msg); }
 
   form.addEventListener('submit', function (e) {
-    let hasError = false;
+    errors = [];
     let firstBad = null;
-    const msgs = [];
 
-    // only look inside the product table
-    const productInputs = productBox.querySelectorAll(
-      'input[name^="products["], textarea[name^="products["], select[name^="products["]'
-    );
+    // ======= Lead Information (required) =======
+    const leadSelectEl =
+    form.querySelector('select[name="lead_id"]') ||
+    Array.from(form.querySelectorAll('[name="lead_id"]')).pop(); // last element as fallback
 
-    // collect product indexes that actually exist in the table
-    const indexes = new Set();
-    productInputs.forEach(el => {
-      const m = el.name.match(/^products\[(\d+)]/);
-      if (m) indexes.add(m[1]);
+    if (!leadSelectEl || !(leadSelectEl.value || '').trim()) {
+    err('Lead Information is required. Please select a valid lead from the search.');
+    firstBad = firstBad || leadSelectEl;
+    }
+
+    
+
+    // ======= Top-level fields =======
+    const titleEl = form.querySelector('[name="orderTitle"]');
+    const deadlineEl = form.querySelector('[name="deadline"]');
+    const approvalYes = form.querySelector('input[name="approval"][value="1"]');
+    const approvalNo  = form.querySelector('input[name="approval"][value="0"]');
+
+    if (!val(titleEl)) {
+      err('Job Title is required.');
+      firstBad = firstBad || titleEl;
+    }
+
+    if (!val(deadlineEl)) {
+      err('Deadline is required.');
+      firstBad = firstBad || deadlineEl;
+    } else {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const d = new Date(deadlineEl.value);
+      if (isNaN(d.getTime()) || d < today) {
+        err('Deadline must be today or later.');
+        firstBad = firstBad || deadlineEl;
+      }
+    }
+
+    if (!(approvalYes?.checked || approvalNo?.checked)) {
+      err('Approval (Yes / No) is required.');
+      firstBad = firstBad || (approvalYes || approvalNo);
+    }
+
+    // ======= Products array (required, min:1) =======
+    const productRows = Array.from(form.querySelectorAll(
+    // prefer explicit flags if you already have them:
+    '[data-product-row]:not([hidden])'
+    ))
+    .concat(
+    // fallback: visible TRs that contain any input with name starting products[
+    Array.from(form.querySelectorAll('table tbody tr')).filter(tr =>
+        tr.offsetParent !== null &&                    // visible
+        !tr.hasAttribute('data-template') &&           // skip template rows if you use this
+        tr.querySelector('input[name^="products["], textarea[name^="products["], select[name^="products["]') &&
+        !tr.querySelector('[disabled]')                // skip disabled rows
+    )
+    ).filter((row, idx, arr) => arr.indexOf(row) === idx); // uniq
+
+    if (productRows.length < 1) {
+    err('Please add at least 1 product.');
+    }
+
+    // helper to get either snake_case or camelCase field from a row
+    function getField(row, endsWithList) {
+    for (const suffix of endsWithList) {
+        const el = row.querySelector(
+        `input[name$="${suffix}"], textarea[name$="${suffix}"], select[name$="${suffix}"]`
+        );
+        if (el) return el;
+    }
+    return null;
+    }
+
+    productRows.forEach((row, i) => {
+    const idx = i + 1;
+
+    // Try both name styles:
+    const nameEl = getField(row, ['[product_name]', '[productName]']);
+    const qtyEl  = getField(row, ['[quantity]', '[totalQuantity]']);
+    const matEl  = getField(row, ['[material_info]', '[materialRemark]']);
+
+    // If a row is just a template/empty shell, skip it
+    const isTemplateRow =
+        (!nameEl && !qtyEl && !matEl) ||
+        row.hasAttribute('data-template') ||
+        row.style.display === 'none';
+    if (isTemplateRow) return;
+
+    // Basic requireds
+    if (!nameEl || !nameEl.value.trim()) {
+        err(`Product ${idx}: Product Name is required.`);
+        firstBad = firstBad || nameEl;
+    }
+
+    const qtyVal = (qtyEl?.value ?? '').trim();
+    const qtyInt = parseInt(qtyVal, 10);
+    if (!qtyEl || !qtyVal || isNaN(qtyInt) || qtyInt < 1) {
+        err(`Product ${idx}: Quantity must be an integer ≥ 1.`);
+        firstBad = firstBad || qtyEl;
+    }
+
+    if (!matEl || !matEl.value.trim()) {
+        err(`Product ${idx}: Material Remark is required.`);
+        firstBad = firstBad || matEl;
+    }
+
+    // ======= Remarks rule (OP chosen → text required; other combos allowed) =======
+    const opEls = row.querySelectorAll(`select[name*="[remarks]"][name$="[operation]"]`);
+    const rmEls = row.querySelectorAll(`input[name*="[remarks]"][name$="[remark]"], textarea[name*="[remarks]"][name$="[remark]"]`);
+    const pairCount = Math.max(opEls.length, rmEls.length);
+
+    // if no remark rows at all, skip validation for remarks
+    if (pairCount > 0) {
+        let allEmpty = true; // track if every remark row is totally blank
+
+        for (let r = 0; r < pairCount; r++) {
+            const opEl = opEls[r];
+            const rmEl = rmEls[r];
+            const op = (opEl?.value ?? '').trim();
+            const rm = (rmEl?.value ?? '').trim();
+
+            if (op || rm) allEmpty = false; // found at least something filled
+
+            // invalid only if both operation and remark are blank for a visible row
+            if (!op && !rm) {
+            err(`Product ${idx}: Each added remark must have both Operation and Remark text filled.`);
+            firstBad = firstBad || (opEl || rmEl);
+            }
+        }
+    
+
+      for (let r = 0; r < pairCount; r++) {
+        const opEl = opEls[r];
+        const rmEl = rmEls[r];
+        const op = val(opEl);
+        const rm = val(rmEl);
+
+        // Only this condition is enforced now:
+        if (op && !rm) {
+          err(`Product ${i + 1}: If you select an Operation, the Remark text cannot be empty.`);
+          firstBad = firstBad || rmEl;
+        }
+        // If rm filled but no op selected → allowed (as requested)
+        // If both empty → allowed
+      }
+    }
     });
 
-    indexes.forEach(idx => {
-      // ONLY search inside the table box
-      const nameEl = productBox.querySelector(`[name="products[${idx}][product_name]"]`);
-      const qtyEl  = productBox.querySelector(`[name="products[${idx}][quantity]"]`);
-      const matEl  = productBox.querySelector(`[name="products[${idx}][material_info]"]`);
+    // ======= Assign Artist (required) =======
+    const artistSelect = form.querySelector('[name="assignee_artist_id"], [name="artist_id"]');
+    if (!artistSelect || !artistSelect.value.trim()) {
+        err('Please assign an artist before saving the order.');
+        firstBad = firstBad || artistSelect;
+    }
 
-      const nameVal = nameEl ? nameEl.value.trim() : '';
-      const qtyVal  = qtyEl ? qtyEl.value.trim() : '';
-      const matVal  = matEl ? matEl.value.trim() : '';
 
-      // base required for row
-      if (!nameVal || !qtyVal || !matVal) {
-        hasError = true;
-        if (!firstBad) firstBad = nameEl || qtyEl || matEl;
-        msgs.push(`Product ${Number(idx) + 1}: Product Name, Quantity, and Material Remark are required.`);
-      }
-
-      // remarks in this row (still only inside table)
-      const remarkOps = productBox.querySelectorAll(
-        `[name^="products[${idx}][remarks]["][name$="[operation]"]`
-      );
-      const remarkTexts = productBox.querySelectorAll(
-        `[name^="products[${idx}][remarks]["][name$="[remark]"]`
-      );
-
-      remarkOps.forEach((opEl, rIdx) => {
-        const rmEl = remarkTexts[rIdx];
-        const opVal = opEl ? opEl.value.trim() : '';
-        const rmVal = rmEl ? rmEl.value.trim() : '';
-
-        // if one is filled, both must be filled
-        if (opVal || rmVal) {
-          if (!opVal || !rmVal) {
-            hasError = true;
-            if (!firstBad) firstBad = opEl || rmEl;
-            msgs.push(`Product ${Number(idx) + 1}: each remark must have both Operation and Remark.`);
+    // ======= Attachments (unchanged) =======
+    const attachInputs = form.querySelectorAll('input[type="file"][name="attachments[]"]');
+    if (attachInputs.length) {
+      const allowed = ['application/pdf','image/jpeg','image/png','application/postscript'];
+      for (const f of attachInputs) {
+        for (const file of (f.files || [])) {
+          if (file.size > 2 * 1024 * 1024) {
+            err(`Attachment "${file.name}" exceeds 2 MB.`);
+            firstBad = firstBad || f;
+          }
+          if (file.type && !allowed.includes(file.type)) {
+            err(`Attachment "${file.name}" must be pdf, jpg, png, or ai.`);
+            firstBad = firstBad || f;
           }
         }
-      });
-    });
+      }
+    }
 
-    if (hasError) {
+    if (errors.length) {
       e.preventDefault();
+      const html = [...new Set(errors)].map(m => `<div style="text-align:left">${m}</div>`).join('');
       if (typeof Swal !== 'undefined') {
         Swal.fire({
-          icon: 'warning',
-          title: 'Please complete product details',
-          html: msgs.map(m => `<div style="text-align:left">${m}</div>`).join(''),
+          icon: 'error',
+          title: 'Please complete all required fields',
+          html,
           confirmButtonText: 'OK'
-        });
+        }).then(() => { if (firstBad?.focus) firstBad.focus(); });
       } else {
-        alert(msgs.join('\n'));
-      }
-      if (firstBad) {
-        setTimeout(() => firstBad.focus(), 120);
+        alert(errors.join('\n'));
+        if (firstBad?.focus) firstBad.focus();
       }
     }
   });
