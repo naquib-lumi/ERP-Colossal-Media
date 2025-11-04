@@ -8,7 +8,7 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Add Lead</h5>
-                    <a href="{{ route('sales.leads') }}" class="btn btn-secondary">Back to Leads</a>
+                    <a href="{{ route('sales.leads') }}" class="btn btn-secondary">Back</a>
                 </div>
                 <div class="card-body">
                     <form action="{{ route('leads.store') }}" method="POST" enctype="multipart/form-data">
@@ -140,9 +140,9 @@
                             <div id="dropzone" class="dropzone" 
                                 style="min-height: 150px; border: 2px dashed #ccc; padding: 20px; text-align: center; background-color: #f8f9fa;">
                                 <p id="dropzone-message">Drag and drop files here, or click to browse</p>
-                                <p>Supported formats: PDF, DOC, JPG, PNG (Max 10MB)</p>
+                                <p>Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB)</p>
                                 <input type="file" class="form-control" id="attachments" name="attachments[]" multiple
-                                    accept=".pdf,.doc,.jpg,.png" style="display: none;">
+                                    accept=".pdf,.doc,.docx,.jpg,.png" style="display: none;">
                                 <button type="button" class="btn btn-secondary"
                                         onclick="document.getElementById('attachments').click();">Choose File</button>
                             </div>
@@ -151,7 +151,7 @@
                                 <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
-
+                             <a href="{{ route('sales.leads') }}" class="btn btn-secondary">Back</a>
                         <button type="submit" class="btn btn-primary">Save</button>
                     </form>
                 </div>
@@ -166,6 +166,9 @@
     const message = document.getElementById('dropzone-message');
     const selectedFilesList = document.getElementById('selected-files-list');
     let selectedFiles = [];
+
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/jpg'];
+    const maxSize = 10240 * 1024; // 10MB
 
     // Prevent default behaviors for drag/drop
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -187,25 +190,50 @@
 
     // Handle dropped files
     dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
         dropzone.style.borderColor = '#ccc';
         dropzone.style.backgroundColor = '#f8f9fa';
 
         const files = e.dataTransfer.files;
-        addFiles(files);
+        processFiles(files);
     });
 
     // Update on file input change
     fileInput.addEventListener('change', () => {
-        addFiles(fileInput.files);
-        //fileInput.value = ''; // Clear input to allow re-selecting same files
+        processFiles(fileInput.files);
     });
 
-    function addFiles(files) {
+    function processFiles(files) {
+        let validFiles = [];
+        let invalidFiles = [];
+        let sizeErrors = [];
+        let typeErrors = [];
+
         Array.from(files).forEach(file => {
+            if (file.size > maxSize) {
+                sizeErrors.push(file.name);
+                return;
+            }
+            if (!allowedTypes.includes(file.type)) {
+                typeErrors.push(file.name);
+                return;
+            }
             if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
-                selectedFiles.push(file);
+                validFiles.push(file);
             }
         });
+
+        // Add valid files
+        selectedFiles.push(...validFiles);
+
+        // Show consolidated errors with SweetAlert
+        if (sizeErrors.length > 0) {
+            Swal.fire('Warning!', `${sizeErrors.join(', ')} exceed 10MB limit.`, 'warning');
+        }
+        if (typeErrors.length > 0) {
+            Swal.fire('Warning!', `${typeErrors.join(', ')} not allowed. Only PDF, DOC, DOCX, JPG, PNG permitted.`, 'warning');
+        }
+
         updateFileInput();
         updateFileList();
     }

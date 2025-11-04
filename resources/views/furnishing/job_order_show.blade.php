@@ -9,11 +9,11 @@
   .remark-head{display:flex;gap:.5rem;align-items:center;margin-bottom:.25rem}
   .op-badge{display:inline-block;padding:.15rem .5rem;font-size:.75rem;font-weight:700}
   .op-printing{background:#EEF2FF;color:#4F46E5}
-  .op-furnishing{background:#FFF7ED;color:#C2410C}
+  .op-furnishing{background: #FFF7ED;color: #C2410C}
   .op-installation{background:#ECFEFF;color:#0E7490}
   .op-courier{background:#ECFDF5;color:#047857}
   .op-self_pickup{background:#F3F4F6;color:#111827}
-  .op-artist{background:#F9FAE2;color:#836500}
+  .op-artist{background: #f9fae2ff; color: #ffd500ff;}
   .remark-meta{color:#6B7280;font-size:.8rem}
   .remark-text{white-space:pre-wrap}
 
@@ -169,11 +169,7 @@
   .remark-card .head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
   .remark-card .meta{color:#6B7280;font-size:.85rem}
   .remark-card .body{color:#111827;white-space:pre-wrap}
-  .op-badge{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:.22rem .55rem;font-size:.75rem;font-weight:700;
-    border-radius:.5rem;background:#EEF2FF;color:#4F46E5;
-  }
+
 </style>
 
 <div class="resize-guide" id="colGuide"></div>
@@ -188,7 +184,13 @@
 
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
-        <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
+        <!-- <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a> -->
+        <a href="{{ route('furnishing.dashboard') }}"
+            class="text-decoration-none text-muted me-3"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="bi bi-arrow-left-circle fw-semibold"
+                style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        </a>
         <h1 class="h4 fw-bold mb-0">Furnishing Task — <span class="text-muted">{{ $product_code }}</span></h1>
       </div>
       <div class="d-flex align-items-center gap-2">
@@ -303,7 +305,7 @@
                     <th>Item <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Quantity <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Size (W • H) <span class="resize-handle" aria-hidden="true"></span></th>
-                    <th>Bleed (T • L • B • R) <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Bleed (T • B • L • R) <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Material <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Prime Centre <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Lamination <span class="resize-handle" aria-hidden="true"></span></th>
@@ -324,22 +326,54 @@
                     <td>{{ $it['lamination'] ?? '—' }}</td>
                     <td>{{ $it['printer'] ?? '—' }}</td>
                     <td class="td-cutter">
-                      <span class="view-text">{{ $it['cutter'] ?? '—' }}</span>
-                      @if($canEdit)
-                      <select class="form-select form-select-sm edit-input" data-item-id="{{ $it['item_id'] }}">
-                        <option value="">—</option>
-                        <option>Jinwei 1 6x10</option>
-                        <option>AOL1 6x10</option>
-                        <option>AOL2 1000x700</option>
-                        <option>Router 1</option>
-                        <option>Laser 1 300W</option>
-                        <option>Laser 2 150W</option>
-                        <option>Laser 3 150W</option>
-                        <option>Paper cutter</option>
-                        @foreach(($cutterOptions ?? []) as $opt)
-                          <option value="{{ $opt }}" @selected(($it['cutter'] ?? '' )===$opt)>{{ $opt }}</option>
-                        @endforeach
-                      </select>
+                      @php
+                        // only allow selecting in the currently selected product block
+                        $isSelectedProduct = ((int)($block['id'] ?? 0) === (int)($header->ProductID ?? 0));
+
+                        $itemId = (int)($it['item_id'] ?? 0);
+
+                        // prefer specifications.cutter; fallback to legacy item field
+                        $curCutterName = trim((string)($specCutters[$itemId] ?? ($it['cutter'] ?? '')));
+
+                        // helper: is this name in the cutters list?
+                        $existsInList = function($name) use ($cutters) {
+                          if ($name === '') return false;
+                          foreach ($cutters as $c) {
+                            if (strcasecmp(trim($c->machine_name), trim($name)) === 0) return true;
+                          }
+                          return false;
+                        };
+                      @endphp
+
+                      @if($canEdit && $isSelectedProduct)
+                        <select
+                          class="form-select form-select-sm edit-input cutter-select"
+                          name="items[{{ $itemId }}][cutter_id]"
+                          data-product-id="{{ $block['id'] ?? '' }}"
+                          data-item-id="{{ $itemId }}"
+                        >
+                          <option value="">-</option>
+                          @foreach($cutters as $m)
+                            <option
+                              value="{{ $m->id }}"
+                              data-name="{{ $m->machine_name }}"
+                              {{ strcasecmp($curCutterName, $m->machine_name) === 0 ? 'selected' : '' }}
+                            >
+                              {{ $m->machine_name }}
+                            </option>
+                          @endforeach
+
+                          {{-- if saved name isn't in machines, show it so user sees what's stored --}}
+                          @if($curCutterName !== '' && !$existsInList($curCutterName))
+                            <option value="" selected>{{ $curCutterName }} (not in list)</option>
+                          @endif
+                        </select>
+
+                        {{-- keep a text fallback for controller (and for “(not in list)” case) --}}
+                        <input type="hidden" name="items[{{ $itemId }}][cutter]" value="{{ $curCutterName }}">
+                      @else
+                        {{-- read-only when not the selected product or cannot edit --}}
+                        <span class="view-text">{{ $curCutterName !== '' ? $curCutterName : '—' }}</span>
                       @endif
                     </td>
                     <td>{!! !empty($it['assemble']) ? '<span class="badge-yes">Yes</span>' : '<span class="badge-no">No</span>' !!}</td>
@@ -499,19 +533,19 @@
         <div class="toolbar">
           @if ($isRejected)
             <div class="alert alert-danger mb-2" style="font-weight:500;">This product <strong>{{ $currentProductName ?? 'Unnamed Product' }}</strong> has been rejected.</div>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            <a href="{{ route('furnishing.dashboard') }}" class="btn btn-back">Back</a>
           @endif
 
           @if ($canSeeDecision)
             <button type="button" id="btnAccept" class="btn btn-accept"><i class="bi bi-check2"></i> Accept</button>
             <button type="button" id="btnReject" class="btn btn-reject"><i class="bi bi-x-lg"></i> Reject</button>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            <a href="{{ route('furnishing.dashboard') }}" class="btn btn-back">Back</a>
           @endif
 
           @if ($canEditThisStage)
             <div class="toolbar">
               <button type="button" id="btnEdit" class="btn btn-back"><i class="bi bi-pencil"></i> Edit</button>
-              <a href="javascript:history.back()" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
+              <a href="{{ route('furnishing.dashboard') }}" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
             </div>
           @endif
         </div>
@@ -559,7 +593,7 @@
       </div>
       <div class="cx-body">
         <div class="help">Please provide a reason for rejecting this task.</div>
-        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."'></textarea>
+        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."' required></textarea>
       </div>
       <div class="cx-footer">
         <button type="button" class="btn btn-back" data-close="modalReject">Cancel</button>
@@ -697,12 +731,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     block.querySelectorAll('tr[data-itemid]').forEach(tr => {
       const itemId = tr.getAttribute('data-itemid');
-      const sel    = tr.querySelector('.td-cutter .edit-input');
-      if (itemId && sel) {
-        const h = document.createElement('input');
-        h.type  = 'hidden'; h.name = `cutters[${itemId}]`; h.value = sel.value.trim();
-        form.appendChild(h);
-      }
+      const sel    = tr.querySelector('.td-cutter .cutter-select');
+      if (!itemId || !sel) return;
+
+      const opt = sel.options[sel.selectedIndex];
+
+      // 1) cutter_id (machine id or empty)
+      const h1 = document.createElement('input');
+      h1.type  = 'hidden';
+      h1.name  = `items[${itemId}][cutter_id]`;
+      h1.value = (sel.value || '').trim();
+      form.appendChild(h1);
+
+      // 2) cutter (machine name; keeps legacy + supports "(not in list)")
+      const chosenName = (opt && opt.getAttribute('data-name'))
+        ? opt.getAttribute('data-name').trim()
+        : (opt ? opt.text.trim().replace(/\s*\(not in list\)\s*$/i, '') : '');
+
+      const h2 = document.createElement('input');
+      h2.type  = 'hidden';
+      h2.name  = `items[${itemId}][cutter]`;
+      h2.value = chosenName;
+      form.appendChild(h2);
     });
 
     const rows = document.querySelectorAll('#remarks-list .remark-row');

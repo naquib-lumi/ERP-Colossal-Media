@@ -98,33 +98,19 @@ class FurnishingProductOrderController extends Controller
      */
     public function show(int $productId)
     {
-        // --- 1) Load the selected product + order header ---
+        // --- 1) Load the selected product + order header --- 
         $headerRow = DB::table('products as p')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
             ->leftJoin('users  as u', 'u.id', '=', 'o.artist_id')
             ->leftJoin('users  as de', 'de.id', '=', 'o.data_entry_id')
             ->where('p.ProductID', $productId)
             ->select([
-                'p.ProductID',
-                'p.OrderID',
-                'p.status',
-                'p.taskType',
-                'p.productName as productName',
-                'p.accepted',
-                'p.totalQuantity',
-                'p.materialRemark',
-                'p.redoOf as redo_product_of',  
-                'p.editable',   
-                'o.redo   as redo_order',
-                'o.order_number',
-                'o.orderTitle',
-                'o.companyName',
-                'o.orderDate',
-                'o.deadline',
-                'o.artist_id',
-                'o.orderAttachment',
-                'o.status as orderStatus',
-                'p.accepted',
+                'p.ProductID','p.OrderID','p.status','p.taskType',
+                'p.productName as productName','p.accepted','p.totalQuantity',
+                'p.materialRemark','p.redoOf as redo_product_of','p.editable',
+                'o.redo as redo_order','o.order_number','o.orderTitle','o.companyName',
+                'o.orderDate','o.deadline','o.artist_id','o.orderAttachment',
+                'o.status as orderStatus','p.accepted',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
                 DB::raw('COALESCE(de.name, "") as data_entry_name'),
             ])
@@ -134,49 +120,38 @@ class FurnishingProductOrderController extends Controller
 
         $baseOrderId   = $headerRow->redo_order      ?: $headerRow->OrderID;
         $baseProductId = $headerRow->redo_product_of ?: $productId;
-        $year          = $headerRow->orderDate ? \Carbon\Carbon::parse($headerRow->orderDate)->format('Y') : date('Y');
+        $year          = $headerRow->orderDate
+            ? \Carbon\Carbon::parse($headerRow->orderDate)->format('Y') : date('Y');
 
-        // R only if this is a redo product AND editable = 1
         $rFlag = ($headerRow->redo_product_of && (int)$headerRow->editable === 1) ? 'R' : '';
 
-        $displayProductCode = sprintf(
-            '#ORD-%s-%03d-P%04d%s',
-            $year,
-            (int)$baseOrderId,
-            (int)$baseProductId,
-            $rFlag
-        );
+        $displayProductCode = sprintf('#ORD-%s-%03d-P%04d%s',
+            $year, (int)$baseOrderId, (int)$baseProductId, $rFlag);
 
-        // Header object used by your current blade
         $header = (object)[
-            'ProductID'    => $headerRow->ProductID,
-            'OrderID'      => $headerRow->OrderID,
-            'status'       => $headerRow->status,
-            'taskType'     => $headerRow->taskType,
-            'productName'  => $headerRow->productName, 
-            'accepted'     => $headerRow->accepted,
-            'order_number' => $headerRow->order_number,
-            'order_title'  => $headerRow->orderTitle,
-            'companyName'  => $headerRow->companyName,
-            'artist_name'  => $headerRow->artist_name,
-            'orderStatus'   => $headerRow->orderStatus,
-            'accepted'      => $headerRow->accepted,
+            'ProductID'       => $headerRow->ProductID,
+            'OrderID'         => $headerRow->OrderID,
+            'status'          => $headerRow->status,
+            'taskType'        => $headerRow->taskType,
+            'productName'     => $headerRow->productName,
+            'accepted'        => $headerRow->accepted,
+            'order_number'    => $headerRow->order_number,
+            'order_title'     => $headerRow->orderTitle,
+            'companyName'     => $headerRow->companyName,
+            'artist_name'     => $headerRow->artist_name,
+            'orderStatus'     => $headerRow->orderStatus,
             'data_entry_name' => $headerRow->data_entry_name,
         ];
 
-        $canEdit = ((int)($headerRow->accepted ?? 0) === 1) && (strtolower((string)($headerRow->orderStatus ?? '')) !== 'rejected');
+        $canEdit = ((int)($headerRow->accepted ?? 0) === 1)
+            && (strtolower((string)($headerRow->orderStatus ?? '')) !== 'rejected');
 
-        $dates = [
-            'order_date' => $headerRow->orderDate,
-            'deadline'   => $headerRow->deadline,
-        ];
-
+        $dates = ['order_date' => $headerRow->orderDate, 'deadline' => $headerRow->deadline];
         $productCode = $displayProductCode;
 
-        // ---- compact product header (for the selected product) ----
         $productHeader = [
             'name'     => trim((string)($headerRow->productName ?? '')),
-            'code'     => $displayProductCode,   // ← use redo-aware code
+            'code'     => $displayProductCode,
             'qty'      => (int)($headerRow->totalQuantity ?? 0),
             'material' => trim((string)($headerRow->materialRemark ?? '')),
         ];
@@ -192,7 +167,6 @@ class FurnishingProductOrderController extends Controller
                 ->get();
 
             return $raw->map(function ($r) use ($fmt) {
-                // material: support json array or plain text
                 $material = $r->material;
                 if (is_string($material) && $material !== '') {
                     $t = ltrim($material);
@@ -224,7 +198,7 @@ class FurnishingProductOrderController extends Controller
                     : (!is_null($r->finishing) && (int)$r->finishing === 1);
 
                 return [
-                    'item_id'          => (int)$r->ItemID,
+                    'item_id'    => (int)$r->ItemID,
                     'name'       => $r->itemName,
                     'qty'        => $r->quantity,
                     'size'       => $size,
@@ -232,8 +206,8 @@ class FurnishingProductOrderController extends Controller
                     'material'   => $material,
                     'prime'      => $prime,
                     'lamination' => $r->lamination,
-                    'printer'    => $r->printer,
-                    'cutter'     => $r->cutter,
+                    'printer'    => $r->printer,   // still available from join
+                    'cutter'     => $r->cutter,    // <— furnishing edits this
                     'assemble'   => $assemble,
                 ];
             })->values()->all();
@@ -250,27 +224,23 @@ class FurnishingProductOrderController extends Controller
         $buildDeliveriesAndTotals = function (int $pid, int $productQty) use ($canonMethod) {
             $rows = DB::table('delivery_breakdowns')
                 ->where('ProductID', $pid)
-                ->select(['method', 'deliver_install_type', 'outsource_cost', 'quantity', 'date', 'time', 'location'])
+                ->select(['method','deliver_install_type','outsource_cost','quantity','date','time','location'])
                 ->orderBy('BreakdownID')
                 ->get();
 
             $deliveries = $rows->map(function ($d) use ($canonMethod) {
                 $m = $canonMethod($d->method);
-
                 $dateTime = null;
                 if ($d->date) {
-                    $dt = $d->time
-                        ? \Carbon\Carbon::parse($d->date . ' ' . $d->time)
-                        : \Carbon\Carbon::parse($d->date);
+                    $dt = $d->time ? \Carbon\Carbon::parse($d->date.' '.$d->time) : \Carbon\Carbon::parse($d->date);
                     $dateTime = $d->time ? $dt->format('Y-m-d H:i') : $dt->format('Y-m-d');
                 }
-
                 return [
                     'method'       => $m['key'],
                     'method_label' => $m['label'],
                     'icon'         => $m['icon'],
                     'quantity'     => (int)($d->quantity ?? 0),
-                    'location'      => (string)($d->location ?? ''),
+                    'location'     => (string)($d->location ?? ''),
                     'datetime'     => $dateTime,
                     'install'      => $d->deliver_install_type,
                     'cost'         => $d->outsource_cost !== null ? (float)$d->outsource_cost : null,
@@ -278,20 +248,15 @@ class FurnishingProductOrderController extends Controller
             })->values()->all();
 
             $deliveredQty = (int)$rows->sum(fn($r) => (int)($r->quantity ?? 0));
-            $totals = [
-                'total'     => $productQty,
-                'delivered' => $deliveredQty,
-                'remaining' => max(0, $productQty - $deliveredQty),
-            ];
-
+            $totals = ['total'=>$productQty,'delivered'=>$deliveredQty,'remaining'=>max(0,$productQty-$deliveredQty)];
             return [$deliveries, $totals];
         };
 
-        // ===== 2) Data for the SELECTED product (keeps your current blade working) =====
+        // ===== 2) Selected product data =====
         $items = $buildItems($productId);
         [$deliveries, $totals] = $buildDeliveriesAndTotals($productId, (int)($headerRow->totalQuantity ?? 0));
 
-        // Product remarks for the selected product
+        // Remarks
         $remarkRows = DB::table('product_remarks')
             ->where('ProductID', $productId)
             ->orderBy('created_at')->get();
@@ -304,20 +269,13 @@ class FurnishingProductOrderController extends Controller
 
         $remarks = DB::table('product_remarks as pr')
             ->leftJoin('users as u', 'u.id', '=', 'pr.user_id')
-            ->where('pr.ProductID', $productId)              // $product is the ProductID you already have
+            ->where('pr.ProductID', $productId)
             ->orderBy('pr.created_at', 'desc')
-            ->select([
-                'pr.RemarkID',
-                'pr.ProductID',
-                'pr.operation',
-                'pr.remark',
-                'pr.created_at',
-                'u.name as author_name',
-            ])
+            ->select(['pr.RemarkID','pr.ProductID','pr.operation','pr.remark','pr.created_at','u.name as author_name'])
             ->get();
         $remarksByOp = $remarks->groupBy('operation');
 
-        // Attachments (from orders.orderAttachment)
+        // Attachments (same as your code) ...
         $attachments = [];
         $rawAtt = (string)($headerRow->orderAttachment ?? '');
         if ($rawAtt !== '') {
@@ -326,24 +284,19 @@ class FurnishingProductOrderController extends Controller
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 $paths = array_values(array_filter($decoded));
             } else {
-                $paths = preg_split('/[\s,]+/', $rawAtt, -1, PREG_SPLIT_NO_EMPTY);
+                $paths = str_contains($rawAtt, ',') ? array_map('trim', explode(',', $rawAtt)) : [trim($rawAtt)];
             }
             foreach ($paths as $p) {
                 $p = ltrim($p, '/');
-                if (Str::startsWith($p, ['http://', 'https://'])) {
-                    $url = $p;
-                } elseif (Storage::disk('public')->exists($p)) {
-                    $url = Storage::url($p);
-                } elseif (Storage::exists($p)) {
-                    $url = Storage::url($p);
-                } else {
-                    $url = asset($p);
-                }
-                $attachments[] = ['name' => basename($p), 'size' => '', 'url' => $url];
+                if (Str::startsWith($p, ['http://','https://']))       $url = $p;
+                elseif (Storage::disk('public')->exists($p))            $url = Storage::url($p);
+                elseif (Storage::exists($p))                            $url = Storage::url($p);
+                else                                                    $url = asset($p);
+                $attachments[] = ['name'=>basename($p),'size'=>'','url'=>$url];
             }
         }
 
-        // ===== 3) Build ALL product blocks for the same order (to show multiple products) =====
+        // ===== 3) All products in the order (blocks) =====
         $productIds = DB::table('products')
             ->where('OrderID', $headerRow->OrderID)
             ->orderBy('ProductID')
@@ -356,16 +309,10 @@ class FurnishingProductOrderController extends Controller
 
             $yearForBlocks        = $headerRow->orderDate ? \Carbon\Carbon::parse($headerRow->orderDate)->format('Y') : date('Y');
             $baseOrderIdForBlocks = $headerRow->redo_order ?: $headerRow->OrderID;
+            $rFlagBlock           = ($p->redoOf && (int)$p->editable === 1) ? 'R' : '';
 
-            $rFlagBlock = ($p->redoOf && (int)$p->editable === 1) ? 'R' : '';
-
-            $code = sprintf(
-                '#ORD-%s-%03d-P%04d%s',
-                $yearForBlocks,
-                (int)$baseOrderIdForBlocks,
-                (int)($p->redoOf ?: $p->ProductID),
-                $rFlagBlock
-            );
+            $code = sprintf('#ORD-%s-%03d-P%04d%s',
+                $yearForBlocks, (int)$baseOrderIdForBlocks, (int)($p->redoOf ?: $p->ProductID), $rFlagBlock);
 
             $ph = [
                 'name'     => (string)($p->productName ?? ''),
@@ -375,26 +322,40 @@ class FurnishingProductOrderController extends Controller
             ];
             $its = $buildItems((int)$pid);
             [$dels, $tots] = $buildDeliveriesAndTotals((int)$pid, (int)($p->totalQuantity ?? 0));
-            $hasDeliveries = !empty($dels);
-
             $blocks[] = [
                 'id'             => (int)$pid,
                 'product_header' => $ph,
                 'items'          => $its,
                 'deliveries'     => $dels,
                 'totals'         => $tots,
-                'has_deliveries' => $hasDeliveries,
+                'has_deliveries' => !empty($dels),
             ];
         }
 
-        // Who to show in chips
-        $assignee = $header->artist_name ?: '—';
+        // chips
+        $assignee  = $header->artist_name ?: '—';
         $dataEntry = $header->data_entry_name ?: '—';
-        $uploader = $assignee;
-        $permit   = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
+        $uploader  = $assignee;
+        $permit    = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
+
+        // NEW: load cutters list + current cutter per item
+        $cutters = DB::table('machines')
+            ->where('machine_type', 'cutter')
+            ->orderBy('machine_name')
+            ->get(['id','machine_name']);
+
+        // Collect all item IDs across visible blocks (for preselect)
+        $itemIds = [];
+        foreach ($blocks as $b) {
+            foreach ($b['items'] as $it) {
+                if (!empty($it['item_id'])) $itemIds[] = (int)$it['item_id'];
+            }
+        }
+        $specCutters = !empty($itemIds)
+            ? DB::table('specifications')->whereIn('ItemID', $itemIds)->pluck('cutter','ItemID') // [ItemID => 'Zund G3']
+            : collect();
 
         return view('furnishing.job_order_show', [
-            // current single-product variables (unchanged)
             'product_code'   => $productCode,
             'header'         => $header,
             'dates'          => $dates,
@@ -403,15 +364,19 @@ class FurnishingProductOrderController extends Controller
             'deliveries'     => $deliveries,
             'totals'         => $totals,
             'assignee'       => $assignee,
-            'dataEntry'  => $dataEntry,
+            'dataEntry'      => $dataEntry,
             'uploader'       => $uploader,
             'permit'         => $permit,
             'attachments'    => $attachments,
             'product_header' => $productHeader,
             'blocks'         => $blocks,
-            'canEdit' => $canEdit,
-            'remarksByOp' => $remarksByOp,
-            'remarks' => $remarks,
+            'canEdit'        => $canEdit,
+            'remarksByOp'    => $remarksByOp,
+            'remarks'        => $remarks,
+
+            // NEW for Blade:
+            'cutters'        => $cutters,
+            'specCutters'    => $specCutters,
         ]);
     }
 
@@ -519,91 +484,91 @@ class FurnishingProductOrderController extends Controller
     }
 
     public function reject(\Illuminate\Http\Request $request, int $product)
-{
-    $this->assertRoleMatchesProductStage($product);
+    {
+        $this->assertRoleMatchesProductStage($product);
 
-    $request->validate([
-        'reason' => 'required|string|max:2000',
-    ]);
-
-    $stage = 'furnishing';
-    $now   = now();
-
-    // ---- Load product & order (for notifications) ----
-    $p = DB::table('products')
-        ->where('ProductID', (int)$product)
-        ->select('ProductID', 'productName', 'OrderID')
-        ->first();
-    abort_if(!$p, 404, 'Product not found.');
-
-    $o = DB::table('orders')
-        ->where('id', (int)$p->OrderID)
-        ->select('id', 'order_number', 'artist_id', 'salesperson_id')
-        ->first();
-    abort_if(!$o, 404, 'Order not found for this product.');
-
-    $orderId = (int) $o->id;
-    $actorId = (int) auth()->id();
-
-    DB::transaction(function () use ($product, $orderId, $stage, $now, $request, $actorId) {
-
-        // 1) Force ALL *other* products in this order to editable = 0
-        //    (do not touch rows already rejected)
-        DB::table('products')
-            ->where('OrderID', $orderId)
-            ->where('ProductID', '<>', (int)$product)
-            ->where(function ($q) {
-                $q->whereNull('status')->orWhere('status', '!=', 'rejected');
-            })
-            ->update([
-                'editable'   => 0,
-                'updated_at' => $now,
-            ]);
-
-        // 2) ONLY the selected product -> rejected + not accepted + editable=1
-        DB::table('products')
-            ->where('ProductID', (int)$product)
-            ->update([
-                'accepted'   => 0,
-                'status'     => 'rejected',
-                'editable'   => 1,
-                'updated_at' => $now,
-            ]);
-
-        // 3) Order flags (your spec)
-        DB::table('orders')
-            ->where('id', $orderId)
-            ->update([
-                'orderStatus'   => 'rejected',
-                'draft'         => 1,
-                'submit'        => 0,
-                'pending'       => 0,
-                'data_entry_id' => null,
-                'updated_at'    => $now,
-            ]);
-
-        // 4) Reason (+ who rejected)
-        DB::table('report_redo')->insert([
-            'OrderID'    => $orderId,
-            'reason'     => (string) $request->reason,
-            'user_id'    => $actorId,
-            'created_at' => $now,
-            'updated_at' => $now,
+        $request->validate([
+            'reason' => 'required|string|max:2000',
         ]);
 
-        // 5) Fulfillment progress for THIS product
-        DB::table('fulfillment_progress')->upsert(
-            [[
-                'ProductID'  => (int)$product,
-                'stage'      => $stage,
-                'status'     => 'rejected',
+        $stage = 'furnishing';
+        $now   = now();
+
+        // ---- Load product & order (for notifications) ----
+        $p = DB::table('products')
+            ->where('ProductID', (int)$product)
+            ->select('ProductID', 'productName', 'OrderID')
+            ->first();
+        abort_if(!$p, 404, 'Product not found.');
+
+        $o = DB::table('orders')
+            ->where('id', (int)$p->OrderID)
+            ->select('id', 'order_number', 'artist_id', 'salesperson_id')
+            ->first();
+        abort_if(!$o, 404, 'Order not found for this product.');
+
+        $orderId = (int) $o->id;
+        $actorId = (int) auth()->id();
+
+        DB::transaction(function () use ($product, $orderId, $stage, $now, $request, $actorId) {
+
+            // 1) Force ALL *other* products in this order to editable = 0
+            //    (do not touch rows already rejected)
+            DB::table('products')
+                ->where('OrderID', $orderId)
+                ->where('ProductID', '<>', (int)$product)
+                ->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', '!=', 'rejected');
+                })
+                ->update([
+                    'editable'   => 0,
+                    'updated_at' => $now,
+                ]);
+
+            // 2) ONLY the selected product -> rejected + not accepted + editable=1
+            DB::table('products')
+                ->where('ProductID', (int)$product)
+                ->update([
+                    'accepted'   => 0,
+                    'status'     => 'rejected',
+                    'editable'   => 1,
+                    'updated_at' => $now,
+                ]);
+
+            // 3) Order flags (your spec)
+            DB::table('orders')
+                ->where('id', $orderId)
+                ->update([
+                    'orderStatus'   => 'rejected',
+                    'draft'         => 1,
+                    'submit'        => 0,
+                    'pending'       => 0,
+                    'data_entry_id' => null,
+                    'updated_at'    => $now,
+                ]);
+
+            // 4) Reason (+ who rejected)
+            DB::table('report_redo')->insert([
+                'OrderID'    => $orderId,
+                'reason'     => (string) $request->reason,
+                'user_id'    => $actorId,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]],
-            ['ProductID', 'stage'],
-            ['status', 'updated_at']
-        );
-    });
+            ]);
+
+            // 5) Fulfillment progress for THIS product
+            DB::table('fulfillment_progress')->upsert(
+                [[
+                    'ProductID'  => (int)$product,
+                    'stage'      => $stage,
+                    'status'     => 'rejected',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]],
+                ['ProductID', 'stage'],
+                ['status', 'updated_at']
+            );
+        });
 
         // --- Build and send notifications (after commit) ---
         $actor      = Auth::user();
@@ -681,89 +646,114 @@ class FurnishingProductOrderController extends Controller
 
     public function save(Request $request, int $product)
     {
-        // only allow save when the order has been accepted and not rejected
+        // Guard: only accepted & not rejected
         $order = DB::table('products')
             ->join('orders', 'orders.id', '=', 'products.OrderID')
             ->where('products.ProductID', $product)
             ->select(
-                'products.ProductID',
-                'products.productName',
-                'products.accepted',
-                'orders.id as order_id',
-                'orders.order_number',
-                'orders.orderStatus',
-                'orders.artist_id',
-                'orders.salesperson_id')
-            ->first();
+                'products.ProductID','products.productName','products.accepted',
+                'orders.id as order_id','orders.order_number','orders.orderStatus',
+                'orders.artist_id','orders.salesperson_id'
+            )->first();
 
         if (!$order || (int)($order->accepted ?? 0) !== 1 || strtolower((string)$order->orderStatus) === 'rejected') {
             return back()->with('error', 'This job cannot be edited.');
         }
 
-        $cutters = (array) $request->input('cutters', []);
-        $remarks = (array) $request->input('remarks', []);
-        $userId   = Auth::id();
+        $userId = Auth::id();
 
-        // Preload existing specs for change detection
-        $itemIds = array_keys($cutters);
-        $existingSpecs = empty($itemIds)
+        // ONLY allow items that belong to THIS product
+        $allowedItemIds = DB::table('product_items')
+            ->where('ProductID', $product)
+            ->pluck('ItemID')
+            ->map(fn($v)=>(int)$v)
+            ->all();
+
+        // Normalize input to: [itemId => cutterName|null]
+        $incoming = [];
+
+        // A) New shape: items[<ItemID>][cutter_id] (+ optional [cutter] text)
+        $itemsPayload = $request->input('items', []);
+        if (is_array($itemsPayload) && !empty($itemsPayload)) {
+            // map machine id -> name for cutters
+            $machines = DB::table('machines')
+                ->where('machine_type', 'cutter')
+                ->pluck('machine_name', 'id'); // [id => name]
+
+            foreach ($itemsPayload as $rawId => $row) {
+                $itemId = (int)$rawId;
+                if (!in_array($itemId, $allowedItemIds, true)) continue;
+
+                $cutterName = null;
+
+                if (isset($row['cutter_id']) && $row['cutter_id'] !== '') {
+                    $cid = (int)$row['cutter_id'];
+                    if (isset($machines[$cid])) $cutterName = (string)$machines[$cid];
+                }
+
+                if ($cutterName === null && isset($row['cutter'])) {
+                    $tmp = trim((string)$row['cutter']);
+                    if ($tmp !== '') $cutterName = $tmp;
+                }
+
+                $incoming[$itemId] = $cutterName; // may be null
+            }
+        }
+
+        // B) Legacy shape: cutters[<ItemID>] = 'Zund G3'
+        $legacyCutters = $request->input('cutters', []);
+        if (is_array($legacyCutters)) {
+            foreach ($legacyCutters as $rawId => $name) {
+                $itemId = (int)$rawId;
+                if (!in_array($itemId, $allowedItemIds, true)) continue;
+                $nm = trim((string)$name);
+                $incoming[$itemId] = ($nm === '') ? null : $nm;
+            }
+        }
+
+        // Remarks shape unchanged
+        $remarks = (array)$request->input('remarks', []);
+
+        // Preload existing for diff
+        $existingSpecs = empty($incoming)
             ? collect()
             : DB::table('specifications')
-                ->whereIn('ItemID', array_map('intval', $itemIds))
-                ->pluck('cutter', 'ItemID'); // [ItemID => cutter]
+                ->whereIn('ItemID', array_keys($incoming))
+                ->pluck('cutter','ItemID');  // [ItemID => cutterName]
 
-        // Diff trackers
-        $cutterDiffs = []; 
-        $remarksAdded = []; 
+        $cutterDiffs = [];
+        $remarksAdded = [];
 
-        DB::transaction(function () use (
-            $product,
-            $cutters,
-            $remarks,
-            $existingSpecs,  
-            &$cutterDiffs,   
-            &$remarksAdded,
-            $userId,
-        ) {
-            // 1) Save cutters to specifications (by ItemID)
-            foreach ($cutters as $itemId => $cutter) {
-                $cutter = trim((string)$cutter);
-                if ($itemId === '' || $itemId === null) continue;
-
-                $itemId  = (int) $itemId;
-                $new     = trim((string)$cutter);
-                $newDb   = ($new === '' ? null : $new);
-                $old     = $existingSpecs->get($itemId);
+        DB::transaction(function () use ($product, $incoming, $remarks, $existingSpecs, &$cutterDiffs, &$remarksAdded, $userId) {
+            // 1) Upsert cutters
+            foreach ($incoming as $itemId => $newName) {
+                $newDb = ($newName === null || $newName === '') ? null : $newName;
+                $old   = $existingSpecs->get($itemId);
 
                 if ($old !== $newDb) {
                     $type = $old === null && $newDb !== null ? 'set'
-                        : ($old !== null && $newDb === null ? 'cleared'
-                        : 'changed');
-                    $cutterDiffs[] = ['item' => $itemId, 'from' => $old, 'to' => $newDb, 'type' => $type];
+                        : ($old !== null && $newDb === null ? 'cleared' : 'changed');
+                    $cutterDiffs[] = ['item'=>$itemId,'from'=>$old,'to'=>$newDb,'type'=>$type];
                 }
 
                 DB::table('specifications')->updateOrInsert(
-                    ['ItemID' => (int) $itemId],
+                    ['ItemID' => (int)$itemId],
                     [
-                        'cutter'     => $cutter === '' ? null : $cutter,
+                        'cutter'     => $newDb,
                         'updated_at' => now(),
-                        'created_at' => now(), // harmless if row already exists
+                        'created_at' => now(),
                     ]
                 );
             }
 
-            // 2) Append new remarks (if any) to product_remarks
-            $allowedOps = ['printing','furnishing','installation','courier','self_pickup', 'artist'];
+            // 2) Save remarks (same normalization as before)
+            $allowedOps = ['printing','furnishing','installation','courier','self_pickup','artist'];
 
             foreach ($remarks as $row) {
                 $opRaw = strtolower(trim((string)($row['operation'] ?? '')));
                 $text  = trim((string)($row['remark'] ?? ''));
+                if ($text === '') continue;
 
-                if ($text === '') {
-                    continue; // nothing to save
-                }
-
-                // Normalize a few common variants to our 5 keys
                 if (in_array($opRaw, ['installation','install','delivery_installation','delivery & installation'], true)) {
                     $op = 'installation';
                 } elseif (in_array($opRaw, ['self_pickup','self pickup','pickup'], true)) {
@@ -777,25 +767,21 @@ class FurnishingProductOrderController extends Controller
                 } elseif ($opRaw === 'artist') {
                     $op = 'artist';
                 } else {
-                    // fallback if the UI somehow sends an unexpected value
                     $op = 'furnishing';
                 }
 
-                // final guard to keep DB enum happy
-                if (!in_array($op, $allowedOps, true)) {
-                    $op = 'furnishing';
-                }
+                if (!in_array($op, $allowedOps, true)) $op = 'furnishing';
 
                 DB::table('product_remarks')->insert([
                     'ProductID'  => $product,
-                    'operation'  => $op,   // exactly one of the 5 keys
+                    'operation'  => $op,
                     'remark'     => $text,
                     'user_id'    => $userId,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
 
-                $remarksAdded[] = ['operation' => $op, 'remark' => $text];
+                $remarksAdded[] = ['operation'=>$op, 'remark'=>$text];
             }
         });
 

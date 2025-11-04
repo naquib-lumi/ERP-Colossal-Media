@@ -119,58 +119,124 @@ class Product extends Model
     }
 
     public function syncTaskTypeFromSpecs(): void
-{
-    $pid = $this->getAttribute('ProductID') ?? $this->getKey();
+    {
+        $pid = $this->getAttribute('ProductID') ?? $this->getKey();
 
-    // 1) Does this product already exist?
-    $existsInDb = $this->exists
-        ? true
-        : ($pid ? DB::table('products')->where('ProductID', $pid)->exists() : false);
+        // 1) Does this product already exist in DB?
+        $existsInDb = $this->exists
+            ? true
+            : ($pid ? DB::table('products')->where('ProductID', $pid)->exists() : false);
 
-    // 2) Decide taskType
-    //    - If taskType already set on the model, KEEP it (do not override).
-    //    - Only infer from specs when taskType is empty.
-    $currentType = strtolower((string) $this->getAttribute('taskType'));
-    $newType = $currentType; // default: keep existing
+        // We’ll keep all changes here
+        $changes = [];
 
-    if ($newType === '' || $newType === '0' || $newType === 'null' || $newType === null) {
-        $hasPrinter = $pid
-            ? DB::table('product_items as pi')
+        // 2) Make sure we have the real status/accepted from DB (sometimes model is “half-filled”)
+        $currentStatus   = strtolower((string) $this->getAttribute('status'));
+        $currentAccepted = $this->getAttribute('accepted'); // 0 / 1 / null
+
+        if ($existsInDb && ($currentStatus === '' || $currentStatus === null)) {
+            // reload minimal columns from DB
+            $fresh = DB::table('products')
+                ->where('ProductID', $pid)
+                ->select('status', 'accepted', 'taskType')
+                ->first();
+
+            if ($fresh) {
+                $currentStatus   = strtolower((string) $fresh->status);
+                $currentAccepted = $fresh->accepted;
+                // also sync taskType from db if model doesn't have it
+                if ($this->getAttribute('taskType') === null && !empty($fresh->taskType)) {
+                    $this->setAttribute('taskType', $fresh->taskType);
+                }
+            }
+        }
+
+        /**
+         * ==============================
+         * CASE 1: revive-only scenario
+         * product exists + was rejected + (accepted = 0 OR accepted is null)
+         * ==============================
+         */
+        if (
+            $existsInDb &&
+            $currentStatus === 'rejected' &&
+            // sometimes you set 0, sometimes you set null → treat both as “needs revive”
+            ($currentAccepted === 0 || $currentAccepted === '0')
+        ) {
+            // revive only
+            if ($currentStatus !== 'in_progress') {
+                $changes['status'] = 'in_progress';
+            }
+            // always clear accepted
+            if ($currentAccepted !== null) {
+                $changes['accepted'] = null;
+            }
+
+            if (!empty($changes)) {
+                $this->forceFill($changes)->save();
+            }
+
+            // IMPORTANT: STOP HERE → do NOT touch taskType, do NOT check specs
+            return;
+        }
+
+        /**
+         * ==============================
+         * CASE 2: normal path
+         * - new product
+         * - OR existing product but not the "rejected+needs-revive" case
+         * → we can (re)derive taskType from specs, BUT only if taskType is empty
+         * ==============================
+         */
+
+        // current task type on model (might be empty)
+        $currentType = strtolower((string) $this->getAttribute('taskType'));
+        $newType     = $currentType;
+
+        // helper to detect a REAL printer
+        $detectRealPrinter = function (int $pid): bool {
+            return DB::table('product_items as pi')
                 ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
                 ->where('pi.ProductID', $pid)
                 ->whereNotNull('s.printer')
                 ->whereRaw("TRIM(s.printer) <> ''")
+                // ignore “no”, “none”, “0”, “n”
+                ->whereRaw("LOWER(TRIM(s.printer)) NOT IN ('no','none','n','0')")
+                // ignore literal “null”
                 ->whereRaw("LOWER(TRIM(s.printer)) <> 'null'")
-                ->exists()
-            : false;
+                ->exists();
+        };
 
-        $newType = $hasPrinter ? 'printing' : 'furnishing';
-    }
-
-    $changes = [];
-
-    // Only write taskType if it actually changes
-    if ($this->getAttribute('taskType') !== $newType) {
-        $changes['taskType'] = $newType;
-    }
-
-    // 3) If the row exists, move it back to in_progress and clear accepted
-    if ($existsInDb) {
-        if ($this->getAttribute('status') !== 'in_progress') {
-            $changes['status'] = 'in_progress';
+        // only infer when empty
+        if ($newType !== 'rejected') {
+            $hasRealPrinter = $pid ? $detectRealPrinter((int)$pid) : false;
+            $newType        = $hasRealPrinter ? 'printing' : 'furnishing';
         }
-        // Always clear accepted to NULL
-        if ($this->getAttribute('accepted') !== null) {
-            $changes['accepted'] = null;
+
+        // write taskType only if changed
+        if ($this->getAttribute('taskType') !== $newType) {
+            $changes['taskType'] = $newType;
+        }
+
+        /**
+         * For existing rows (non-rejected case):
+         * - make sure status is in_progress
+         * - clear accepted
+         */
+        if ($existsInDb) {
+            if ($currentStatus !== 'in_progress') {
+                $changes['status'] = 'in_progress';
+            }
+            if ($currentAccepted !== null) {
+                $changes['accepted'] = null;
+            }
+        }
+
+        if (!empty($changes)) {
+            $this->forceFill($changes)->save();
         }
     }
-
-    if (!empty($changes)) {
-        $this->forceFill($changes)->save();
-    }
-}
-
-
+    
     public function getDisplayCodeAttribute(): string
     {
         $base = $this->redoOf ?: $this->ProductID;

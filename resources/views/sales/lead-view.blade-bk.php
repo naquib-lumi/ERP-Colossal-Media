@@ -79,6 +79,7 @@
                                                     </li>
                                                 @endif
                                             @endauth
+
                                         </ul>
                                     </div>
                                 </div>
@@ -97,6 +98,7 @@
                                         </div>
                                     </div>
                                 </div>
+
                                 <div class="card mb-4 border-light shadow-sm">
                                     <div class="card-body p-3">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -144,11 +146,13 @@
                                         </table>
                                     </div>
                                 </div>
+
                                 <script>
                                     $(document).ready(function() {
                                         $('#addFileBtn').on('click', function() {
                                             $('#addFileForm').slideToggle();
                                         });
+
                                         $('#addFileForm').on('submit', function(e) {
                                             const fileInput = $('input[name="attachments[]"]')[0];
                                             if (!fileInput.files || fileInput.files.length === 0) {
@@ -156,6 +160,7 @@
                                                 Swal.fire('Warning', 'Please select at least one file to upload.', 'warning');
                                             }
                                         });
+
                                         $('#attachmentsTableBody').on('click', '.delete-attachment', function(e) {
                                             e.preventDefault();
                                             Swal.fire({
@@ -253,7 +258,10 @@
                                     <div class="card-body p-3">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
                                             <h6 class="card-title">Notes</h6>
+                                            <button class="btn btn-outline-primary btn-sm" id="addNoteBtn">Add
+                                                Note</button>
                                         </div>
+
                                         <div class="chat-container"
                                             style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
                                             @forelse ($lead->notes as $note)
@@ -261,19 +269,19 @@
                                                     style="max-width: 70%;">
                                                     <div class="d-flex justify-content-between align-items-start">
                                                         <div>
-                                                            <p class="mb-1">{{ $note->content ?: '-' }}</p>
+                                                            <p class="mb-1">{{ $note->content }}</p>
                                                             <small class="text-muted">
                                                                 {{ $note->user->name ?? 'Unknown' }} ·
-                                                                @if ($note->created_at->diffInDays() == 0)
+                                                                @if ($note->date->diffInDays() == 0)
                                                                     Today
-                                                                @elseif($note->created_at->diffInDays() == 1)
+                                                                @elseif($note->date->diffInDays() == 1)
                                                                     Yesterday
-                                                                @elseif($note->created_at->diffInDays() == 2)
+                                                                @elseif($note->date->diffInDays() == 2)
                                                                     Two days ago
                                                                 @else
-                                                                    {{ $note->created_at->format('Y-m-d H:i') }}
+                                                                    {{ $note->date->format('Y-m-d H:i') }}
                                                                 @endif
-                                                                {{ $note->created_at->diffInHours() >= 24 ? '' : 'at ' . $note->created_at->format('H:i') }}
+                                                                {{ $note->date->diffInHours() >= 24 ? '' : 'at ' . $note->date->format('H:i') }}
                                                             </small>
                                                         </div>
                                                         <button class="btn btn-outline-danger btn-sm ms-2 delete-note-btn"
@@ -282,6 +290,7 @@
                                                             <i class="bx bx-trash"></i>
                                                         </button>
                                                     </div>
+
                                                     @if ($note->attachments->count() > 0)
                                                         <div class="mt-2 d-flex flex-wrap gap-2">
                                                             @foreach ($note->attachments as $attachment)
@@ -298,6 +307,7 @@
                                                 <p class="text-muted text-center">No notes yet.</p>
                                             @endforelse
                                         </div>
+
                                         <div class="mt-3">
                                             <div class="input-group">
                                                 <label for="noteAttachment" class="btn btn-outline-secondary mb-0">
@@ -305,7 +315,9 @@
                                                 </label>
                                                 <input type="file" id="noteAttachment" accept=".pdf,.doc,.jpg,.png"
                                                     style="display: none;">
+
                                                 <textarea class="form-control" id="noteContent" placeholder="Write a note..." rows="1" style="resize: none;"></textarea>
+
                                                 <button class="btn btn-primary" id="sendNoteBtn">
                                                     <i class="bx bx-send"></i>
                                                 </button>
@@ -314,27 +326,22 @@
                                         </div>
                                     </div>
                                 </div>
+
                                 <script>
                                     document.getElementById('noteAttachment').addEventListener('change', function() {
                                         const fileName = this.files.length ? this.files[0].name : '';
                                         document.getElementById('fileName').textContent = fileName ? `Attached: ${fileName}` : '';
                                     });
                                 </script>
+
                                 <script>
                                     $(document).ready(function() {
                                         $('#sendNoteBtn').on('click', function() {
-                                            let content = $('#noteContent').val().trim();
-                                            let file = $('#noteAttachment')[0].files[0];
-                                            if (!content && !file) {
-                                                Swal.fire('Warning', 'Please enter a note or attach a file.', 'warning');
-                                                return;
-                                            }
-                                            if (!content && file) {
-                                                content = '-';
-                                            }
+                                            let content = $('#noteContent').val();
                                             let formData = new FormData();
                                             formData.append('content', content);
                                             formData.append('_token', '{{ csrf_token() }}');
+                                            let file = $('#noteAttachment')[0].files[0];
                                             if (file) {
                                                 formData.append('attachments[]', file);
                                             }
@@ -365,6 +372,7 @@
                                                 }
                                             });
                                         });
+
                                         $('.delete-note-btn').on('click', function() {
                                             Swal.fire({
                                                 title: 'Are you sure?',
@@ -404,6 +412,7 @@
                                         });
                                     });
                                 </script>
+
                             </div>
                         </div>
                     </div>
@@ -455,6 +464,7 @@
                                                         {{ $meeting->status == 'postponed' ? 'selected' : '' }}>Postponed
                                                     </option>
                                                 </select>
+
                                                 <a href="#" class="text-primary ms-2 edit-meeting"
                                                     style="font-size: 0.9rem;">
                                                     <i class="bx bx-pencil"></i>
@@ -470,6 +480,7 @@
                             @endforelse
                         </div>
                     </div>
+
                     <!-- Update Modal (reuse/add to existing) -->
                     <div class="modal fade" id="meetingModal" tabindex="-1" aria-labelledby="meetingModalLabel"
                         aria-hidden="true">
@@ -538,6 +549,7 @@
                             </div>
                         </div>
                     </div>
+
                     <div class="tab-pane fade" id="order-history" role="tabpanel" aria-labelledby="order-history-tab">
                         @if ($lead->orders->isEmpty())
                             <p class="text-muted">No orders yet.</p>
@@ -579,6 +591,7 @@
                     </div>
                 </div>
             </div>
+
             <!-- Reminder Modal -->
             <div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel"
                 aria-hidden="true">
@@ -619,6 +632,7 @@
                     </div>
                 </div>
             </div>
+
             <script>
                 function parseError(xhr) {
                     let errorMsg = 'An error occurred.';
@@ -633,6 +647,7 @@
                     } catch {}
                     return errorMsg;
                 }
+
                 $(document).ready(function() {
                     // Activate tab based on hash
                     if (location.hash === '#meeting') {
@@ -641,6 +656,7 @@
                     if (location.hash === '#order-history') {
                         $('#order-history-tab').tab('show');
                     }
+
                     // Update time badges
                     function updateTimeBadges() {
                         $('.meeting-item').each(function() {
@@ -651,6 +667,7 @@
                             let $badge = $item.find('.time-badge');
                             let $select = $item.find('.status-update');
                             let status = $select.val();
+
                             if (status === 'canceled') {
                                 $badge.text('Canceled').removeClass('bg-primary bg-info bg-success').addClass(
                                     'bg-danger');
@@ -673,8 +690,10 @@
                             }
                         });
                     }
+
                     updateTimeBadges();
                     setInterval(updateTimeBadges, 60000); // Update every minute
+
                     // Meeting functions defined first
                     function saveNewMeeting() {
                         let formData = new FormData($('#meetingForm')[0]);
@@ -697,6 +716,7 @@
                             }
                         });
                     }
+
                     function updateMeeting() {
                         let id = $('#meetingId').val();
                         let formData = new FormData($('#meetingForm')[0]);
@@ -720,6 +740,7 @@
                             }
                         });
                     }
+
                     // Type radio toggle
                     $('input[name="type"]').on('change', function() {
                         if ($(this).val() === 'online') {
@@ -730,6 +751,7 @@
                             $('#offlineLocation').show();
                         }
                     });
+
                     // Edit meeting - double click
                     $(document).on('dblclick', '.meeting-item', function(e) {
                         if ($(e.target).is('.status-update, .status-update *')) return;
@@ -743,6 +765,7 @@
                         let url = $item.data('url') || '';
                         let location = $item.data('location') || '';
                         let note = $item.data('note') || '';
+
                         $('#meetingModalLabel').text('Update Meeting');
                         $('#meetingId').val(id);
                         $('#meetingTitle').val(title);
@@ -758,6 +781,7 @@
                         $('#saveMeetingBtn').off('click').text('Update').on('click', updateMeeting);
                         $('#meetingModal').modal('show');
                     });
+
                     // Edit meeting - button click
 $(document).on('click', '.edit-meeting', function(e) {
     e.preventDefault();
@@ -772,6 +796,7 @@ $(document).on('click', '.edit-meeting', function(e) {
     let url = $item.data('url') || '';
     let location = $item.data('location') || '';
     let note = $item.data('note') || '';
+
     $('#meetingModalLabel').text('Update Meeting');
     $('#meetingId').val(id);
     $('#meetingTitle').val(title);
@@ -787,6 +812,7 @@ $(document).on('click', '.edit-meeting', function(e) {
     $('#saveMeetingBtn').off('click').text('Update').on('click', updateMeeting);
     $('#meetingModal').modal('show');
 });
+
                     // Reset for add new
                     $('#meetingModal').on('hidden.bs.modal', function() {
                         $('#meetingModalLabel').text('Add Meeting');
@@ -795,6 +821,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('input[name="type"][value="online"]').prop('checked', true).trigger('change');
                         $('#saveMeetingBtn').off('click').text('Save Meeting').on('click', saveNewMeeting);
                     });
+
                     // Status update for meetings
                     $('.status-update').on('change', function() {
                         let id = $(this).data('id');
@@ -816,6 +843,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             }
                         });
                     });
+
                     // Status update for reminders
                     $('.reminder-status-update').on('change', function() {
                         let id = $(this).data('id');
@@ -836,6 +864,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             }
                         });
                     });
+
                     // Edit reminder function
                     function editReminder($item) {
                         let id = $item.data('id');
@@ -850,6 +879,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('#saveReminderBtn').off('click').text('Update').on('click', updateReminder);
                         $('#reminderModal').modal('show');
                     }
+
                     // Edit reminder - double click
                     $(document).on('dblclick', '.reminder-item', function(e) {
                         if ($(e.target).is(
@@ -857,6 +887,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                                 )) return;
                         editReminder($(this));
                     });
+
                     // Edit reminder - button click
                     $(document).on('click', '.edit-reminder', function(e) {
                         e.preventDefault();
@@ -864,8 +895,10 @@ $(document).on('click', '.edit-meeting', function(e) {
                         let $item = $(this).closest('.reminder-item');
                         editReminder($item);
                     });
+
                     // Debug: Confirm jQuery is loaded
                     console.log('jQuery loaded:', typeof $);
+
                     // Status Dropdown Update
                     $('#statusDropdown').on('change', function() {
                         let status = $(this).val();
@@ -885,6 +918,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             }
                         });
                     });
+
                     // Reset modal for add
                     $('#reminderModal').on('hidden.bs.modal', function() {
                         $('#reminderModalLabel').text('Add Custom Reminder');
@@ -892,6 +926,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('#reminderForm')[0].reset();
                         $('#saveReminderBtn').off('click').text('Add').on('click', saveNewReminder);
                     });
+
                     // Add Reminder with event delegation
                     function saveNewReminder() {
                         let formData = {
@@ -901,6 +936,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             remind_at: $('#reminderRemindAt').val(),
                             _token: '{{ csrf_token() }}',
                         };
+
                         $.ajax({
                             url: '{{ route('calendar.reminders.store') }}',
                             type: 'POST',
@@ -917,6 +953,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             }
                         });
                     }
+
                     function updateReminder() {
                         let id = $('#reminderId').val();
                         let formData = new FormData($('#reminderForm')[0]);
@@ -939,6 +976,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             }
                         });
                     }
+
                     $(document).on('click', '#saveReminderBtn', function(e) {
                         e.preventDefault();
                         if ($('#reminderId').val()) {
@@ -947,6 +985,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             saveNewReminder();
                         }
                     });
+
                     // Attach initial event for saveMeetingBtn
                     $('#saveMeetingBtn').on('click', saveNewMeeting);
                 });

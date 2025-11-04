@@ -625,9 +625,21 @@ class ArtistController extends Controller
         ->orderBy('name')
         ->get(['id', 'name', 'role']);
 
+        $printerMachines = \App\Models\Machine::where('machine_type', 'printer')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
+        $cutterMachines = \App\Models\Machine::where('machine_type', 'cutter')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
+        $laminationMachines = \App\Models\Machine::where('machine_type', 'lamination')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
         return view('artist.orders.edit', compact(
             'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
-            'orderFiles', 'redoReason', 'artists'
+            'orderFiles', 'redoReason', 'artists', 'printerMachines', 'cutterMachines', 'laminationMachines'
         ));
 
         return view('artist.orders.edit', [

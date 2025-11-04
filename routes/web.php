@@ -330,6 +330,7 @@ Route::get('/dashboard', function () {
         Route::post('/installation/job/{product}/accept', [\App\Http\Controllers\InstallationProductOrderController::class, 'accept'])->name('installation.orders.accept');
         Route::post('/installation/job/{product}/reject', [\App\Http\Controllers\InstallationProductOrderController::class, 'reject'])->name('installation.orders.reject');
         Route::post('/installation/job/{product}/save', [\App\Http\Controllers\InstallationProductOrderController::class, 'save'])->name('installation.jobs.save');
+        Route::get('/installation/job-order', [InstallationController::class, 'index'])->name('installation.job-order');
 
         Route::get('/installation/history', [InstallationHistoryController::class, 'index'])->name('installation.history');
         Route::get('/installation/history/{product}', [InstallationHistoryController::class, 'show'])->name('installation.history.show');

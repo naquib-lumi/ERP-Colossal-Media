@@ -361,6 +361,18 @@ class DataEntryController extends Controller
             ->orderByDesc('created_at')
             ->value('reason');
 
+        $printerMachines = \App\Models\Machine::where('machine_type', 'printer')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
+        $cutterMachines = \App\Models\Machine::where('machine_type', 'cutter')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
+        $laminationMachines = \App\Models\Machine::where('machine_type', 'lamination')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
         return view('data-entry.order.edit', compact(
             'order',
             'orderCode',
@@ -372,7 +384,8 @@ class DataEntryController extends Controller
             'allMaterials',
             'leadAttachments',
             'orderFiles',
-            'redoReason'
+            'redoReason',
+            'printerMachines', 'cutterMachines', 'laminationMachines'
         ));
     }
 
@@ -457,15 +470,15 @@ class DataEntryController extends Controller
             'products.*.deliveries.*.outsource_cost'       => ['nullable','numeric','min:0'],
 
             // remarks (per product)
-            'products.*.remarks'                => ['array'],
-            'products.*.remarks.*.id'           => ['nullable','integer'],
-            'products.*.remarks.*.operation'    => [
-                'nullable',
-                Rule::in(['printing','furnishing','installation','courier','self_pickup', 'artist']),
-            ],            
-            'products.*.remarks.*.remark'       => ['nullable','string'],
-            'products.*.delete_remarks'         => ['array'],
-            'products.*.delete_remarks.*'       => ['integer'],
+            // 'products.*.remarks'                => ['array'],
+            // 'products.*.remarks.*.id'           => ['nullable','integer'],
+            // 'products.*.remarks.*.operation'    => [
+            //     'nullable',
+            //     Rule::in(['printing','furnishing','installation','courier','self_pickup', 'artist']),
+            // ],            
+            // 'products.*.remarks.*.remark'       => ['nullable','string'],
+            // 'products.*.delete_remarks'         => ['array'],
+            // 'products.*.delete_remarks.*'       => ['integer'],
 
             // attachments
             'attachments.*'                     => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx','max:20480'],
@@ -550,8 +563,8 @@ class DataEntryController extends Controller
         });
 
         try {
-            $authorId = (int) auth()->id();
-            DB::transaction(function () use ($request, $order, $product, $authorId) {
+            // $authorId = (int) auth()->id();
+            DB::transaction(function () use ($request, $order, $product) {
 
                 // ----- 1) Order core -----
                 $submitted = $request->boolean('submit'); 
@@ -822,57 +835,79 @@ class DataEntryController extends Controller
                     }
 
                     // -------- Remarks (THIS product) --------
-                    $keepRemarkIds = [];
+                    // $keepRemarkIds = [];
 
-                    foreach (collect($group['remarks'] ?? [])->filter(fn ($v) => is_array($v)) as $row) {
-                        $op = strtolower(trim((string)($row['operation'] ?? '')));
-                        $txt = trim((string)($row['remark'] ?? ''));
+                    // foreach (collect($group['remarks'] ?? [])->filter(fn ($v) => is_array($v)) as $row) {
+                    //     $op = strtolower(trim((string)($row['operation'] ?? '')));
+                    //     $txt = trim((string)($row['remark'] ?? ''));
 
-                        if ($op === '' && $txt === '') {
-                            continue;
-                        }
+                    //     if ($op === '' && $txt === '') {
+                    //         continue;
+                    //     }
 
-                        if ($op === 'artist' && empty($order->artist_id)) {
-                            continue;
-                        }
+                    //     if ($op === 'artist' && empty($order->artist_id)) {
+                    //         continue;
+                    //     }
 
-                        $remark = null;
-                        if (!empty($row['id'])) {
-                            $remark = ProductRemark::where('RemarkID', (int)$row['id'])
-                                ->where('ProductID', $productRow->ProductID)
-                                ->first();
-                        }
-                        if (!$remark) {
-                            $remark = new ProductRemark();
-                            $remark->ProductID = $productRow->ProductID;
-                        }
+                    //     // normalize to null / canonical values
+                    //     $newOp  = $op ?: null;
+                    //     $newTxt = $txt ?: null;
 
-                        $remark->user_id   = $authorId;
+                    //     $remark = null;
+                    //     if (!empty($row['id'])) {
+                    //         $remark = ProductRemark::where('RemarkID', (int)$row['id'])
+                    //             ->where('ProductID', $productRow->ProductID)
+                    //             ->first();
+                    //     }
 
-                        $remark->operation = $op ?: null;
-                        $remark->remark    = $txt ?: null;
+                    //     if (!$remark) {
+                    //         // NEW REMARK → set creator
+                    //         $remark = new ProductRemark();
+                    //         $remark->ProductID = $productRow->ProductID;
+                    //         $remark->operation = $newOp;
+                    //         $remark->remark    = $newTxt;
+                    //         $remark->user_id   = $authorId;     // creator only on create
+                    //         $remark->save();
+                    //     } else {
+                    //         // EXISTING REMARK → only change user_id if content changed
+                    //         $dirty = false;
 
-                        $remark->save();
+                    //         if ($remark->operation !== $newOp) {
+                    //             $remark->operation = $newOp;
+                    //             $dirty = true;
+                    //         }
+                    //         if ($remark->remark !== $newTxt) {
+                    //             $remark->remark = $newTxt;
+                    //             $dirty = true;
+                    //         }
 
-                        $keepRemarkIds[] = $remark->RemarkID;
-                    }
+                    //         if ($dirty) {
+                    //             // content changed → attribute the edit to current user
+                    //             $remark->user_id = $authorId;
+                    //             $remark->save();
+                    //         }
+                    //         // if not dirty, leave user_id (creator) untouched
+                    //     }
 
-                    $toDelete = collect($group['delete_remarks'] ?? [])
-                        ->merge($request->input('delete_remarks', []))  
-                        ->map(fn ($id) => (int)$id)
-                        ->filter();
+                    //     $keepRemarkIds[] = $remark->RemarkID;
+                    // }
 
-                    if ($toDelete->isNotEmpty()) {
-                        ProductRemark::where('ProductID', $productRow->ProductID)
-                            ->whereIn('RemarkID', $toDelete)
-                            ->delete();
-                    }
+                    // $toDelete = collect($group['delete_remarks'] ?? [])
+                    //     ->merge($request->input('delete_remarks', []))  
+                    //     ->map(fn ($id) => (int)$id)
+                    //     ->filter();
 
-                    if (array_key_exists('remarks', $group)) {
-                        ProductRemark::where('ProductID', $productRow->ProductID)
-                            ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
-                            ->delete();
-                    }
+                    // if ($toDelete->isNotEmpty()) {
+                    //     ProductRemark::where('ProductID', $productRow->ProductID)
+                    //         ->whereIn('RemarkID', $toDelete)
+                    //         ->delete();
+                    // }
+
+                    // if (array_key_exists('remarks', $group)) {
+                    //     ProductRemark::where('ProductID', $productRow->ProductID)
+                    //         ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
+                    //         ->delete();
+                    // }
                     $productRow->syncTaskTypeFromSpecs();
                 } 
             });

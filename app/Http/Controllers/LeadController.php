@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Validation\Rule;
 
 
 use Carbon\Carbon;
@@ -103,7 +104,7 @@ class LeadController extends Controller
 
 
 
-    public function getLeads(Request $request)
+   public function getLeads(Request $request)
 {
     \Log::info('getLeads called for user: ' . Auth::user()->email);
     $user = Auth::user();
@@ -150,7 +151,7 @@ class LeadController extends Controller
             $dropdown .= '<option value="accept" ' . ($lead->status == 'accept' ? 'selected' : '') . '>Accept</option>';
             $dropdown .= '<option value="reject" ' . ($lead->status == 'reject' ? 'selected' : '') . '>Reject</option>';
             $dropdown .= '<option value="followup" ' . ($lead->status == 'followup' ? 'selected' : '') . '>Followup</option>';
-            $dropdown .= '<<option value="meeting" ' . ($lead->status == 'meeting' ? 'selected' : '') . '>Meeting</option>';
+            $dropdown .= '<option value="meeting" ' . ($lead->status == 'meeting' ? 'selected' : '') . '>Meeting</option>';
             $dropdown .= '<option value="new" ' . ($lead->status == 'new' ? 'selected' : '') . '>New</option>';
             $dropdown .= '</select><br>';
 
@@ -217,8 +218,9 @@ class LeadController extends Controller
             $assignInput = '<input type="text" class="form-control form-control-sm" value="' . $assignValue . '" readonly>';
             return '<div class="assigned-salesperson-cell">' . ($lead->user->name ?? 'Not Assigned') .  '</div>';
         })
-        ->addColumn('reminder', function ($lead) {
+        ->addColumn('reminder', function ($lead) use ($user) {
     $reminders = $lead->reminders()
+        ->where('created_by', $user->id)
         ->where('status', '!=', 'completed')
         ->orderByRaw("FIELD(status, 'upcoming', 'overdue')")
         ->orderBy('remind_at', 'asc')
@@ -307,7 +309,14 @@ class LeadController extends Controller
     }
 
     $validated = $request->validate([
-        'company_name' => 'required|string|max:255',
+        'company_name' => [
+        'required',
+        'string',
+        'max:255',
+        Rule::unique('leads')->where(function ($query) use ($request) {
+            $query->whereRaw('LOWER(company_name) = LOWER(?)', [$request->company_name]);
+        }),
+    ],
         'company_phone' => 'nullable|string|regex:/^[0-9+\-\s()]+$/|max:20',
         'website' => 'nullable|string|max:255',
         'name' => 'required|string|max:255',
@@ -381,13 +390,13 @@ public function exportCsv(Request $request)
         $leads->where('status', $request->input('status'));
     }
 
-    if ($request->has('from_date') && $request->input('from_date')) {
-        $leads->whereDate('created_at', '>=', $request->input('from_date'));
-    }
+    // if ($request->has('from_date') && $request->input('from_date')) {
+    //     $leads->whereDate('created_at', '>=', $request->input('from_date'));
+    // }
 
-    if ($request->has('to_date') && $request->input('to_date')) {
-        $leads->whereDate('created_at', '<=', $request->input('to_date'));
-    }
+    // if ($request->has('to_date') && $request->input('to_date')) {
+    //     $leads->whereDate('created_at', '<=', $request->input('to_date'));
+    // }
 
     if ($user->hasRole('head-salesperson') && $request->has('salesperson_id') && $request->input('salesperson_id')) {
         $leads->where('salesperson_id', $request->input('salesperson_id'));
@@ -426,18 +435,17 @@ public function exportCsv(Request $request)
     }, 200, $headers);
 }
 
-  public function show($id)
+public function show($id)
 {
     $user = Auth::user();
 
     $lead = Lead::with([
         'user', 'attachments', 'notes.attachments',
-        'reminders' => fn($q) => $q->orderBy('remind_at')->take(10),
+        'reminders' => fn($q) => $q->where('created_by', $user->id)->orderBy('remind_at')->take(10),
         'orders',
-        'meetings' => fn($q) => $q->orderBy('start_time')  // Add this
+        'meetings' => fn($q) => $q->orderBy('start_time')
     ])->findOrFail($id);
 
-    // Allow head-salesperson to see all, but restrict normal salesperson
     if ($user->hasRole('salesperson') && $lead->salesperson_id !== $user->id) {
         abort(403, 'Unauthorized');
     }
@@ -746,7 +754,7 @@ public function destroy($id)
 }
 
 
-   public function update(Request $request, $id)
+public function update(Request $request, $id)
 {
     $lead = Lead::findOrFail($id);
     $user = Auth::user();
@@ -802,7 +810,8 @@ public function destroy($id)
         }
     }
 
-    return redirect()->route('sales.leads')->with('success', 'Lead updated successfully');
+    $redirectRoute = $request->get('highlight') == 'remark' ? route('leads.show', $id) : route('sales.leads');
+    return redirect($redirectRoute)->with('success', 'Lead updated successfully');
 }
 
 }

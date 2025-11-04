@@ -763,8 +763,14 @@
     @endphp
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
-        <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
-        <h1 class="h4 fw-bold mb-0">Installation Task — <span class="text-muted">{{ $product_code }}</span></h1>
+        <!-- <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a> -->
+         <a href="{{ route('installation.dashboard') }}"
+            class="text-decoration-none text-muted me-3"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="bi bi-arrow-left-circle fw-semibold"
+                style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        </a>
+        <h1 class="h4 fw-bold mb-0">Delivery & Installation Task — <span class="text-muted">{{ $product_code }}</span></h1>
       </div>
       <div class="d-flex align-items-center gap-2">
         <span class="assignee-chip">{{ $assignee }}</span>
@@ -773,7 +779,7 @@
         @endif
       </div>
     </div>
-    <div class="text-muted mb-3">Installation Module</div>
+    <div class="text-muted mb-3">Delivery & Installation Module</div>
 
     {{-- Job Information --}}
     <div class="card soft mb-4">
@@ -892,8 +898,8 @@
                   <tr>
                     <th>Item <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Quantity <span class="resize-handle" aria-hidden="true"></span></th>
-                    <th>Size <span class="resize-handle" aria-hidden="true"></span></th>
-                    <th>Bleed <span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Size (W • H)<span class="resize-handle" aria-hidden="true"></span></th>
+                    <th>Bleed (T • B • L • R)<span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Material <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Prime Centre <span class="resize-handle" aria-hidden="true"></span></th>
                     <th>Lamination <span class="resize-handle" aria-hidden="true"></span></th>
@@ -1132,7 +1138,7 @@
             <div class="alert alert-danger mb-2" style="font-weight:500;">
               This product <strong>{{ $productName }}</strong> has been rejected.
             </div>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            <a href="{{ route('installation.dashboard') }}" class="btn btn-back">Back</a>
           @endif
           
           @if ($isPending && $canSeeDecision)
@@ -1142,7 +1148,7 @@
             <button type="button" id="btnReject" class="btn btn-reject">
               <i class="bi bi-x-lg"></i> Reject
             </button>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            <a href="{{ route('installation.dashboard') }}" class="btn btn-back">Back</a>
           @endif
 
           @if ($isAccepted && $canEditThisStage && !$isCompleted)
@@ -1150,7 +1156,7 @@
               <button type="button" id="btnEdit" class="btn btn-back">
                 <i class="bi bi-pencil"></i> Edit
               </button>
-              <a href="javascript:history.back()" class="btn btn-accept">
+              <a href="{{ route('installation.dashboard') }}" class="btn btn-accept">
                 <i class="bi bi-arrow-left"></i> Back
               </a>
             </div>

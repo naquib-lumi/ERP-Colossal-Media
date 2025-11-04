@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Meeting;
 use App\Models\Reminder;
 use App\Models\Lead;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -31,10 +32,24 @@ class CalendarController extends Controller
         return view('sales.calendar', compact('salespeople'));
     }
 
+    public function adminIndex()
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('admin')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('admin.calendar', compact('salespeople'));
+    }
+
     public function events(Request $request)
     {
         $user = Auth::user();
-        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson') || $user->hasRole('admin'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -45,7 +60,7 @@ class CalendarController extends Controller
         $salespersonId = (int) $request->input('salesperson_id', 0);
         $q = trim($request->input('q', ''));
 
-        if ($user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
+        if ($user->hasRole('salesperson') && !$user->hasRole('head-salesperson') && !$user->hasRole('admin')) {
             $salespersonId = $user->id;
         }
 
@@ -185,5 +200,72 @@ class CalendarController extends Controller
         $allEvents = $meetings->toArray();
         $allEvents = array_merge($allEvents, $reminders->toArray());
         return response()->json($allEvents);
+    }
+
+   public function orderEvents(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('admin')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        Log::info('orderEvents called for user: ' . $user->email);
+
+        $start = Carbon::parse($request->input('start', now()->startOfMonth()));
+        $end = Carbon::parse($request->input('end', now()->endOfMonth()));
+
+        $statusColors = [
+            'to_assign' => '#007bff',
+            'assigned' => '#17a2b8',
+            'in_progress' => '#ffc107',
+            'pending' => '#6c757d',
+            'completed' => '#28a745',
+            'rejected' => '#dc3545',
+            'default' => '#6c757d'
+        ];
+
+        $ordersQuery = Order::leftJoin('leads', 'orders.lead_id', '=', 'leads.id')
+            ->leftJoin('users', 'orders.salesperson_id', '=', 'users.id')
+            ->select([
+                'orders.*',
+                'users.name as user_name',
+                'leads.company_name',
+                'leads.name as lead_name'
+            ])
+            ->whereNotNull('orders.deadline')
+            ->whereBetween('orders.deadline', [$start, $end]);
+
+        $orders = $ordersQuery->get();
+
+        $orders = $orders->map(function ($order) use ($statusColors) {
+            $color = $statusColors[$order->effective_status] ?? $statusColors['default'];
+            $textColor = '#fff';
+            $leadText = $order->lead_name && $order->company_name ? $order->company_name . ' - ' . $order->lead_name : 'Unknown';
+            return [
+                'id' => 'order-' . $order->id,
+                'title' => $order->orderTitle,
+                'start' => $order->deadline->toIso8601String(),
+                'end' => $order->deadline->toIso8601String(),
+                'allDay' => true,
+                'extendedProps' => [
+                    'calendar' => 'Order',
+                    'type' => 'order',
+                    'status' => $order->effective_status,
+                    'lead_id' => $order->lead_id,
+                    'lead_text' => $leadText,
+                    'assigned_to' => $order->user_name ?? 'Unknown',
+                    'description' => $order->orderDetail ?? '',
+                    'order_number' => $order->order_number,
+                    'approval' => $order->approval,
+                    'draft' => $order->draft,
+                    'pending' => $order->pending,
+                ],
+                'backgroundColor' => $color,
+                'borderColor' => $color,
+                'textColor' => $textColor,
+            ];
+        });
+
+        return response()->json($orders->toArray());
     }
 }

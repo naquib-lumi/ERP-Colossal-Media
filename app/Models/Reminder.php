@@ -23,6 +23,14 @@ class Reminder extends Model
         'last_notify_time',
         'created_by',
     ];
+    protected static function booted()
+{
+    static::retrieved(function ($reminder) {
+        if ($reminder->remind_at->isPast() && $reminder->status !== 'completed') {
+            $reminder->update(['status' => 'overdue']);
+        }
+    });
+}
 
     protected $casts = [
         'remind_at' => 'datetime',

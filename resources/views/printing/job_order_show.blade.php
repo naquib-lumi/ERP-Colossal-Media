@@ -98,32 +98,33 @@
 
   /* ===== 编辑态：仅显示备注块 + Cutter 下拉 ===== */
   .edit-only{display:none !important;}
-  .is-editing .edit-only{display:flex !important;}
+  .is-editing-any .edit-only{display:block!important}
   .td-printer .edit-input{display:none}
-  .is-editing .td-printer{background:#FFFBEB}
-  .is-editing .td-printer .view-text{display:none}
-  .is-editing .td-printer .edit-input{display:block}
+  .subcard-body.is-editing{outline:2px solid rgba(255,200,0,.18);outline-offset:2px;border-radius:12px}
+  .subcard-body.is-editing .td-printer{background:#FFF8E7}
+  .subcard-body.is-editing .td-printer .view-text{display:none}
+  .subcard-body.is-editing .td-printer .edit-input{display:inline-block}
+
   .form-select-sm,.form-control-sm{min-height:34px}
 
   /* ===== Actionbar 三状态（方角+定制色） ===== */
-  .actionbar{margin-top:12px}
-  .actionbar .action-pre,.actionbar .action-post,.actionbar .action-edit{display:none !important;width:100%}
-  .actionbar .action-pre{display:block !important}
-  .is-accepted .actionbar .action-pre{display:none !important}
-  .is-accepted .actionbar .action-post{display:block !important}
-  .is-editing .actionbar .action-pre,.is-editing .actionbar .action-post{display:none !important}
-  .is-editing .actionbar .action-edit{display:block !important}
-  .actionbar .toolbar{width:100%;display:flex;justify-content:flex-end;gap:18px}
-  .actionbar .btn{border-radius:8px;padding:10px 16px;font-weight:700;letter-spacing:.2px;display:inline-flex;align-items:center;gap:8px;transition:all .15s ease;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .actionbar{margin-top:12px;position:sticky;bottom:12px;z-index:5}
+  .actionbar .action-pre,.actionbar .action-post,.actionbar .action-edit{display:none!important;width:100%}
+  .actionbar .action-pre{display:block!important}
+  .is-accepted .actionbar .action-pre{display:none!important}
+  .is-accepted .actionbar .action-post{display:block!important}
+  .is-editing-any .actionbar .action-pre,
+  .is-editing-any .actionbar .action-post{display:none!important}
+  .is-editing-any .actionbar .action-edit{display:block!important}
+
+  .actionbar .toolbar{width:100%;display:flex;justify-content:flex-end;gap:18px;background:#fff;padding:10px 12px;border-radius:12px;border:1px solid #E5E7EB;box-shadow:0 6px 24px rgba(16,24,40,.08)}
+  .actionbar .btn{border-radius:8px;padding:9px 14px;font-weight:700;letter-spacing:.2px;display:inline-flex;align-items:center;gap:8px;transition:all .15s ease;box-shadow:0 2px 8px rgba(0,0,0,.06)}
   .actionbar .btn-accept{background:#23263A;color:#fff;border:1px solid #23263A}
   .actionbar .btn-accept:hover{background:#1D2033;border-color:#1D2033;box-shadow:0 3px 12px rgba(35,38,58,.25)}
-  .actionbar .btn-accept:active{transform:translateY(1px)}
   .actionbar .btn-reject{background:#fff;color:#E11D48;border:2px solid #F43F5E;box-shadow:none}
   .actionbar .btn-reject:hover{background:#FFF1F2}
-  .actionbar .btn-reject:active{background:#FFE4E6;transform:translateY(1px)}
   .actionbar .btn-back{background:#E9EDF2;color:#0F172A;border:1px solid #DDE3EA}
   .actionbar .btn-back:hover{background:#E2E8F0}
-  .actionbar .btn-back:active{transform:translateY(1px)}
   .actionbar .btn i{font-size:14px;line-height:1}
 
   /* ===== 自定义弹窗 ===== */
@@ -170,6 +171,17 @@
   .resize-table thead th:last-child{border-right:none;}
   .resize-table tbody td{border-right:1px solid #f0f0f0;}
   .resize-table tbody td:last-child{border-right:none;}
+
+  .remark-card{
+    border:1px dashed #E5E7EB;
+    background:#FBFDFF;
+    border-radius:12px;
+    padding:14px 16px;
+  }
+  .remark-card + .remark-card{margin-top:10px;}
+  .remark-card .head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .remark-card .meta{color:#6B7280;font-size:.85rem}
+  .remark-card .body{color:#111827;white-space:pre-wrap}
 </style>
 
 @php
@@ -179,7 +191,7 @@
 
 <div class="resize-guide" id="colGuide"></div>
 <div class="container-fluid py-4 px-4">
-  <div class="page-wrap {{ $autoEdit ? 'is-editing' : '' }}" id="pageRoot">
+  <div class="page-wrap" id="pageRoot">
     {{-- 顶部 --}}
     @php
       $assignee = $header->artist_name ?? '—';
@@ -192,7 +204,13 @@
 
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
-        <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a>
+        <!-- <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a> -->
+         <a href="{{ route('printing.dashboard') }}"
+            class="text-decoration-none text-muted me-3"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="bi bi-arrow-left-circle fw-semibold"
+                style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        </a>
         <h1 class="h4 fw-bold mb-0">Printing Task — <span class="text-muted">{{ $product_code }}</span></h1>
       </div>
       <div class="d-flex align-items-center gap-2">
@@ -242,7 +260,10 @@
         @endphp
 
         <div class="mt-3">
-          <div class="section-hd" style="margin-bottom:8px"><i class="bi bi-chat-square-text"></i> Product Remarks</div>
+          <div class="section-hd" style="margin-bottom:8px">
+            <i class="bi bi-chat-square-text"></i> Product Remarks
+          </div>
+
           <div class="chips">
             @if(!empty($remarkLabels) && count($remarkLabels))
               <div class="remarks-block mt-2">
@@ -330,24 +351,56 @@
                     <td>{!! !empty($it['prime']) ? '<span class="badge-yes">Yes</span>' : '<span class="badge-no">No</span>' !!}</td>
                     <td>{{ $it['lamination'] ?? '—' }}</td>
                     <td class="td-printer">
-                      <span class="view-text">{{ $it['printer'] ?? '—' }}</span>
-                      @if($canEdit)
-                        <select class="form-select form-select-sm edit-input" data-item-id="{{ $it['item_id'] }}">
-                          <option value="">-</option>
-                          <option>HT 1 RTR 3.2</option>
-                          <option>HT 2 HYB 3.2</option>
-                          <option>Latex 3.2</option>
-                          <option>Solvent 3.2</option>
-                          <option>L1 UV6C 1.8</option>
-                          <option>L2 UV6C 1.8 B</option>
-                          <option>A1 UV4C 1.8</option>
-                          <option>YF4C 5ft</option>
-                          <option>HTP8C 5ft</option>
-                          <option>flatbed 3.2</option>
-                          <option>Flatbed A2 DTF</option>
-                          <option>Minolta DGFP</option>
-                          <option>Crystal label printer</option>
-                        </select>
+                      @php
+                          // Are we inside the currently selected product block?
+                          $isSelectedProduct = ((int)($block['id'] ?? 0) === (int)($header->ProductID ?? 0));
+
+                          // Item context (you used $it above, so keep it consistent)
+                          $itemId = (int)($it['item_id'] ?? 0);
+
+                          // Prefer value from specifications; fallback to legacy field on THIS item ($it)
+                          $curPrinterName = trim((string)($specPrinters[$itemId] ?? ($it['printer'] ?? '')));
+
+                          // Helper: does this name exist in machines list?
+                          $existsInList = function($name) use ($printers) {
+                              if ($name === '') return false;
+                              foreach ($printers as $p) {
+                                  if (strcasecmp(trim($p->machine_name), trim($name)) === 0) return true;
+                              }
+                              return false;
+                          };
+                      @endphp
+
+                      @if($canEdit && $isSelectedProduct)
+                          <select
+                            class="form-select form-select-sm printer-select"
+                            name="items[{{ $itemId }}][printer_id]"
+                            data-product-id="{{ $block['id'] ?? '' }}"
+                            data-item-id="{{ $itemId }}"
+                          >
+                            <option value="">-</option>
+
+                            @foreach($printers as $m)
+                              <option
+                                value="{{ $m->id }}"
+                                data-name="{{ $m->machine_name }}"
+                                {{ strcasecmp($curPrinterName, $m->machine_name) === 0 ? 'selected' : '' }}
+                              >
+                                {{ $m->machine_name }}
+                              </option>
+                            @endforeach
+
+                            {{-- If saved name isn't in machines, still show it so user sees what's stored --}}
+                            @if($curPrinterName !== '' && !$existsInList($curPrinterName))
+                              <option value="" selected>{{ $curPrinterName }}</option>
+                            @endif
+                          </select>
+
+                          {{-- Optional: keep legacy text column in sync if controller still reads it as fallback --}}
+                          <input type="hidden" name="items[{{ $itemId }}][printer]" value="{{ $curPrinterName }}">
+                      @else
+                          {{-- Read-only for non-selected products OR when cannot edit --}}
+                          <span class="text-gray-600">{{ $curPrinterName !== '' ? $curPrinterName : '—' }}</span>
                       @endif
                     </td>
                     <td><span class="view-text">{{ $it['cutter'] ?? '—' }}</span></td>
@@ -362,9 +415,7 @@
           </div>
         </div>
 
-        <form id="saveForm" method="POST" action="{{ route('printing.jobs.save', $header->ProductID) }}" style="display:none">
-          @csrf
-        </form>
+        <form id="saveForm" method="POST" action="{{ route('printing.jobs.save', $header->ProductID) }}" style="display:none">@csrf</form>
 
         {{-- Delivery Breakdown --}}
         @if(!empty($block['deliveries']))
@@ -520,19 +571,19 @@
             <div class="alert alert-danger mb-2" style="font-weight:500;">
               This product <strong>{{ $currentProductName ?? 'Unnamed Product' }}</strong> has been rejected.
             </div>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            <a href="{{ route('printing.dashboard') }}" class="btn btn-back">Back</a>
           @endif
 
           @if ($canSeeDecision)
             <button type="button" id="btnAccept" class="btn btn-accept"><i class="bi bi-check2"></i> Accept</button>
             <button type="button" id="btnReject" class="btn btn-reject"><i class="bi bi-x-lg"></i> Reject</button>
-            <a href="javascript:history.back()" class="btn btn-back">Back</a>
+            <a href="{{ route('printing.dashboard') }}" class="btn btn-back">Back</a>
           @endif
 
           @if ($canEditThisStage)
             <div class="toolbar">
               <button type="button" id="btnEdit" class="btn btn-back"><i class="bi bi-pencil"></i> Edit</button>
-              <a href="javascript:history.back()" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
+              <a href="{{ route('printing.dashboard') }}" class="btn btn-accept"><i class="bi bi-arrow-left"></i> Back</a>
             </div>
           @endif
         </div>
@@ -580,7 +631,7 @@
       </div>
       <div class="cx-body">
         <div class="help">Please provide a reason for rejecting this task.</div>
-        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."'></textarea>
+        <textarea id="rejectReason" placeholder='e.g. "Provide reason for rejection..."' required></textarea>
       </div>
       <div class="cx-footer">
         <button type="button" class="btn btn-back" data-close="modalReject">Cancel</button>
@@ -632,8 +683,10 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   /* ---------- Edit mode helpers ---------- */
-  function syncPrinterSelects(){
-    document.querySelectorAll('.td-printer').forEach(td => {
+  const productId = {{ (int)$header->ProductID }};
+
+  function syncPrinterSelects(scopeEl){
+    (scopeEl || document).querySelectorAll('.td-printer').forEach(td => {
       const span = td.querySelector('.view-text');
       const sel  = td.querySelector('.edit-input');
       if (span && sel) {
@@ -642,13 +695,37 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  document.getElementById('btnEdit')?.addEventListener('click', () => {
-    document.getElementById('pageRoot')?.classList.add('is-editing');
-    syncPrinterSelects();
-  });
-  document.getElementById('btnCancel')?.addEventListener('click', () => {
-    document.getElementById('pageRoot')?.classList.remove('is-editing');
-  });
+  function enterEditForProduct(pid){
+    document.querySelectorAll('.subcard-body.is-editing').forEach(b => b.classList.remove('is-editing'));
+    document.getElementById('pageRoot')?.classList.add('is-editing-any');
+
+    const target = document.querySelector(`.subcard-body[data-block-product='${pid}']`);
+    if (!target) return;
+
+    target.classList.remove('hidden');
+    target.classList.add('is-editing');
+
+    const btn = target.closest('.subcard')?.querySelector('[data-toggle="subcard"]');
+    btn?.classList.add('open');
+
+    syncPrinterSelects(target);
+
+    const offset = 84;
+    const rect   = target.getBoundingClientRect();
+    const y      = rect.top + window.pageYOffset - offset;
+    window.scrollTo({ top: Math.max(0,y), behavior: 'smooth' });
+  }
+
+  function exitEdit(){
+    document.querySelectorAll('.subcard-body.is-editing').forEach(b => b.classList.remove('is-editing'));
+    document.getElementById('pageRoot')?.classList.remove('is-editing-any');
+  }
+
+  document.getElementById('btnEdit')?.addEventListener('click', () => enterEditForProduct(productId));
+  document.getElementById('btnCancel')?.addEventListener('click', exitEdit);
+
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('edit') === '1') { enterEditForProduct(productId); }
 
   /* ---------- Add Remarks (client-side rows) ---------- */
   (function initDynamicRemarks(){
@@ -700,14 +777,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
     block.querySelectorAll('tr[data-itemid]').forEach(tr => {
       const itemId = tr.getAttribute('data-itemid');
-      const sel    = tr.querySelector('.td-printer .edit-input');
-      if (itemId && sel) {
-        const h = document.createElement('input');
-        h.type  = 'hidden';
-        h.name  = `printers[${itemId}]`;
-        h.value = sel.value.trim();
-        form.appendChild(h);
-      }
+      const sel = tr.querySelector('.td-printer select.printer-select');
+      if (!itemId || !sel) return;
+
+      // selected machine id
+      const machineId = (sel.value || '').trim();
+
+      // selected printer name (from data-name or text)
+      const opt = sel.options[sel.selectedIndex];
+      const printerName = opt ? ((opt.getAttribute('data-name') || opt.textContent || '').trim()) : '';
+
+      // Post the NEW shape the controller expects:
+      // items[<ItemID>][printer_id] = <machine id>
+      const hId = document.createElement('input');
+      hId.type = 'hidden';
+      hId.name = `items[${itemId}][printer_id]`;
+      hId.value = machineId; // may be '' to clear
+      form.appendChild(hId);
+
+      // And also post the printer name as fallback
+      const hName = document.createElement('input');
+      hName.type = 'hidden';
+      hName.name = `items[${itemId}][printer]`;
+      hName.value = printerName; // controller will prefer id→name but can fallback
+      form.appendChild(hName);
     });
 
     const rows = document.querySelectorAll('#remarks-list .remark-row');
@@ -736,21 +829,21 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   /* ---------- 自动进入编辑态（来自 ?mode=edit / ?edit=1） ---------- */
-  const AUTO_EDIT = {{ $autoEdit ? 'true' : 'false' }};
-  if (AUTO_EDIT) {
-    document.getElementById('pageRoot')?.classList.add('is-editing');
-    (function sync(){ /* 初次也同步一次下拉选中的值 */
-      document.querySelectorAll('.td-printer').forEach(td => {
-        const span = td.querySelector('.view-text');
-        const sel  = td.querySelector('.edit-input');
-        if (span && sel) {
-          [...sel.options].forEach(o => o.selected = (o.text.trim() === span.textContent.trim()));
-        }
-      });
-    })();
-    const firstBlock = document.querySelector('[data-block-product]');
-    if (firstBlock) firstBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  // const AUTO_EDIT = {{ $autoEdit ? 'true' : 'false' }};
+  // if (AUTO_EDIT) {
+  //   document.getElementById('pageRoot')?.classList.add('is-editing');
+  //   (function sync(){ /* 初次也同步一次下拉选中的值 */
+  //     document.querySelectorAll('.td-printer').forEach(td => {
+  //       const span = td.querySelector('.view-text');
+  //       const sel  = td.querySelector('.edit-input');
+  //       if (span && sel) {
+  //         [...sel.options].forEach(o => o.selected = (o.text.trim() === span.textContent.trim()));
+  //       }
+  //     });
+  //   })();
+  //   const firstBlock = document.querySelector('[data-block-product]');
+  //   if (firstBlock) firstBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // }
 });
 
 /* ---------- 列宽拖拽 ---------- */

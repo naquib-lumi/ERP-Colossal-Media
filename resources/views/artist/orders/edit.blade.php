@@ -325,6 +325,7 @@
       $isRedo = true;
   }
   @endphp
+
   <div class="row g-4">
     <div class="col-12">
       <div class="card">
@@ -724,7 +725,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.sizeWidth", data_get($it,'sizeWidth')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-4">
@@ -733,7 +734,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.sizeHeight", data_get($it,'sizeHeight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -752,7 +753,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedTop", data_get($it,'bleedTop')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -761,7 +762,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedBottom", data_get($it,'bleedBottom')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -770,7 +771,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedLeft", data_get($it,'bleedLeft')) }}" {{ $readonly }}>
                                   </div>
                                   <div class="col-12 col-md-2">
@@ -779,7 +780,7 @@
                                       type="number" min="0" step="0.01" class="form-control"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
-  oninput="restrict2dp(event)"
+                                      oninput="restrict2dp(event)"
                                       value="{{ old("items.$i.bleedRight", data_get($it,'bleedRight')) }}" {{ $readonly }}>
                                   </div>
 
@@ -796,51 +797,75 @@
                                   $prtLc = strtolower((string) $prtVal);
                                   $cutLc = strtolower((string) $cutVal);
                                   $assLc = strtolower((string) $assVal);
+
+                                  $currentLam = old("products.$pIndex.items.$i.lamination", data_get($it, 'spec.lamination'));
+                                  $currentPrinter = old("products.$pIndex.items.$i.printer", data_get($it, 'spec.printer'));
+                                  $currentCutter = old("products.$pIndex.items.$i.cutter", data_get($it, 'spec.cutter'));
+    
                                   @endphp
                                   <div class="col-md-3">
                                     <label class="form-label">Lamination</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }} data-optional="true">
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }}>
+                                      @if($currentLam !== '')
+                                          <option value="{{ $currentLam }}" selected>{{ $currentLam }}</option>
+                                      @else
+                                          <option value="" selected>-</option>
+                                      @endif
+
                                       <option value="">-</option>
-                                      <option value="Tempered film laminator" {{ $sel($lamLc, 'Tempered film laminator') }}>Tempered film laminator</option>
-                                      <option value="Hot stamping laminator" {{ $sel($lamLc, 'Hot stamping laminator') }}>Hot stamping laminator</option>
-                                      <option value="Ultra thin pigment lam" {{ $sel($lamLc, 'Ultra thin pigment lam') }}>Ultra thin pigment lam</option>
-                                      <option value="UV laminator" {{ $sel($lamLc, 'UV laminator') }}>UV laminator</option>
-                                      <option value="Digital print laminator" {{ $sel($lamLc, 'Digital print laminator') }}>Digital print laminator</option>
+                                      <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
+                                      <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
+
+                                      @foreach($laminationMachines ?? [] as $m)
+                                          <option value="{{ $m->machine_name }}"
+                                              {{ (isset($item->lamination) && $item->lamination === $m->machine_name) ? 'selected' : '' }}>
+                                              {{ $m->machine_name }}
+                                          </option>
+                                      @endforeach
                                     </select>
                                   </div>
 
                                   <div class="col-md-3">
                                     <label class="form-label">Printer</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select" {{ $disabled }} data-optional="true">
-                                      <option value="">-</option>
-                                      <option value="HT 1 RTR 3.2" {{ $sel($prtLc, 'HT 1 RTR 3.2') }}>HT 1 RTR 3.2</option>
-                                      <option value="HT 2 HYB 3.2" {{ $sel($prtLc, 'HT 2 HYB 3.2') }}>HT 2 HYB 3.2</option>
-                                      <option value="Latex 3.2" {{ $sel($prtLc, 'Latex 3.2') }}>Latex 3.2</option>
-                                      <option value="Solvent 3.2" {{ $sel($prtLc, 'Solvent 3.2') }}>Solvent 3.2</option>
-                                      <option value="L1 UV6C 1.8" {{ $sel($prtLc, 'L1 UV6C 1.8') }}>L1 UV6C 1.8</option>
-                                      <option value="L2 UV6C 1.8 B" {{ $sel($prtLc, 'L2 UV6C 1.8 B') }}>L2 UV6C 1.8 B</option>
-                                      <option value="A1 UV4C 1.8" {{ $sel($prtLc, 'A1 UV4C 1.8') }}>A1 UV4C 1.8</option>
-                                      <option value="YF4C 5ft" {{ $sel($prtLc, 'YF4C 5ft') }}>YF4C 5ft</option>
-                                      <option value="HTP8C 5ft" {{ $sel($prtLc, 'HTP8C 5ft') }}>HTP8C 5ft</option>
-                                      <option value="flatbed 3.2" {{ $sel($prtLc, 'flatbed 3.2') }}>flatbed 3.2</option>
-                                      <option value="Flatbed A2 DTF" {{ $sel($prtLc, 'Flatbed A2 DTF') }}>Flatbed A2 DTF</option>
-                                      <option value="Minolta DGFP" {{ $sel($prtLc, 'Minolta DGFP') }}>Minolta DGFP</option>
-                                      <option value="Crystal label printer" {{ $sel($prtLc, 'Crystal label printer') }}>Crystal label printer</option>
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select" {{ $disabled }}>
+                                    @if($currentPrinter !== '')
+                                        <option value="{{ $currentPrinter }}" selected>{{ $currentPrinter }}</option>
+                                    @else
+                                        <option value="" selected>-</option>
+                                    @endif  
+                                    
+                                    <option value="">-</option>
+                                      <option value="no" {{ (isset($item->printer) && $item->printer === 'no') ? 'selected' : '' }}>No</option>
+                                      <option value="TBC" {{ (isset($item->printer) && $item->printer === 'TBC') ? 'selected' : '' }}>TBC</option>
+
+                                      @foreach($printerMachines ?? [] as $m)
+                                          <option value="{{ $m->machine_name }}"
+                                              {{ (isset($item->printer) && $item->printer === $m->machine_name) ? 'selected' : '' }}>
+                                              {{ $m->machine_name }}
+                                          </option>
+                                      @endforeach
                                     </select>
                                   </div>
 
                                   <div class="col-md-3">
                                     <label class="form-label">Cutter</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][cutter]" class="form-select" {{ $disabled }} data-optional="true">
+                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][cutter]" class="form-select" {{ $disabled }}>
+                                      @if($currentCutter !== '')
+                                          <option value="{{ $currentCutter }}" selected>{{ $currentCutter }}</option>
+                                      @else
+                                          <option value="" selected>-</option>
+                                      @endif  
+                                    
                                       <option value="">-</option>
-                                      <option value="Jinwei 1 6x10" {{ $sel($cutLc, 'Jinwei 1 6x10') }}>Jinwei 1 6x10</option>
-                                      <option value="AOL1 6x10" {{ $sel($cutLc, 'AOL1 6x10') }}>AOL1 6x10</option>
-                                      <option value="AOL2 1000x700" {{ $sel($cutLc, 'AOL2 1000x700') }}>AOL2 1000x700</option>
-                                      <option value="Router 1" {{ $sel($cutLc, 'Router 1') }}>Router 1</option>
-                                      <option value="Laser 1 300W" {{ $sel($cutLc, 'Laser 1 300W') }}>Laser 1 300W</option>
-                                      <option value="Laser 2 150W" {{ $sel($cutLc, 'Laser 2 150W') }}>Laser 2 150W</option>
-                                      <option value="Laser 3 150W" {{ $sel($cutLc, 'Laser 3 150W') }}>Laser 3 150W</option>
-                                      <option value="Paper cutter" {{ $sel($cutLc, 'Paper cutter') }}>Paper cutter</option>
+                                      <option value="no" {{ (isset($item->cutter) && $item->cutter === 'no') ? 'selected' : '' }}>No</option>
+                                      <option value="TBC" {{ (isset($item->cutter) && $item->cutter === 'TBC') ? 'selected' : '' }}>TBC</option>
+
+                                      @foreach($cutterMachines ?? [] as $m)
+                                          <option value="{{ $m->machine_name }}"
+                                              {{ (isset($item->cutter) && $item->cutter === $m->machine_name) ? 'selected' : '' }}>
+                                              {{ $m->machine_name }}
+                                          </option>
+                                      @endforeach
                                     </select>
                                   </div>
                                   <div class="col-md-3">
@@ -1000,51 +1025,55 @@
   oninput="restrict2dp(event)"
                                     {{ $readonly }}>
                                   </div>
-
                                   <div class="col-md-3">
                                     <label class="form-label">Lamination</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }} data-optional="true">
+                                    <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
-                                      <option>Tempered film laminator</option>
-                                      <option>Hot stamping laminator</option>
-                                      <option>Ultra thin pigment lam</option>
-                                      <option>UV laminator</option>
-                                      <option>Digital print laminator</option>
+                                      <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
+                                      <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
+
+                                      @foreach($laminationMachines ?? [] as $m)
+                                          <option value="{{ $m->machine_name }}"
+                                              {{ (isset($item->lamination) && $item->lamination === $m->machine_name) ? 'selected' : '' }}>
+                                              {{ $m->machine_name }}
+                                          </option>
+                                      @endforeach
                                     </select>
                                   </div>
 
                                   <div class="col-md-3">
                                     <label class="form-label">Printer</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][printer]" class="form-select" {{ $disabled }} data-optional="true">
+                                    <select name="products[__PINDEX__][items][__INDEX__][printer]" class="form-select" {{ $disabled }}>
+                                      
+                                      
                                       <option value="">-</option>
-                                      <option>HT 1 RTR 3.2</option>
-                                      <option>HT 2 HYB 3.2</option>
-                                      <option>Latex 3.2</option>
-                                      <option>Solvent 3.2</option>
-                                      <option>L1 UV6C 1.8</option>
-                                      <option>L2 UV6C 1.8 B</option>
-                                      <option>A1 UV4C 1.8</option>
-                                      <option>YF4C 5ft</option>
-                                      <option>HTP8C 5ft</option>
-                                      <option>flatbed 3.2</option>
-                                      <option>Flatbed A2 DTF</option>
-                                      <option>Minolta DGFP</option>
-                                      <option>Crystal label printer</option>
+                                        <option value="no" {{ (isset($item->printer) && $item->printer === 'no') ? 'selected' : '' }}>No</option>
+                                        <option value="TBC" {{ (isset($item->printer) && $item->printer === 'TBC') ? 'selected' : '' }}>TBC</option>
+
+                                        @foreach($printerMachines ?? [] as $m)
+                                            <option value="{{ $m->machine_name }}"
+                                                {{ (isset($item->printer) && $item->printer === $m->machine_name) ? 'selected' : '' }}>
+                                                {{ $m->machine_name }}
+                                            </option>
+                                        @endforeach
                                     </select>
                                   </div>
 
                                   <div class="col-md-3">
                                     <label class="form-label">Cutter</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][cutter]" class="form-select" {{ $disabled }} data-optional="true">
+                                    <select name="products[__PINDEX__][items][__INDEX__][cutter]" class="form-select" {{ $disabled }}>
+                                      
+                                    
                                       <option value="">-</option>
-                                      <option>Jinwei 1 6x10</option>
-                                      <option>AOL1 6x10</option>
-                                      <option>AOL2 1000x700</option>
-                                      <option>Router 1</option>
-                                      <option>Laser 1 300W</option>
-                                      <option>Laser 2 150W</option>
-                                      <option>Laser 3 150W</option>
-                                      <option>Paper cutter</option>
+                                      <option value="no" {{ (isset($item->cutter) && $item->cutter === 'no') ? 'selected' : '' }}>No</option>
+                                      <option value="TBC" {{ (isset($item->cutter) && $item->cutter === 'TBC') ? 'selected' : '' }}>TBC</option>
+
+                                      @foreach($cutterMachines ?? [] as $m)
+                                          <option value="{{ $m->machine_name }}"
+                                              {{ (isset($item->cutter) && $item->cutter === $m->machine_name) ? 'selected' : '' }}>
+                                              {{ $m->machine_name }}
+                                          </option>
+                                      @endforeach
                                     </select>
                                   </div>
 
@@ -2747,7 +2776,7 @@
         $(this).find('input,select,textarea').each(function () {
           const nm = (this.name || '').toLowerCase();
           if (!nm) return;
-          if (nm.includes('lamination') || nm.includes('printer') || nm.includes('cutter')) return; // optional
+          // if (nm.includes('lamination') || nm.includes('printer') || nm.includes('cutter')) return; 
           if (nm.includes('[remarks]')) return; // remarks validated separately
           if (/\[product_name]$|\[quantity]$|\[material_info]$|\[size]$|\[color]$/.test(nm)) {
             if (!_trim(this)) { ok = false; return false; }
@@ -2909,9 +2938,9 @@
     }
 
     const OPTIONAL_NAME_WHITELIST = new Set([
-      'lamination',
-      'printer_id',
-      'cutter_id',
+      // 'lamination',
+      // 'printer_id',
+      // 'cutter_id',
       'delivery_installation_type',
       'delivery_cost'
     ]);
@@ -2927,11 +2956,11 @@
       }
 
       // Items: lamination / printer / cutter are optional
-      if (name.includes('[items]') && (
-        name.includes('[lamination]') ||
-        name.includes('[printer]') ||
-        name.includes('[cutter]')
-      )) return true;
+      // if (name.includes('[items]') && (
+      //  name.includes('[lamination]') ||
+      //  name.includes('[printer]') ||
+      //  name.includes('[cutter]')
+      //)) return true;
 
       // Remarks: free text is optional
       if (name.includes('[remarks]') && (

@@ -461,7 +461,26 @@
                 @endif
               </a>
             </th>
-            <th class="text-center">ACTIONS</th>
+            @php
+              $q = request()->query();
+              $urlWith = function(array $overrides) use ($q) {
+                return route('dispatchcontrol.dashboard', array_filter(array_merge($q, $overrides), fn($v)=>$v!==null && $v!==''));
+              };
+              // for actions sort
+              $acNext  = $sort === 'accepted_last' ? 'accepted_first' : 'accepted_last';
+              $acLabel = str_starts_with($sort,'accepted_')
+                  ? ($sort === 'accepted_last' ? 'last' : 'first')
+                  : '';
+            @endphp
+            <th class="col-actions">
+              <a class="th-sort {{ str_starts_with($sort,'accepted_') ? 'is-active' : '' }}"
+                href="{{ $urlWith(['sort' => $acNext]) }}" style="color: rgb(43, 44, 64);">
+                ACTIONS
+                @if($acLabel)
+                  <span class="badge bg-light text-dark ms-1">{{ $acLabel }}</span>
+                @endif
+              </a>
+            </th>
           </tr>
           </thead>
 
@@ -545,12 +564,12 @@
                   @endif
                   @unless ($isdeliveryCompleted)
                     @if ($accepted && $isdelivery)
+                      <button class="action-btn js-open-proof" data-id="{{ $pid }}" title="Mark as Completed" style="background-color:#4CAF50; color:white; border:none; border-radius:50%; padding:6px 8px; cursor:pointer; transition:0.3s; box-shadow:0 2px 5px rgba(0,0,0,0.15);">
+                        <i class="bi bi-check2"></i>
+                      </button>
                       <a href="{{ route('dispatchcontrol.job.show', $pid) }}" class="action-btn" title="Edit">
                         <i class="bi bi-pencil"></i>
                       </a>
-                      <button class="action-btn js-open-proof" data-id="{{ $pid }}" title="Mark Completed">
-                        <i class="bi bi-check2"></i>
-                      </button>
                     @endif
                   @endunless
                 </div>

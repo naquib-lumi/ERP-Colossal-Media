@@ -183,6 +183,12 @@ $configData = \App\Helpers\Helpers::appClasses();
               </li>
             @endif
             @if (in_array(auth()->user()->role, ['operations-delivery-installation']))
+            <li class="menu-item {{ request()->routeIs('installation.job-order') ? 'active' : '' }}">
+                <a href="{{ route('installation.job-order') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-file"></i>
+                  <div data-i18n="Job Order">Job Order</div>
+                </a>
+              </li>
               <li class="menu-item {{ request()->routeIs('installation.history') ? 'active' : '' }}">
                 <a href="{{ route('installation.history') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-history"></i>

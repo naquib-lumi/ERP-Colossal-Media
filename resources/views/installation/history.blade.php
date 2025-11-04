@@ -5,6 +5,14 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <style>
+  .lb-meta .lb-caption {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb-strip img.active {
+    outline: 3px solid #4ade80; /* green highlight */
+  }
   /* Page & cards */
   .page-wrap {
     max-width: 1180px;
@@ -126,14 +134,14 @@
   }
 
   /* make the overlay actually pop */
-  .cx-mask { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1050; }
+  .cx-mask { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:1050; }
   .cx-mask.show { display:block; }
   .cx-wrap { display:flex; min-height:100%; align-items:center; justify-content:center; padding:24px; }
   .cx-modal.cx-lightbox { width:min(1100px, 96vw); max-height:92vh; overflow:hidden; display:flex; flex-direction:column; }
 
   .cx-header { display:flex; align-items:center; gap:.5rem; border-bottom:1px solid #eee; padding:.75rem 1rem; }
-  .cx-title { font-weight:700; }
-  .cx-close { margin-left:auto; background:transparent; border:0; cursor:pointer; }
+  .cx-title { font-weight:700; color: white;}
+  .cx-close { margin-left:auto; background:transparent; border:0; cursor:pointer; color: white; }
 
   .cx-body { padding:12px 16px; display:flex; flex-direction:column; gap:12px; }
 
@@ -145,7 +153,7 @@
   .lb-prev { left:10px; } .lb-next { right:10px; }
   .lb-nav:hover { background:#fff; }
 
-  .lb-caption { text-align:center; color:#6b7280; font-size:.9rem; padding:4px; min-height:22px; }
+  .lb-caption { text-align:center; color: #ffffffff; font-size:.9rem; padding:4px; min-height:22px; }
 
   .lb-strip { display:flex; gap:10px; overflow:auto; padding:8px; border-top:1px solid #eee; }
   .lb-thumb { flex:0 0 auto; width:110px; height:80px; border-radius:10px; overflow:hidden; border:2px solid transparent; cursor:pointer; background:#f3f4f6; }
@@ -383,7 +391,12 @@
           <button class="lb-nav lb-next" type="button" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
         </div>
 
-        <div id="lbCaption" class="lb-caption">—</div>
+        <div class="lb-meta" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px;">
+          <div id="lbCaption" class="lb-caption" style="font-weight:600;">—</div>
+          <div id="lbUploadedAt" class="text-muted small" style="white-space:nowrap; color: white;">
+            <!-- Uploaded: Oct 10, 2025 07:19 AM -->
+          </div>
+        </div>
 
         <div id="lbStrip" class="lb-strip">
           <!-- thumbnails injected here -->
@@ -443,8 +456,9 @@
   const empty = document.getElementById('lbEmpty');
   const prev  = modal.querySelector('.lb-prev');
   const next  = modal.querySelector('.lb-next');
+  const uploadedEl = document.getElementById('lbUploadedAt');
 
-  let files = [];   // [{url,name}, ...]
+  let files = [];   // [{url,name,uploaded_at}, ...]
   let idx   = 0;    // current index
   let keyBound = false;
 
@@ -490,13 +504,24 @@
     strip.appendChild(frag);
   }
 
+  // ✅ this is the ONLY place we set image, caption AND uploaded time
   function show(i) {
     if (!files.length) return;
     if (i < 0) i = files.length - 1;
     if (i >= files.length) i = 0;
     idx = i;
-    img.src = files[idx].url;
-    cap.textContent = files[idx].name || '';
+
+    const file = files[idx];
+    img.src = file.url;
+    cap.textContent = file.name || '';
+
+    // show uploaded datetime
+    if (uploadedEl) {
+      uploadedEl.textContent = file.uploaded_at
+        ? `Uploaded: ${file.uploaded_at}`
+        : '';
+    }
+
     renderThumbs(idx);
   }
 
@@ -504,6 +529,7 @@
 
   async function loadProofs(url) {
     img.src = ''; cap.textContent = ''; strip.innerHTML = '';
+    if (uploadedEl) uploadedEl.textContent = '';
     empty.style.display = 'none';
     files = []; idx = 0;
 
@@ -524,7 +550,7 @@
     }
   }
 
-  // Event delegation for all "View" buttons (works with pagination)
+  // delegate click from table
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-view-proofs');
     if (!btn) return;
@@ -557,6 +583,21 @@ document.addEventListener('dblclick', e => {
   const url = tr.dataset.href;
   if (url) location.href = url;
 });
+
+function showProofAt(index) {
+  const file = files[index];
+  if (!file) return;
+
+  document.getElementById('lbImage').src = file.url;
+  document.getElementById('lbCaption').textContent = file.name || '—';
+
+  const uploadedEl = document.getElementById('lbUploadedAt');
+  if (uploadedEl) {
+    uploadedEl.textContent = file.uploaded_at
+      ? `Uploaded: ${file.uploaded_at}`
+      : '';
+  }
+}
 </script>
 @endpush
 @endsection

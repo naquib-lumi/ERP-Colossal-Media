@@ -25,7 +25,7 @@ class ReminderController extends Controller
             'remind_at' => 'required|date',
         ]);
 
-        $lead = Lead::findOrFail($validated['lead_id']);
+        $lead = Lead::findOrFail($validated['lead_id']); 
         if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
@@ -128,11 +128,18 @@ class ReminderController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function updateStatus(Request $request, $id)
-    {
-        $validated = $request->validate(['status' => 'required|in:overdue,completed']);
+   public function updateStatus(Request $request, $id)
+{
+        $user = Auth::user();
+        if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
         $reminder = Reminder::findOrFail($id);
+        if ($reminder->created_by != $user->id && !$user->hasRole('head-salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        $validated = $request->validate(['status' => 'required|in:upcoming,overdue,completed']);
         $reminder->update(['status' => $validated['status']]);
-        return response()->json(['success' => true]);
-    }
+     return response()->json(['success' => true]);
+}
 }

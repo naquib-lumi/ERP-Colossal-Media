@@ -329,7 +329,13 @@ class PrintingProductOrderController extends Controller
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 $paths = array_values(array_filter($decoded));
             } else {
-                $paths = preg_split('/[\s,]+/', $rawAtt, -1, PREG_SPLIT_NO_EMPTY);
+                if (str_contains($rawAtt, ',')) {
+                    $paths = array_map('trim', explode(',', $rawAtt));
+                    $paths = array_filter($paths);
+                } else {
+                    // single file path (may contain spaces)
+                    $paths = [trim($rawAtt)];
+                }
             }
             foreach ($paths as $p) {
                 $p = ltrim($p, '/');
@@ -396,6 +402,35 @@ class PrintingProductOrderController extends Controller
         $uploader = $assignee;
         $permit   = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
 
+        $printers = DB::table('machines')
+            ->where('machine_type', 'printer')
+            ->orderBy('machine_name')
+            ->get(['id', 'machine_name']);
+
+        // Collect ItemIDs from ALL items that appear on the page
+        $itemIds = [];
+
+        // 1) items from the selected product section
+        foreach ($items as $it) {
+            if (!empty($it['item_id'])) $itemIds[] = (int)$it['item_id'];
+        }
+
+        // 2) items from every product block shown on the page
+        foreach ($blocks as $b) {
+            foreach ($b['items'] as $it) {
+                if (!empty($it['item_id'])) $itemIds[] = (int)$it['item_id']; // <-- use item_id
+            }
+        }
+        $itemIds = array_values(array_unique($itemIds));
+
+        // Map: [ ItemID => 'Printer Name' ]
+        $specPrinters = collect();
+        if (!empty($itemIds)) {
+            $specPrinters = DB::table('specifications')
+                ->whereIn('ItemID', $itemIds)
+                ->pluck('printer', 'ItemID');
+        }
+
         return view('printing.job_order_show', [
             // current single-product variables (unchanged)
             'product_code'   => $productCode,
@@ -415,6 +450,8 @@ class PrintingProductOrderController extends Controller
             'canEdit' => $canEdit,
             'remarksByOp' => $remarksByOp,
             'remarks' => $remarks,
+            'printers'  => $printers,
+            'specPrinters'  => $specPrinters,
         ]);
     }
 
@@ -686,39 +723,87 @@ class PrintingProductOrderController extends Controller
             return back()->with('error', 'This job cannot be edited.');
         }
 
-        $printers = (array) $request->input('printers', []);
-        $remarks  = (array) $request->input('remarks', []);
-        $userId   = Auth::id();
+        $userId = Auth::id();
+
+        // ---- ONLY allow item IDs that belong to THIS product ----
+        $allowedItemIds = DB::table('product_items')
+            ->where('ProductID', $product)
+            ->pluck('ItemID')
+            ->map(fn($v) => (int)$v)
+            ->all();
+
+        // ---- Normalize incoming payload to: [itemId => printerName|null] ----
+        $incoming = [];
+
+        // A) New shape from Blade: items[<ItemID>][printer_id] + optional [printer]
+        $itemsPayload = $request->input('items', []);
+        if (is_array($itemsPayload) && !empty($itemsPayload)) {
+            // preload machines: id => name
+            $machines = DB::table('machines')->pluck('machine_name', 'id'); // [id => name]
+
+            foreach ($itemsPayload as $rawId => $row) {
+                $itemId = (int)$rawId;
+                if (!in_array($itemId, $allowedItemIds, true)) continue; // ignore non-selected products
+
+                $printerName = null;
+
+                // prefer printer_id → resolve to name
+                if (isset($row['printer_id']) && $row['printer_id'] !== '') {
+                    $pid = (int)$row['printer_id'];
+                    if (isset($machines[$pid])) {
+                        $printerName = (string)$machines[$pid];
+                    }
+                }
+
+                // fallback to plain text if provided
+                if ($printerName === null && isset($row['printer'])) {
+                    $tmp = trim((string)$row['printer']);
+                    if ($tmp !== '') $printerName = $tmp;
+                }
+
+                // empty selection => clear
+                $incoming[$itemId] = $printerName; // may be null
+            }
+        }
+
+        // B) Backward-compat: printers[<ItemID>] => 'Minolta DGFP'
+        $legacyPrinters = $request->input('printers', []);
+        if (is_array($legacyPrinters)) {
+            foreach ($legacyPrinters as $rawId => $name) {
+                $itemId = (int)$rawId;
+                if (!in_array($itemId, $allowedItemIds, true)) continue;
+                $nm = trim((string)$name);
+                $incoming[$itemId] = ($nm === '') ? null : $nm;
+            }
+        }
+
+        // Also read remarks (unchanged)
+        $remarks = (array) $request->input('remarks', []);
 
         // Preload existing specs for change detection
-        $itemIds = array_keys($printers);
-        $existingSpecs = empty($itemIds)
+        $existingSpecs = empty($incoming)
             ? collect()
             : DB::table('specifications')
-                ->whereIn('ItemID', array_map('intval', $itemIds))
+                ->whereIn('ItemID', array_keys($incoming))
                 ->pluck('printer', 'ItemID'); // [ItemID => printer]
 
-        // Diff trackers
-        $printerDiffs = []; // ['item'=>123,'from'=>'X','to'=>'Y','type'=>'set|changed|cleared']
-        $remarksAdded = []; // ['operation'=>'printing','remark'=>'...']
+        // Diff trackers (optional)
+        $printerDiffs = [];
+        $remarksAdded = [];
 
         DB::transaction(function () use (
             $product,
-            $printers,
+            $incoming,
             $remarks,
-            $existingSpecs,  
-            &$printerDiffs,   
+            $existingSpecs,
+            &$printerDiffs,
             &$remarksAdded,
-            $userId,    
+            $userId
         ) {
-            // 1) Save printers + detect diffs
-            foreach ($printers as $itemId => $printer) {
-                if ($itemId === '' || $itemId === null) continue;
-
-                $itemId  = (int) $itemId;
-                $new     = trim((string)$printer);
-                $newDb   = ($new === '' ? null : $new);
-                $old     = $existingSpecs->get($itemId);
+            // 1) Upsert printers into specifications
+            foreach ($incoming as $itemId => $newName) {
+                $newDb = ($newName === null || $newName === '') ? null : $newName;
+                $old   = $existingSpecs->get($itemId);
 
                 if ($old !== $newDb) {
                     $type = $old === null && $newDb !== null ? 'set'
@@ -728,7 +813,7 @@ class PrintingProductOrderController extends Controller
                 }
 
                 DB::table('specifications')->updateOrInsert(
-                    ['ItemID' => $itemId],
+                    ['ItemID' => (int)$itemId],
                     [
                         'printer'    => $newDb,
                         'updated_at' => now(),
@@ -737,13 +822,12 @@ class PrintingProductOrderController extends Controller
                 );
             }
 
-            // 2) Append new remarks (if any)
+            // 2) Append new remarks (same as your logic)
             $allowedOps = ['printing', 'furnishing', 'installation', 'courier', 'self_pickup', 'artist'];
 
             foreach ($remarks as $row) {
                 $opRaw = strtolower(trim((string)($row['operation'] ?? '')));
                 $text  = trim((string)($row['remark'] ?? ''));
-
                 if ($text === '') continue;
 
                 if (in_array($opRaw, ['installation','install','delivery_installation','delivery & installation'], true)) {
@@ -762,9 +846,7 @@ class PrintingProductOrderController extends Controller
                     $op = 'furnishing';
                 }
 
-                if (!in_array($op, $allowedOps, true)) {
-                    $op = 'furnishing';
-                }
+                if (!in_array($op, $allowedOps, true)) $op = 'furnishing';
 
                 DB::table('product_remarks')->insert([
                     'ProductID'  => $product,

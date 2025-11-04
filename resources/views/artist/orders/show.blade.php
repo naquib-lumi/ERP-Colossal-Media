@@ -248,6 +248,18 @@ $isRedoOrder = (bool) $order->redo;
                 $origPid = (int) ($product->redoOf ?: $product->ProductID);
                 $pidPadded = sprintf('%04d', $origPid);
                 $pidLabel = '#'.$pidPadded . (($product->redoOf && (int)$product->editable === 1) ? 'R' : '');
+
+                $isRejected = strtolower((string)($product->status ?? '')) === 'rejected';
+
+                $rejectRecord = DB::table('report_redo')
+                    ->where('OrderID', $order->id)
+                    ->orderByDesc('ReportID')
+                    ->first();
+
+                $rejectBy = null;
+                if ($rejectRecord && $rejectRecord->user_id) {
+                    $rejectBy = \App\Models\User::find($rejectRecord->user_id)?->name;
+                }
                 @endphp
 
                 <div class="accordion-item mb-2">
@@ -275,6 +287,25 @@ $isRedoOrder = (bool) $order->redo;
                                             title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
                                         @endif
                                     </span>
+                                    @endif
+
+                                    @if((int)($product->editable ?? 0) === 1 && strtolower((string)($product->status ?? '')) === 'rejected')
+                                        <span class="redo-banner redo-offset" style="background-color:rgb(255, 62, 29); border-color:#b02a37 !important;"
+                                            title="{{ $rejectRecord->reason ?? '' }}">
+                                            <i class="bi bi-x-octagon-fill icon"></i>
+                                            <span class="tag" style="font-size: 10px;">REJECTED</span>
+                                            @if(!empty($rejectRecord?->reason))
+                                                <span style="font-size: 12px;" class="reason"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-placement="top"
+                                                    title="{{ $rejectRecord->reason }}">
+                                                    {{ \Illuminate\Support\Str::limit($rejectRecord->reason, 90) }}
+                                                </span>
+                                            @endif
+                                            @if($rejectBy)
+                                                <span class="by" style="font-size: 10px;">by {{ $rejectBy }}</span>
+                                            @endif
+                                        </span>
                                     @endif
                                 </div>
                                 <div>
@@ -411,123 +442,151 @@ $isRedoOrder = (bool) $order->redo;
 
     {{-- Delivery Breakdown (grouped by product) --}}
     <div class="card mb-4">
-        <div class="card-header">Delivery Method Summary</div>
-        <div class="card-body">
-            
-            @php
-            $products = $order->relationLoaded('products')
+    <div class="card-header">Delivery Method Summary</div>
+    <div class="card-body">
+        @php
+        $products = $order->relationLoaded('products')
             ? $order->products
-            : \App\Models\Product::with('deliveryBreakdowns')->where('OrderID', $order->id)->get();
-            @endphp
+            : \App\Models\Product::with('deliveryBreakdowns')
+                ->where('OrderID', $order->id)
+                ->get();
 
-            @forelse($products as $pIndex => $p)
-            @php
-            $isRedoOrder = !empty($order->redo);
+        // latest reject/redo for THIS order (order-level)
+        $orderReject = DB::table('report_redo')
+            ->where('OrderID', $order->id)
+            ->orderByDesc('ReportID')
+            ->first();
 
+        $orderRejectBy = null;
+        if ($orderReject && $orderReject->user_id) {
+            $orderRejectBy = \App\Models\User::find($orderReject->user_id)?->name;
+        }
+
+        // if this is a redo order we still need that too (you already had this above)
+        $isRedoOrder = (bool) $order->redo;
+        @endphp
+
+        @forelse($products as $pIndex => $p)
+        @php
             $origPid = $isRedoOrder && !empty($p->redoOf)
             ? (int) $p->redoOf
             : (int) $p->ProductID;
 
             $pidLabel = '#'.str_pad((string)$origPid, 4, '0', STR_PAD_LEFT);
-            if ($isRedoOrder && (int)($p->editable ?? 0) === 1) {
+
+            // show R if redo & selected
+            $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
+            if ($selectedForRedo) {
             $pidLabel .= 'R';
             }
-            @endphp
-            <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
-                Product {{ $pidLabel }} — {{ data_get($p,'productName','-') }}
 
-                @php
-                $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
-                @endphp
+            // ✅ product-level rejected detection
+            $isRejectedSelected = (int)($p->editable ?? 0) === 1
+                                && strtolower((string)$p->status) === 'rejected';
+        @endphp
 
-                @if($selectedForRedo)
-                <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
-                    <i class="bi bi-exclamation-octagon-fill icon"></i>
-                    <span class="tag" style="font-size: 10px;">REDO</span>
-                    @if($redoBy)
-                    <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
-                    @endif
-                    @if(!empty($redoReason))
-                    <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
-                        title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
-                    @endif
-                </span>
+        <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
+            Product {{ $pidLabel }} — {{ $p->productName ?? '-' }}
+
+            {{-- REDO banner (existing) --}}
+            @if($selectedForRedo)
+            <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                <i class="bi bi-exclamation-octagon-fill icon"></i>
+                <span class="tag" style="font-size: 10px;">REDO</span>
+                @if($redoBy ?? false)
+                <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
                 @endif
-            </div>
+                @if(!empty($redoReason ?? ''))
+                <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                        title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
+                @endif
+            </span>
+            @endif
 
-            @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
+            {{-- ✅ NEW: REJECTED banner (order-level text, product-level flag) --}}
+            @if($isRejectedSelected)
+            <span class="redo-banner redo-offset bg-danger text-white"
+                    title="{{ $orderReject->reason ?? '' }}">
+                <i class="bi bi-x-octagon-fill icon"></i>
+                <span class="tag" style="font-size: 10px;">REJECTED</span>
+                @if($orderRejectBy)
+                <span class="by" style="font-size: 10px;">by {{ $orderRejectBy }}</span>
+                @endif
+                @if(!empty($orderReject?->reason))
+                <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
+                        title="{{ $orderReject->reason }}">{{ \Illuminate\Support\Str::limit($orderReject->reason, 90) }}</span>
+                @endif
+            </span>
+            @endif
+        </div>
 
-            @forelse($deliveries as $d)
+        @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
+
+        @forelse($deliveries as $d)
             @php
             $methodRaw = strtolower((string) $d->method);
             $methodLabel = match ($methodRaw) {
-            'courier' => 'Courier',
-            'self_pickup', 'pickup' => 'Self Pickup',
-            'installation' => 'Installation',
-            'delivery_installation' => 'Delivery & Installation',
-            default => ucfirst((string) $d->method),
+                'courier' => 'Courier',
+                'self_pickup', 'pickup' => 'Self Pickup',
+                'installation' => 'Installation',
+                'delivery_installation' => 'Delivery & Installation',
+                default => ucfirst((string) $d->method),
             };
 
-            // Build a readable datetime from separate date/time columns
             $dt = null;
             $dateStr = trim((string) $d->date);
             $timeStr = trim((string) $d->time);
             try {
-            if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
-            // time field already contains a full datetime
-            $dt = \Carbon\Carbon::parse($timeStr);
-            } elseif ($dateStr && $timeStr) {
-            $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
-            } elseif ($dateStr) {
-            $dt = \Carbon\Carbon::parse($dateStr);
-            } elseif ($timeStr) {
-            $dt = \Carbon\Carbon::parse($timeStr);
-            }
+                if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
+                $dt = \Carbon\Carbon::parse($timeStr);
+                } elseif ($dateStr && $timeStr) {
+                $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
+                } elseif ($dateStr) {
+                $dt = \Carbon\Carbon::parse($dateStr);
+                } elseif ($timeStr) {
+                $dt = \Carbon\Carbon::parse($timeStr);
+                }
             } catch (\Throwable $e) {}
             @endphp
 
             <div class="border rounded p-3 mb-3">
-                <div class="text-muted small">
-                    Delivery Method:
-                    <span class="text-body fw-semibold">{{ $methodLabel }}</span>
+            <div class="text-muted small">
+                Delivery Method:
+                <span class="text-body fw-semibold">{{ $methodLabel }}</span>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-sm-6 col-lg-3">
+                <small class="text-muted d-block">Installation Type</small>
+                <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
                 </div>
-
-                <div class="row g-3 mt-1">
-                    <div class="col-sm-6 col-lg-3">
-                        <small class="text-muted d-block">Installation Type</small>
-                        <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
-                    </div>
-
-                    <div class="col-sm-6 col-lg-3">
-                        <small class="text-muted d-block">Outsource Cost (RM)</small>
-                        <div class="fw-medium">
-                            {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
-                        </div>
-                    </div>
-
-                    <div class="col-sm-6 col-lg-2">
-                        <small class="text-muted d-block">Quantity</small>
-                        <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
-                    </div>
-
-                    <div class="col-sm-6 col-lg-4">
-                        <small class="text-muted d-block">Location</small>
-                        <div class="fw-medium">{{ $d->location ?? '-' }}</div>
-                    </div>
-
-                    <div class="col-sm-6 col-lg-4">
-                        <small class="text-muted d-block">Date &amp; Time</small>
-                        <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
-                    </div>
+                <div class="col-sm-6 col-lg-3">
+                <small class="text-muted d-block">Outsource Cost (RM)</small>
+                <div class="fw-medium">
+                    {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
+                </div>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                <small class="text-muted d-block">Quantity</small>
+                <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
+                </div>
+                <div class="col-sm-6 col-lg-4">
+                <small class="text-muted d-block">Location</small>
+                <div class="fw-medium">{{ $d->location ?? '-' }}</div>
+                </div>
+                <div class="col-sm-6 col-lg-4">
+                <small class="text-muted d-block">Date &amp; Time</small>
+                <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
                 </div>
             </div>
-            @empty
+            </div>
+        @empty
             <div class="text-muted border rounded p-3 mb-4">No delivery breakdowns.</div>
-            @endforelse
-            @empty
-            <div class="text-muted border rounded p-3 mb-3">No products.</div>
-            @endforelse
-        </div>
+        @endforelse
+        @empty
+        <div class="text-muted border rounded p-3 mb-3">No products.</div>
+        @endforelse
+    </div>
     </div>
 
     @php
@@ -581,60 +640,103 @@ $isRedoOrder = (bool) $order->redo;
         <div class="card mb-4">
             <div class="card-header">Product Remarks</div>
             <div class="card-body">
+                @php
+                $orderReject = DB::table('report_redo')
+                    ->where('OrderID', $order->id)
+                    ->orderByDesc('ReportID')
+                    ->first();
+
+                $orderRejectBy = null;
+                if ($orderReject && $orderReject->user_id) {
+                    $orderRejectBy = \App\Models\User::find($orderReject->user_id)?->name;
+                }
+
+                $isRedoOrder = (bool) $order->redo;
+                @endphp
 
                 @forelse($remarkProducts as $p)
-                <div class="mb-3">
-                    {{-- product header --}}
-                    <div class="px-3 py-2 bg-body-tertiary rounded-2 fw-semibold text-secondary mb-3">
-                        {{ $productCode($p) }} — {{ $p->productName ?? '-' }}
-                        @php
-                        $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
-                        @endphp
+                @php
+                    $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
 
-                        @if($selectedForRedo)
+                    // ✅ product-level reject flag
+                    $isRejectedSelected = (int)($p->editable ?? 0) === 1
+                                        && strtolower((string)$p->status) === 'rejected';
+
+                    $productCode = function($prod) {
+                    $orig = $prod->redoOf ?: $prod->ProductID;
+                    return '#'.str_pad($orig, 4, '0', STR_PAD_LEFT).(
+                        $prod->redoOf && (int)($prod->editable ?? 0) === 1 ? 'R' : ''
+                    );
+                    };
+                @endphp
+
+                <div class="mb-3">
+                    <div class="px-3 py-2 bg-body-tertiary rounded-2 fw-semibold text-secondary mb-3">
+                    {{ $productCode($p) }} — {{ $p->productName ?? '-' }}
+
+                    {{-- existing REDO banner --}}
+                    @if($selectedForRedo)
                         <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
-                            <i class="bi bi-exclamation-octagon-fill icon"></i>
-                            <span class="tag" style="font-size: 10px;">REDO</span>
-                            @if($redoBy)
+                        <i class="bi bi-exclamation-octagon-fill icon"></i>
+                        <span class="tag" style="font-size: 10px;">REDO</span>
+                        @if($redoBy ?? false)
                             <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
-                            @endif
-                            @if(!empty($redoReason))
-                            <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
-                                title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
-                            @endif
-                        </span>
                         @endif
+                        @if(!empty($redoReason ?? ''))
+                            <span style="font-size: 12px;" class="reason"
+                                data-bs-toggle="tooltip"
+                                data-bs-placement="top"
+                                title="{{ $redoReason }}">
+                            {{ \Illuminate\Support\Str::limit($redoReason, 90) }}
+                            </span>
+                        @endif
+                        </span>
+                    @endif
+
+                    {{-- ✅ NEW: REJECTED banner --}}
+                    @if($isRejectedSelected)
+                        <span class="redo-banner redo-offset bg-danger text-white"
+                            title="{{ $orderReject->reason ?? '' }}">
+                        <i class="bi bi-x-octagon-fill icon"></i>
+                        <span class="tag" style="font-size: 10px;">REJECTED</span>
+                        @if($orderRejectBy)
+                            <span class="by" style="font-size: 10px;">by {{ $orderRejectBy }}</span>
+                        @endif
+                        @if(!empty($orderReject?->reason))
+                            <span style="font-size: 12px;" class="reason"
+                                data-bs-toggle="tooltip"
+                                data-bs-placement="top"
+                                title="{{ $orderReject->reason }}">
+                            {{ \Illuminate\Support\Str::limit($orderReject->reason, 90) }}
+                            </span>
+                        @endif
+                        </span>
+                    @endif
                     </div>
 
+                    {{-- existing remarks list... --}}
                     @if(($p->remarks ?? collect())->isEmpty())
                     <div class="text-muted small ms-1">No remarks for this product.</div>
                     @else
                     <div class="vstack gap-2">
                         @foreach($p->remarks as $rm)
                         @php [$bg,$fg] = $opStyle($rm->operation); @endphp
-
                         <div class="border rounded-2 p-3 d-flex flex-column gap-1">
                             <div class="d-flex align-items-center gap-3">
-                                {{-- color label --}}
-                                <span class="px-2 py-1 rounded-pill fw-semibold flex-shrink-0"
+                            <span class="px-2 py-1 rounded-pill fw-semibold flex-shrink-0"
                                     style="background:{{ $bg }}; color:{{ $fg }}; font-size:.8rem; min-width:max-content;">
-                                    {{ $opLabel($rm->operation) }}
-                                </span>
-
-                                {{-- remark text --}}
-                                <div class="flex-grow-1">
-                                    <div class="mb-0" style="line-height:1.5;">
-                                        {{ $rm->remark ?: '—' }}
-                                    </div>
+                                {{ $opLabel($rm->operation) }}
+                            </span>
+                            <div class="flex-grow-1">
+                                <div class="mb-0" style="line-height:1.5;">
+                                {{ $rm->remark ?: '—' }}
                                 </div>
                             </div>
-
-                            {{-- author + time --}}
+                            </div>
                             <div class="text-muted small ms-1" style="font-weight: 700;">
-                                by {{ optional($rm->user)->name ?? '—' }}
+                            by {{ optional($rm->user)->name ?? '—' }}
                             </div>
                         </div>
-
                         @endforeach
                     </div>
                     @endif
@@ -642,9 +744,8 @@ $isRedoOrder = (bool) $order->redo;
                 @empty
                 <div class="text-muted">No product remarks.</div>
                 @endforelse
-
             </div>
-        </div>
+            </div>
 
         {{-- Attachments --}}
         <div class="card mt-4">

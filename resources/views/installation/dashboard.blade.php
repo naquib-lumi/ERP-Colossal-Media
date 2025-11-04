@@ -345,6 +345,23 @@
 .fx-artist{max-width:220px;flex:1 1 200px;}
 .fx-date{max-width:180px;flex:1 1 160px;}
 
+.icon-pill{
+    width:32px;
+    height:32px;
+    border-radius:10px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #E3E8EF;
+    background:#fff;
+    color:#475467;
+    transition:background .15s ease, border-color .15s ease, color .15s ease, transform .12s ease;
+  }
+  .icon-pill i{ font-size:14px; line-height:1; }
+  .icon-pill:hover{ background:#F4F6FA; color:#111827; border-color:#D7DFE7; transform:translateY(-1px); }
+  .icon-pill:active{ transform:translateY(0); }
+  .icon-pill:focus-visible{ outline:2px solid #C7D2FE; outline-offset:2px; border-color:#A5B4FC; }
+
 </style>
 
 <div class="container-fluid py-4 px-4" style="max-width:1200px;margin:0 auto">
@@ -520,7 +537,26 @@
                   @endif
                 </a>
               </th>
-              <th class="text-center">ACTIONS</th>
+              @php
+                $q = request()->query();
+                $urlWith = function(array $overrides) use ($q) {
+                  return route('installation.dashboard', array_filter(array_merge($q, $overrides), fn($v)=>$v!==null && $v!==''));
+                };
+                // for actions sort
+                $acNext  = $sort === 'accepted_last' ? 'accepted_first' : 'accepted_last';
+                $acLabel = str_starts_with($sort,'accepted_')
+                    ? ($sort === 'accepted_last' ? 'last' : 'first')
+                    : '';
+              @endphp
+              <th class="col-actions">
+                <a class="th-sort {{ str_starts_with($sort,'accepted_') ? 'is-active' : '' }}"
+                  href="{{ $urlWith(['sort' => $acNext]) }}" style="color: rgb(43, 44, 64);">
+                  ACTIONS
+                  @if($acLabel)
+                    <span class="badge bg-light text-dark ms-1">{{ $acLabel }}</span>
+                  @endif
+                </a>
+              </th>
             </tr>
           </thead>
 
@@ -629,12 +665,13 @@
                     {{-- If installation NOT completed yet, show Edit / Mark Completed --}}
                     @unless ($isInstallCompleted)
                       @if ($accepted && $isInstallation)
+                        <button class="action-btn js-open-proof" data-id="{{ $pid }}" title="Mark as Completed" style="background-color:#4CAF50; color:white; border:none; border-radius:50%; padding:6px 8px; cursor:pointer; transition:0.3s; box-shadow:0 2px 5px rgba(0,0,0,0.15);">
+                          <i class="bi bi-check2"></i>
+                        </button>
                         <a href="{{ route('installation.job.show', $pid) }}" class="action-btn" title="Edit">
                           <i class="bi bi-pencil"></i>
                         </a>
-                        <button class="action-btn js-open-proof" data-id="{{ $pid }}" title="Mark Completed">
-                          <i class="bi bi-check2"></i>
-                        </button>
+                        
                       @endif
                     @endunless
                   </div>

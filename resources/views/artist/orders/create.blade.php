@@ -5,6 +5,13 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
 
 <style>
+    .alert.alert-danger,
+    .text-danger ul,
+    .text-danger li,
+    .invalid-feedback,
+    .parsley-errors-list {
+        display: none !important;
+    }
     .remove-item {
         display: flex;
         align-items: center;
@@ -1005,8 +1012,127 @@ $(function () {
       }
     });
 });
+
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('order-form') || document.querySelector('form');
+  const productBox = document.getElementById('product-table');
+
+  if (!form || !productBox) return;
+
+  form.addEventListener('submit', function (e) {
+    let hasError = false;
+    let firstBad = null;
+    const msgs = [];
+
+    // only look inside the product table
+    const productInputs = productBox.querySelectorAll(
+      'input[name^="products["], textarea[name^="products["], select[name^="products["]'
+    );
+
+    // collect product indexes that actually exist in the table
+    const indexes = new Set();
+    productInputs.forEach(el => {
+      const m = el.name.match(/^products\[(\d+)]/);
+      if (m) indexes.add(m[1]);
+    });
+
+    indexes.forEach(idx => {
+      // ONLY search inside the table box
+      const nameEl = productBox.querySelector(`[name="products[${idx}][product_name]"]`);
+      const qtyEl  = productBox.querySelector(`[name="products[${idx}][quantity]"]`);
+      const matEl  = productBox.querySelector(`[name="products[${idx}][material_info]"]`);
+
+      const nameVal = nameEl ? nameEl.value.trim() : '';
+      const qtyVal  = qtyEl ? qtyEl.value.trim() : '';
+      const matVal  = matEl ? matEl.value.trim() : '';
+
+      // base required for row
+      if (!nameVal || !qtyVal || !matVal) {
+        hasError = true;
+        if (!firstBad) firstBad = nameEl || qtyEl || matEl;
+        msgs.push(`Product ${Number(idx) + 1}: Product Name, Quantity, and Material Remark are required.`);
+      }
+
+      // remarks in this row (still only inside table)
+      const remarkOps = productBox.querySelectorAll(
+        `[name^="products[${idx}][remarks]["][name$="[operation]"]`
+      );
+      const remarkTexts = productBox.querySelectorAll(
+        `[name^="products[${idx}][remarks]["][name$="[remark]"]`
+      );
+
+      remarkOps.forEach((opEl, rIdx) => {
+        const rmEl = remarkTexts[rIdx];
+        const opVal = opEl ? opEl.value.trim() : '';
+        const rmVal = rmEl ? rmEl.value.trim() : '';
+
+        // if one is filled, both must be filled
+        if (opVal || rmVal) {
+          if (!opVal || !rmVal) {
+            hasError = true;
+            if (!firstBad) firstBad = opEl || rmEl;
+            msgs.push(`Product ${Number(idx) + 1}: each remark must have both Operation and Remark.`);
+          }
+        }
+      });
+    });
+
+    if (hasError) {
+      e.preventDefault();
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Please complete product details',
+          html: msgs.map(m => `<div style="text-align:left">${m}</div>`).join(''),
+          confirmButtonText: 'OK'
+        });
+      } else {
+        alert(msgs.join('\n'));
+      }
+      if (firstBad) {
+        setTimeout(() => firstBad.focus(), 120);
+      }
+    }
+  });
+});
 </script>
 
 @endpush
 
 @endsection
+@if ($errors->any())
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const rawErrors = @json($errors->all());
+
+      // Replace technical field names with friendly labels
+      const cleaned = rawErrors.map(msg => {
+        return msg
+          .replace(/products\.\d+\.product_name/gi, 'Product Name')
+          .replace(/products\.\d+\.quantity/gi, 'Quantity')
+          .replace(/products\.\d+\.material_info/gi, 'Material Remark')
+          .replace(/products\.\d+\.remarks(\.\d+)?\.operation/gi, 'Remark Operation')
+          .replace(/products\.\d+\.remarks(\.\d+)?\.remark/gi, 'Remark Text')
+          .replace(/products\.\d+\.remarks/gi, 'Remark')
+          .replace(/products\.\d+/gi, 'Product')
+          .replace(/\bfield is required\.?/gi, 'is required.')
+          .replace(/The order detail field is required\./gi, 'Order Detail is required.');
+      });
+
+      // Merge duplicates and make it neat
+      const uniqueMsgs = [...new Set(cleaned)];
+      const html = uniqueMsgs.map(e => `<div style="text-align:left">${e}</div>`).join('');
+
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Please complete all required fields',
+          html: html,
+          confirmButtonText: 'OK'
+        });
+      } else {
+        alert(uniqueMsgs.join('\n'));
+      }
+    });
+  </script>
+@endif

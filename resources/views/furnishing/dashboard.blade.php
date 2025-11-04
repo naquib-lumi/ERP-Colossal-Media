@@ -284,7 +284,22 @@
               @if($sbLabel)<span class="badge bg-light text-dark ms-1">{{ $sbLabel }}</span>@endif
             </a>
           </th>
-          <th class="col-actions">ACTIONS</th>
+          @php
+            // for actions sort
+            $acNext  = $sort === 'accepted_last' ? 'accepted_first' : 'accepted_last';
+            $acLabel = str_starts_with($sort,'accepted_')
+                ? ($sort === 'accepted_last' ? 'last' : 'first')
+                : '';
+          @endphp
+          <th class="col-actions">
+            <a class="th-sort {{ str_starts_with($sort,'accepted_') ? 'is-active' : '' }}"
+              href="{{ $urlWith(['sort' => $acNext]) }}">
+              ACTIONS
+              @if($acLabel)
+                <span class="badge bg-light text-dark ms-1">{{ $acLabel }}</span>
+              @endif
+            </a>
+          </th>
         </tr>
         </thead>
 
@@ -320,8 +335,11 @@
                 <a class="icon-pill" href="{{ $viewUrl }}" title="View"><i class="bi bi-eye"></i></a>
               @else
                 {{-- 已接受且是 Furnishing：✔ 完成 + ✏ 直接编辑 --}}
-                <button class="icon-pill js-mark" data-id="{{ $j->ProductID }}" title="Mark Completed">
-                  <i class="bi bi-check2"></i>
+                <button class="icon-pill js-mark" 
+                        data-id="{{ $j->ProductID }}" 
+                        title="Marked as Completed"
+                        style="background-color:#4CAF50; color:white; border:none; border-radius:50%; padding:6px 8px; cursor:pointer; transition:0.3s; box-shadow:0 2px 5px rgba(0,0,0,0.15);">
+                  <i class="bi bi-check2" style="font-size:16px;"></i>
                 </button>
                 <a class="icon-pill" href="{{ $editUrl }}" title="Edit">
                   <i class="bi bi-pencil"></i>

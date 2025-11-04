@@ -207,6 +207,7 @@ class InstallationHistoryController extends Controller
                 'url'  => Storage::disk('public')->url($r->file_path),
                 'mime' => $r->mime,
                 'size' => (int)$r->size,
+                'uploaded_at' => $r->created_at ? \Carbon\Carbon::parse($r->created_at)->format('M d, Y H:i') : null,
             ];
         });
 
