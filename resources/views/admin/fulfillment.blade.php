@@ -230,8 +230,13 @@
             <td class="w-cost nowrap">{{ isset($row->cost)?'RM '.number_format($row->cost,0):'N/A' }}</td>
             <td class="w-act nowrap" style="text-align:right">
               <div class="actions">
-                <a class="act" href="{{ route('admin.fulfillment.show',$row->id) }}" title="View"><i class='bx bx-show'></i></a>
-                <a class="act" href="{{ route('admin.fulfillment.edit',$row->id) }}" title="Edit"><i class='bx bx-edit'></i></a>
+                {{-- ✅ View 按 product_code 跳到详情 --}}
+                <a class="act" href="{{ route('admin.fulfillment.product.show', $row->product_code) }}" title="View">
+                  <i class='bx bx-show'></i>
+                </a>
+                <a class="act" href="{{ route('admin.fulfillment.edit',$row->id) }}" title="Edit">
+                  <i class='bx bx-edit'></i>
+                </a>
               </div>
             </td>
           </tr>
