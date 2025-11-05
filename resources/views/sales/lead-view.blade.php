@@ -5,7 +5,7 @@
         <!-- Lead Details -->
         <div class="card shadow-sm border-0">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center p-3">
-                <h5 class="mb-0">Lead Details - {{ $lead->id }}</h5>
+              <h5 class="mb-0 text-white">Lead Details - {{ $lead->id }}</h5>
                 <div class="d-flex align-items-center gap-2">
                     <select class="form-select form-select-sm bg-light text-dark border-0" id="statusDropdown"
                         style="min-width: 100px;">
@@ -427,9 +427,10 @@
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="flex-grow-1">
                                                 <h6 class="mb-1 fw-bold">{{ $meeting->title }}</h6>
-                                                <small
-                                                    class="text-muted d-block mb-1">{{ $meeting->start_time->format('h:i A') }}
-                                                    - {{ $meeting->end_time->format('h:i A') }}</small>
+                                                <small class="text-muted d-block mb-1">
+    {{ $meeting->start_time->format('D, h:i A') }} - {{ $meeting->end_time->format('h:i A') }}
+</small>
+
                                                 @if ($meeting->type === 'online' && $meeting->url)
                                                     <small class="text-primary d-block"><a href="{{ $meeting->url }}"
                                                             target="_blank"

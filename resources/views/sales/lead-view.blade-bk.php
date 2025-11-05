@@ -5,7 +5,7 @@
         <!-- Lead Details -->
         <div class="card shadow-sm border-0">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center p-3">
-                <h5 class="mb-0">Lead Details - {{ $lead->id }}</h5>
+                <h5 class="mb-0 ">Lead Details - {{ $lead->id }}</h5>
                 <div class="d-flex align-items-center gap-2">
                     <select class="form-select form-select-sm bg-light text-dark border-0" id="statusDropdown"
                         style="min-width: 100px;">

@@ -13,6 +13,7 @@ use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\Helpers;
 
 class OrderController extends Controller
 {
@@ -378,13 +379,21 @@ public function exportCsv(Request $request)
             }
         }
 
-        // Notify all head-artists
-        // $headArtists = User::whereHas('roles', fn($q) => $q->where('name', 'head-artist'))->get();
-        // $message = "New order '{$order->orderTitle}' (ID: {$order->id}) needs assignment to artist.";
-        // $url = route('artist.orders.assign.show', $order->id);
-        // foreach ($headArtists as $headArtist) {
-        //     self::notify($headArtist, $message, $url);
-        // }
+
+       
+     $productCount = count($productsData);
+        $actorName = $user->name;
+        $actorRole = $user->display_role;
+        $deadline = $order->deadline->format('Y-m-d');
+        $message = "New order '{$order->orderTitle}' (No: {$order->id}) created by {$actorName} ({$actorRole}). "
+                . "Needs assignment to artist. {$productCount} Product(s). Deadline: {$deadline}.";
+
+        // Notify
+        $headArtists = User::where('role', 'head-artist')->get();
+        $url = route('artist.orders.assign.show', $order->id);
+        foreach ($headArtists as $headArtist) {
+            Helpers::notify($headArtist, $message, $url);
+        }
 
         return redirect()->route('sales.orders')->with('success', 'Order created successfully');
     } catch (\Illuminate\Validation\ValidationException $e) {

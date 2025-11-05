@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Validation\Rule;
+use App\Helpers\Helpers;
+
 
 
 use Carbon\Carbon;
@@ -673,23 +675,38 @@ protected function authorizeLeadAccess(Lead $lead)
 }
 
 
-    public function updateSalesperson(Request $request, $id)
-    {
-        \Log::info('updateSalesperson called with data: ', $request->all());
-        $lead = Lead::findOrFail($id);
-        $user = Auth::user();
+   public function updateSalesperson(Request $request, $id)
+{
+    \Log::info('updateSalesperson called with data: ', $request->all());
+    $lead = Lead::findOrFail($id);
+    $user = Auth::user();
 
-        if (!$user->hasRole('head-salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $request->validate([
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
-        ]);
-
-        $lead->update(['salesperson_id' => $request->input('salesperson_id')]);
-        return response()->json(['success' => true]);
+    if (!$user->hasRole('head-salesperson')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
     }
+
+    $request->validate([
+        'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
+    ]);
+
+    $oldSalespersonId = $lead->salesperson_id;
+    $lead->update(['salesperson_id' => $request->input('salesperson_id')]);
+    
+    $newSalesperson = User::find($request->salesperson_id);
+    $message = "You have been assigned to lead '{$lead->name}' ({$lead->company_name}) by {$user->name}.";
+    $url = route('leads.show', $lead->id);
+    Helpers::notify($newSalesperson, $message, $url);
+    
+    // Optional: Notify old salesperson if changed
+    if ($oldSalespersonId && $oldSalespersonId != $request->salesperson_id) {
+        $oldSalesperson = User::find($oldSalespersonId);
+        $oldMessage = "Lead '{$lead->name}' has been reassigned from you to {$newSalesperson->name}.";
+        $url = route('sales.leads');
+        Helpers::notify($oldSalesperson, $oldMessage, $url);
+    }
+
+    return response()->json(['success' => true]);
+}
 
   public function updateStatus(Request $request, $id)
 {
