@@ -87,6 +87,13 @@ class DispatchControlProductOrderController extends Controller
             $rFlag
         );
 
+        $displayOrderCode = sprintf(
+            '#ORD-%s-%03d%s',
+            $year,
+            (int)$baseOrderId,
+            $rFlag
+        );
+
         // Header object used by your current blade
         $header = (object)[
             'ProductID'    => $headerRow->ProductID,
@@ -356,6 +363,7 @@ class DispatchControlProductOrderController extends Controller
             'canEdit' => $canEdit,
             'remarksByOp' => $remarksByOp,
             'remarks' => $remarks,
+            'job_order_code'   => $displayOrderCode, 
         ]);
     }
 

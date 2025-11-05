@@ -15,31 +15,34 @@ class RedoOrderController extends Controller
 {
     public function create(Order $order)
     {
-        // Base order = original source (even if you came from a redo)
+        // 1) Base/original order (even if you came from a redo)
         $baseOrder = $order->redo ? Order::findOrFail((int) $order->redo) : $order;
 
-        // Products to pick
+        // 2) Products to pick from the CURRENT order (as before)
         $products = Product::where('OrderID', $order->id)
             ->orderBy('ProductID')
             ->get(['ProductID','productName','totalQuantity','taskType']);
 
-        // Latest reason for this base
+        // 3) Latest redo reason (same)
         $latestRedoReason = DB::table('report_redo')
             ->where('OrderID', $baseOrder->id)
             ->orderByDesc('created_at')
             ->value('reason');
 
-        // How many redo orders already exist for this base
+        // 4) How many redo children exist for the BASE
         $existingCount = Order::where('redo', $baseOrder->id)->count();
 
-        // This is the **next** redo number we will create if user submits
-        $displayOrderNumber = $this->nextRedoNumber($baseOrder->order_number);
+        // 5) Build labels
+        $baseNumber = $this->normalizeOrderNumber($baseOrder->order_number); // strip # and any trailing R/R1…
+        $headerOrderNumber = '#' . $baseNumber . ($existingCount > 0 ? 'R' : ''); // show R only if has any redo already
+        $nextRedoNumber    = '#' . $baseNumber . 'R'; // the id that will be created if user submits
 
         return view('artist.orders.redo', [
-            'order'               => $order,            // current order (may be a redo)
-            'products'            => $products,
-            'latestRedoReason'    => $latestRedoReason,
-            'displayOrderNumber'  => $displayOrderNumber, // <-- use this in Blade
+            'order'              => $order,
+            'products'           => $products,
+            'latestRedoReason'   => $latestRedoReason,
+            'headerOrderNumber'  => $headerOrderNumber, // <-- use in page header
+            'nextRedoNumber'     => $nextRedoNumber,    // <-- use in “What happens next?”
         ]);
     }
 
@@ -297,13 +300,9 @@ class RedoOrderController extends Controller
      * Generate a redo order number:
      *  Try "<old>R"; if taken, "<old>R2", "<old>R3", ...
      */
-    protected function nextRedoNumber(string $baseOrderNo): string
+    protected function normalizeOrderNumber(string $orderNo): string
     {
-        // remove leading '#' and any existing R or R1/R2 etc.
-        $base = ltrim($baseOrderNo, '#');
-        $base = preg_replace('/R\d*$/i', '', $base);
-
-        // always return one R only
-        return '#' . $base . 'R';
+        $n = ltrim($orderNo, '#');
+        return preg_replace('/R\d*$/i', '', $n);
     }
 }

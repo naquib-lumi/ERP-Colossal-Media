@@ -152,6 +152,13 @@ class PrintingProductOrderController extends Controller
             $rFlag
         );
 
+        $displayOrderCode = sprintf(
+            '#ORD-%s-%03d%s',
+            $year,
+            (int)$baseOrderId,
+            $rFlag
+        );
+
         // Header object used by your current blade
         $header = (object)[
             'ProductID'    => $headerRow->ProductID,
@@ -452,6 +459,7 @@ class PrintingProductOrderController extends Controller
             'remarks' => $remarks,
             'printers'  => $printers,
             'specPrinters'  => $specPrinters,
+            'job_order_code'   => $displayOrderCode, 
         ]);
     }
 
