@@ -767,11 +767,31 @@ class AdminController extends Controller
         ]);
     }
 
-    public function fulfillmentShow($id)
-    {
-        $order = Order::with('artist')->findOrFail($id);
-        return view('admin.fulfillment-show', compact('order'));
-    }
+
+public function fulfillmentShow($id)
+{
+    // 带上需要的关系
+    $order = Order::with(['artist', 'lead.attachments'])->findOrFail($id);
+
+    // 页面标题用：Product Details – XXX
+    $productCode = $order->order_number ?? ('ORD-' . $order->id);
+
+    // 把 Lead 的附件映射成 blade 正在用的结构: url / name / size
+    $leadAttachments = $order->lead
+        ? $order->lead->attachments->map(function ($a) {
+            return [
+                'url'  => asset('storage/' . $a->file_location), // 确保已 `php artisan storage:link`
+                'name' => basename($a->file_location),
+                'size' => $a->file_size, // byte；blade 里有 number_format($f->size/1024, 1)
+            ];
+        })
+        : collect();
+
+    // 视图路径要和实际文件一致：resources/views/admin/fulfillment/show.blade.php
+    return view('admin.fulfillment.show', compact('order', 'productCode', 'leadAttachments'));
+}
+
+
 
     public function fulfillmentEdit($id)
     {

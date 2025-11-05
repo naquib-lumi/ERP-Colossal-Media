@@ -231,7 +231,7 @@
             <td class="w-act nowrap" style="text-align:right">
               <div class="actions">
                 {{-- ✅ View 按 product_code 跳到详情 --}}
-                <a class="act" href="{{ route('admin.fulfillment.product.show', $row->product_code) }}" title="View">
+                <a class="act" href="{{ route('admin.fulfillment.product.show', $row->id) }}" title="View">
                   <i class='bx bx-show'></i>
                 </a>
                 <a class="act" href="{{ route('admin.fulfillment.edit',$row->id) }}" title="Edit">
