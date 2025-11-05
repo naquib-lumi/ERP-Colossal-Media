@@ -4,6 +4,16 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
+  .redo-pill {
+    display:inline-flex; align-items:center; gap:.5rem;
+    background:#e5484d; color:#fff; border-radius:9999px;
+    padding:.25rem .6rem; font-weight:700; font-size:.75rem;
+    line-height:1; box-shadow: 0 1px 0 rgba(0,0,0,.06) inset;
+  }
+  .redo-pill .icon { font-size:1rem; line-height:1; }
+  .subcard-head .right { display:flex; align-items:center; gap:.5rem; }
+  .subcard-head .left .meta { color:#6c757d; font-size:.825rem; }
+  
   .remark-list{display:flex;flex-direction:column;gap:.5rem}
   .remark-item{padding:.6rem .8rem;border:1px dashed #E5E7EB;border-radius:.75rem;background:#FBFCFE}
   .remark-head{display:flex;gap:.5rem;align-items:center;margin-bottom:.25rem}
@@ -872,17 +882,26 @@
                 <div class="fw-semibold" style="font-size:1rem;">
                   Product @if(!empty($block['product_header']['name'])) — {{ $block['product_header']['name'] }} @endif
                 </div>
-                <div class="text-muted small">
+                <div class="meta">
                   ID: {{ $block['product_header']['code'] ?? '—' }}
                   @if(isset($block['product_header']['qty'])) · Qty: {{ number_format($block['product_header']['qty']) }} @endif
                   @if(!empty($block['product_header']['material'])) · Material: {{ $block['product_header']['material'] }} @endif
                 </div>
               </div>
             </div>
+
             <div class="right">
-              <button class="btn-toggle-icon"
-                data-toggle="subcard"
-                data-target="p{{ $block['id'] }}-body">
+              @if(!empty($block['product_header']['is_redo']))
+                <span class="redo-pill js-open-reason cursor-pointer"
+                      title="This product is a redo"
+                      data-reason="{{ $block['redo']['reason'] ?? '' }}"
+                      data-by="{{ $block['redo']['by'] ?? '' }}"
+                      data-at="{{ $block['redo']['at'] ?? '' }}">
+                  <i class="bi bi-exclamation-octagon-fill icon"></i> REDO
+                </span>
+              @endif
+
+              <button class="btn-toggle-icon" data-toggle="subcard" data-target="p{{ $block['id'] }}-body" aria-label="Toggle product section">
                 <i class="bi bi-chevron-down"></i>
               </button>
             </div>
@@ -1215,6 +1234,28 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="redoReasonModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-header" style="background:#e5484d;color:#fff;">
+        <h5 class="modal-title d-flex align-items-center gap-2" style="color: white; margin-bottom:10px">
+          <i class="bi bi-exclamation-octagon-fill" style="color: white;"></i> Redo Reason
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-between small text-muted mb-2" style="gap:1rem;">
+          <div><span class="fw-semibold">By:</span> <span id="redoReasonBy">—</span></div>
+          <div><span class="fw-semibold">At:</span> <span id="redoReasonAt">—</span></div>
+        </div>
+        <div class="p-3 rounded" style="background:#fff5f6;border:1px solid #ffd6d9;">
+          <div id="redoReasonText" style="white-space:pre-wrap;">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 @endif
 
 <script>
@@ -1464,6 +1505,21 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.js-resize-table').forEach(initResizableTable);
   });
 })();
+
+document.addEventListener('click', function (e) {
+  const pill = e.target.closest('.js-open-reason');
+  if (!pill) return;
+
+  const reason = (pill.getAttribute('data-reason') || '').trim();
+  const by     = (pill.getAttribute('data-by') || '').trim();
+  const at     = (pill.getAttribute('data-at') || '').trim();
+
+  document.getElementById('redoReasonText').textContent = reason || 'No reason provided.';
+  document.getElementById('redoReasonBy').textContent   = by || '—';
+  document.getElementById('redoReasonAt').textContent   = at || '—';
+
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('redoReasonModal')).show();
+});
 </script>
 
 @endsection

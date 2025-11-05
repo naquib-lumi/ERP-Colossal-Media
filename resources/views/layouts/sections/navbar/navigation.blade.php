@@ -235,9 +235,8 @@
                 </div>
 
                 <div class="flex-shrink-0 dropdown-notifications-actions">
-                  <a href="javascript:void(0)" class="dropdown-notifications-read"
-                    onclick="markAsReadKeep('{{ $notification->id }}', this)">
-                    <span class="badge badge-dot bg-success"></span>
+                  <a href="javascript:void(0)" onclick="markAsReadAndGo('{{ $notification->id }}', '{{ $notification->data['url'] ?? '/' }}')">
+                  <span class="badge badge-dot bg-success"></span>
                   </a>
                   <a href="javascript:void(0)" class="dropdown-notifications-archive"
                     onclick="archiveNotification('{{ $notification->id }}', this)">
@@ -293,32 +292,32 @@
   }
 
   // Click the green dot → PATCH only; keep the item visible
-  function markAsReadKeep(id, dotEl) {
-    event.stopPropagation(); // don’t trigger the outer link
-    fetch(`{{ route('notifications.markAsRead', ['id' => '___ID___']) }}`.replace('___ID___', id), {
-      method: 'PATCH',
-      headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
-    }).then(r => r.ok ? r.json() : Promise.reject())
-      .then(() => {
-        // turn the dot to muted and flag the li as read
-        const li = dotEl.closest('li.dropdown-notifications-item');
-        if (li) li.classList.add('marked-as-read');
+  // function markAsReadKeep(id, dotEl) {
+  //   event.stopPropagation(); // don’t trigger the outer link
+  //   fetch(`{{ route('notifications.markAsRead', ['id' => '___ID___']) }}`.replace('___ID___', id), {
+  //     method: 'PATCH',
+  //     headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+  //   }).then(r => r.ok ? r.json() : Promise.reject())
+  //     .then(() => {
+  //       // turn the dot to muted and flag the li as read
+  //       const li = dotEl.closest('li.dropdown-notifications-item');
+  //       if (li) li.classList.add('marked-as-read');
 
-        const dot = dotEl.querySelector('.badge-dot');
-        if (dot) {
-          dot.classList.remove('bg-success');
-          dot.classList.add('bg-secondary'); // visually “read”
-        }
+  //       const dot = dotEl.querySelector('.badge-dot');
+  //       if (dot) {
+  //         dot.classList.remove('bg-success');
+  //         dot.classList.add('bg-secondary'); // visually “read”
+  //       }
 
-        // update the bell count
-        const badge = document.querySelector('.badge-notifications');
-        if (badge) {
-          const next = Math.max(0, (parseInt(badge.textContent || '0', 10) - 1));
-          next ? badge.textContent = next : badge.remove();
-        }
-      })
-      .catch(() => { /* no alert */ });
-  }
+  //       // update the bell count
+  //       const badge = document.querySelector('.badge-notifications');
+  //       if (badge) {
+  //         const next = Math.max(0, (parseInt(badge.textContent || '0', 10) - 1));
+  //         next ? badge.textContent = next : badge.remove();
+  //       }
+  //     })
+  //     .catch(() => { /* no alert */ });
+  // }
 
   // Archive (X) → POST and remove from list
   function archiveNotification(id, btnEl) {

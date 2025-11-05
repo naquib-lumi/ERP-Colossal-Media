@@ -156,11 +156,14 @@ class FurnishingProductOrderController extends Controller
         $dates = ['order_date' => $headerRow->orderDate, 'deadline' => $headerRow->deadline];
         $productCode = $displayProductCode;
 
+        $selectedIsRedo = ($headerRow->redo_product_of && (int)$headerRow->editable === 1);
+
         $productHeader = [
             'name'     => trim((string)($headerRow->productName ?? '')),
             'code'     => $displayProductCode,
             'qty'      => (int)($headerRow->totalQuantity ?? 0),
             'material' => trim((string)($headerRow->materialRemark ?? '')),
+            'is_redo'  => $selectedIsRedo,
         ];
 
         // ===== Helpers we reuse for any ProductID =====
@@ -316,6 +319,8 @@ class FurnishingProductOrderController extends Controller
 
             $yearForBlocks        = $headerRow->orderDate ? \Carbon\Carbon::parse($headerRow->orderDate)->format('Y') : date('Y');
             $baseOrderIdForBlocks = $headerRow->redo_order ?: $headerRow->OrderID;
+            
+            $isRedoBlock = ($p->redoOf && (int)$p->editable === 1);
             $rFlagBlock           = ($p->redoOf && (int)$p->editable === 1) ? 'R' : '';
 
             $code = sprintf('#ORD-%s-%03d-P%04d%s',
@@ -326,16 +331,45 @@ class FurnishingProductOrderController extends Controller
                 'code'     => $code,
                 'qty'      => (int)($p->totalQuantity ?? 0),
                 'material' => (string)($p->materialRemark ?? ''),
+                'is_redo'  => $isRedoBlock,
             ];
             $its = $buildItems((int)$pid);
             [$dels, $tots] = $buildDeliveriesAndTotals((int)$pid, (int)($p->totalQuantity ?? 0));
+            
+            $fetchRedoInfo = function (int $orderId) {
+                $row = DB::table('report_redo as rr')
+                    ->leftJoin('users as u', 'u.id', '=', 'rr.user_id')
+                    ->where('rr.OrderID', $orderId)
+                    ->orderByDesc('rr.created_at')
+                    ->select([
+                        'rr.reason',
+                        'rr.created_at',
+                        DB::raw('COALESCE(u.name, "") as actor_name'),
+                    ])
+                    ->first();
+
+                return [
+                    'reason' => $row->reason ?? null,
+                    'by'     => $row->actor_name ?? null,
+                    'at'     => isset($row->created_at)
+                                ? \Carbon\Carbon::parse($row->created_at)->format('Y-m-d H:i')
+                                : null,
+                ];
+            };
+
+            $redoInfoForOrder = $fetchRedoInfo((int)$headerRow->OrderID);
+            
             $blocks[] = [
                 'id'             => (int)$pid,
-                'product_header' => $ph,
+                'product_header' => $ph + [
+                    'is_redo' => ($rFlagBlock === 'R'),
+                ],
+                'redo'           => $redoInfoForOrder,
                 'items'          => $its,
                 'deliveries'     => $dels,
                 'totals'         => $tots,
                 'has_deliveries' => !empty($dels),
+                'is_redo'        => $isRedoBlock,
             ];
         }
 
