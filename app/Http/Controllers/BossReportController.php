@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -12,47 +14,36 @@ class BossReportController extends Controller
 {
     public function index(Request $request)
     {
-        // ----- Read filters from UI (with safe defaults) -----
-        $startParam    = $request->input('start_date');
-        $endParam      = $request->input('end_date');
-        $salespersonId = $request->input('salesperson', 'all');  // 'all' or users.id
+        // ----- Read filters -----
+        $salespersonId = $request->input('salesperson', 'all');
         $period        = $request->input('period', 'monthly');
 
-        // Month selector in your UI is short name (Jan/Feb/…).
-        $mpMonthShort = $request->input('mpMonth');          // e.g. "Jun"
-        $yearParam     = (int) $request->input('year', now()->year);
+        $startParam = $request->input('start_date');
+        $endParam   = $request->input('end_date');
 
-        // Defaults: KPI range = current month
+        // Defaults: current month
         if (!$startParam || !$endParam) {
-            $startParam = Carbon::now()->startOfMonth()->toDateString();
-            $endParam   = Carbon::now()->endOfMonth()->toDateString();
+            $startParam = now()->startOfMonth()->toDateString();
+            $endParam   = now()->endOfMonth()->toDateString();
         }
 
-        // If no mpMonth provided, default to current month short (e.g., "Jun")
-        if (!$mpMonthShort) {
-            $mpMonthShort = Carbon::now()->format('M');      // Jan…Dec
-            $yearParam    = Carbon::now()->year;
-        }
-
-        // Build month start/end from short name + year
-        $monthStart = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->startOfMonth()->toDateString();
-        $monthEnd   = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->endOfMonth()->toDateString();
+        // Reusable date objects
+        $start = Carbon::parse($startParam)->startOfDay();
+        $end   = Carbon::parse($endParam)->endOfDay();
 
         // =========================
         // KPI TILES (top 4 cards)
         // =========================
         // Leads in selected range (+ salesperson)
-        $leadsBase = DB::table('leads');
-        $leadsBase->whereBetween('date', [$startParam, $endParam]);
+        $leadsBase = DB::table('leads')
+            ->whereBetween('date', [$startParam, $endParam]);
         if ($salespersonId !== 'all' && $salespersonId) {
-            $leadsBase->where('user_id', $salespersonId);
+            $leadsBase->where('salesperson_id', $salespersonId); // or salesperson_id if that's your column
         }
-        $totalLeadsAdded = DB::table('leads')->count();
+        $totalLeadsAdded = (clone $leadsBase)->count();   // <-- IMPORTANT: use the filtered base
 
-        // Meetings in selected range (+ salesperson)
         $meetingBase = DB::table('meetings')
             ->whereBetween(DB::raw('DATE(start_time)'), [$startParam, $endParam]);
-
         if ($salespersonId !== 'all' && $salespersonId) {
             $meetingBase->where('user_id', $salespersonId);
         }
@@ -66,10 +57,9 @@ class BossReportController extends Controller
             'total_meetings' => $totalMeetings,
             'accepted_meets' => $acceptedMeetings,
             'rejected_meets' => $rejectedMeetings,
-            // keep current view logic intact but also return selected filters for UI state
             'filters'        => [
-                'start_date'  => $startParam,
-                'end_date'    => $endParam,
+                'start_date'  => $start->toDateString(),
+                'end_date'    => $end->toDateString(),
                 'salesperson' => $salespersonId,
                 'period'      => $period,
             ],
@@ -79,51 +69,36 @@ class BossReportController extends Controller
         // Monthly Performance (your 5 bars definition)
         // ===========================================
         // Bar 1: leads added IN selected month only
-        $leadsMonthBase = DB::table('leads')->whereBetween('date', [$monthStart, $monthEnd]);
+        $mpBase = DB::table('leads')
+            ->whereBetween('date', [$startParam, $endParam]);
         if ($salespersonId !== 'all' && $salespersonId) {
-            $leadsMonthBase->where('salesperson_id', $salespersonId);
+            $mpBase->where('salesperson_id', $salespersonId);
         }
-        $leadsThisMonth = (clone $leadsMonthBase)->count();
-
-        // Bars 2–5: cumulative from beginning up to end of selected month
-        $cumBase = DB::table('leads')->where('date', '<=', $monthEnd);
-        if ($salespersonId !== 'all' && $salespersonId) {
-            $cumBase->where('salesperson_id', $salespersonId);
-        }
-
-        $acceptedCum   = (clone $cumBase)->where('status', 'accept')->count();
-        $rejectedCum   = (clone $cumBase)->where('status', 'reject')->count();
-        $fiftyFiftyCum = (clone $cumBase)->where('opportunity', '50/50')->count();
-        $lowChanceCum  = (clone $cumBase)->where('opportunity', 'Low')->count();
+        $mpRow = (clone $mpBase)->selectRaw("
+            COUNT(*)                                                AS leads_added,
+            SUM(CASE WHEN status='accept' THEN 1 ELSE 0 END)        AS accepted,
+            SUM(CASE WHEN status='reject' THEN 1 ELSE 0 END)        AS rejected,
+            SUM(CASE WHEN opportunity='50/50' THEN 1 ELSE 0 END)    AS fifty_fifty,
+            SUM(CASE WHEN opportunity='Low' THEN 1 ELSE 0 END)      AS low_chance
+        ")->first();
 
         $monthlyPerformance = [
-            'month_short' => $mpMonthShort,
-            'year'        => (int) $yearParam,
-            'bars'        => [
-                'leads_added' => $leadsThisMonth,
-                'accepted'    => $acceptedCum,
-                'rejected'    => $rejectedCum,
-                'fifty_fifty' => $fiftyFiftyCum,
-                'low_chance'  => $lowChanceCum,
+            'bars' => [
+                'leads_added' => (int)($mpRow->leads_added ?? 0),
+                'accepted'    => (int)($mpRow->accepted ?? 0),
+                'rejected'    => (int)($mpRow->rejected ?? 0),
+                'fifty_fifty' => (int)($mpRow->fifty_fifty ?? 0),
+                'low_chance'  => (int)($mpRow->low_chance ?? 0),
             ],
         ];
 
         // ==========================
         // Meeting Outcomes (pie)
         // ==========================
-        $pieStart = $request->input('start_date');   // e.g. 2025-10-01
-        $pieEnd   = $request->input('end_date');     // e.g. 2025-10-31
-        $salespersonId = $request->input('salesperson'); // 'all' or a users.id
+        $meetingOutcomeQ = DB::table('meetings')
+            ->whereBetween(DB::raw('DATE(start_time)'), [$start->toDateString(), $end->toDateString()]);
 
-        $meetingOutcomeQ = DB::table('meetings');
-
-        // apply date range only if both provided
-        if ($pieStart && $pieEnd) {
-            $meetingOutcomeQ->whereBetween(DB::raw('DATE(start_time)'), [$pieStart, $pieEnd]);
-        }
-
-        // filter by salesperson if selected
-        if ($salespersonId && $salespersonId !== 'all') {
+        if ($salespersonId !== 'all' && $salespersonId) {
             $meetingOutcomeQ->where('user_id', $salespersonId);
         }
 
@@ -131,10 +106,10 @@ class BossReportController extends Controller
             'accepted' => (clone $meetingOutcomeQ)->where('status', 'scheduled')->count(),
             'rejected' => (clone $meetingOutcomeQ)->where('status', 'canceled')->count(),
             'filters'  => [
-                'start_date'  => $pieStart ?: now()->startOfMonth()->toDateString(),
-                'end_date'    => $pieEnd   ?: now()->endOfMonth()->toDateString(),
-                'salesperson' => $salespersonId ?: 'all',
-                'period'      => $request->input('period', 'monthly'),
+                'start_date'  => $start->toDateString(),
+                'end_date'    => $end->toDateString(),
+                'salesperson' => $salespersonId,
+                'period'      => $period,
             ],
         ];
 
@@ -229,73 +204,72 @@ class BossReportController extends Controller
             'rejected'   => (clone $ordersBase)->where('orderStatus', 'rejected')->count(),
         ];
 
-        // ===== Machine Usage Summary =====
-        $mq     = trim($request->input('machine_q', ''));    
-        $mtype  = $request->input('machine_type', '');        
-        $mrange = $request->input('machine_range', 'last30'); 
+        // ===== Machine Usage (Artist dashboard → Reports → Machine Usage) =====
+        $mq     = trim($request->input('machine_q', ''));
+        $mtype  = $request->input('machine_type', '');          // '', 'Printer', 'Cutter'
+        $mrange = $request->input('machine_range', 'last30');   // last30, last90, year
 
         // Date range
-        $start = null; $end = now()->toDateString();
-        if ($mrange === 'last30') {
-            $start = now()->subDays(30)->toDateString();
-        } elseif ($mrange === 'last90') {
-            $start = now()->subDays(90)->toDateString();
-        } elseif ($mrange === 'year') {
-            $start = now()->startOfYear()->toDateString();
-        }
-
-        // Helper for shared filtering
-        $applyFilters = function ($query, $machineColumn) use ($mq, $start, $end) {
-            if ($mq !== '') {
-                $query->where($machineColumn, 'like', '%'.$mq.'%');
-            }
-            if ($start) {
-                $query->whereBetween(
-                    DB::raw('DATE(COALESCE(pi.updated_at, pi.created_at))'),
-                    [$start, $end]
-                );
-            }
-            return $query;
+        $end   = now()->toDateString();
+        $start = match ($mrange) {
+            'last90' => now()->subDays(90)->toDateString(),
+            'year'   => now()->startOfYear()->toDateString(),
+            default  => now()->subDays(30)->toDateString(), // last30
         };
 
-        // Printer usage aggregation
+        // common where for names
+        $badNames = ['no','No','NO','tbc','TBC',''];   // exclude these
+
+        // PRINTER query
         $printerAgg = DB::table('specifications as s')
             ->join('product_items as pi', 'pi.ItemID', '=', 's.ItemID')
-            ->whereNotNull('s.printer')->where('s.printer','<>','')
             ->selectRaw("
                 s.printer as machine_name,
                 'Printer'  as machine_type,
                 COUNT(DISTINCT s.ItemID) as used_items,
                 COALESCE(SUM(pi.quantity),0) as total_qty
             ")
+            ->whereNotNull('s.printer')
+            ->where('s.printer', '<>', '')
+            ->whereNotIn(DB::raw('LOWER(s.printer)'), array_map('strtolower', $badNames))
+            ->whereBetween(DB::raw('DATE(COALESCE(pi.updated_at, pi.created_at))'), [$start, $end])
+            ->when($mq !== '', fn($q) => $q->where('s.printer', 'like', "%{$mq}%"))
             ->groupBy('s.printer');
-        $printerAgg = $applyFilters($printerAgg, 's.printer');
 
-        // Cutter usage aggregation
+        // CUTTER query
         $cutterAgg = DB::table('specifications as s')
             ->join('product_items as pi', 'pi.ItemID', '=', 's.ItemID')
-            ->whereNotNull('s.cutter')->where('s.cutter','<>','')
             ->selectRaw("
                 s.cutter as machine_name,
                 'Cutter'  as machine_type,
                 COUNT(DISTINCT s.ItemID) as used_items,
                 COALESCE(SUM(pi.quantity),0) as total_qty
             ")
+            ->whereNotNull('s.cutter')
+            ->where('s.cutter', '<>', '')
+            ->whereNotIn(DB::raw('LOWER(s.cutter)'), array_map('strtolower', $badNames))
+            ->whereBetween(DB::raw('DATE(COALESCE(pi.updated_at, pi.created_at))'), [$start, $end])
+            ->when($mq !== '', fn($q) => $q->where('s.cutter', 'like', "%{$mq}%"))
             ->groupBy('s.cutter');
-        $cutterAgg = $applyFilters($cutterAgg, 's.cutter');
 
-        // Merge results
-        $rows = collect();
+        // choose query
         if ($mtype === 'Printer') {
-            $rows = $printerAgg->get();
+            $combined = $printerAgg;
         } elseif ($mtype === 'Cutter') {
-            $rows = $cutterAgg->get();
+            $combined = $cutterAgg;
         } else {
-            $rows = $printerAgg->get()->concat($cutterAgg->get());
+            // union both, then wrap to order + paginate
+            $combined = $printerAgg->unionAll($cutterAgg);
         }
 
-        // Sort by total quantity (usage) and take top 3
-        $machineUsage = $rows->sortByDesc('total_qty')->values();
+        // wrap subquery to order & paginate
+        $machineUsage = DB::query()
+            ->fromSub($combined, 'm')
+            ->orderByDesc('total_qty')
+            ->orderBy('machine_name')
+            ->paginate(10)                      // 10 rows per page
+            ->withQueryString()               // keep filters when paging
+            ->fragment('machineSec');
 
         $machineFilters = [
             'machine_q'    => $mq,
@@ -343,6 +317,43 @@ class BossReportController extends Controller
             'counts' => $redoCounts,
         ];
 
+        // ============ ORDER REPORT FILTERS ============
+        $ordArtist = $request->input('ord_artist', 'all');
+        $ordStart  = $request->input('ord_start');
+        $ordEnd    = $request->input('ord_end');
+
+        if (!$ordStart || !$ordEnd) {
+            $ordStart = now()->startOfMonth()->toDateString();
+            $ordEnd   = now()->endOfMonth()->toDateString();
+        }
+
+        // Base orders scope (visible rows only)
+        $ordersBase = DB::table('orders')
+            ->where(function ($w) {                // visible (not archived/hidden)
+                $w->whereNull('status')->orWhere('status', '!=', 1);
+            })
+            // Use orderDate if you have it; fall back to created_at
+            ->whereBetween(DB::raw("DATE(COALESCE(orderDate, created_at))"), [$ordStart, $ordEnd]);
+
+        if ($ordArtist !== 'all' && $ordArtist !== null && $ordArtist !== '') {
+            $ordersBase->where('artist_id', $ordArtist);
+        }
+
+        // Aggregates for the bar chart
+        $jobFulfillment = [
+            'total'       => (clone $ordersBase)->count(),
+            'in_progress' => (clone $ordersBase)->where('orderStatus', 'in_progress')->count(),
+            'completed'   => (clone $ordersBase)->where('orderStatus', 'completed')->count(),
+            'rejected'    => (clone $ordersBase)->where('orderStatus', 'rejected')->count(),
+        ];
+
+        // expose filters to the blade
+        $orderFilters = [
+            'ord_artist' => $ordArtist,
+            'ord_start'  => $ordStart,
+            'ord_end'    => $ordEnd,
+        ];
+
         return view('boss.reports', [
             'kpis'               => $kpis,
             'monthlyPerformance' => $monthlyPerformance,
@@ -368,6 +379,45 @@ class BossReportController extends Controller
                 'start_date'  => $startParam,
                 'end_date'    => $endParam,
             ],
+
+            'jobFulfillment' => $jobFulfillment,
+            'orderFilters'   => $orderFilters,
+            'artists'        => $artists,
         ]);
+    }
+
+    public function storeMachine(Request $request)
+    {
+        // Validate
+        $data = $request->validate([
+            'machine_name' => ['required','string','max:255'],
+            'machine_type' => ['required', Rule::in(['printer','cutter','lamination'])],
+        ]);
+
+        // Optional: avoid duplicates by (name,type)
+        $exists = DB::table('machines')
+            ->whereRaw('LOWER(machine_name) = ?', [mb_strtolower($data['machine_name'])])
+            ->where('machine_type', $data['machine_type'])
+            ->exists();
+
+        if ($exists) {
+            return back()->withInput()->withErrors([
+                'machine_name' => 'This machine already exists for the selected type.',
+            ])->withFragment('machineSec');
+        }
+
+        // Insert
+        DB::table('machines')->insert([
+            'user_id'      => Auth::id(),                 // nullable field; saves current user
+            'machine_name' => $data['machine_name'],
+            'machine_type' => $data['machine_type'],
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        // Back to Machine tab with success flash
+        return redirect()
+            ->to(route('boss.reports') . '#machineSec')
+            ->with('success', 'Machine added successfully.');
     }
 }

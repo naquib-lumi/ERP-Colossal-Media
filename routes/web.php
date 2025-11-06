@@ -434,6 +434,7 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::get('/boss/dashboard', [BossDashboardController::class, 'index'])->name('boss.dashboard');
         Route::get('/boss/reports', [BossReportController::class, 'index'])->name('boss.reports');
         Route::get('/boss/reports/sales/export', [BossReportController::class, 'exportSales'])->name('boss.reports.sales.export');
+        Route::post('/boss/reports/machines', [BossReportController::class, 'storeMachine'])->name('boss.machines.store');
 
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'index'])->name('boss.fulfillment');
         Route::get('/boss/manageuser', [BossManageUserController::class, 'index'])->name('boss.manageuser');

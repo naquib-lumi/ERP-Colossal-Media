@@ -313,7 +313,7 @@
                                                     <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $index }}">Add Remark</button>
                                                 </td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="{{ $index }}">Edit</button>
+                                                    <!-- <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="{{ $index }}">Edit</button> -->
                                                     <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $index }}">Delete</button>
                                                 </td>
                                             </tr>
@@ -465,6 +465,7 @@
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.full.min.js"></script>
 <script>
+window.currentUserRole = '{{ auth()->user()->hasRole("head-artist") ? "head-artist" : "artist" }}';
 $(function () {
   /***********************
    * LEAD SELECT (Select2)
@@ -739,7 +740,6 @@ $(function () {
                             <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">Add Remark</button>
                         </td>
                         <td>
-                            <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="${productIndex}">Edit</button>
                             <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">Delete</button>
                         </td>
                     </tr>
@@ -963,7 +963,6 @@ $(function () {
                                 <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">Add Remark</button>
                             </td>
                             <td>
-                                <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="${productIndex}">Edit</button>
                                 <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">Delete</button>
                             </td>
                         </tr>
@@ -1206,9 +1205,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const rm = val(rmEl);
 
         // Only this condition is enforced now:
-        if (op && !rm) {
-          err(`Product ${i + 1}: If you select an Operation, the Remark text cannot be empty.`);
-          firstBad = firstBad || rmEl;
+        if ((op && !rm) || (rm && !op)) {
+        err(`Product ${idx}: Each remark must have both Operation and Remark text.`);
+        // focus the missing one if possible
+        firstBad = firstBad || (!op ? opEl : rmEl);
         }
         // If rm filled but no op selected → allowed (as requested)
         // If both empty → allowed
@@ -1217,11 +1217,24 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ======= Assign Artist (required) =======
-    const artistSelect = form.querySelector('[name="assignee_artist_id"], [name="artist_id"]');
-    if (!artistSelect || !artistSelect.value.trim()) {
+    (function () {
+    const role = (window.currentUserRole || '').toString().trim().toLowerCase();
+    if (role !== 'head-artist') return; // only validate for head-artist
+
+    // prefer real <select> elements; take the last visible one
+    const candidates = Array.from(
+        form.querySelectorAll('select[name="assignee_artist_id"], select[name="artist_id"]')
+    );
+    const visible = el => el && el.offsetParent !== null && !el.disabled;
+    const artistSelect = [...candidates].reverse().find(visible) || candidates.pop() || null;
+
+    const artistVal = (artistSelect?.value ?? '').toString().trim();
+
+    if (!artistSelect || artistVal === '' || artistVal === '0') {
         err('Please assign an artist before saving the order.');
-        firstBad = firstBad || artistSelect;
+        if (!firstBad) firstBad = artistSelect || form.querySelector('[name="assignee_artist_id"], [name="artist_id"]');
     }
+    })();
 
 
     // ======= Attachments (unchanged) =======
