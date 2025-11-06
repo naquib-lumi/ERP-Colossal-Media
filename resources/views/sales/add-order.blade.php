@@ -296,7 +296,7 @@
                                                 <td class="product-number">{{ $loop->iteration }}</td>
                                                 <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
                                                 <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ $product['quantity'] ?? '' }}" min="1"></td>
-                                                <td><input type="text" name="products[{{ $index }}][material_info]" class="form-control" value="{{ $product['material_info'] ?? '' }}"></td>
+                                                <td><input type="text" name="products[{{ $index }}][material_remark]" class="form-control" value="{{ $product['material_remark'] ?? '' }}"></td>
                                                 <td>
                                                     <div id="remarks-container-{{ $index }}">
                                                         @foreach ($product['remarks'] ?? [] as $rindex => $remark)
@@ -319,7 +319,6 @@
                                                     <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $index }}">Add Remark</button>
                                                 </td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="{{ $index }}">Edit</button>
                                                     <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $index }}">Delete</button>
                                                 </td>
                                             </tr>
@@ -412,7 +411,7 @@
                         </div>
                         <div class="col-12">
                             <label>Material Remark</label>
-                            <textarea id="material_info" class="form-control"></textarea>
+                            <textarea id="material_remark" class="form-control"></textarea>
                         </div>
                         <div class="col-12">
                             <label>Remarks</label>
@@ -434,6 +433,7 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
 <script>
     $(document).ready(function() {
         var leadSelect = $('#leadSelect');
@@ -477,7 +477,7 @@
                     $('#leadNameDisplay').val(lead.name);
                     $('#phoneDisplay').val(lead.phone);
                     $('#emailDisplay').val(lead.email);
-                    $('#lead_id').val(lead.id);
+                    $('#lead_id').val(lead.id).trigger('change');
                 }
             });
         });
@@ -495,6 +495,22 @@
         }
 
         renumberProducts();
+
+        let initialFormState = $('#order-form').serialize();
+        let isDirty = false;
+
+        $('#order-form').on('change input', function() {
+            if ($('#order-form').serialize() !== initialFormState) {
+                isDirty = true;
+            }
+        });
+
+        window.addEventListener('beforeunload', function (e) {
+            if (isDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
 
         $('#productModal').on('show.bs.modal', function(e) {
             const button = $(e.relatedTarget);
@@ -514,7 +530,7 @@
                 const row = $(`#product-table tbody tr[data-index="${index}"]`);
                 $('#product_name').val(row.find('input[name$="[product_name]"]').val());
                 $('#quantity').val(row.find('input[name$="[quantity]"]').val());
-                $('#material_info').val(row.find('input[name$="[material_info]"]').val());
+                $('#material_remark').val(row.find('input[name$="[material_remark]"]').val());
 
                 row.find('.remark-row').each(function() {
                     const operation = $(this).find('select').val();
@@ -525,6 +541,14 @@
         });
 
         $('#addRemarkBtn').on('click', function() {
+            if ($('#remarks-container .remark-row').length >= 6) {
+                Swal.fire({
+                    title: 'Max Remarks Reached',
+                    text: 'Maximum 6 remarks per product.',
+                    icon: 'warning'
+                });
+                return;
+            }
             addRemarkRow();
         });
 
@@ -555,14 +579,43 @@
             validateRemarks();
         });
 
+        $(document).on('change', '.remark-row select', function() {
+            const current = $(this);
+            const val = current.val();
+            if (!val) return;
+            const container = current.closest('#remarks-container') || current.closest('[id^="remarks-container-"]');
+            let duplicate = false;
+            container.find('.remark-row select').not(current).each(function() {
+                if ($(this).val() === val) {
+                    duplicate = true;
+                }
+            });
+            if (duplicate) {
+                current.val('');
+                Swal.fire({
+                    title: 'Duplicate Operation',
+                    text: 'This operation is already selected.',
+                    icon: 'error'
+                });
+            }
+        });
+
         $('#saveProduct').on('click', function() {
-            if (!validateProductForm()) return;
+            const errors = validateProductForm();
+            if (errors.length > 0) {
+                Swal.fire({
+                    title: 'Please complete the product info',
+                    html: '<ul><li>' + errors.join('</li><li>') + '</li></ul>',
+                    icon: 'error'
+                });
+                return;
+            }
 
             const index = $('#product_index').val();
             const data = {
                 product_name: $('#product_name').val() || '',
                 quantity: $('#quantity').val() || '',
-                material_info: $('#material_info').val() || '',
+                material_remark: $('#material_remark').val() || '',
                 remarks: []
             };
 
@@ -582,7 +635,11 @@
                 updateProductRow(index, data);
             } else {
                 if (productIndex >= 5) {
-                    alert('Maximum 5 products allowed. Use CSV for more.');
+                    Swal.fire({
+                        title: 'Maximum Products Reached',
+                        text: 'Maximum 5 products allowed. Use CSV for more.',
+                        icon: 'warning'
+                    });
                     return;
                 }
                 addProductRow(data, productIndex);
@@ -591,7 +648,7 @@
                     $('#addProductBtn').hide();
                 }
             }
-
+            isDirty = true;
             $('#productModal').modal('hide');
         });
 
@@ -601,7 +658,7 @@
                     <td class="product-number">${index + 1}</td>
                     <td><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required></td>
                     <td><input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1" required></td>
-                    <td><input type="text" name="products[${index}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}"></td>
+                    <td><input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}"></td>
                     <td>
                         <div id="remarks-container-${index}">
                             ${data.remarks.map((r, rindex) => `
@@ -624,20 +681,18 @@
                         <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${index}">Add Remark</button>
                     </td>
                     <td>
-                        <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="${index}">Edit</button>
                         <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${index}">Delete</button>
                     </td>
                 </tr>
             `;
             $('#product-table tbody').append(html);
-            addHiddenFields(index, data);
         }
 
         function updateProductRow(index, data) {
             const row = $(`#product-table tbody tr[data-index="${index}"]`);
             row.find('td:eq(1)').html(`<input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required>`);
             row.find('td:eq(2)').html(`<input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1" required>`);
-            row.find('td:eq(3)').html(`<input type="text" name="products[${index}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}">`);
+            row.find('td:eq(3)').html(`<input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}">`);
             row.find('td:eq(4)').html(`
                 <div id="remarks-container-${index}">
                     ${data.remarks.map((r, rindex) => `
@@ -659,35 +714,7 @@
                 </div>
                 <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${index}">Add Remark</button>
             `);
-            updateHiddenFields(index, data);
             renumberProducts();
-        }
-
-        function addHiddenFields(index, data) {
-            let hiddenHtml = `
-                <div data-index="${index}">
-                    <input type="hidden" name="products[${index}][product_name]" value="${escapeHtml(data.product_name)}">
-                    <input type="hidden" name="products[${index}][quantity]" value="${escapeHtml(data.quantity)}">
-                    <input type="hidden" name="products[${index}][material_info]" value="${escapeHtml(data.material_info)}">
-            `;
-            data.remarks.forEach((r, rindex) => {
-                hiddenHtml += `<input type="hidden" name="products[${index}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`;
-                hiddenHtml += `<input type="hidden" name="products[${index}][remarks][${rindex}][remark]" value="${escapeHtml(r.remark)}">`;
-            });
-            hiddenHtml += '</div>';
-            $('#hidden-products').append(hiddenHtml);
-        }
-
-        function updateHiddenFields(index, data) {
-            const hidden = $(`#hidden-products > div[data-index="${index}"]`);
-            hidden.find('input[name$="[product_name]"]').val(data.product_name);
-            hidden.find('input[name$="[quantity]"]').val(data.quantity);
-            hidden.find('input[name$="[material_info]"]').val(data.material_info);
-            hidden.find('input[name^="products[' + index + '][remarks]"]').remove();
-            data.remarks.forEach((r, rindex) => {
-                hidden.append(`<input type="hidden" name="products[${index}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`);
-                hidden.append(`<input type="hidden" name="products[${index}][remarks][${rindex}][remark]" value="${escapeHtml(r.remark)}">`);
-            });
         }
 
         function renumberProducts() {
@@ -697,19 +724,8 @@
                 $(this).find('.edit-product, .remove-product, .add-remark').attr('data-index', i);
                 const remarksId = `remarks-container-${i}`;
                 $(this).find('[id^="remarks-container-"]').attr('id', remarksId);
-                $(this).find('input[name^="products"]').each(function() {
-                    let name = $(this).attr('name').replace(/\[products\]\[(\d+)\]/, '[products][' + i + ']');
-                    $(this).attr('name', name);
-                });
-            });
-            updateHiddenIndices();
-        }
-
-        function updateHiddenIndices() {
-            $('#hidden-products > div').each(function(i) {
-                $(this).attr('data-index', i);
-                $(this).find('input').each(function() {
-                    let name = $(this).attr('name').replace(/\[products\]\[(\d+)\]/, '[products][' + i + ']');
+                $(this).find('input[name^="products"], select[name^="products"]').each(function() {
+                    let name = $(this).attr('name').replace(/\[\d+\]/, '[' + i + ']');
                     $(this).attr('name', name);
                 });
             });
@@ -718,19 +734,26 @@
         $(document).on('click', '.remove-product', function() {
             const index = $(this).data('index');
             $(`#product-table tbody tr[data-index="${index}"]`).remove();
-            $(`#hidden-products > div[data-index="${index}"]`).remove();
             renumberProducts();
             productIndex = $('#product-table tbody tr').length;
             if (productIndex < 5 && !isFromCsv) {
                 $('#addProductBtn').show();
             }
+            isDirty = true;
         });
 
         $(document).on('click', '.add-remark', function() {
             const index = $(this).data('index');
             const container = $(`#remarks-container-${index}`);
-            const remarks = container.find('.remark-row');
-            const rindex = remarks.length;
+            if (container.find('.remark-row').length >= 6) {
+                Swal.fire({
+                    title: 'Max Remarks Reached',
+                    text: 'Maximum 6 remarks per product.',
+                    icon: 'warning'
+                });
+                return;
+            }
+            const rindex = container.find('.remark-row').length;
             const html = `
                 <div class="remark-row">
                     <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
@@ -749,10 +772,12 @@
                 </div>
             `;
             container.append(html);
+            isDirty = true;
         });
 
         $(document).on('click', '.remove-remark', function() {
             $(this).closest('.remark-row').remove();
+            isDirty = true;
         });
 
         const input = document.getElementById('fileInput');
@@ -787,6 +812,7 @@
 
             updateSummary();
             input.value = '';
+            isDirty = true;
         }
 
         function addRow(file, { status = 'ready', note = '' }) {
@@ -806,13 +832,13 @@
                 updateSummary();
                 if (!selectedFile) {
                     $('#product-table tbody').empty();
-                    $('#hidden-products').empty();
                     productIndex = 0;
                     isFromCsv = 0;
                     $('#from_csv').val(0);
                     $('#addProductBtn').show();
                     renumberProducts();
                 }
+                isDirty = true;
             });
 
             listEl.appendChild(li);
@@ -837,7 +863,6 @@
                 const headers = lines[0].split(',').map(h => h.trim());
 
                 $('#product-table tbody').empty();
-                $('#hidden-products').empty();
                 productIndex = 0;
 
                 for (let i = 1; i < lines.length; i++) {
@@ -846,7 +871,7 @@
                     const product = {
                         product_name: data[headers.indexOf('Product_Name')] || '',
                         quantity: data[headers.indexOf('Quantity')] || '',
-                        material_info: data[headers.indexOf('Material_Info')] || '',
+                        material_remark: data[headers.indexOf('Material_Info')] || '',
                         remarks: []
                     };
 
@@ -907,113 +932,161 @@
 
         function validateProductForm() {
             clearValidationErrors();
-            let valid = true;
+            const errors = [];
 
             const productName = $('#product_name').val().trim();
             if (!productName) {
                 showValidationError('#product_name', 'Product name is required');
-                valid = false;
+                errors.push('Product name is required');
             }
 
             const quantity = parseInt($('#quantity').val());
             if (!quantity || quantity < 1) {
                 showValidationError('#quantity', 'Quantity must be at least 1');
-                valid = false;
+                errors.push('Quantity must be at least 1');
             }
 
             const remarks = $('#remarks-container .remark-row');
+            const operations = [];
             remarks.each(function() {
-                const operation = $(this).find('select').val();
-                const remark = $(this).find('input').val().trim();
+                const select = $(this).find('select');
+                const input = $(this).find('input');
+                const operation = select.val();
+                const remark = input.val().trim();
+                const opText = select.find('option:selected').text();
                 if (operation && !remark) {
-                    showValidationError('#remarks-container', 'Remark text is required if operation selected');
-                    valid = false;
-                    return false;
+                    input.addClass('is-invalid');
+                    errors.push(`Remark text required for "${opText}"`);
+                }
+                if (operation) {
+                    if (operations.includes(operation)) {
+                        select.addClass('is-invalid');
+                        errors.push(`Duplicate operation: "${opText}"`);
+                    }
+                    operations.push(operation);
                 }
             });
 
-            return valid;
+            return errors;
         }
 
         function validateRemarks() {
             clearValidationErrors();
-            let valid = true;
+            const errors = [];
             $('#remarks-container .remark-row').each(function() {
                 const operation = $(this).find('select').val();
                 const remark = $(this).find('input').val().trim();
                 if (operation && !remark) {
-                    showValidationError('#remarks-container', 'Remark text is required if operation selected');
-                    valid = false;
-                    return false;
+                    $(this).find('input').addClass('is-invalid');
+                    errors.push('Remark text required');
                 }
             });
-            return valid;
+            return errors.length === 0;
         }
 
         $('#order-form').on('submit', function(e) {
             clearValidationErrors();
-            let valid = true;
+            const errors = [];
 
             if (!$('#lead_id').val() && !{{ $lead ? 1 : 0 }}) {
                 showValidationError('#leadSelect', 'Lead selection is required');
-                valid = false;
+                errors.push('Lead selection is required');
             }
 
             const orderTitle = $('input[name="orderTitle"]').val().trim();
             if (!orderTitle) {
                 showValidationError('input[name="orderTitle"]', 'Job title is required');
-                valid = false;
+                errors.push('Job title is required');
             }
 
             const deadline = $('input[name="deadline"]').val();
             if (!deadline) {
                 showValidationError('input[name="deadline"]', 'Deadline is required');
-                valid = false;
+                errors.push('Deadline is required');
             }
 
             const approval = $('input[name="approval"]:checked').length;
             if (!approval) {
                 showValidationError('input[name="approval"]', 'Approval selection is required');
-                valid = false;
+                errors.push('Approval selection is required');
             }
 
             const products = $('#product-table tbody tr');
             if (products.length === 0) {
                 $('#products-error').text('At least one product is required').show();
-                valid = false;
+                errors.push('At least one product is required');
             } else {
-                products.each(function() {
+                products.each(function(idx) {
+                    const productErrors = [];
                     const productName = $(this).find('input[name$="[product_name]"]').val().trim();
-                    const quantity = parseInt($(this).find('input[name$="[quantity]"]').val());
+                    const quantityInput = $(this).find('input[name$="[quantity]"]');
+                    const quantity = parseInt(quantityInput.val());
                     if (!productName) {
                         $(this).find('input[name$="[product_name]"]').addClass('is-invalid');
-                        valid = false;
-                        return false;
+                        productErrors.push('Product name is required');
                     }
                     if (!quantity || quantity < 1) {
-                        $(this).find('input[name$="[quantity]"]').addClass('is-invalid');
-                        valid = false;
-                        return false;
+                        quantityInput.addClass('is-invalid');
+                        productErrors.push('Quantity must be at least 1');
                     }
                     const remarks = $(this).find('.remark-row');
+                    const operations = [];
                     remarks.each(function() {
-                        const operation = $(this).find('select').val();
-                        const remark = $(this).find('input').val().trim();
+                        const select = $(this).find('select');
+                        const input = $(this).find('input');
+                        const operation = select.val();
+                        const remark = input.val().trim();
+                        const opText = select.find('option:selected').text();
                         if (operation && !remark) {
-                            $(this).find('input').addClass('is-invalid');
-                            valid = false;
-                            return false;
+                            input.addClass('is-invalid');
+                            productErrors.push(`Remark text required for "${opText}"`);
+                        }
+                        if (operation) {
+                            if (operations.includes(operation)) {
+                                select.addClass('is-invalid');
+                                productErrors.push(`Duplicate operation: "${opText}"`);
+                            }
+                            operations.push(operation);
                         }
                     });
+                    if (productErrors.length > 0) {
+                        errors.push(`Product ${idx + 1}: ${productErrors.join(', ')}`);
+                    }
                 });
             }
 
-            if (!valid) {
+            if (errors.length > 0) {
                 e.preventDefault();
-                alert('Please fix the errors before saving.');
+              Swal.fire({
+    title: 'Please fix the following errors',
+    html: '<div style="text-align:left;"><ul><li>' + errors.join('</li><li>') + '</li></ul></div>',
+    icon: 'error'
+});
+
+            } else {
+                isDirty = false;
             }
         });
     });
+
+    function cancelOrder() {
+        if (!isDirty) {
+            history.back();
+            return;
+        }
+        Swal.fire({
+            title: 'Unsaved Changes',
+            html: 'You have unsaved changes. If you leave now, your changes will be lost.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Leave',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                history.back();
+            }
+        });
+    }
 </script>
 @endpush
 

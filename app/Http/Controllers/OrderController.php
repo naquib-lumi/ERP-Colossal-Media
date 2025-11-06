@@ -440,9 +440,9 @@ public function csvTemplate()
     public function edit($id)
     {
         $order = Order::with(['lead', 'salesperson', 'products.remarks'])->findOrFail($id);
-        if ($order->salesperson_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
-        }
+         if ($order->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+        abort(403, 'Unauthorized');
+    }
         return view('sales.order-edit', compact('order'));
     }
 
@@ -450,7 +450,7 @@ public function update(Request $request, $id)
 {
     $user = Auth::user();
     $order = Order::findOrFail($id);
-    if ($order->salesperson_id !== Auth::id()) {
+    if ($order->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
         abort(403, 'Unauthorized');
     }
 

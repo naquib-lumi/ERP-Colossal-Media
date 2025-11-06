@@ -219,6 +219,14 @@ $(function () {
     }
   });
 
+  // Double-click row to view order
+  $(document).on('dblclick', '#orderTable tbody tr', function () {
+    if ($(this).hasClass('child')) return; // Skip if child row
+    let rowData = table.row(this).data();
+    let id = rowData.id;
+    window.location.href = `/orders/${id}`;
+  });
+
   // 查看产品
   $(document).on('click', '.view-products', function () {
     let id = $(this).data('id');
