@@ -12,47 +12,36 @@ class BossReportController extends Controller
 {
     public function index(Request $request)
     {
-        // ----- Read filters from UI (with safe defaults) -----
-        $startParam    = $request->input('start_date');
-        $endParam      = $request->input('end_date');
-        $salespersonId = $request->input('salesperson', 'all');  // 'all' or users.id
+        // ----- Read filters -----
+        $salespersonId = $request->input('salesperson', 'all');
         $period        = $request->input('period', 'monthly');
 
-        // Month selector in your UI is short name (Jan/Feb/…).
-        $mpMonthShort = $request->input('mpMonth');          // e.g. "Jun"
-        $yearParam     = (int) $request->input('year', now()->year);
+        $startParam = $request->input('start_date');
+        $endParam   = $request->input('end_date');
 
-        // Defaults: KPI range = current month
+        // Defaults: current month
         if (!$startParam || !$endParam) {
-            $startParam = Carbon::now()->startOfMonth()->toDateString();
-            $endParam   = Carbon::now()->endOfMonth()->toDateString();
+            $startParam = now()->startOfMonth()->toDateString();
+            $endParam   = now()->endOfMonth()->toDateString();
         }
 
-        // If no mpMonth provided, default to current month short (e.g., "Jun")
-        if (!$mpMonthShort) {
-            $mpMonthShort = Carbon::now()->format('M');      // Jan…Dec
-            $yearParam    = Carbon::now()->year;
-        }
-
-        // Build month start/end from short name + year
-        $monthStart = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->startOfMonth()->toDateString();
-        $monthEnd   = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->endOfMonth()->toDateString();
+        // Reusable date objects
+        $start = Carbon::parse($startParam)->startOfDay();
+        $end   = Carbon::parse($endParam)->endOfDay();
 
         // =========================
         // KPI TILES (top 4 cards)
         // =========================
         // Leads in selected range (+ salesperson)
-        $leadsBase = DB::table('leads');
-        $leadsBase->whereBetween('date', [$startParam, $endParam]);
+        $leadsBase = DB::table('leads')
+            ->whereBetween('date', [$startParam, $endParam]);
         if ($salespersonId !== 'all' && $salespersonId) {
-            $leadsBase->where('user_id', $salespersonId);
+            $leadsBase->where('salesperson_id', $salespersonId); // or salesperson_id if that's your column
         }
-        $totalLeadsAdded = DB::table('leads')->count();
+        $totalLeadsAdded = (clone $leadsBase)->count();   // <-- IMPORTANT: use the filtered base
 
-        // Meetings in selected range (+ salesperson)
         $meetingBase = DB::table('meetings')
             ->whereBetween(DB::raw('DATE(start_time)'), [$startParam, $endParam]);
-
         if ($salespersonId !== 'all' && $salespersonId) {
             $meetingBase->where('user_id', $salespersonId);
         }
@@ -66,10 +55,9 @@ class BossReportController extends Controller
             'total_meetings' => $totalMeetings,
             'accepted_meets' => $acceptedMeetings,
             'rejected_meets' => $rejectedMeetings,
-            // keep current view logic intact but also return selected filters for UI state
             'filters'        => [
-                'start_date'  => $startParam,
-                'end_date'    => $endParam,
+                'start_date'  => $start->toDateString(),
+                'end_date'    => $end->toDateString(),
                 'salesperson' => $salespersonId,
                 'period'      => $period,
             ],
@@ -79,51 +67,36 @@ class BossReportController extends Controller
         // Monthly Performance (your 5 bars definition)
         // ===========================================
         // Bar 1: leads added IN selected month only
-        $leadsMonthBase = DB::table('leads')->whereBetween('date', [$monthStart, $monthEnd]);
+        $mpBase = DB::table('leads')
+            ->whereBetween('date', [$startParam, $endParam]);
         if ($salespersonId !== 'all' && $salespersonId) {
-            $leadsMonthBase->where('salesperson_id', $salespersonId);
+            $mpBase->where('salesperson_id', $salespersonId);
         }
-        $leadsThisMonth = (clone $leadsMonthBase)->count();
-
-        // Bars 2–5: cumulative from beginning up to end of selected month
-        $cumBase = DB::table('leads')->where('date', '<=', $monthEnd);
-        if ($salespersonId !== 'all' && $salespersonId) {
-            $cumBase->where('salesperson_id', $salespersonId);
-        }
-
-        $acceptedCum   = (clone $cumBase)->where('status', 'accept')->count();
-        $rejectedCum   = (clone $cumBase)->where('status', 'reject')->count();
-        $fiftyFiftyCum = (clone $cumBase)->where('opportunity', '50/50')->count();
-        $lowChanceCum  = (clone $cumBase)->where('opportunity', 'Low')->count();
+        $mpRow = (clone $mpBase)->selectRaw("
+            COUNT(*)                                                AS leads_added,
+            SUM(CASE WHEN status='accept' THEN 1 ELSE 0 END)        AS accepted,
+            SUM(CASE WHEN status='reject' THEN 1 ELSE 0 END)        AS rejected,
+            SUM(CASE WHEN opportunity='50/50' THEN 1 ELSE 0 END)    AS fifty_fifty,
+            SUM(CASE WHEN opportunity='Low' THEN 1 ELSE 0 END)      AS low_chance
+        ")->first();
 
         $monthlyPerformance = [
-            'month_short' => $mpMonthShort,
-            'year'        => (int) $yearParam,
-            'bars'        => [
-                'leads_added' => $leadsThisMonth,
-                'accepted'    => $acceptedCum,
-                'rejected'    => $rejectedCum,
-                'fifty_fifty' => $fiftyFiftyCum,
-                'low_chance'  => $lowChanceCum,
+            'bars' => [
+                'leads_added' => (int)($mpRow->leads_added ?? 0),
+                'accepted'    => (int)($mpRow->accepted ?? 0),
+                'rejected'    => (int)($mpRow->rejected ?? 0),
+                'fifty_fifty' => (int)($mpRow->fifty_fifty ?? 0),
+                'low_chance'  => (int)($mpRow->low_chance ?? 0),
             ],
         ];
 
         // ==========================
         // Meeting Outcomes (pie)
         // ==========================
-        $pieStart = $request->input('start_date');   // e.g. 2025-10-01
-        $pieEnd   = $request->input('end_date');     // e.g. 2025-10-31
-        $salespersonId = $request->input('salesperson'); // 'all' or a users.id
+        $meetingOutcomeQ = DB::table('meetings')
+            ->whereBetween(DB::raw('DATE(start_time)'), [$start->toDateString(), $end->toDateString()]);
 
-        $meetingOutcomeQ = DB::table('meetings');
-
-        // apply date range only if both provided
-        if ($pieStart && $pieEnd) {
-            $meetingOutcomeQ->whereBetween(DB::raw('DATE(start_time)'), [$pieStart, $pieEnd]);
-        }
-
-        // filter by salesperson if selected
-        if ($salespersonId && $salespersonId !== 'all') {
+        if ($salespersonId !== 'all' && $salespersonId) {
             $meetingOutcomeQ->where('user_id', $salespersonId);
         }
 
@@ -131,10 +104,10 @@ class BossReportController extends Controller
             'accepted' => (clone $meetingOutcomeQ)->where('status', 'scheduled')->count(),
             'rejected' => (clone $meetingOutcomeQ)->where('status', 'canceled')->count(),
             'filters'  => [
-                'start_date'  => $pieStart ?: now()->startOfMonth()->toDateString(),
-                'end_date'    => $pieEnd   ?: now()->endOfMonth()->toDateString(),
-                'salesperson' => $salespersonId ?: 'all',
-                'period'      => $request->input('period', 'monthly'),
+                'start_date'  => $start->toDateString(),
+                'end_date'    => $end->toDateString(),
+                'salesperson' => $salespersonId,
+                'period'      => $period,
             ],
         ];
 

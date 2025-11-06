@@ -129,7 +129,7 @@
       </div>
 
       <!-- Period segmented buttons (writes to hidden input) -->
-      <div class="col-md-3">
+      <!-- <div class="col-md-3">
         <label class="form-label small">Time Period</label>
         <div class="btn-group w-100" role="group" id="periodGroup">
           @php $pSel = $sf['period'] ?? 'monthly'; @endphp
@@ -138,7 +138,7 @@
           <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='monthly'?'active':'' }}" data-value="monthly">Monthly</button>
         </div>
         <input type="hidden" name="period" id="periodInput" value="{{ $pSel }}">
-      </div>
+      </div> -->
 
       <!-- Date Range -->
       <div class="col-md-4">
@@ -151,15 +151,20 @@
       </div>
 
       <!-- Actions -->
-      <div class="col-md-2 text-md-end">
-        <div class="d-grid gap-2">
-          <button type="submit" class="btn btn-dark-compact btn-sm-compact">
-            <i class="bi bi-funnel me-1"></i> Filter
+      <div class="col-md-4">
+        <div class="d-flex flex-wrap gap-2">
+          <button type="submit" name="action" value="filter" class="btn btn-dark">
+            <i class="bi bi-funnel"></i> Filter
           </button>
-          <a href="{{ url()->current() }}" class="btn btn-light btn-sm-compact" id="salesResetBtn">Reset</a>
-          <button class="btn btn-dark-compact btn-sm-compact">
-            <i class="bi bi-download me-1"></i> Export
-          </button>
+
+          <a id="salesResetBtn" href="{{ route('boss.reports') }}" class="btn btn-secondary">
+            Reset
+          </a>
+
+          {{-- carry current filters when exporting --}}
+          <a href="#" class="btn btn-outline-dark">
+            <i class="bi bi-download"></i> Export
+          </a>
         </div>
       </div>
 
@@ -220,15 +225,6 @@
           <div class="card soft p-3 h-100 d-flex flex-column">
             <div class="d-flex justify-content-between align-items-center">
               <h6 class="fw-bold mb-0">Monthly Performance</h6>
-              <div class="d-flex align-items-center gap-2">
-                <label class="small text-muted mb-0">Month</label>
-                <select id="mpMonth" class="form-select form-select-sm short-select">
-                  @php $m = $monthlyPerformance['month_short']; @endphp
-                  @foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $mon)
-                    <option value="{{ $mon }}" {{ $mon === $m ? 'selected' : '' }}>{{ $mon }}</option>
-                  @endforeach
-                </select>
-              </div>
             </div>
 
             <div class="d-flex flex-wrap gap-3 legend-row mb-2 mt-2">
@@ -462,13 +458,7 @@ if (mpCtx) {
   });
 
   // Keep the same visual control; on change, reload with new month (no UI change)
-  const mpSel = document.getElementById('mpMonth');
-  mpSel && mpSel.addEventListener('change', e => {
-    const params = new URLSearchParams(window.location.search);
-    params.set('mpMonth', e.target.value);
-    params.set('year', {{ (int)$monthlyPerformance['year'] }});
-    window.location.search = params.toString();
-  });
+
 }
 
 // ===== Meeting Outcomes 饼图 =====
