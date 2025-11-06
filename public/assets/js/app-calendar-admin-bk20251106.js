@@ -3,7 +3,7 @@
  */
 
 /**
- * ! Manages two calendars: Salesperson Calendar (meetings/reminders) and Orders Calendar.
+ * ! Manages two calendars: Salesperson Calendar (meetings) and Delivery Calendar.
  * ! Events are fetched dynamically from /calendar/events and /calendar/order-events.
  * ! Supports filtering by salesperson and event type.
  */
@@ -16,8 +16,6 @@ document.addEventListener('DOMContentLoaded', function () {
   console.log('Calendar:', typeof Calendar);
   console.log('dayGridPlugin:', typeof dayGridPlugin);
   console.log('interactionPlugin:', typeof interactionPlugin);
-  console.log('listPlugin:', typeof listPlugin);
-  console.log('timegridPlugin:', typeof timegridPlugin);
   console.log('Select2:', typeof Select2);
   console.log('flatpickr:', typeof flatpickr);
 
@@ -46,23 +44,28 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
-    function modifyToggler(calendar) {
-      const fcSidebarToggleButton = calendar.el.querySelector('.fc-sidebarToggle-button');
-      if (fcSidebarToggleButton) {
-        fcSidebarToggleButton.classList.remove('fc-button-primary');
-        fcSidebarToggleButton.classList.add('d-lg-none', 'd-inline-block', 'ps-0');
-        while (fcSidebarToggleButton.firstChild) {
-          fcSidebarToggleButton.firstChild.remove();
-        }
-        fcSidebarToggleButton.setAttribute('data-bs-toggle', 'sidebar');
-        fcSidebarToggleButton.setAttribute('data-overlay', '');
-        fcSidebarToggleButton.setAttribute('data-target', '#app-calendar-sidebar');
-        fcSidebarToggleButton.insertAdjacentHTML(
-          'beforeend',
-          '<i class="icon-base bx bx-menu icon-lg text-heading"></i>'
-        );
-      }
+function modifyToggler(calendar) {
+  const fcSidebarToggleButton = calendar.el.querySelector('.fc-sidebarToggle-button');
+  const fcDayGridMonthButton = calendar.el.querySelector('.fc-dayGridMonth-button');
+  if (fcSidebarToggleButton) {
+    fcSidebarToggleButton.classList.remove('fc-button-primary');
+    fcSidebarToggleButton.classList.add('d-lg-none', 'd-inline-block', 'ps-0');
+    while (fcSidebarToggleButton.firstChild) {
+      fcSidebarToggleButton.firstChild.remove();
     }
+    fcSidebarToggleButton.setAttribute('data-bs-toggle', 'sidebar');
+    fcSidebarToggleButton.setAttribute('data-overlay', '');
+    fcSidebarToggleButton.setAttribute('data-target', '#app-calendar-sidebar');
+    fcSidebarToggleButton.insertAdjacentHTML(
+      'beforeend',
+      '<i class="icon-base bx bx-menu icon-lg text-heading"></i>'
+    );
+  }
+  if (fcDayGridMonthButton) {
+    fcDayGridMonthButton.classList.remove('fc-button-primary');
+    fcDayGridMonthButton.classList.add('btn-gray');
+  }
+}
 
     function selectedCalendars() {
       let selected = [];
@@ -73,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         });
       }
-      return selected.length ? selected : ['meeting', 'reminder', 'order'];
+      return selected.length ? selected : ['meeting', 'delivery'];
     }
 
     const debounce = (fn, ms) => {
@@ -101,12 +104,6 @@ document.addEventListener('DOMContentLoaded', function () {
         success: function (data) {
           console.log('Fetched salesperson events:', data);
           let filteredEvents = data.filter(event => calendars.includes(event.extendedProps.type) || calendars.includes('all'));
-          filteredEvents = filteredEvents.map(event => {
-            if (event.extendedProps.type === 'reminder') {
-              return { ...event, allDay: false };
-            }
-            return event;
-          });
           successCallback(filteredEvents);
         },
         error: function (xhr) {
@@ -129,13 +126,13 @@ document.addEventListener('DOMContentLoaded', function () {
           'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         },
         success: function (data) {
-          console.log('Fetched order events:', data);
+          console.log('Fetched delivery events:', data);
           let filteredEvents = data.filter(event => calendars.includes(event.extendedProps.type) || calendars.includes('all'));
           successCallback(filteredEvents);
         },
         error: function (xhr) {
-          console.error('Error fetching order events:', xhr.status, xhr.responseText);
-          alert('Failed to load order calendar events.');
+          console.error('Error fetching delivery events:', xhr.status, xhr.responseText);
+          alert('Failed to load delivery calendar events.');
         }
       });
     }
@@ -146,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let salespersonCalendar = new Calendar(salespersonCalendarEl, {
       initialView: 'dayGridMonth',
       events: fetchSalespersonEvents,
-      plugins: [dayGridPlugin, interactionPlugin, listPlugin, timegridPlugin],
+      plugins: [dayGridPlugin, interactionPlugin],
       editable: false,
       dragScroll: false,
       dayMaxEvents: 2,
@@ -156,11 +153,11 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       headerToolbar: {
         start: 'sidebarToggle, prev,next, title',
-        end: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+        end: ''
       },
       direction: direction,
       initialDate: new Date(),
-      navLinks: true,
+      navLinks: false,
       eventDidMount: function (info) {
         info.el.style.backgroundColor = info.event.backgroundColor;
         info.el.style.borderColor = info.event.borderColor;
@@ -174,32 +171,25 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('Event Click Data:', info.event.extendedProps);
         let modalId = 'eventDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
         if (!$('#' + modalId).length) {
-          const isReminder = info.event.extendedProps.type === 'reminder';
           let modalBody = `
 <p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Created by:</strong> <span id="eventCreatorDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Status:</strong> <span id="eventStatusDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
-
-          if (isReminder) {
-            modalBody += `
-<p><strong>Remind At:</strong> <span id="eventRemindAtDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Description:</strong> <span id="eventDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
-          } else {
-            modalBody += `
+<p><strong>Status:</strong> <span id="eventStatusDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Start Time:</strong> <span id="eventStartTimeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Duration:</strong> <span id="eventDurationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Meeting Type:</strong> <span id="eventMeetingTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>URL/Location:</strong> <span id="eventUrlLocationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Lead Name:</strong> <span id="eventLeadNameDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Lead Company:</strong> <span id="eventLeadCompanyDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
 <p><strong>Description:</strong> <span id="eventDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
-          }
 
           $('body').append(`
             <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
               <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                   <div class="modal-header">
-                    <h5 class="modal-title" id="${modalId}Label">${isReminder ? 'Reminder' : 'Meeting'} Details</h5>
+                    <h5 class="modal-title" id="${modalId}Label">Meeting Details</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                   </div>
                   <div class="modal-body">
@@ -219,16 +209,22 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#eventTypeDetail_' + safeId).text(info.event.extendedProps.type || 'N/A');
         $('#eventCreatorDetail_' + safeId).text(info.event.extendedProps.created_by || 'N/A');
         $('#eventStatusDetail_' + safeId).text(info.event.extendedProps.status || 'N/A');
-        if (info.event.extendedProps.type === 'reminder') {
-          $('#eventRemindAtDetail_' + safeId).text(info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('YYYY-MM-DD HH:mm') : 'N/A');
-          $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
-        } else {
-          $('#eventStartTimeDetail_' + safeId).text(moment(info.event.start).format('YYYY-MM-DD HH:mm') || 'N/A');
-          $('#eventDurationDetail_' + safeId).text(moment(info.event.end).diff(moment(info.event.start), 'minutes') + ' minutes' || 'N/A');
-          $('#eventMeetingTypeDetail_' + safeId).text(info.event.extendedProps.meeting_type || 'N/A');
-          $('#eventUrlLocationDetail_' + safeId).text(info.event.extendedProps.url || info.event.extendedProps.location || 'N/A');
-          $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
+        $('#eventStartTimeDetail_' + safeId).text(moment(info.event.start).format('YYYY-MM-DD HH:mm') || 'N/A');
+        $('#eventDurationDetail_' + safeId).text(moment(info.event.end).diff(moment(info.event.start), 'minutes') + ' minutes' || 'N/A');
+        $('#eventMeetingTypeDetail_' + safeId).text(info.event.extendedProps.meeting_type || 'N/A');
+        $('#eventUrlLocationDetail_' + safeId).text(info.event.extendedProps.url || info.event.extendedProps.location || 'N/A');
+        const leadText = info.event.extendedProps.lead_text || 'N/A';
+        let leadName = 'N/A', leadCompany = 'N/A';
+        if (leadText !== 'N/A' && leadText !== 'Unknown') {
+          const parts = leadText.split(' - ');
+          if (parts.length === 2) {
+            leadCompany = parts[0];
+            leadName = parts[1];
+          }
         }
+        $('#eventLeadNameDetail_' + safeId).text(leadName);
+        $('#eventLeadCompanyDetail_' + safeId).text(leadCompany);
+        $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
 
         const eventModal = new bootstrap.Modal(document.getElementById(modalId));
         eventModal.show();
@@ -244,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let orderCalendar = new Calendar(orderCalendarEl, {
       initialView: 'dayGridMonth',
       events: fetchOrderEvents,
-      plugins: [dayGridPlugin, interactionPlugin, listPlugin, timegridPlugin],
+      plugins: [dayGridPlugin, interactionPlugin],
       editable: false,
       dragScroll: false,
       dayMaxEvents: 2,
@@ -254,11 +250,11 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       headerToolbar: {
         start: 'sidebarToggle, prev,next, title',
-        end: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+        end: ''
       },
       direction: direction,
       initialDate: new Date(),
-      navLinks: true,
+      navLinks: false,
       eventDidMount: function (info) {
         info.el.style.backgroundColor = info.event.backgroundColor;
         info.el.style.borderColor = info.event.borderColor;
@@ -269,26 +265,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       },
       eventClick: function (info) {
-        console.log('Order Event Click Data:', info.event.extendedProps);
+        console.log('Delivery Event Click Data:', info.event.extendedProps);
         let modalId = 'orderDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
         if (!$('#' + modalId).length) {
           const modalBody = `
 <p><strong>Order Number:</strong> <span id="orderNumberDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Title:</strong> <span id="orderTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Assigned to:</strong> <span id="orderAssignedToDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Status:</strong> <span id="orderStatusDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Order Date:</strong> <span id="orderStartDateDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Deadline:</strong> <span id="orderEndDateDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Description:</strong> <span id="orderDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Approval:</strong> <span id="orderApprovalDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
-
+<p><strong>Product:</strong> <span id="orderProductDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Method:</strong> <span id="orderMethodDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Quantity:</strong> <span id="orderQuantityDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Location:</strong> <span id="orderLocationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Deliver/Install Type:</strong> <span id="orderDeliverTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Outsource Cost:</strong> <span id="orderOutsourceCostDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Lead Name:</strong> <span id="orderLeadNameDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Lead Company:</strong> <span id="orderLeadCompanyDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
+<p><strong>Description:</strong> <span id="orderDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
 
           $('body').append(`
             <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
               <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                   <div class="modal-header">
-                    <h5 class="modal-title" id="${modalId}Label">Order Details</h5>
+                    <h5 class="modal-title" id="${modalId}Label">Delivery Details</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                   </div>
                   <div class="modal-body">
@@ -305,16 +302,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const safeId = info.event.id.replace(/[^a-zA-Z0-9]/g, '');
         $('#orderNumberDetail_' + safeId).text(info.event.extendedProps.order_number || 'N/A');
-        $('#orderTitleDetail_' + safeId).text(info.event.title || 'N/A');
-        $('#orderTypeDetail_' + safeId).text(info.event.extendedProps.type || 'N/A');
-        $('#orderAssignedToDetail_' + safeId).text(info.event.extendedProps.assigned_to || 'N/A');
-        $('#orderStatusDetail_' + safeId).text(info.event.extendedProps.status || 'N/A');
-        $('#orderStartDateDetail_' + safeId).text(moment(info.event.extendedProps.order_date).format('YYYY-MM-DD') || 'N/A');
-        $('#orderEndDateDetail_' + safeId).text(moment(info.event.start).format('YYYY-MM-DD') || 'N/A');
+        $('#orderProductDetail_' + safeId).text(info.event.extendedProps.product_name || 'N/A');
+        $('#orderMethodDetail_' + safeId).text(info.event.extendedProps.method ? info.event.extendedProps.method.replace('_', ' ') : 'N/A');
+        $('#orderQuantityDetail_' + safeId).text(info.event.extendedProps.quantity || 'N/A');
+        $('#orderLocationDetail_' + safeId).text(info.event.extendedProps.location || 'N/A');
+        $('#orderDeliverTypeDetail_' + safeId).text(info.event.extendedProps.deliver_install_type || 'N/A');
+        $('#orderOutsourceCostDetail_' + safeId).text(info.event.extendedProps.outsource_cost ? '$' + info.event.extendedProps.outsource_cost : 'N/A');
+        const orderLeadText = info.event.extendedProps.lead_text || 'N/A';
+        let orderLeadName = 'N/A', orderLeadCompany = 'N/A';
+        if (orderLeadText !== 'N/A' && orderLeadText !== 'Unknown') {
+          const parts = orderLeadText.split(' - ');
+          if (parts.length === 2) {
+            orderLeadCompany = parts[0];
+            orderLeadName = parts[1];
+          }
+        }
+        $('#orderLeadNameDetail_' + safeId).text(orderLeadName);
+        $('#orderLeadCompanyDetail_' + safeId).text(orderLeadCompany);
         $('#orderDescriptionDetail_' + safeId).text(info.event.extendedProps.description || 'N/A');
-        $('#orderApprovalDetail_' + safeId).text(info.event.extendedProps.approval ? 'Yes' : 'No');
-        $('#orderDraftDetail_' + safeId).text(info.event.extendedProps.draft ? 'Yes' : 'No');
-        $('#orderPendingDetail_' + safeId).text(info.event.extendedProps.pending ? 'Yes' : 'No');
 
         const eventModal = new bootstrap.Modal(document.getElementById(modalId));
         eventModal.show();
@@ -330,11 +335,18 @@ document.addEventListener('DOMContentLoaded', function () {
     salespersonCalendar.render();
     orderCalendar.render();
 
-    $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
-  if ($(e.target).attr('href') === '#order-calendar') {
-    orderCalendar.updateSize(); //Need to folow prev calendar size
+ $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+  const target = $(e.target).attr('href');
+
+  if (target === '#order-calendar') {
+    orderCalendar.updateSize(); // Adjust after showing Delivery calendar
+  } 
+  else if (target === '#salesperson-calendar') {
+    salespersonCalendar.updateSize(); // Adjust after showing Salesperson calendar
   }
 });
+
+
 
 
  
@@ -367,7 +379,7 @@ if (btnToggleSidebar) {
     });
     selSalesperson?.addEventListener('change', refetchSalesperson);
 
-    // Toolbar actions for Orders Calendar
+    // Toolbar actions for Delivery Calendar
     orderBtnToday?.addEventListener('click', () => {
       orderCalendar.today();
       refetchOrder();

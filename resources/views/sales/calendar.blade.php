@@ -43,6 +43,10 @@
             border-radius: 50%;
         }
 
+        .swal-zindex-high {
+  z-index: 1070 !important;
+}
+
         @media (max-width: 1200px) {
             #calendarToolbar {
                 overflow-x: auto;
@@ -85,7 +89,7 @@
                                 data-value="meeting" checked />
                             <label class="form-check-label" for="select-meeting">Meeting</label>
                         </div>
-                        <div class="form-check form-check-warning mb-3 ms-2">
+                        <div class="form-check form-check-warning mb-3 ms-2 reminder-filter">
                             <input class="form-check-input input-filter" type="checkbox" id="select-reminder"
                                 data-value="reminder" checked />
                             <label class="form-check-label" for="select-reminder">Reminder</label>
@@ -168,12 +172,11 @@
                         <form class="pt-0" id="reminderForm" novalidate>
                             @csrf
                             <input type="hidden" name="id">
-                            <div class="mb-3">
-                                <label class="form-label" for="reminderLeadId">Lead</label>
-                                <select class="form-select select2" id="reminderLeadId" name="lead_id" required>
-                                    <option value="">Search for a lead</option>
-                                </select>
-                            </div>
+                       <div class="mb-3">
+    <label for="lead_id" class="form-label">Search lead...</label>
+    <select id="lead_id" class="form-control js-lead-select" name="lead_id" style="width:100%"></select>
+    <div class="form-text">Type at least 2 characters. Matches: name, company, phone, email.</div>
+</div>
                             <div class="mb-3">
                                 <label class="form-label" for="reminderTitle">Title</label>
                                 <input type="text" class="form-control" id="reminderTitle" name="title"

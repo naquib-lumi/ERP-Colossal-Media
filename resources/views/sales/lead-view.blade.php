@@ -868,24 +868,28 @@ $(document).on('click', '.edit-meeting', function(e) {
                     // Debug: Confirm jQuery is loaded
                     console.log('jQuery loaded:', typeof $);
                     // Status Dropdown Update
-                    $('#statusDropdown').on('change', function() {
-                        let status = $(this).val();
-                        $.ajax({
-                            url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
-                            type: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}',
-                                status: status
-                            },
-                            success: function(response) {
-                                location.reload();
-                            },
-                            error: function(xhr) {
-                                let errorMsg = parseError(xhr);
-                                Swal.fire('Error!', errorMsg, 'error');
-                            }
-                        });
-                    });
+             $('#statusDropdown').on('change', function() {
+    let status = $(this).val();
+    $.ajax({
+        url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
+        type: 'POST',
+        data: {
+            _token: '{{ csrf_token() }}',
+            status: status
+        },
+        success: function(response) {
+            if (response.redirect) {
+                location.href = response.redirect;
+            } else {
+                location.reload();
+            }
+        },
+        error: function(xhr) {
+            let errorMsg = parseError(xhr);
+            Swal.fire('Error!', errorMsg, 'error');
+        }
+    });
+});
                     // Reset modal for add
                     $('#reminderModal').on('hidden.bs.modal', function() {
                         $('#reminderModalLabel').text('Add Custom Reminder');

@@ -146,16 +146,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function selectedCalendars() {
-      let selected = [];
-      if (filterInputs.length > 0) {
-        filterInputs.forEach(item => {
-          if (item.checked) {
-            selected.push(item.getAttribute('data-value'));
-          }
-        });
-      }
-      return selected.length ? selected : ['meeting', 'reminder'];
+    let selected = [];
+    if (filterInputs.length > 0) {
+      filterInputs.forEach(item => {
+        if (item.checked) {
+          selected.push(item.getAttribute('data-value'));
+        }
+      });
     }
+    return selected;
+  }
 
     const debounce = (fn, ms) => {
       let t;
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       },
      eventClick: function (info) {
-  console.log('Event Click Data:', info.event.extendedProps);
+    console.log('Event Click Data:', info.event.extendedProps);
   let modalId = 'eventDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
   if (!$('#' + modalId).length) {
     console.log(info.event.extendedProps.is_head_salesperson);
@@ -248,47 +248,61 @@ document.addEventListener('DOMContentLoaded', function () {
     const isHeadSalesperson = info.event.extendedProps.is_head_salesperson;
     let extraInfo = '';
     if (isHeadSalesperson && info.event.extendedProps.created_by) {
-      extraInfo = `<p><strong>Created by:</strong> <span id="eventCreatorDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}">${info.event.extendedProps.created_by}</span></p>`;
+      extraInfo = `<div class="col-md-6"><div class="mb-2"><i class="bx bx-user me-1"></i>Created By: ${info.event.extendedProps.created_by}</div></div>`;
     }
+    let statusBadge = '';
     let statusSelect = '';
     if (isReminder) {
+      const statusColor = info.event.extendedProps.status === 'upcoming' ? 'bg-secondary' : info.event.extendedProps.status === 'overdue' ? 'bg-danger' : 'bg-success';
+      const statusText = info.event.extendedProps.status ? info.event.extendedProps.status.charAt(0).toUpperCase() + info.event.extendedProps.status.slice(1) : 'Upcoming';
+      statusBadge = `<span class="badge ${statusColor} me-2">${statusText}</span>`;
       statusSelect = `
-        <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
+        <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select form-select-sm">
           <option value="upcoming" ${info.event.extendedProps.status === "upcoming" ? "selected" : ""}>Upcoming</option>
           <option value="overdue" ${info.event.extendedProps.status === "overdue" ? "selected" : ""}>Overdue</option>
           <option value="completed" ${info.event.extendedProps.status === "completed" ? "selected" : ""}>Completed</option>
         </select>`;
     } else {
+      const statusColor = info.event.extendedProps.status === 'scheduled' ? 'bg-primary' : info.event.extendedProps.status === 'canceled' ? 'bg-dark' : 'bg-warning';
+      const statusText = info.event.extendedProps.status ? info.event.extendedProps.status.charAt(0).toUpperCase() + info.event.extendedProps.status.slice(1) : 'Scheduled';
+      statusBadge = `<span class="badge ${statusColor} me-2">${statusText}</span>`;
       statusSelect = `
-        <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select">
+        <select id="eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}" class="form-select form-select-sm">
           <option value="scheduled" ${info.event.extendedProps.status === "scheduled" ? "selected" : ""}>Scheduled</option>
           <option value="canceled" ${info.event.extendedProps.status === "canceled" ? "selected" : ""}>Canceled</option>
           <option value="postponed" ${info.event.extendedProps.status === "postponed" ? "selected" : ""}>Postponed</option>
         </select>`;
     }
     let modalBody = `
-<p><strong>Title:</strong> <span id="eventTitleDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Type:</strong> <span id="eventTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Lead:</strong> <span id="eventLeadDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-${extraInfo}
-<p><strong>Status:</strong> ${statusSelect}</p>`;
-
-    if (isReminder) {
-      modalBody += `
-<p><strong>Remind At:</strong> <span id="eventRemindAtDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Description:</strong> <span id="eventDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
-    } else {
-      modalBody += `
-<p><strong>Start Time:</strong> <span id="eventStartTimeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Duration:</strong> <span id="eventDurationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Meeting Type:</strong> <span id="eventMeetingTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>URL/Location:</strong> <span id="eventUrlLocationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>
-<p><strong>Description:</strong> <span id="eventDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></p>`;
-    }
+      <div class="row mb-3">
+        <div class="col-12">
+          <h4 class="mb-1 fw-bold">${info.event.title || 'Untitled'}</h4>
+          <div class="text-muted">${statusBadge}${isReminder ? '🔔 Reminder' : '🗂 Meeting'} | Lead: <span id="eventLeadDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="mb-2"><i class="bx bx-time-five me-1"></i>Start Time: <span id="eventStartTimeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+          <div class="mb-2">Status: ${statusSelect}</div>
+          ${!isReminder ? `<div class="mb-2"><i class="bx bx-video me-1"></i>Meeting Type: <span id="eventMeetingTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>` : ''}
+          ${extraInfo}
+        </div>
+        <div class="col-md-6">
+          ${!isReminder ? `<div class="mb-2"><i class="bx bx-stopwatch me-1"></i>Duration: <span id="eventDurationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+          <div class="mb-2"><i class="bx bx-link-alt me-1"></i>Location / URL: <span id="eventUrlLocationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>` : ''}
+        </div>
+      </div>
+      <hr class="my-3">
+      <div class="row">
+        <div class="col-12">
+          <div class="mb-3"><strong>Description:</strong></div>
+          <p id="eventDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></p>
+        </div>
+      </div>`;
 
     $('body').append(`
       <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title" id="${modalId}Label">${isReminder ? 'Reminder' : 'Meeting'} Details</h5>
@@ -328,24 +342,31 @@ ${extraInfo}
   }
 
   const safeId = info.event.id.replace(/[^a-zA-Z0-9]/g, '');
-  $('#eventTitleDetail_' + safeId).text(info.event.title || 'N/A');
-  $('#eventTypeDetail_' + safeId).text(info.event.extendedProps.type || 'N/A');
   $('#eventLeadDetail_' + safeId).text(info.event.extendedProps.lead_text || 'N/A');
-   const isHeadSalesperson = info.event.extendedProps.is_head_salesperson;
+  const isHeadSalesperson = info.event.extendedProps.is_head_salesperson;
   if (isHeadSalesperson && info.event.extendedProps.created_by) {
-    $('#eventCreatorDetail_' + safeId).text(info.event.extendedProps.created_by);
+    $(`#eventCreatorDetail_${safeId}`).text(info.event.extendedProps.created_by);
   }
   const isReminder = info.event.extendedProps.type === 'reminder';
   if (isReminder) {
-    $('#eventRemindAtDetail_' + safeId).text(info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('YYYY-MM-DD HH:mm') : 'N/A');
-    $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
+    $(`#eventStartTimeDetail_${safeId}`).text(info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('MMM DD, YYYY — hh:mm A') : 'N/A');
+    $(`#eventDescriptionDetail_${safeId}`).text(info.event.extendedProps.note || 'N/A');
   } else {
-    $('#eventStartTimeDetail_' + safeId).text(moment(info.event.start).format('YYYY-MM-DD HH:mm') || 'N/A');
-    $('#eventDurationDetail_' + safeId).text(moment(info.event.end).diff(moment(info.event.start), 'minutes') + ' minutes' || 'N/A');
-    $('#eventMeetingTypeDetail_' + safeId).text(info.event.extendedProps.meeting_type || 'N/A');
-    const urlLocation = info.event.extendedProps.url || info.event.extendedProps.location || 'N/A';
-    $('#eventUrlLocationDetail_' + safeId).text(urlLocation);
-    $('#eventDescriptionDetail_' + safeId).text(info.event.extendedProps.note || 'N/A');
+    $(`#eventStartTimeDetail_${safeId}`).text(moment(info.event.start).format('MMM DD, YYYY — hh:mm A') || 'N/A');
+    const durationMin = moment(info.event.end).diff(moment(info.event.start), 'minutes');
+    const durationFormatted = durationMin >= 60 ? `${Math.floor(durationMin / 60)} hr ${durationMin % 60} min` : `${durationMin} min`;
+    $(`#eventDurationDetail_${safeId}`).text(durationFormatted);
+    $(`#eventMeetingTypeDetail_${safeId}`).text(info.event.extendedProps.meeting_type ? (info.event.extendedProps.meeting_type.charAt(0).toUpperCase() + info.event.extendedProps.meeting_type.slice(1)) : 'N/A');
+    let urlLocation = '';
+    if (info.event.extendedProps.url) {
+      urlLocation = `<a href="${info.event.extendedProps.url}" target="_blank" class="btn btn-sm btn-outline-primary">Join Meeting</a>`;
+    } else if (info.event.extendedProps.location) {
+      urlLocation = info.event.extendedProps.location;
+    } else {
+      urlLocation = 'N/A';
+    }
+    $(`#eventUrlLocationDetail_${safeId}`).html(urlLocation);
+    $(`#eventDescriptionDetail_${safeId}`).text(info.event.extendedProps.note || 'N/A');
   }
 
   const eventModal = new bootstrap.Modal(document.getElementById(modalId));
@@ -441,14 +462,15 @@ ${extraInfo}
         });
 
         $('.btn-delete-event').off('click').on('click', function () {
-          Swal.fire({
-            title: 'Are you sure?',
-            text: 'You won\'t be able to revert this!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
+    eventModal.hide();
+Swal.fire({
+title: 'Are you sure?',
+text: "You won't be able to revert this!",
+icon: 'warning',
+showCancelButton: true,
+confirmButtonColor: '#3085d6',
+cancelButtonColor: '#d33',
+confirmButtonText: 'Yes, delete it!'
           }).then((result) => {
             if (result.isConfirmed) {
               const eventId = $(this).data('event-id');
@@ -562,7 +584,16 @@ ${extraInfo}
       calendar.today();
       refetch();
     });
-    selSalesperson?.addEventListener('change', refetch);
+    selSalesperson?.addEventListener('change', function() {
+      const userId = $('meta[name="user-id"]').attr('content');
+      const reminderFilter = $('.reminder-filter');
+      if (this.value == userId) {
+        reminderFilter.show();
+      } else {
+        reminderFilter.hide();
+      }
+      refetch();
+    });
     inputSearch?.addEventListener('input', refetch);
 
     let reminderSubmitting = false;
@@ -797,5 +828,16 @@ if (reminderTitleEl) reminderTitleEl.innerHTML = 'Add Reminder';
       document.getElementById('offlineLocation').style.display = 'none';
       meetingForm.querySelector('[name="id"]').value = '';
     });
+
+    // Initial reminder filter visibility
+    if (selSalesperson) {
+      const userId = $('meta[name="user-id"]').attr('content');
+      const reminderFilter = $('.reminder-filter');
+      if (selSalesperson.value == userId) {
+        reminderFilter.show();
+      } else {
+        reminderFilter.hide();
+      }
+    }
   })();
 });

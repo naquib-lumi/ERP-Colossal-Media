@@ -79,15 +79,10 @@
                                     data-value="meeting" checked />
                                 <label class="form-check-label" for="select-meeting">Meeting</label>
                             </div>
-                            <div class="form-check form-check-warning mb-3 ms-2">
-                                <input class="form-check-input input-filter" type="checkbox" id="select-reminder"
-                                    data-value="reminder" checked />
-                                <label class="form-check-label" for="select-reminder">Reminder</label>
-                            </div>
                             <div class="form-check form-check-info mb-3 ms-2">
-                                <input class="form-check-input input-filter" type="checkbox" id="select-order"
-                                    data-value="order" checked />
-                                <label class="form-check-label" for="select-order">Order</label>
+                                <input class="form-check-input input-filter" type="checkbox" id="select-delivery"
+                                    data-value="delivery" checked />
+                                <label class="form-check-label" for="select-delivery">Delivery</label>
                             </div>
                         </div>
                     </div>
@@ -105,7 +100,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" id="order-tab" data-bs-toggle="tab" href="#order-calendar" role="tab"
-                            aria-controls="order-calendar" aria-selected="false">Orders Calendar</a>
+                            aria-controls="order-calendar" aria-selected="false">Delivery Calendar</a>
                     </li>
                 </ul>
                 <div class="tab-content">
@@ -140,21 +135,6 @@
                                     </li>
                                 </ul>
                             </div>
-
-                            <!-- Divider (desktop only) -->
-                            <div class="vr d-none d-md-block" style="height: 60px; opacity: 0.5;"></div>
-
-                            <div>
-                                <h6 class="mb-2">Reminder Status</h6>
-                                <ul class="list-unstyled d-flex flex-wrap gap-3 mb-0 ps-2">
-                                    <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#dc3545;"></span> Overdue
-                                    </li>
-                                    <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#6c757d;"></span> Completed
-                                    </li>
-                                </ul>
-                            </div>
                         </div>
 
 
@@ -164,7 +144,7 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Orders Calendar Tab -->
+                    <!-- Delivery Calendar Tab -->
                     <div class="tab-pane fade" id="order-calendar" role="tabpanel" aria-labelledby="order-tab">
                         <div id="orderToolbar" class="d-flex align-items-center">
                             <div class="d-flex align-items-center gap-2 ms-auto">
@@ -173,26 +153,13 @@
                         </div>
                         <div class="d-flex flex-wrap align-items-start gap-4 btn-toolbar justify-content-start">
                             <div>
-                                <h6 class="mb-2">Order Status</h6>
+                                <h6 class="mb-2">Delivery Method</h6>
                                 <ul class="list-unstyled d-flex flex-wrap gap-3 mb-0 ps-2">
                                     <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#007bff;"></span> To Assign
+                                        <span class="status-dot me-2" style="background-color:#007bff;"></span> Self Pickup
                                     </li>
                                     <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#17a2b8;"></span> Assigned
-                                    </li>
-                                    <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#ffc107;"></span> In
-                                        Progress
-                                    </li>
-                                    <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#6c757d;"></span> Pending
-                                    </li>
-                                    <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#28a745;"></span> Completed
-                                    </li>
-                                    <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#dc3545;"></span> Rejected
+                                        <span class="status-dot me-2" style="background-color:#28a745;"></span> Courier
                                     </li>
                                 </ul>
                             </div>
