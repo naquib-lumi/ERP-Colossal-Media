@@ -104,73 +104,71 @@
   <div class="section active" id="salesSec">
     <!-- Filters -->
     <div class="p-3 border-bottom">
-  <form id="salesFilterForm" method="GET" action="{{ url()->current() }}">
-    @php
-      $sf = $salesFilters ?? [
-        'salesperson' => 'all',
-        'period'      => 'monthly',
-        'start_date'  => now()->startOfMonth()->toDateString(),
-        'end_date'    => now()->endOfMonth()->toDateString(),
-      ];
-    @endphp
-    <div class="row g-3 align-items-end">
+      <form id="salesFilterForm" method="GET" action="{{ url()->current() }}#salesSec">
+        @php
+          $sf = $salesFilters ?? [
+            'salesperson' => 'all',
+            'period'      => 'monthly',
+            'start_date'  => now()->startOfMonth()->toDateString(),
+            'end_date'    => now()->endOfMonth()->toDateString(),
+          ];
+        @endphp
+        <div class="row g-3 align-items-end">
 
-      <!-- Salesperson -->
-      <div class="col-md-3">
-        <label class="form-label small">Select Salesperson</label>
-        <select class="form-select" id="salesperson" name="salesperson">
-          <option value="all" {{ ($sf['salesperson'] ?? 'all') === 'all' ? 'selected' : '' }}>All Salespersons</option>
-          @foreach($salespeople as $sp)
-            <option value="{{ $sp->id }}" {{ (string)($sf['salesperson'] ?? 'all') === (string)$sp->id ? 'selected' : '' }}>
-              {{ $sp->name }}
-            </option>
-          @endforeach
-        </select>
-      </div>
+          <!-- Salesperson -->
+          <div class="col-md-3">
+            <label class="form-label small">Select Salesperson</label>
+            <select class="form-select" id="salesperson" name="salesperson">
+              <option value="all" {{ ($sf['salesperson'] ?? 'all') === 'all' ? 'selected' : '' }}>All Salespersons</option>
+              @foreach($salespeople as $sp)
+                <option value="{{ $sp->id }}" {{ (string)($sf['salesperson'] ?? 'all') === (string)$sp->id ? 'selected' : '' }}>
+                  {{ $sp->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
 
-      <!-- Period segmented buttons (writes to hidden input) -->
-      <!-- <div class="col-md-3">
-        <label class="form-label small">Time Period</label>
-        <div class="btn-group w-100" role="group" id="periodGroup">
-          @php $pSel = $sf['period'] ?? 'monthly'; @endphp
-          <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='yearly'?'active':'' }}" data-value="yearly">Yearly</button>
-          <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='quarterly'?'active':'' }}" data-value="quarterly">Quarterly</button>
-          <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='monthly'?'active':'' }}" data-value="monthly">Monthly</button>
+          <!-- Period segmented buttons (writes to hidden input) -->
+          <!-- <div class="col-md-3">
+            <label class="form-label small">Time Period</label>
+            <div class="btn-group w-100" role="group" id="periodGroup">
+              @php $pSel = $sf['period'] ?? 'monthly'; @endphp
+              <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='yearly'?'active':'' }}" data-value="yearly">Yearly</button>
+              <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='quarterly'?'active':'' }}" data-value="quarterly">Quarterly</button>
+              <button type="button" class="btn btn-outline-dark btn-sm {{ $pSel==='monthly'?'active':'' }}" data-value="monthly">Monthly</button>
+            </div>
+            <input type="hidden" name="period" id="periodInput" value="{{ $pSel }}">
+          </div> -->
+
+          <!-- Date Range -->
+          <div class="col-md-4">
+            <label class="form-label small">Date Range</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="date" class="form-control" name="start_date" value="{{ $sf['start_date'] ?? '' }}">
+              <span class="text-muted small">to</span>
+              <input type="date" class="form-control" name="end_date" value="{{ $sf['end_date'] ?? '' }}">
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="col-md-4">
+            <div class="d-flex flex-wrap gap-2">
+              <button type="submit" name="action" value="filter" class="btn btn-dark">
+                <i class="bi bi-funnel"></i> Filter
+              </button>
+
+              <a id="salesResetBtn" href="{{ url()->current() }}#salesSec" class="btn btn-secondary">Reset</a>
+
+              {{-- carry current filters when exporting --}}
+              <a href="#" class="btn btn-outline-dark">
+                <i class="bi bi-download"></i> Export
+              </a>
+            </div>
+          </div>
+
         </div>
-        <input type="hidden" name="period" id="periodInput" value="{{ $pSel }}">
-      </div> -->
-
-      <!-- Date Range -->
-      <div class="col-md-4">
-        <label class="form-label small">Date Range</label>
-        <div class="d-flex align-items-center gap-2">
-          <input type="date" class="form-control" name="start_date" value="{{ $sf['start_date'] ?? '' }}">
-          <span class="text-muted small">to</span>
-          <input type="date" class="form-control" name="end_date" value="{{ $sf['end_date'] ?? '' }}">
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="col-md-4">
-        <div class="d-flex flex-wrap gap-2">
-          <button type="submit" name="action" value="filter" class="btn btn-dark">
-            <i class="bi bi-funnel"></i> Filter
-          </button>
-
-          <a id="salesResetBtn" href="{{ route('boss.reports') }}" class="btn btn-secondary">
-            Reset
-          </a>
-
-          {{-- carry current filters when exporting --}}
-          <a href="#" class="btn btn-outline-dark">
-            <i class="bi bi-download"></i> Export
-          </a>
-        </div>
-      </div>
-
+      </form>
     </div>
-  </form>
-</div>
 
     <!-- KPI -->
     <div class="p-3">
@@ -271,28 +269,59 @@
   <div class="section" id="orderSec">
     <!-- Filters -->
     <div class="p-3 border-bottom">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-          <label class="form-label small">Time Period</label>
-          <select class="form-select" id="ordPeriod">
-            <option selected>Monthly</option>
-            <option>Quarterly</option>
-            <option>Yearly</option>
-          </select>
-        </div>
-        <div class="col-md-5">
-          <label class="form-label small">Date Range</label>
-          <div class="d-flex gap-2">
-            <input type="date" class="form-control" value="2025-01-01">
-            <input type="date" class="form-control" value="2025-01-31">
+      <form id="orderFilterForm" method="GET" action="{{ url()->current() }}#orderSec">
+        @php
+          $of = $orderFilters ?? [
+            'ord_artist' => 'all',
+            'ord_start'  => now()->startOfMonth()->toDateString(),
+            'ord_end'    => now()->endOfMonth()->toDateString(),
+          ];
+        @endphp
+
+        <div class="row g-3 align-items-end">
+          <!-- Artist -->
+          <div class="col-md-3">
+            <label class="form-label small">Select Artist</label>
+            <select name="ord_artist" class="form-select">
+              <option value="all" {{ ($of['ord_artist'] ?? 'all') === 'all' ? 'selected' : '' }}>
+                All Artists
+              </option>
+              @foreach($artists as $a)
+                <option value="{{ $a->id }}" {{ (string)($of['ord_artist'] ?? 'all') === (string)$a->id ? 'selected' : '' }}>
+                  {{ $a->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+
+          <!-- Date Range -->
+          <div class="col-md-5">
+            <label class="form-label small">Date Range</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="date" name="ord_start" class="form-control" value="{{ $of['ord_start'] ?? '' }}">
+              <span class="text-muted small">to</span>
+              <input type="date" name="ord_end" class="form-control" value="{{ $of['ord_end'] ?? '' }}">
+            </div>
+          </div>
+
+          <!-- Actions (same row) -->
+          <div class="col-md-4">
+            <div class="d-flex flex-wrap gap-2 justify-content-md-end">
+              <button type="submit" class="btn btn-dark">
+                <i class="bi bi-funnel"></i> Filter
+              </button>
+
+              <a id="orderResetBtn" href="{{ url()->current() }}#orderSec" class="btn btn-secondary">Reset</a>
+
+              {{-- Carry current filters to export (wire to your route) --}}
+              <a href="#"
+                class="btn btn-outline-dark">
+                <i class="bi bi-download"></i> Export
+              </a>
+            </div>
           </div>
         </div>
-        <div class="col-md-2 ms-auto text-md-end">
-          <button class="btn btn-dark-compact btn-sm-compact w-100">
-            <i class="bi bi-download me-1"></i> Export
-          </button>
-        </div>
-      </div>
+      </form>
     </div>
 
     <!-- Chart -->
@@ -311,38 +340,65 @@
   </div><!-- /orderSec -->
 
   <!-- ===================== Machine Usage ===================== -->
+  @if (session('success'))
+    <div class="alert alert-success alert-dismissible fade show mx-3 mt-3" role="alert">
+      {{ session('success') }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  @endif
   <div class="section" id="machineSec">
     <!-- Tools -->
     <div class="p-3 border-bottom">
-      <div class="row g-2 align-items-end">
-        <form method="GET" class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="machineFilterForm" style="width: 100%;">
-        <input type="text" name="machine_q" class="form-control form-control-sm w-180"
-              placeholder="Search machine..." value="{{ $machineFilters['machine_q'] ?? '' }}">
+      
+      <form method="GET" id="machineFilterForm" action="{{ url()->current() }}#machineSec">
+        @php $mf = $machineFilters ?? ['machine_q'=>'','machine_type'=>'','machine_range'=>'last30']; @endphp
+        <div class="p-3 d-flex justify-content-end gap-2">
+          {{-- Export (route optional; keep your current one if different) --}}
+          <a class="btn btn-dark"
+            href="#machineSec">
+            <i class="bi bi-download me-1"></i> Export
+          </a>
 
-        <select name="machine_type" class="form-select form-select-sm w-160">
-          @php $mt = $machineFilters['machine_type'] ?? ''; @endphp
-          <option value="" {{ $mt==='' ? 'selected' : '' }}>All Machine Types</option>
-          <option value="Printer" {{ $mt==='Printer' ? 'selected' : '' }}>Printer</option>
-          <option value="Cutter"  {{ $mt==='Cutter'  ? 'selected' : '' }}>Cutter</option>
-        </select>
-
-        <select name="machine_range" class="form-select form-select-sm w-160">
-          @php $mr = $machineFilters['machine_range'] ?? 'last30'; @endphp
-          <option value="last30" {{ $mr==='last30' ? 'selected' : '' }}>Last 30 Days</option>
-          <option value="last90" {{ $mr==='last90' ? 'selected' : '' }}>Last 90 Days</option>
-          <option value="year"   {{ $mr==='year'   ? 'selected' : '' }}>This Year</option>
-        </select>
-
-        <div class="ms-auto d-flex gap-2">
-          <button class="btn btn-dark-compact btn-sm-compact" type="submit">
-            <i class="bi bi-download"></i> Export
-          </button>
-          <button class="btn btn-gray-compact btn-sm-compact" type="button">
-            <i class="bi bi-plus-lg"></i> Add Machine Type
+          {{-- Add Machine Type (frontend modal) --}}
+          <button type="button" class="btn btn-secondary"
+                  data-bs-toggle="modal" data-bs-target="#addMachineModal">
+            Add Machine Type
           </button>
         </div>
+        <div class="row g-2 align-items-end">
+          <div class="col-lg-5 col-md-6">
+            <input type="text" name="machine_q" class="form-control"
+                  placeholder="Search machine..." value="{{ $mf['machine_q'] ?? '' }}">
+          </div>
+
+          <div class="col-lg-2 col-md-3">
+            <select name="machine_type" class="form-select">
+              <option value="" {{ ($mf['machine_type'] ?? '')==='' ? 'selected' : '' }}>All Machine Types</option>
+              <option value="Printer" {{ ($mf['machine_type'] ?? '')==='Printer' ? 'selected' : '' }}>Printer</option>
+              <option value="Cutter"  {{ ($mf['machine_type'] ?? '')==='Cutter'  ? 'selected' : '' }}>Cutter</option>
+            </select>
+          </div>
+
+          <div class="col-lg-2 col-md-3">
+            @php $mr = $mf['machine_range'] ?? 'last30'; @endphp
+            <select name="machine_range" class="form-select">
+              <option value="last30" {{ $mr==='last30' ? 'selected' : '' }}>Last 30 Days</option>
+              <option value="last90" {{ $mr==='last90' ? 'selected' : '' }}>Last 90 Days</option>
+              <option value="year"   {{ $mr==='year'   ? 'selected' : '' }}>This Year</option>
+            </select>
+          </div>
+
+          <div class="col-lg-3 col-md-12 d-flex justify-content-lg-end gap-2">
+            <button class="btn btn-dark" type="submit">
+              <i class="bi bi-funnel"></i> Filter
+            </button>
+            <a class="btn btn-secondary" href="{{ url()->current() }}#machineSec" id="machineResetBtn">
+              Reset
+            </a>
+            
+          </div>
+        </div>
       </form>
-      </div>
     </div>
 
     <!-- Table -->
@@ -359,80 +415,116 @@
             </tr>
           </thead>
           <tbody>
-          @forelse($machineUsage as $m)
-            <tr>
-              <td>{{ $m->machine_name }}</td>
-              <td>{{ $m->machine_type }}</td>
-              <td>{{ number_format($m->used_items) }} items</td>
-              <td>{{ number_format($m->total_qty) }}</td>
-              <td class="text-end">
-                <button class="kebab"><i class="bi bi-three-dots-vertical"></i></button>
-              </td>
-            </tr>
-          @empty
-            <tr>
-              <td colspan="5" class="text-center text-muted">No machine usage found for current filters.</td>
-            </tr>
-          @endforelse
-        </tbody>
+            @forelse($machineUsage as $m)
+              <tr>
+                <td>{{ $m->machine_name }}</td>
+                <td>{{ $m->machine_type }}</td>
+                <td>{{ number_format($m->used_items) }} items</td>
+                <td>{{ number_format($m->total_qty) }}</td>
+                <td class="text-end">
+                  <button class="kebab"><i class="bi bi-three-dots-vertical"></i></button>
+                </td>
+              </tr>
+            @empty
+              <tr>
+                <td colspan="5" class="text-center text-muted">No machine usage found for current filters.</td>
+              </tr>
+            @endforelse
+          </tbody>
         </table>
-      </div>
+  </div>
 
-      <!-- Pagination -->
-      <div class="d-flex justify-content-between align-items-center mt-3">
-        <small class="text-muted">Showing 1 to 6 of 12 results</small>
-        <nav>
-          <ul class="pagination mb-0">
-            <li class="page-item disabled"><span class="page-link">«</span></li>
-            <li class="page-item active"><span class="page-link">1</span></li>
-            <li class="page-item"><a class="page-link" href="#">2</a></li>
-            <li class="page-item"><a class="page-link" href="#">»</a></li>
-          </ul>
-        </nav>
+  <!-- Pagination -->
+  <div class="d-flex justify-content-between align-items-center mt-3">
+    <small class="text-muted">
+      Showing {{ $machineUsage->firstItem() ?? 0 }} to {{ $machineUsage->lastItem() ?? 0 }}
+      of {{ $machineUsage->total() }} results
+    </small>
+    {{ $machineUsage->onEachSide(1)->withQueryString()->links('pagination::bootstrap-5') }}
+  </div>
       </div>
-    </div>
-  </div><!-- /machineSec -->
-</div>
+    </div><!-- /machineSec -->
+  </div>
 
 <!-- ===== Add Machine Type Modal ===== -->
 <div class="modal fade" id="addMachineModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content" style="border-radius:16px">
+    <form class="modal-content" style="border-radius:16px"
+          method="POST" action="{{ route('boss.machines.store') }}#machineSec">
+      @csrf
       <div class="modal-header">
-        <h6 class="modal-title"><i class="bi bi-plus-lg me-2"></i>Add Machine Type</h6>
+        <h6 class="modal-title"><i class="bi bi-plus-lg me-2"></i>Add Machine</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
+
       <div class="modal-body">
+        @if ($errors->any())
+          <div class="alert alert-danger small">
+            {{ $errors->first() }}
+          </div>
+        @endif
+
         <div class="mb-3">
           <label class="form-label small">Machine Name</label>
-          <input type="text" class="form-control" placeholder="e.g. Handtop Hybrid, Roland CAMM-1">
+          <input type="text" name="machine_name" class="form-control"
+                 value="{{ old('machine_name') }}" placeholder="e.g. Handtop Hybrid">
         </div>
+
         <div>
           <label class="form-label small">Machine Type</label>
-          <select class="form-select">
-            <option selected disabled>Select machine type</option>
-            <option>Printer</option>
-            <option>Cutter</option>
+          <select name="machine_type" class="form-select">
+            <option value="" disabled {{ old('machine_type') ? '' : 'selected' }}>Select type</option>
+            <option value="printer"    {{ old('machine_type')==='printer'    ? 'selected' : '' }}>Printer</option>
+            <option value="cutter"     {{ old('machine_type')==='cutter'     ? 'selected' : '' }}>Cutter</option>
+            <option value="lamination" {{ old('machine_type')==='lamination' ? 'selected' : '' }}>Lamination</option>
           </select>
         </div>
       </div>
+
       <div class="modal-footer">
-        <button class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-dark-compact btn-sm-compact"><i class="bi bi-save me-1"></i> Save</button>
+        <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-dark" type="submit">
+          <i class="bi bi-save me-1"></i> Save
+        </button>
       </div>
-    </div>
+    </form>
   </div>
 </div>
 
 <script>
 // ===== Tabs =====
-document.querySelectorAll('#reportTabs .nav-link').forEach(a=>{
+const links = document.querySelectorAll('#reportTabs .nav-link');
+const sections = document.querySelectorAll('.section');
+
+function activateTab(target){
+  links.forEach(l=>l.classList.remove('active'));
+  sections.forEach(s=>s.classList.remove('active'));
+  const btn = document.querySelector(`#reportTabs .nav-link[data-target="${target}"]`);
+  const sec = document.querySelector(target);
+  if(btn && sec){
+    btn.classList.add('active');
+    sec.classList.add('active');
+  }
+}
+
+// click -> switch tab and update hash
+links.forEach(a=>{
   a.addEventListener('click', ()=>{
-    document.querySelectorAll('#reportTabs .nav-link').forEach(x=>x.classList.remove('active'));
-    a.classList.add('active');
-    document.querySelectorAll('.section').forEach(sec=>sec.classList.remove('active'));
-    document.querySelector(a.dataset.target).classList.add('active');
+    const target = a.dataset.target;
+    activateTab(target);
+    // persist tab in URL without reloading
+    if(history.replaceState){
+      history.replaceState(null, '', `${location.pathname}${location.search}${target}`);
+    }else{
+      location.hash = target; // fallback
+    }
   });
+});
+
+// on load -> open tab from hash (default sales)
+window.addEventListener('DOMContentLoaded', ()=>{
+  const target = location.hash && document.querySelector(location.hash) ? location.hash : '#salesSec';
+  activateTab(target);
 });
 
 // ===== Monthly Performance（单月构成） =====
@@ -609,5 +701,20 @@ if (fulfillCtx) {
     });
   }
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const addBtn = document.querySelector('#addMachineModal .btn-dark-compact');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      const name  = document.querySelector('#addMachineModal input[type="text"]').value.trim();
+      const type  = document.querySelector('#addMachineModal select').value;
+      if (!name || !type) { alert('Please enter machine name and type.'); return; }
+      // Frontend only: close modal and show a toast/alert
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addMachineModal'));
+      modal.hide();
+      // Optional: add your toast here
+    });
+  }
+});
 </script>
 @endsection
