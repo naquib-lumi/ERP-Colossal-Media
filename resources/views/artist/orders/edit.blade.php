@@ -1808,7 +1808,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Quantity</label>
-              <input type="number" class="form-control" id="p_qty" name="quantity qty-input" min="1" step="1"
+              <input type="number" class="form-control qty-input" id="p_qty" name="quantity" min="1" step="1"
               onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
                                     oninput="restrictInteger(event)">
             </div>
@@ -4221,13 +4221,6 @@ document.addEventListener('click', function (e) {
   textEl.textContent = reason || '(No reason provided)';
 
   bootstrap.Modal.getOrCreateInstance(modal).show();
-});
-
-// Optional keyboard support
-document.addEventListener('keydown', function (e) {
-  if (e.key !== 'Enter') return;
-  const active = document.activeElement;
-  if (active && active.classList.contains('js-reason-banner')) active.click();
 });
 
 $(document).on('input', '.qty-input', function () {
