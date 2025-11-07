@@ -626,7 +626,7 @@
                             <input id="totalQty"
                               name="products[{{ $pIndex }}][qty_total]"
                               type="number"
-                              class="form-control"
+                              class="form-control qty-input"
                               placeholder="1000"
                               onkeydown="return !['e','E','+','-'].includes(event.key)"
                               onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
@@ -734,7 +734,7 @@
 
                                   <div class="col-md-6">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" min="0" class="form-control"
+                                    <input type="number" min="0" class="form-control qty-input"
                                       name="products[{{ $pIndex }}][items][{{ $i }}][quantity]"
                                       onkeydown="return !['e','E','+','-'].includes(event.key)"
                                       onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
@@ -989,7 +989,7 @@
 
                                   <div class="col-md-6">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" min="0" class="form-control" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" 
+                                    <input type="number" min="0" class="form-control qty-input" name="products[__PINDEX__][items][__INDEX__][quantity]" value="" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
                                     onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
                                     oninput="restrictInteger(event)"
@@ -1295,7 +1295,7 @@
                                 {{-- Quantity --}}
                                 <div class="col-12 col-md-4">
                                   <label class="form-label">Quantity</label>
-                                  <input type="number" class="form-control del-qty"
+                                  <input type="number" class="form-control del-qty qty-input"
                                     name="products[{{ $pIndex }}][deliveries][{{ $i }}][quantity]"
                                     value="{{ $d->quantity }}" 
                                     onkeydown="return !['e','E','+','-'].includes(event.key)"
@@ -1371,7 +1371,7 @@
 
                                 <div class="col-12 col-md-4">
                                   <label class="form-label">Quantity</label>
-                                  <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty"
+                                  <input type="number" name="products[{{ $pIndex }}][deliveries][__INDEX__][quantity]" class="form-control del-qty qty-input"
                                   onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
                                     oninput="restrictInteger(event)"
                              >
@@ -1615,7 +1615,7 @@
         </div>
         <div class="col-md-2">
           <label class="form-label">Quantity</label>
-          <input name="items[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
+          <input name="items[IDX][qty]" type="number" min="0" class="form-control qty-input" placeholder="Qty"
           onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
                                     oninput="restrictInteger(event)">
         </div>
@@ -1716,7 +1716,7 @@
         </div>
         <div class="col-12 col-md-2">
           <label class="form-label">Quantity</label>
-          <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control" placeholder="Qty"
+          <input name="deliveries[IDX][qty]" type="number" min="0" class="form-control qty-input" placeholder="Qty"
           onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
                                     oninput="restrictInteger(event)">
         </div>
@@ -1808,7 +1808,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Quantity</label>
-              <input type="number" class="form-control" id="p_qty" name="quantity" min="1" step="1"
+              <input type="number" class="form-control" id="p_qty" name="quantity qty-input" min="1" step="1"
               onkeydown="return !['e','E','+','-'].includes(event.key)" onfocus="this.dataset.last=this.value; this.dataset.pos=this.selectionStart"
                                     oninput="restrictInteger(event)">
             </div>
@@ -4228,6 +4228,16 @@ document.addEventListener('keydown', function (e) {
   if (e.key !== 'Enter') return;
   const active = document.activeElement;
   if (active && active.classList.contains('js-reason-banner')) active.click();
+});
+
+$(document).on('input', '.qty-input', function () {
+  // keep only digits
+  let v = this.value.replace(/\D+/g, '');
+
+  // if it starts with zero and has more than one digit, remove leading zeros
+  if (v.length > 1) v = v.replace(/^0+/, '');
+
+  this.value = v;
 });
 </script>
 @endpush
