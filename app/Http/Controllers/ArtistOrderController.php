@@ -369,9 +369,7 @@ class ArtistOrderController extends Controller
                     ? $messageForAssignee
                     : $messageCommon;
 
-                $u->email = 'graysonhy1@gmail.com';
-
-                Helpers::notify($u, $msg, $urlFor($u), ['database', 'mail']);
+                Helpers::notify($u, $msg, $urlFor($u), ['database']);
             }
 
             if (auth()->user()->hasRole('head-artist')) {

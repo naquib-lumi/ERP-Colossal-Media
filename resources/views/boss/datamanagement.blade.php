@@ -1,562 +1,645 @@
 @extends('layouts.app')
 
+@section('title','Data Management')
+
 @section('content')
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
-/* ===================== Global & Tabs ===================== */
-:root{
-  --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB; --thead:#F9FAFB;
-  --text:#0f172a; --muted:#667085; --chip:#F2F4F7; --shadow:0 3px 10px rgba(16,24,40,.06);
-  --primary:#2563EB; --primary-hover:#1D4ED8;
-  --tab-fg:#1f2937; --tab-muted:#6b7280; --tab-active:#3b5bfd;
-}
-body{background:var(--bg);}
-.page-wrap{max-width:1140px;margin:0 auto; padding:8px 0 28px;}
-.header-row{display:block; margin:0 18px 6px;}
-.hd-title{margin:0; font-size:22px; font-weight:800; color:var(--text)}
+  :root{
+    --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB; --thead:#F9FAFB;
+    --text:#101828; --muted:#667085; --chip:#F2F4F7;
+    --shadow:0 3px 10px rgba(16,24,40,.06);
+    --primary:#3B82F6; --primary-600:#2563EB;
+    --dark:#111827; --dark-700:#0B1220;
+  }
+  body{background:var(--bg)}
+  .page-wrap{max-width:1200px;margin:0 auto;padding:20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+  .card-hd{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border)}
+  .title{font-size:28px;font-weight:700;color:var(--text)}
+  .actions{display:flex;gap:10px}
+  .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:#fff;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+  .btn i{font-size:16px}
+  .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn-dark{background:var(--dark);color:#fff;border-color:var(--dark)}
+  .btn-ghost{background:#fff;color:var(--text)}
+  .toolbar{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .search{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 10px;width:100%}
+  .search input{border:0;outline:0;width:100%}
+  .select select{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:#fff}
+  .select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .table-wrap{overflow:auto}
+  table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  thead th{font-size:12px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;text-align:left;padding:8px 10px}
+  tbody tr{background:#fff;box-shadow:var(--shadow)}
+  tbody td{padding:14px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  tbody td:first-child{border-left:1px solid var(--border);border-radius:12px 0 0 12px}
+  tbody td:last-child{border-right:1px solid var(--border);border-radius:0 12px 12px 0}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);color:var(--muted);border-radius:999px;padding:6px 10px;font-size:12px}
+  .kebab{border:1px solid var(--border);background:#fff;border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .count{font-size:12px;color:var(--muted)}
+  /* Tabs */
+  .tabs{display:flex;gap:24px;padding:6px 2px 0}
+  .tab-btn{appearance:none;background:none;border:0;padding:10px 2px;font-weight:700;color:var(--muted);cursor:pointer;position:relative}
+  .tab-btn.active{color:var(--text)}
+  .tab-btn.active::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:3px;background:var(--dark);border-radius:99px}
+  .tabs-border{height:1px;background:var(--border);margin-bottom:16px}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+  /* Modal */
+  .x-mask{position:fixed;inset:0;background:rgba(2,6,23,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+  .x-mask.show{display:flex}
+  .x{width:min(680px,95vw);background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;max-height:90vh}
+  .x-hd{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-weight:700}
+  .x-bd{padding:16px;overflow:auto}
+  .x-ft{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .label{font-weight:700;color:var(--text)}
+  .control{border:1px solid var(--border);border-radius:10px;padding:8px 10px}
 
-.tabs{ display:flex; gap:24px; padding:6px 18px 0; }
-.tab-btn{
-  position:relative; appearance:none; background:none; border:0;
-  padding:10px 0 12px; cursor:pointer; white-space:nowrap;
-  font:600 14.5px/1.2 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  color:var(--tab-muted); outline:none;
-}
-.tab-btn[aria-selected="true"]{ color:var(--tab-fg); }
-.tab-btn[aria-selected="true"]::after{
-  content:""; position:absolute; left:0; right:0; bottom:-1px;
-  height:3px; border-radius:3px; background:var(--tab-active);
-}
-.tabs-border{ height:1px; background:#eef2f7; margin:0 18px 10px; }
-.panels{ padding:0; }
-.tab-panel{ display:none; }
-.tab-panel.active{ display:block; }
+  /* ===================== Another Data (original design) ===================== */
+  .another-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin:12px 18px 10px;
+  }
+  .another-title{
+    font-size:26px; font-weight:800; letter-spacing:.2px; color:#0f172a;
+    margin:0;
+  }
+  .another-controls{ display:flex; gap:12px; }
+  .ad-input, .ad-select{
+    height:44px; border:1px solid #E6E9EF; border-radius:12px; background:#fff; outline:none;
+    font-size:14px; color:#0f172a;
+  }
+  .ad-input{ width:320px; padding:0 14px; }
+  .ad-select{ padding:0 40px 0 14px; min-width:150px; appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath fill='%23667085' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 0 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center;
+  }
 
-/* ===================== Cost Data（保持你之前风格） ===================== */
-.table-section{
-  background:var(--card); border:1px solid var(--border);
-  border-radius:16px; box-shadow:var(--shadow);
-  overflow:hidden; margin:0 18px 18px;
-}
-.section-toolbar{
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  padding:14px 16px; border-bottom:1px solid var(--border); background:#fff;
-}
-.toolbar-left{ flex:1 1 280px; min-width:240px; }
-.toolbar-filters{ flex:0 1 auto; display:flex; gap:10px; }
-.toolbar-actions{ margin-left:auto; display:flex; gap:10px; }
+  /* big rounded card + soft header */
+  .ad-card{
+    margin:0 18px 12px; background:#fff; border:1px solid #E6E9EF;
+    border-radius:16px; box-shadow:0 1px 0 rgba(16,24,40,.03); overflow:hidden;
+  }
+  .ad-table{ width:100%; border-collapse:separate; border-spacing:0; }
+  .ad-table thead th{
+    background:#F3F6FA;
+    color:#475467; font-weight:700; text-align:left;
+    padding:16px 18px; letter-spacing:.02em; border-bottom:1px solid #EEF2F7;
+  }
+  .ad-table tbody td{
+    padding:18px; color:#0f172a; border-top:1px solid #F1F5F9;
+  }
+  .ad-table tbody tr:hover{ background:#FAFAFB; }
 
-.control{
-  height:40px;border:1px solid var(--border);border-radius:10px;background:#fff;outline:none;color:#101828;font-size:14px;
-}
-.control.input{ width:100%; min-width:280px; padding:0 12px; }
-.control.select{
-  padding:0 36px 0 12px; min-width:160px; appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath fill='%23667085' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 0 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right 12px center; padding-right:40px;
-}
-.btn-rect{height:40px;border-radius:8px;padding:0 14px;font-weight:500; display:inline-flex; align-items:center; gap:8px; line-height:1;}
-.btn-secondary.soft{background:#fff;border:1px solid var(--border);color:#344054}
-.btn-secondary.soft:hover{background:#F9FAFB}
-.btn-dark{background:var(--primary);border:1px solid var(--primary);color:#fff}
-.btn-dark:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+  /* force right aligned numerics */
+  .ad-table th.ad-num,
+  .ad-table td.ad-num{
+    text-align:right !important;
+    white-space:nowrap;
+  }
 
-.section-body{background:#fff;}
-.table-wrap{border:none;border-radius:0;overflow:hidden;background:#fff;margin:0}
-.table{margin:0;border-collapse:separate;border-spacing:0;width:100%}
-.table thead th{background:var(--thead);color:#344054;font-weight:600;letter-spacing:.02em;white-space:nowrap;padding:14px 16px!important}
-.table>:not(caption)>*>*{padding:14px 16px;vertical-align:middle}
-.table tbody tr+tr td{border-top:1px solid #EEF2F7}
-.table tbody tr:hover{background:#F9FAFB}
-.col-actions{text-align:right}
-.th-num,.td-num{text-align:right}
+  .ad-actions{ text-align:center; width:80px; min-width:80px; }
+  .ad-qty-link{ color:#2563eb; font-weight:600; text-decoration:none; }
+  .ad-eye{ display:inline-flex; width:36px; height:36px; border-radius:9999px; align-items:center; justify-content:center;
+    border:1px solid #E6E9EF; background:#fff; }
+  .ad-eye .bi{ font-size:18px; color:#111827; }
 
-.section-foot{ padding:10px 12px; background:#fff; border-top:1px solid var(--border);
-  display:flex; align-items:center; justify-content:space-between; }
-.range-text{ font-size:13px; color:#6b7280; }
-.pager{display:flex;align-items:center;gap:6px}
-.page-btn{min-width:34px;height:34px;border:1px solid var(--border);border-radius:8px;background:#fff;color:#344054}
-.page-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-.page-btn:disabled{opacity:.5}
-.page-btn.icon{display:grid;place-items:center;width:34px}
-
-.badge-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:var(--chip);color:#344054;font-weight:600;font-size:11.5px}
-.usage-scroll{display:flex;gap:6px;flex-wrap:wrap;row-gap:6px}
-.kebab{border:0;background:transparent;padding:6px;border-radius:8px;color:#475467;line-height:1;transition:background .15s,color .15s}
-.kebab:hover{background:#F2F4F7;color:#1F2937}
-
-/* Modals 默认隐藏（避免摊开） */
-.modal-backdrop-custom,.modal-backdrop-edit,.modal-backdrop-type{
-  position:fixed; inset:0; background:rgba(17,24,39,.55);
-  display:none !important; align-items:center; justify-content:center; z-index:1060;
-}
-.modal-backdrop-custom.open,.modal-backdrop-edit.open,.modal-backdrop-type.open{ display:flex !important; }
-.modal-card,.modal-edit,.modal-type{width:min(520px,92vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.25);overflow:hidden}
-.modal-body{padding:22px 22px 18px}
-.modal-title{font-size:18px;font-weight:700;color:#111827;margin:0 0 14px}
-.form-text-sm{font-size:12px;color:#667085;margin-bottom:6px}
-.modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px}
-.input-suffix{position:relative}
-.input-suffix input.form-control{padding-right:64px}
-.input-suffix .suffix{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#98A2B3;font-weight:600}
-.btn-secondary-soft{background:#F3F4F6;border:1px solid #E5E7EB;color:#111827}
-.btn-secondary-soft:hover{background:#E5E7EB}
-.modal-edit .head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #EEF2F7}
-.modal-edit .head .title{font-weight:700;color:#111827}
-.modal-edit .head .close{border:0;background:transparent;color:#667085;font-size:20px;line-height:1}
-.modal-edit .body{padding:16px 20px 2px}
-.modal-edit .foot{padding:14px 20px 18px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #EEF2F7}
-.modal-edit label{font-size:12px;color:#667085;margin-bottom:6px}
-.modal-edit .form-control[readonly]{background:#F9FAFB}
-.modal-type .head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #EEF2F7;font-weight:700;color:#111827}
-.modal-type .close{border:0;background:transparent;color:#667085;font-size:20px}
-.modal-type .body{padding:16px 18px}
-.modal-type .foot{padding:12px 18px 16px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #EEF2F7}
-.modal-type label{font-size:12px;color:#667085;margin-bottom:6px}
-
-/* ===================== Another Data（按你截图风格） ===================== */
-.another-head{
-  display:flex; align-items:center; justify-content:space-between;
-  margin:12px 18px 10px;
-}
-.another-title{
-  font-size:26px; font-weight:800; letter-spacing:.2px; color:#0f172a;
-  margin:0;
-}
-.another-controls{ display:flex; gap:12px; }
-.ad-input, .ad-select{
-  height:44px; border:1px solid #E6E9EF; border-radius:12px; background:#fff; outline:none;
-  font-size:14px; color:#0f172a;
-}
-.ad-input{ width:320px; padding:0 14px; }
-.ad-select{ padding:0 40px 0 14px; min-width:150px; appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath fill='%23667085' d='M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 0 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right 12px center;
-}
-
-/* 大圆角卡片、轻边框、淡表头（覆盖任何外部样式） */
-.ad-card{
-  margin:0 18px 12px; background:#fff; border:1px solid #E6E9EF;
-  border-radius:16px; box-shadow:0 1px 0 rgba(16,24,40,.03); overflow:hidden;
-}
-.ad-table{ width:100%; border-collapse:separate; border-spacing:0; }
-.ad-table thead th{
-  background:#F3F6FA;
-  color:#475467; font-weight:700; text-align:left;
-  padding:16px 18px; letter-spacing:.02em; border-bottom:1px solid #EEF2F7;
-}
-.ad-table tbody td{
-  padding:18px; color:#0f172a; border-top:1px solid #F1F5F9;
-}
-.ad-table tbody tr:hover{ background:#FAFAFB; }
-
-/* 强制右对齐（压过框架默认） */
-.ad-table th.ad-num,
-.ad-table td.ad-num{
-  text-align:right !important;
-  white-space:nowrap;
-}
-
-.ad-actions{ text-align:center; width:80px; min-width:80px; }
-.ad-qty-link{ color:#2563eb; font-weight:600; text-decoration:none; }
-.ad-eye{ display:inline-flex; width:36px; height:36px; border-radius:9999px; align-items:center; justify-content:center;
-  border:1px solid #E6E9EF; background:#fff; }
-.ad-eye .bi{ font-size:18px; color:#111827; }
-
-/* 底部说明 & 分页（居右、紧凑） */
-.ad-foot{
-  display:flex; align-items:center; justify-content:space-between;
-  margin:10px 18px 0;
-}
-.ad-range{ color:#6b7280; font-size:14px; }
-.ad-pager{ display:flex; gap:8px; align-items:center; }
-.ad-page, .ad-nav{
-  min-width:36px; height:36px; border:1px solid #E6E9EF; background:#fff; color:#0f172a;
-  border-radius:10px; display:grid; place-items:center; padding:0 10px; cursor:pointer;
-}
-.ad-page.active{ background:#0f172a; color:#fff; border-color:#0f172a; }
-.ad-nav{ width:36px; }
+  /* footer & pager */
+  .ad-foot{
+    display:flex; align-items:center; justify-content:space-between;
+    margin:10px 18px 0;
+  }
+  .ad-range{ color:#6b7280; font-size:14px; }
+  .ad-pager{ display:flex; gap:8px; align-items:center; }
+  .ad-page, .ad-nav{
+    min-width:36px; height:36px; border:1px solid #E6E9EF; background:#fff; color:#0f172a;
+    border-radius:10px; display:grid; place-items:center; padding:0 10px; cursor:pointer;
+  }
+  .ad-page.active{ background:#0f172a; color:#fff; border-color:#0f172a; }
+  .ad-nav{ width:36px; }
 </style>
 
-<div class="container-fluid py-4 px-4">
-  <div class="page-wrap">
-    <div class="header-row">
-      <h1 class="hd-title">Data Management</h1>
-    </div>
+<div class="page-wrap">
+  <div class="d-flex align-items-center justify-content-between">
+    <h1 class="title">Data Management</h1>
+  </div>
 
-    <!-- Tabs -->
-    <div class="tabs" role="tablist" aria-label="Data Management Tabs">
-      <button class="tab-btn" role="tab" id="tab-cost"    aria-controls="panel-cost"    aria-selected="true">Cost Data</button>
-      <button class="tab-btn" role="tab" id="tab-another" aria-controls="panel-another" aria-selected="false">Another Data</button>
-    </div>
-    <div class="tabs-border"></div>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button type="button" class="tab-btn active" data-target="#costData">Cost Data</button>
+    <button type="button" class="tab-btn" data-target="#anotherData">Another Data</button>
+  </div>
+  <div class="tabs-border"></div>
 
-    <div class="panels">
-      <!-- ======================= Cost Data ======================= -->
-      <section id="panel-cost" class="tab-panel active" role="tabpanel" aria-labelledby="tab-cost">
-        <div class="header-row" style="margin-top:12px;">
-          <h1 class="hd-title">Costing Data Management</h1>
+  <div class="tab-panel active" id="costData">
+    <div class="card">
+      <div class="card-hd">
+        <div>
+          <div class="title" style="font-size: 20px !important;">Cost Data</div>
         </div>
-
-        <div class="table-section">
-          <div class="section-toolbar">
-            <div class="toolbar-left">
-              <input id="searchInput" type="text" class="control input" placeholder="Search machine / material...">
-            </div>
-            <div class="toolbar-filters">
-              <select id="typeFilter" class="control select" aria-label="All Types">
-                <option value="all">All Types</option>
-                <option value="Paper Materials">Paper Materials</option>
-                <option value="Backlit Materials">Backlit Materials</option>
-                <option value="Board Materials">Board Materials</option>
-              </select>
-              <select id="dateFilter" class="control select" aria-label="Last 30 Days">
-                <option value="30">Last 30 Days</option>
-                <option value="90">Last 90 Days</option>
-                <option value="365">Last 12 Months</option>
-                <option value="all">All Time</option>
-              </select>
-            </div>
-            <div class="toolbar-actions">
-              <button class="btn btn-secondary soft btn-rect" id="btnAddType">
-                <i class="bi bi-plus-lg"></i> Add Material Type
-              </button>
-              <button class="btn btn-dark btn-rect" id="btnAddMaterial">
-                <i class="bi bi-plus-lg"></i> Add Material
-              </button>
-            </div>
-          </div>
-
-          <div class="section-body">
-            <div class="table-wrap">
-              <div class="table-responsive">
-                <table class="table align-middle" id="costingTable">
-                  <thead>
-                    <tr>
-                      <th class="text-uppercase small">Material Name</th>
-                      <th class="text-uppercase small">Machine Type</th>
-                      <th class="text-uppercase small th-num">Unit Cost (per sq inch)</th>
-                      <th class="text-uppercase small th-num">Used Quantity</th>
-                      <th class="text-uppercase small th-num">Total Cost</th>
-                      <th class="text-uppercase small">Past Usage</th>
-                      <th class="col-actions text-uppercase small">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tableBody"><!-- dynamic --></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-foot">
-            <div id="rangeText" class="range-text">Showing 0 to 0 of 0 results</div>
-            <div class="pager" id="pager"><!-- dynamic --></div>
-          </div>
+        <div class="actions">
+          <button id="btnAddType" class="btn"><i class="bi bi-tags"></i> Add Type</button>
+          <button id="btnAddUnit" class="btn btn-primary"><i class="bi bi-rulers"></i> Add Unit</button>
+          <button id="btnAddMaterial" class="btn btn-dark"><i class="bi bi-plus-lg"></i> Add Material</button>
         </div>
-      </section>
+      </div>
 
-      <!-- ======================= Another Data（你的设计） ======================= -->
-      <section id="panel-another" class="tab-panel" role="tabpanel" aria-labelledby="tab-another">
-        <!-- 头部：标题在左、搜索+筛选在右 -->
-        <div class="another-head">
-          <h2 class="another-title">Costing Data Management</h2>
-          <div class="another-controls">
-            <input id="adSearch" class="ad-input" type="search" placeholder="Search machine...">
-            <select id="adType" class="ad-select" aria-label="All Types">
-              <option value="all">All Types</option>
-              <option value="Printing">Printing</option>
-              <option value="Furnishing">Furnishing</option>
-              <option value="Delivery">Delivery</option>
-              <option value="Installation">Installation</option>
-            </select>
-            <select id="adDate" class="ad-select" aria-label="Last 30 Days">
-              <option value="30">Last 30 Days</option>
-              <option value="7">Last 7 Days</option>
-              <option value="m">This Month</option>
-              <option value="lm">Last Month</option>
-              <option value="all">All Time</option>
-            </select>
-          </div>
+      <div class="toolbar">
+        <div class="search">
+          <i class="bi bi-search"></i>
+          <input id="q" type="text" placeholder="Search materials...">
         </div>
+        <div class="select">
+          <select id="typeFilter">
+            <option value="all">All Material Types</option>
+            @foreach($types as $id => $name)
+              <option value="{{ $id }}">{{ $name }}</option>
+            @endforeach
+          </select>
+          <select id="qtyFilter">
+            <option value="all">All Units</option>
+            @foreach($units as $id => $label)
+              <option value="{{ $id }}">{{ $label }}</option>
+            @endforeach
+          </select>
+        </div>
+      </div>
 
-        <!-- 表格大卡 -->
-        <div class="ad-card">
-          <table class="ad-table">
-            <thead>
-              <tr>
-                <th>Product ID</th>
-                <th>Product Quantity</th>
-                <th class="ad-num">Used Quantity</th>
-                <th class="ad-num">Total Cost</th>
-                <th class="ad-actions">Actions</th>
+      <div class="table-wrap" style="padding:6px 12px 10px;">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Material Name</th>
+              <th>Material Type</th>
+              <th>Unit Cost</th>
+              <th>Used Quantity</th>
+              <th>Total Cost</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($materials as $m)
+              <tr data-type="{{ $m->material_type_id }}" data-uom="{{ $m->unit_id }}">
+                <td>{{ $m->materialName }}</td>
+                <td>{{ optional($m->materialType)->name }}</td>
+                <td>RM {{ number_format($m->unitCost, 4) }} {{ optional($m->unit)->label }}</td>
+                <td class="text-end usedQty"></td>     {{-- NEW: blank for now --}}
+                <td class="text-end totalCost"></td>   {{-- NEW: blank for now --}}
+                <td style="text-align:right;position:relative">
+                  <button class="kebab" title="Actions" data-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                  <div class="dropdown-menu" style="position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:10px;min-width:180px;padding:6px">
+                    <button 
+                      class="dropdown-item btnEdit"
+                      data-id="{{ $m->MaterialID }}"
+                      data-name="{{ $m->materialName }}"
+                      data-cost="{{ $m->unitCost }}"
+                      data-uom="{{ $m->unit_id }}"
+                    >
+                      <i class="bi bi-pencil me-2"></i> Edit Unit Cost
+                    </button>
+                    <button class="dropdown-item text-danger btnDelete" data-id="{{ $m->MaterialID }}"><i class="bi bi-trash me-2"></i> Delete</button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody id="adBody"><!-- dynamic --></tbody>
-          </table>
+            @endforeach
+          </tbody>
+        </table>
+        <div class="mt-3 d-flex justify-content-between align-items-center px-2">
+          <div class="count text-muted">
+            Showing {{ $materials->firstItem() ?? 0 }}–{{ $materials->lastItem() ?? 0 }}
+            of {{ $materials->total() }} materials
+          </div>
+          <div>
+            {{ $materials->links('pagination::bootstrap-5') }}
+          </div>
         </div>
-
-        <!-- 底部说明 & 分页 -->
-        <div class="ad-foot">
-          <div class="ad-range" id="adRange">Showing 0 to 0 of 0 results</div>
-          <div class="ad-pager" id="adPager"><!-- dynamic --></div>
-        </div>
-      </section>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- =================== Modals（供 Cost Data 使用） =================== -->
-<!-- Add Material Modal -->
-<div class="modal-backdrop-custom" id="addMaterialModal" aria-hidden="true" role="dialog" aria-modal="true">
-  <div class="modal-card" role="document">
-    <div class="modal-body">
-      <h3 class="modal-title">Material Information</h3>
-
-      <label class="form-text-sm">Material Name <span class="text-danger">*</span></label>
-      <input id="matName" type="text" class="form-control mb-3" placeholder="e.g., PVC Banner, Foam Core Board" autocomplete="off">
-
-      <label class="form-text-sm">Material Category</label>
-      <select id="matCategory" class="form-select mb-3">
-        <option value="" selected disabled>Select category...</option>
-        <option>Paper Materials</option>
-        <option>Backlit Materials</option>
-        <option>Board Materials</option>
+  <!-- Keep "Another Data" as-is (do not touch) -->
+  <div class="tab-panel" id="anotherData">
+  <!-- Header: title left, controls right -->
+  <div class="another-head">
+    <h2 class="another-title">Costing Data Management</h2>
+    <div class="another-controls">
+      <input id="adSearch" class="ad-input" type="search" placeholder="Search machine...">
+      <select id="adType" class="ad-select" aria-label="All Types">
+        <option value="all">All Types</option>
+        <option value="Printing">Printing</option>
+        <option value="Furnishing">Furnishing</option>
+        <option value="Delivery">Delivery</option>
+        <option value="Installation">Installation</option>
       </select>
-
-      <label class="form-text-sm">Unit Cost (RM) <span class="text-danger">*</span></label>
-      <div class="input-suffix mb-1">
-        <input id="matUnit" type="number" step="0.0001" min="0" class="form-control" placeholder="6.50">
-        <span class="suffix">/ sqft</span>
-      </div>
-      <div id="matErr" class="text-danger small mt-1" style="display:none;"></div>
+      <select id="adDate" class="ad-select" aria-label="Last 30 Days">
+        <option value="30">Last 30 Days</option>
+        <option value="7">Last 7 Days</option>
+        <option value="m">This Month</option>
+        <option value="lm">Last Month</option>
+        <option value="all">All Time</option>
+      </select>
     </div>
+  </div>
 
-    <div class="modal-footer">
-      <button type="button" class="btn btn-secondary-soft btn-rect" id="btnMatCancel">Cancel</button>
-      <button type="button" class="btn btn-dark btn-rect" id="btnMatSave"><i class="bi bi-save me-1"></i>Save Material</button>
+  <!-- Card + table -->
+  <div class="ad-card">
+    <table class="ad-table">
+      <thead>
+        <tr>
+          <th>Product ID</th>
+          <th>Product Quantity</th>
+          <th class="ad-num">Used Quantity</th>
+          <th class="ad-num">Total Cost</th>
+          <th class="ad-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="adBody"><!-- dynamic --></tbody>
+    </table>
+  </div>
+
+  <!-- Footer (range + pager) -->
+  <div class="ad-foot">
+    <div class="ad-range" id="adRange">Showing 0 to 0 of 0 results</div>
+    <div class="ad-pager" id="adPager"><!-- dynamic --></div>
+  </div>
+</div>
+</div>
+
+<!-- ========== MODALS ========== -->
+<div class="x-mask" id="mdlType">
+  <div class="x">
+    <div class="x-hd"><i class="bi bi-tags"></i> Add Material Type</div>
+    <div class="x-bd">
+      <div class="field">
+        <div class="label">Type Name *</div>
+        <input id="typeName" type="text" class="control" placeholder="e.g., PVC, Board, Fabric">
+      </div>
+    </div>
+    <div class="x-ft">
+      <button class="btn btn-ghost" data-close="mdlType">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveType">Save Type</button>
     </div>
   </div>
 </div>
 
-<!-- Edit Unit Cost Modal -->
-<div class="modal-backdrop-edit" id="editCostModal" aria-hidden="true" role="dialog" aria-modal="true">
-  <div class="modal-edit" role="document">
-    <div class="head">
-      <div class="title" id="editTitle">Edit Unit Cost</div>
-      <button class="close" id="editClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
-    </div>
-    <div class="body">
-      <label>New Material Name</label>
-      <input type="text" class="form-control mb-3" id="editNewName" placeholder="e.g., PVC Banner, Foam Core Board">
-
-      <label>Current Unit Cost</label>
-      <input type="text" class="form-control mb-3" id="editCurrent" readonly>
-
-      <label>New Unit Cost*</label>
-      <div class="input-suffix mb-1">
-        <input type="number" step="0.0001" min="0" class="form-control" id="editNewUnit" placeholder="6.50">
-        <span class="suffix">/ sqft</span>
+<div class="x-mask" id="mdlUnit">
+  <div class="x">
+    <div class="x-hd"><i class="bi bi-rulers"></i> Add Unit</div>
+    <div class="x-bd">
+      <div class="field">
+        <div class="label">Unit Name *</div>
+        <input id="unitName" type="text" class="control" placeholder="e.g., meter, sqft, pcs">
       </div>
-      <div id="editErr" class="text-danger small mt-2" style="display:none;"></div>
+      <div class="field">
+        <div class="label">Unit Label *</div>
+        <input id="unitLabel" type="text" class="control" placeholder="e.g., m, sqft, pcs">
+      </div>
     </div>
-    <div class="foot">
-      <button type="button" class="btn btn-secondary-soft btn-rect" id="editCancel">Cancel</button>
-      <button type="button" class="btn btn-dark btn-rect" id="editSave"><i class="bi bi-save me-1"></i>Save Changes</button>
+    <div class="x-ft">
+      <button class="btn btn-ghost" data-close="mdlUnit">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveUnit">Save Unit</button>
     </div>
   </div>
 </div>
 
-<!-- Add Material Type Modal -->
-<div class="modal-backdrop-type" id="typeModal" aria-hidden="true" role="dialog" aria-modal="true">
-  <div class="modal-type" role="document">
-    <div class="head">
-      <div>Add New Material Type</div>
-      <button class="close" id="typeClose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+<div class="x-mask" id="mdlMaterial">
+  <div class="x">
+    <div class="x-hd"><i class="bi bi-plus-square"></i> Add Material</div>
+    <div class="x-bd">
+      <div class="field">
+        <div class="label">Material Name *</div>
+        <input id="matName" type="text" class="control" placeholder="e.g., PVC Banner, Foam Board">
+      </div>
+      <div class="field">
+        <div class="label">Material Type *</div>
+        <select id="matType" class="control">
+          <option value="">Select type…</option>
+          @foreach($types as $id => $name)
+            <option value="{{ $id }}">{{ $name }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="field">
+        <div class="label">Unit *</div>
+        <select id="matUnit" class="control">
+          <option value="">Select unit…</option>
+          @foreach($units as $id => $label)
+            <option value="{{ $id }}">{{ $label }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="field">
+        <div class="label">Unit Cost (RM) *</div>
+        <input id="matCost" type="number" step="0.0001" class="control" placeholder="0.0000">
+      </div>
     </div>
-    <div class="body">
-      <label>Material Type Name</label>
-      <input type="text" class="form-control" id="typeName" placeholder="e.g. Backlit Materials" autocomplete="off">
-      <div id="typeErr" class="text-danger small mt-2" style="display:none;"></div>
+    <div class="x-ft">
+      <button class="btn btn-ghost" data-close="mdlMaterial">Cancel</button>
+      <button class="btn btn-dark" id="btnSaveMaterial"><i class="bi bi-floppy2"></i> Save Material</button>
     </div>
-    <div class="foot">
-      <button type="button" class="btn btn-secondary-soft btn-rect" id="typeCancel">Cancel</button>
-      <button type="button" class="btn btn-dark btn-rect" id="typeSave">Save</button>
+  </div>
+</div>
+
+<div class="x-mask" id="mdlQuickEdit">
+  <div class="x">
+    <div class="x-hd"><i class="bi bi-pencil-square"></i> Edit Unit Cost</div>
+    <div class="x-bd">
+      <input type="hidden" id="qeId">
+      <div class="field">
+        <div class="label">Material Name</div>
+        <input id="qeName" type="text" class="control">
+      </div>
+      <div class="field">
+        <div class="label">Current Unit Cost</div>
+        <input id="qeCurrent" class="control" disabled>
+      </div>
+      <div class="field">
+        <div class="label">New Unit Cost *</div>
+        <input id="qeNew" type="number" step="0.0001" class="control">
+      </div>
+      <div class="field">
+        <div class="label">Unit</div>
+        <select id="qeUnit" class="control">
+          <option value="">Select unit…</option>
+          @foreach($units as $id => $label)
+            <option value="{{ $id }}">{{ $label }}</option>
+          @endforeach
+        </select>
+      </div>
+    </div>
+    <div class="x-ft">
+      <button class="btn btn-ghost" data-close="mdlQuickEdit">Cancel</button>
+      <button class="btn btn-dark" id="btnSaveQuick"><i class="bi bi-floppy2"></i> Save Changes</button>
     </div>
   </div>
 </div>
 
 <script>
-/* ============ Tabs（含 URL hash） ============ */
-(function () {
-  const tabs   = Array.from(document.querySelectorAll('.tab-btn'));
-  const panels = Array.from(document.querySelectorAll('.tab-panel'));
-  const map = { 'tab-cost':'panel-cost', 'tab-another':'panel-another' };
+(() => {
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
 
-  function activate(tabId){
-    tabs.forEach(t=>t.setAttribute('aria-selected', String(t.id===tabId)));
-    panels.forEach(p=>p.classList.toggle('active', p.id===map[tabId]));
-  }
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      activate(btn.id);
-      history.replaceState(null, '', btn.id==='tab-another' ? '#another' : '#cost');
+  // Tabs
+  document.addEventListener('click', (e)=>{
+    const t = e.target.closest('.tab-btn');
+    if(!t) return;
+    $$('.tab-btn').forEach(b=>b.classList.remove('active'));
+    t.classList.add('active');
+    $$('.tab-panel').forEach(p=>p.classList.remove('active'));
+    $(t.dataset.target).classList.add('active');
+  });
+
+  // Dropdown (simple)
+  document.addEventListener('click',(e)=>{
+    if(e.target.closest('.kebab')){
+      const menu = e.target.closest('td').querySelector('.dropdown-menu');
+      menu.style.display = (menu.style.display==='block'?'none':'block');
+      return;
+    }
+    $$('.dropdown-menu').forEach(m=>m.style.display='none');
+  });
+
+  function openMask(id){ $('#'+id).classList.add('show'); }
+  function closeMask(id){ $('#'+id).classList.remove('show'); }
+  document.addEventListener('click',(e)=>{
+    const c = e.target.dataset.close;
+    if(c) closeMask(c);
+  });
+
+  // Filters
+  function applyFilter(){
+    const q = $('#q').value.toLowerCase().trim();
+    const t = $('#typeFilter').value;
+    const u = $('#qtyFilter').value;
+    let shown = 0;
+    $$('#tbl tbody tr').forEach(tr=>{
+      const name = tr.children[0].textContent.toLowerCase();
+      const passQ = !q || name.includes(q);
+      const passT = (t==='all' || tr.dataset.type===t);
+      const passU = (u==='all' || tr.dataset.uom===u);
+      const ok = passQ && passT && passU;
+      tr.style.display = ok ? '' : 'none';
+      if(ok) shown++;
     });
-    btn.addEventListener('keydown', (e)=>{
-      if(e.key==='ArrowRight' || e.key==='ArrowLeft'){
-        const dir = e.key==='ArrowRight' ? 1 : -1;
-        const index = tabs.indexOf(btn);
-        const next = tabs[(index + dir + tabs.length) % tabs.length];
-        next.focus(); next.click();
-      }
+    $('#countTotal').textContent = shown;
+  }
+
+  ['input','change'].forEach(ev=>{
+    document.addEventListener(ev, (e)=>{
+      if (['q','typeFilter','qtyFilter'].includes(e.target.id)) applyFilter();
     });
   });
-  const hash = (location.hash||'').toLowerCase();
-  if(hash==='#another'){ activate('tab-another'); } else { activate('tab-cost'); }
+
+  // Add Type
+  $('#btnAddType').addEventListener('click', ()=> openMask('mdlType'));
+  $('#btnSaveType').addEventListener('click', ()=>{
+    const name = $('#typeName').value.trim();
+    if(!name){ alert('Type name is required'); return; }
+    fetch("{{ route('boss.material-types.store') }}", {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+      body:JSON.stringify({typeName:name})
+    }).then(r=>r.json()).then(data=>{
+      if(data.success){
+        const opt = document.createElement('option');
+        opt.value = data.id; opt.textContent = data.type;
+        $('#typeFilter').appendChild(opt);
+        const opt2 = opt.cloneNode(true);
+        $('#matType').appendChild(opt2);
+        closeMask('mdlType');
+      }else{ alert('Failed to save'); }
+    }).catch(()=>alert('Error'));
+  });
+
+  // Add Unit
+  $('#btnAddUnit').addEventListener('click', ()=> openMask('mdlUnit'));
+  $('#btnSaveUnit').addEventListener('click', ()=>{
+    const name = $('#unitName').value.trim();
+    const label = $('#unitLabel').value.trim();
+    if(!name||!label){ alert('Both name and label are required'); return; }
+    fetch("{{ route('boss.units.store') }}", {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+      body:JSON.stringify({unitName:name, unitLabel:label})
+    }).then(r=>r.json()).then(data=>{
+      if(data.success){
+        const opt = document.createElement('option');
+        opt.value = data.id; opt.textContent = data.label;
+        $('#qtyFilter').appendChild(opt);
+        const opt2 = opt.cloneNode(true);
+        $('#matUnit').appendChild(opt2);
+        $('#qeUnit').appendChild(opt.cloneNode(true));
+        closeMask('mdlUnit');
+      }else{ alert('Failed to save'); }
+    }).catch(()=>alert('Error'));
+  });
+
+  // Add Material
+  $('#btnAddMaterial').addEventListener('click', ()=> openMask('mdlMaterial'));
+  $('#btnSaveMaterial').addEventListener('click', ()=>{
+    const postData = {
+      materialName: $('#matName').value.trim(),
+      material_type_id: $('#matType').value,
+      unit_id: $('#matUnit').value,
+      unitCost: $('#matCost').value
+    };
+    if(!postData.materialName || !postData.material_type_id || !postData.unit_id || !postData.unitCost){
+      alert('Please fill in all required fields'); return;
+    }
+    fetch("{{ route('boss.materials.store') }}", {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+      body:JSON.stringify(postData)
+    }).then(r=>r.json()).then(data=>{
+      if(data.success){
+        const m = data.material;
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-type', m.material_type_id);
+        tr.setAttribute('data-uom', m.unit_id);
+        tr.innerHTML = `
+          <td>${m.materialName}</td>
+          <td>${m.materialType ? m.materialType.name : ''}</td>
+          <td>RM ${Number(m.unitCost).toFixed(4)} ${m.unit ? m.unit.label : ''}</td>
+          <td class="text-end usedQty">-</td>      <!-- NEW -->
+          <td class="text-end totalCost">-</td>    <!-- NEW -->
+          <td style="text-align:right;position:relative">
+            <button class="kebab" title="Actions" data-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+            <div class="dropdown-menu" style="position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:10px;min-width:180px;padding:6px">
+              <button class="dropdown-item btnEdit"
+                data-id="${m.MaterialID}"
+                data-name="${m.materialName}"
+                data-cost="${m.unitCost}"
+                data-uom="${m.unit_id}">
+                <i class="bi bi-pencil me-2"></i> Edit Unit Cost
+              </button>
+              <button class="dropdown-item text-danger btnDelete" data-id="${m.MaterialID}"><i class="bi bi-trash me-2"></i> Delete</button>
+            </div>
+          </td>`;
+        $('#tbl tbody').appendChild(tr);
+        closeMask('mdlMaterial');
+        applyFilter();
+      }else{ alert('Failed to save'); }
+    }).catch(()=>alert('Error'));
+  });
+
+  // Edit (open)
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.btnEdit');
+    if(!btn) return;
+    $('#qeId').value = btn.dataset.id;
+    $('#qeName').value = btn.dataset.name || '';
+    $('#qeCurrent').value = btn.dataset.cost ? Number(btn.dataset.cost).toFixed(4) : '';
+    $('#qeNew').value = btn.dataset.cost || '';
+    $('#qeUnit').value = btn.dataset.uom || '';
+    openMask('mdlQuickEdit');
+  });
+
+  // Save Quick Edit
+  $('#btnSaveQuick').addEventListener('click', ()=>{
+    const id = $('#qeId').value;
+    const postData = {
+      qeName: $('#qeName').value,
+      qeNew: $('#qeNew').value,
+      qeUnit: $('#qeUnit').value
+    };
+    fetch("{{ route('boss.materials.update', ['id' => '___ID___']) }}".replace('___ID___', id), {
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
+      body:JSON.stringify(postData)
+    }).then(r=>r.json()).then(data=>{
+      if(data.success){
+        const tr = Array.from($('#tbl tbody').children).find(tr => tr.querySelector('.btnEdit')?.dataset.id === id);
+        if(tr){
+          tr.children[0].textContent = postData.qeName || tr.children[0].textContent;
+          tr.children[2].textContent = `RM ${Number(postData.qeNew||0).toFixed(4)} ${data.material.unit.label}`;
+          tr.dataset.uom = postData.qeUnit;
+          const btn = tr.querySelector('.btnEdit');
+          btn.dataset.name = tr.children[0].textContent;
+          btn.dataset.cost = postData.qeNew;
+          btn.dataset.uom = postData.qeUnit;
+        }
+        closeMask('mdlQuickEdit');
+        applyFilter();
+      }else{ alert('Failed to update'); }
+    }).catch(()=>alert('Error'));
+  });
+
+  // Delete
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.btnDelete');
+    if(!btn) return;
+    if(!confirm('Delete this material?')) return;
+    fetch("{{ route('boss.materials.destroy', ['id' => '___ID___']) }}".replace('___ID___', btn.dataset.id), {
+      method:'DELETE',
+      headers:{'X-CSRF-TOKEN':csrf,'Accept':'application/json'}
+    }).then(r=>r.json()).then(data=>{
+      if(data.success){
+        const tr = btn.closest('tr'); tr?.remove();
+        applyFilter();
+      }else{ alert('Failed to delete'); }
+    }).catch(()=>alert('Error'));
+  });
+
+  // Init
+  window.addEventListener('load', applyFilter);
 })();
 
-/* ============ Cost Data 逻辑（原样保留） ============ */
-const DATA = [
-  { name:'Art Card',       type:'Paper Materials',   unit:0.0030, qty:12540, total:37.62, usage:['#ORD005-P1','#ORD006-P1','#ORD007-P1'], days:12 },
-  { name:'Art Paper',      type:'Paper Materials',   unit:0.0030, qty:8320,  total:99.84, usage:['#ORD003-C1','#ORD008-C1'], days:28 },
-  { name:'Backlit Fabric', type:'Backlit Materials', unit:0.0100, qty:4200,  total:27.30, usage:['#ORD002-C2','#ORD010-C2'], days:7 },
-  { name:'Chipboard 1mm',  type:'Board Materials',   unit:0.0059, qty:3400,  total:32.30, usage:['#ORD012-C3','#ORD013-C3'], days:17 },
-  { name:'Foamboard 3mm',  type:'Board Materials',   unit:0.0080, qty:5120,  total:41.00, usage:['#ORD014-P1'], days:10 },
-  { name:'Newsprint',      type:'Paper Materials',   unit:0.0015, qty:18200, total:27.30, usage:['#ORD018-C1','#ORD019-C2'], days:4 },
-];
-const PAGE_SIZE = 6;
-let state = { q:'', type:'all', days:'30', page:1 };
-const elBody  = document.getElementById('tableBody');
-const elRange = document.getElementById('rangeText');
-const elPager = document.getElementById('pager');
+// ========= PAGINATION =========
+let currentPage = 1;
+const rowsPerPage = 10;
 
-function formatMoney(n){ return 'RM ' + n.toFixed(2); }
-function formatUnit(n){ return 'RM ' + n.toFixed(4); }
-function fmtInt(n){ return n.toLocaleString(); }
+function paginateTable() {
+  const allRows = Array.from(document.querySelectorAll('#tbl tbody tr')).filter(r => r.style.display !== 'none');
+  const totalRows = allRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  currentPage = Math.min(currentPage, totalPages);
 
-function filterData(){
-  const q = state.q.toLowerCase();
-  const maxDays = state.days==='all' ? Infinity : Number(state.days);
-  return DATA.filter(d=>{
-    const hitQ = !q || d.name.toLowerCase().includes(q) || d.type.toLowerCase().includes(q);
-    const hitT = state.type==='all' || d.type===state.type;
-    const hitD = d.days <= maxDays;
-    return hitQ && hitT && hitD;
+  allRows.forEach((row, i) => {
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    row.style.display = (i >= start && i < end) ? '' : 'none';
   });
+
+  document.getElementById('totalCount').textContent = totalRows;
+  document.getElementById('shownCount').textContent = Math.min(totalRows, rowsPerPage);
+  document.getElementById('pageInfo').textContent = `${currentPage} / ${totalPages}`;
+  document.getElementById('prevPage').disabled = currentPage === 1;
+  document.getElementById('nextPage').disabled = currentPage === totalPages;
 }
-function paginate(items){
-  const start = (state.page-1)*PAGE_SIZE;
-  const end   = start + PAGE_SIZE;
-  return { slice:items.slice(start,end), start:start+1, end:Math.min(end,items.length), total:items.length };
-}
-function chip(str){ return `<span class="badge-chip">${str}</span>`; }
-function rowTpl(d, idx){
-  const chips = d.usage.slice(0,3).map(chip).join('');
-  const extra = d.usage.length>3 ? chip(`+${d.usage.length-3} more`) : '';
-  return `
-    <tr>
-      <td class="fw-500 text-dark">${d.name}</td>
-      <td class="text-muted">${d.type}</td>
-      <td class="td-num">${formatUnit(d.unit)}</td>
-      <td class="td-num">${fmtInt(d.qty)}</td>
-      <td class="td-num">${formatMoney(d.total)}</td>
-      <td><div class="usage-scroll">${chips}${extra}</div></td>
-      <td class="col-actions">
-        <button class="kebab btn-action" data-idx="${idx}" aria-label="More actions">
-          <i class="bi bi-three-dots-vertical"></i>
-        </button>
-      </td>
-    </tr>
-  `;
-}
-function render(){
-  const filtered = filterData();
-  const pg = paginate(filtered);
-  if(pg.total===0){
-    elBody.innerHTML = `<tr><td colspan="7"><div class="empty">No results found.</div></td></tr>`;
-    elRange.textContent = `Showing 0 to 0 of 0 results`;
-    elPager.innerHTML = '';
-    return;
+
+document.getElementById('prevPage').addEventListener('click', () => {
+  if (currentPage > 1) {
+    currentPage--;
+    paginateTable();
   }
-  elBody.innerHTML = pg.slice.map((d,i)=>rowTpl(d,(state.page-1)*PAGE_SIZE+i)).join('');
-  elRange.textContent = `Showing ${pg.start} to ${pg.end} of ${pg.total} results`;
-  const pages = Math.ceil(pg.total/PAGE_SIZE);
-  let html = '';
-  html += `<button class="page-btn icon" ${state.page<=1?'disabled':''} onclick="gotoPage(${state.page-1})"><i class="bi bi-chevron-left"></i></button>`;
-  for(let i=1;i<=pages;i++){ html += `<button class="page-btn ${i===state.page?'active':''}" onclick="gotoPage(${i})">${i}</button>`; }
-  html += `<button class="page-btn icon" ${state.page>=pages?'disabled':''} onclick="gotoPage(${state.page+1})"><i class="bi bi-chevron-right"></i></button>`;
-  elPager.innerHTML = html;
-}
-function gotoPage(p){ state.page=p; render(); }
-document.getElementById('searchInput').addEventListener('input', e=>{ state.q=e.target.value.trim(); state.page=1; render(); });
-document.getElementById('typeFilter').addEventListener('change', e=>{ state.type=e.target.value; state.page=1; render(); });
-document.getElementById('dateFilter').addEventListener('change', e=>{ state.days=e.target.value; state.page=1; render(); });
-
-/* Add Material Modal */
-const $modal = document.getElementById('addMaterialModal');
-const $matName = document.getElementById('matName');
-const $matCategory = document.getElementById('matCategory');
-const $matUnit = document.getElementById('matUnit');
-const $matErr = document.getElementById('matErr');
-document.getElementById('btnAddMaterial').addEventListener('click', openAddMaterial);
-document.getElementById('btnMatCancel').addEventListener('click', closeAddMaterial);
-function openAddMaterial(){ $modal.classList.add('open'); $modal.setAttribute('aria-hidden','false'); $matName.value=''; $matCategory.selectedIndex=0; $matUnit.value=''; $matErr.style.display='none'; setTimeout(()=> $matName.focus(), 50); }
-function closeAddMaterial(){ $modal.classList.remove('open'); $modal.setAttribute('aria-hidden','true'); }
-$modal.addEventListener('click', e=>{ if(e.target===$modal) closeAddMaterial(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $modal.classList.contains('open')) closeAddMaterial(); });
-document.getElementById('btnMatSave').addEventListener('click', ()=>{ const name=$matName.value.trim(); const type=$matCategory.value || 'Paper Materials'; const unit=Number($matUnit.value); if(!name){ return showErr('Please enter material name.'); } if(!(unit>=0)){ return showErr('Please enter a valid unit cost.'); } DATA.unshift({ name, type, unit, qty:0, total:0, usage:[], days:0 }); state.page=1; render(); closeAddMaterial(); });
-function showErr(msg){ $matErr.textContent=msg; $matErr.style.display='block'; }
-
-/* Edit Unit Cost Modal */
-const editModal=document.getElementById('editCostModal');
-const editTitle=document.getElementById('editTitle');
-const editNewName=document.getElementById('editNewName');
-const editCurrent=document.getElementById('editCurrent');
-const editNewUnit=document.getElementById('editNewUnit');
-const editErr=document.getElementById('editErr');
-let editingIndex=null;
-elBody.addEventListener('click', e=>{
-  const btn=e.target.closest('.btn-action'); if(!btn) return;
-  const idx=Number(btn.dataset.idx); const item=DATA[idx]; editingIndex=idx;
-  editTitle.textContent=`Edit Unit Cost – ${item.name}`;
-  editNewName.value=item.name; editCurrent.value=`${formatUnit(item.unit)} / sqft`.replace('RM ','RM '); editNewUnit.value=item.unit.toFixed(4);
-  editErr.style.display='none'; editModal.classList.add('open'); editModal.setAttribute('aria-hidden','false');
-  setTimeout(()=>editNewUnit.focus(), 30);
 });
-document.getElementById('editClose').addEventListener('click', closeEdit);
-document.getElementById('editCancel').addEventListener('click', closeEdit);
-editModal.addEventListener('click', e=>{ if(e.target===editModal) closeEdit(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && editModal.classList.contains('open')) closeEdit(); });
-function closeEdit(){ editModal.classList.remove('open'); editModal.setAttribute('aria-hidden','true'); editingIndex=null; }
 
-/* Add Material Type */
-const TYPES = Array.from(document.querySelectorAll('#typeFilter option')).map(o=>o.value).filter(v=>v && v!=='all');
-const typeModal=document.getElementById('typeModal');
-const typeName=document.getElementById('typeName');
-const typeErr=document.getElementById('typeErr');
-function refreshTypeOptions(selectedNew=''){
-  const typeFilter=document.getElementById('typeFilter');
-  const keepAll=typeFilter.querySelector('option[value="all"]');
-  typeFilter.innerHTML=''; typeFilter.appendChild(keepAll.cloneNode(true));
-  TYPES.forEach(t=>{ const opt=document.createElement('option'); opt.value=opt.textContent=t; typeFilter.appendChild(opt); });
-  if(selectedNew) typeFilter.value=selectedNew;
-  const cat=document.getElementById('matCategory');
-  const first=cat.querySelector('option[disabled]')?.cloneNode(true);
-  cat.innerHTML=''; if(first) cat.appendChild(first);
-  TYPES.forEach(t=>{ const opt=document.createElement('option'); opt.textContent=t; cat.appendChild(opt); });
-  if(selectedNew) cat.value=selectedNew;
-}
-function openTypeModal(){ typeName.value=''; typeErr.style.display='none'; typeModal.classList.add('open'); typeModal.setAttribute('aria-hidden','false'); setTimeout(()=>typeName.focus(),30); }
-function closeTypeModal(){ typeModal.classList.remove('open'); typeModal.setAttribute('aria-hidden','true'); }
-document.getElementById('btnAddType')?.addEventListener('click', openTypeModal);
-document.getElementById('typeClose')?.addEventListener('click', closeTypeModal);
-document.getElementById('typeCancel')?.addEventListener('click', closeTypeModal);
-typeModal.addEventListener('click', e=>{ if(e.target===typeModal) closeTypeModal(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && typeModal.classList.contains('open')) closeTypeModal(); });
-document.getElementById('typeSave')?.addEventListener('click', ()=>{ const name=(typeName.value||'').trim(); if(!name){ typeErr.textContent='Please enter a material type name.'; typeErr.style.display='block'; return; } const exists=TYPES.some(t=>t.toLowerCase()===name.toLowerCase()); if(exists){ typeErr.textContent='This type already exists.'; typeErr.style.display='block'; return; } TYPES.push(name); refreshTypeOptions(name); state.type='all'; render(); closeTypeModal(); });
-document.addEventListener('DOMContentLoaded', ()=>{ refreshTypeOptions(); render(); });
+document.getElementById('nextPage').addEventListener('click', () => {
+  currentPage++;
+  paginateTable();
+});
 
-/* ============ Another Data（独立逻辑） ============ */
+// Modify applyFilter to reapply pagination after filtering
+const _oldApplyFilter = applyFilter;
+applyFilter = function() {
+  _oldApplyFilter();
+  currentPage = 1;
+  paginateTable();
+};
+
+// Initial pagination after load
+window.addEventListener('load', paginateTable);
+
+// ============ Another Data (original, with dummy data) ============
 const DATA2 = [
   { id:'ORD-2025-001', qtyProducts:6, used:12540, total:37.62, type:'Printing',     days:10 },
   { id:'ORD-2025-002', qtyProducts:4, used: 8320, total:99.84, type:'Furnishing',   days:22 },
@@ -572,17 +655,17 @@ const DATA2 = [
   { id:'ORD-2025-012', qtyProducts:6, used:12010, total:66.55, type:'Installation', days:28 },
 ];
 const PAGE_SIZE2 = 6;
-/* 默认 All Time，与你示例的 12 条一致 */
 let state2 = { q:'', type:'all', days:'all', page:1 };
-const adBody = document.getElementById('adBody');
+
+const adBody  = document.getElementById('adBody');
 const adRange = document.getElementById('adRange');
 const adPager = document.getElementById('adPager');
 
 function filterData2(){
   const q = state2.q.toLowerCase();
   const maxDays = state2.days==='all' ? Infinity :
-                  state2.days==='m' ? 31 :
-                  state2.days==='lm' ? 62 : Number(state2.days);
+                  state2.days==='m'   ? 31 :
+                  state2.days==='lm'  ? 62 : Number(state2.days);
   return DATA2.filter(d=>{
     const hitQ = !q || d.id.toLowerCase().includes(q);
     const hitT = state2.type==='all' || d.type===state2.type;
@@ -593,7 +676,7 @@ function filterData2(){
 function paginate2(items){
   const start = (state2.page-1)*PAGE_SIZE2;
   const end   = start + PAGE_SIZE2;
-  return { slice:items.slice(start,end), start:start+1, end:Math.min(end,items.length), total:items.length };
+  return { slice:items.slice(start,end), start:start+1, end:Math.min(end, items.length), total:items.length };
 }
 function rowTpl2(d){
   return `
@@ -602,7 +685,9 @@ function rowTpl2(d){
       <td><a href="javascript:void(0)" class="ad-qty-link">${d.qtyProducts} Products</a></td>
       <td class="ad-num">${d.used.toLocaleString()}</td>
       <td class="ad-num">RM ${d.total.toFixed(2)}</td>
-      <td class="ad-actions"><button class="ad-eye" aria-label="View"><i class="bi bi-eye"></i></button></td>
+      <td class="ad-actions">
+        <button class="ad-eye" aria-label="View"><i class="bi bi-eye"></i></button>
+      </td>
     </tr>
   `;
 }
@@ -627,11 +712,13 @@ function render2(){
   html += `<button class="ad-nav" ${state2.page>=pages?'disabled':''} onclick="gotoPage2(${state2.page+1})"><i class="bi bi-chevron-right"></i></button>`;
   adPager.innerHTML = html;
 }
-function gotoPage2(p){ state2.page=p; render2(); }
+function gotoPage2(p){ state2.page = p; render2(); }
 
-document.getElementById('adSearch').addEventListener('input', e=>{ state2.q=e.target.value.trim(); state2.page=1; render2(); });
-document.getElementById('adType').addEventListener('change', e=>{ state2.type=e.target.value; state2.page=1; render2(); });
-document.getElementById('adDate').addEventListener('change', e=>{ state2.days=e.target.value; state2.page=1; render2(); });
-document.addEventListener('DOMContentLoaded', ()=>{ render2(); });
+document.getElementById('adSearch').addEventListener('input', e => { state2.q   = e.target.value.trim(); state2.page=1; render2(); });
+document.getElementById('adType').addEventListener('change',  e => { state2.type= e.target.value;       state2.page=1; render2(); });
+document.getElementById('adDate').addEventListener('change',  e => { state2.days= e.target.value;       state2.page=1; render2(); });
+
+// initial render (only when the tab exists on page)
+if (adBody && adRange && adPager) render2();
 </script>
 @endsection
