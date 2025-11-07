@@ -438,7 +438,6 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
 
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'index'])->name('boss.fulfillment');
         Route::get('/boss/manageuser', [BossManageUserController::class, 'index'])->name('boss.manageuser');
-        Route::get('/boss/datamanagement', [BossDataManagementController::class, 'index'])->name('boss.datamanagement');
         
         // Users
         Route::get('/boss/manageuser', [BossManageUserController::class, 'manageUser'])->name('boss.manageuser');
@@ -450,6 +449,17 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         // update profile
         Route::get('/boss/profile',       [BossDashboardController::class, 'ProfileShow'])->name('boss.profile.show');
         Route::patch('/boss/profile',     [BossDashboardController::class, 'ProfileUpdate'])->name('boss.profile.update');
+
+        Route::get('/boss/datamanagement', [BossDataManagementController::class, 'index'])->name('boss.datamanagement');
+        Route::post('/boss/material-types', [BossDataManagementController::class, 'storeType'])->name('boss.material-types.store');
+        Route::put('/boss/material-types/{id}', [BossDataManagementController::class, 'updateType'])->name('boss.material-types.update');
+        Route::delete('/boss/material-types/{id}', [BossDataManagementController::class, 'destroyType'])->name('boss.material-types.destroy');
+        Route::post('/boss/units', [BossDataManagementController::class, 'storeUnit'])->name('boss.units.store');
+        Route::put('/boss/units/{id}', [BossDataManagementController::class, 'updateUnit'])->name('boss.units.update');
+        Route::delete('/boss/units/{id}', [BossDataManagementController::class, 'destroyUnit'])->name('boss.units.destroy');
+        Route::post('/boss/materials', [BossDataManagementController::class, 'store'])->name('boss.materials.store');
+        Route::put('/boss/materials/{id}', [BossDataManagementController::class, 'update'])->name('boss.materials.update');
+        Route::delete('/boss/materials/{id}', [BossDataManagementController::class, 'destroy'])->name('boss.materials.destroy');
     });
 
 
