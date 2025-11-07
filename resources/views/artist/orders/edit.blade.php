@@ -2836,6 +2836,24 @@
 
     window.getSelectedFiles = () => Array.from(selected.values());
 
+    function remarksAreValid(container) {
+      const rows = Array.from(container.querySelectorAll('.remark-row'));
+      const anySelected = rows.some(row => {
+        const sel = row.querySelector('select[name*="[remarks]"][name$="[operation]"], select[name*="[remarks]"][name$="[department]"]');
+        const txt = row.querySelector('input[name*="[remarks]"][name$="[remark]"], textarea[name*="[remarks]"][name$="[remark]"]');
+        return (sel && sel.value.trim() !== '') || (txt && txt.value.trim() !== '');
+      });
+      if (!anySelected) return true;              // completely empty → OK
+
+      return rows.every(row => {                  // otherwise: both fields must be filled
+        const sel = row.querySelector('select[name*="[remarks]"][name$="[operation]"], select[name*="[remarks]"][name$="[department]"]');
+        const txt = row.querySelector('input[name*="[remarks]"][name$="[remark]"], textarea[name*="[remarks]"][name$="[remark]"]');
+        const hasDept = sel && sel.value.trim() !== '' && sel.value !== '0';
+        const hasText = txt && txt.value.trim() !== '';
+        return hasDept && hasText;
+      });
+    }
+
     // helpers
     const _trim = el => $.trim($(el).val() || '');
 
@@ -3264,8 +3282,19 @@
     }
 
     async function onSubmitClick(e) {
-      e.preventDefault();
-      e.stopPropagation();
+      const formRoot = document.getElementById('order-form') || document.body;
+      if (!remarksAreValid(formRoot)) {
+        e.preventDefault();
+        e.stopPropagation();
+        Swal.fire({
+          icon: 'warning',
+          title: 'Incomplete Remarks',
+          text: 'Please ensure all remarks selected departments have corresponding remarks before submitting.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#3085d6'
+        });
+        return;
+      }
 
       const hasAttach = selectedAttachmentCount() > 0;
       const complete  = formComplete();
