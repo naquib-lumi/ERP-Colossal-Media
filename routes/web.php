@@ -52,6 +52,7 @@ use App\Http\Controllers\BossFulfillmentController;
 use App\Http\Controllers\BossReportController;
 use App\Http\Controllers\BossManageUserController;
 use App\Http\Controllers\BossDataManagementController;
+use App\Http\Controllers\BossLeadController;
 
 
 
@@ -461,6 +462,31 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::post('/boss/materials', [BossDataManagementController::class, 'store'])->name('boss.materials.store');
         Route::put('/boss/materials/{id}', [BossDataManagementController::class, 'update'])->name('boss.materials.update');
         Route::delete('/boss/materials/{id}', [BossDataManagementController::class, 'destroy'])->name('boss.materials.destroy');
+
+        // LEAD MANAGEMENT
+        Route::get('/boss/leads/search', [BossLeadController::class, 'searchLeads'])->name('boss.leads.search');
+        Route::get('/boss/leads/{id}', [BossLeadController::class, 'getLead'])->name('boss.lead.get');
+
+        Route::get('/boss/leads', [BossLeadController::class, 'leadManagement'])->name('boss.leads');
+        Route::get('/boss/leads/export', [BossLeadController::class, 'exportCsv'])->name('boss.leads.export-csv');
+        Route::post('/boss/api/leads', [BossLeadController::class, 'getLeads'])->name('boss.leads.get');
+        Route::post('/boss/leads/{id}/update-status', [BossLeadController::class, 'updateStatus'])->name('boss.leads.update.status');
+        Route::post('/boss/leads/{id}/update-opportunity', [BossLeadController::class, 'updateOpportunity'])->name('boss.leads.update.opportunity');
+        Route::post('/boss/leads/{id}/reminders/{reminderId}/confirm', [BossLeadController::class, 'confirmReminderStatus'])->name('boss.leads.confirm.reminder.status');
+        Route::get('/boss/leads/{id}/attachments', [BossLeadController::class, 'getAttachments'])->name('boss.leads.attachments');
+        Route::delete('/boss/leads/{id}/attachments/{attachment}', [BossLeadController::class, 'deleteAttachment'])->name('boss.leads.attachments.delete');
+        Route::post('/boss/leads/{id}/add-attachment', [BossLeadController::class, 'addAttachment'])->name('boss.leads.add.attachment');
+        Route::get('/boss/leads/{id}/edit', [BossLeadController::class, 'edit'])->name('boss.leads.edit');
+        Route::put('/boss/leads/{id}/update', [BossLeadController::class, 'update'])->name('boss.leads.update');
+        Route::get('/boss/leads/{id}/view', [BossLeadController::class, 'show'])->name('boss.leads.show');
+        Route::post('/boss/leads/{id}/add-reminder', [BossLeadController::class, 'addReminder'])->name('boss.leads.add.reminder');
+        Route::post('/boss/leads/{id}/add-note', [BossLeadController::class, 'addNote'])->name('boss.leads.add.note');
+        Route::delete('/boss/leads/{id}/notes/{note}', [BossLeadController::class, 'deleteNote'])->name('boss.leads.notes.delete');
+        Route::delete('/boss/leads/{id}/notes/{note}/attachments/{attachment}', [BossLeadController::class, 'deleteNoteAttachment'])->name('boss.leads.note.attachments.delete');
+        Route::post('/boss/leads/{id}/update-salesperson', [BossLeadController::class, 'updateSalesperson'])->name('boss.leads.update.salesperson');
+        Route::delete('/boss/api/leads/{id}', [BossLeadController::class, 'destroy'])->name('boss.leads.destroy');
+        Route::get('/boss/add-lead', [BossLeadController::class, 'create'])->name('boss.leads.create');
+        Route::post('/boss/leads', [BossLeadController::class, 'store'])->name('boss.leads.store');
     });
 
 
