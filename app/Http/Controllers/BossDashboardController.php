@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -384,5 +386,40 @@ class BossDashboardController extends Controller
         $user->save();
 
         return back()->with('success', 'Profile updated.');
+    }
+
+    public function storeMachine(Request $request)
+    {
+        // Validate
+        $data = $request->validate([
+            'machine_name' => ['required','string','max:255'],
+            'machine_type' => ['required', Rule::in(['printer','cutter','lamination'])],
+        ]);
+
+        // Optional: avoid duplicates by (name,type)
+        $exists = DB::table('machines')
+            ->whereRaw('LOWER(machine_name) = ?', [mb_strtolower($data['machine_name'])])
+            ->where('machine_type', $data['machine_type'])
+            ->exists();
+
+        if ($exists) {
+            return back()->withInput()->withErrors([
+                'machine_name' => 'This machine already exists for the selected type.',
+            ]);
+        }
+
+        // Insert
+        DB::table('machines')->insert([
+            'user_id'      => Auth::id(),                 // nullable field; saves current user
+            'machine_name' => $data['machine_name'],
+            'machine_type' => $data['machine_type'],
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        // Back to Machine tab with success flash
+        return redirect()
+            ->to(route('boss.dashboard'))
+            ->with('success', 'Machine added successfully.');
     }
 }
