@@ -12,15 +12,15 @@
   $heroEmoji = $heroEmoji    ?? '📬';            // simple hero mark; swap to <img> if you prefer
 
   // Colors
-  $brand    = $brandColor    ?? '#2563EB';
+  $brand    = $brandColor    ?? '#696cff';
   $bg       = '#EEF3F8';
   $text     = '#0F172A';
   $muted    = '#6B7280';
   $border   = '#E5E7EB';
 
   // Header gradient like HubSpot/Pitch styles (subtle)
-  $g1 = $headerStart ?? '#F97316';
-  $g2 = $headerEnd   ?? '#FB7185';
+  $g1 = $headerStart ?? '#696cff';
+  $g2 = $headerEnd   ?? '#696cff';
 @endphp
 <!DOCTYPE html>
 <html lang="en">

@@ -6,13 +6,13 @@
   $ctaLabel  = $ctaLabel     ?? 'Review Now';
   $ctaUrl    = $ctaUrl       ?? url('/');
 
-  $brand     = $brandColor   ?? '#F59E0B'; // amber
+  $brand     = $brandColor   ?? '#696cff'; // amber
   $bg        = '#F5F7FA';
   $text      = '#0F172A';
   $muted     = '#6B7280';
   $border    = '#E5E7EB';
-  $g1        = $headerStart  ?? '#F59E0B';
-  $g2        = $headerEnd    ?? '#F97316';
+  $g1        = $headerStart  ?? '#696cff';
+  $g2        = $headerEnd    ?? '#696cff';
   $heroEmoji = $heroEmoji    ?? '⏰';
 @endphp
 <!DOCTYPE html>

@@ -47,9 +47,9 @@ class GenericNotification extends Notification
     $details     = $this->opts['details']     ?? [];   // [['label'=>'Order No', 'value'=>'ORD-2025-0166'], ...]
     $secondary   = $this->opts['secondary']   ?? null; // ['label'=>'Contact support','url'=>...]
     $logoUrl     = $this->opts['logoUrl']     ?? null; // optional /public/images/logo.png
-    $brandColor  = $this->opts['brandColor']  ?? '#2563EB';
-    $headerStart = $this->opts['headerStart'] ?? '#F97316';
-    $headerEnd   = $this->opts['headerEnd']   ?? '#FB7185';
+    $brandColor  = $this->opts['brandColor']  ?? '#696cff';
+    $headerStart = $this->opts['headerStart'] ?? '#696cff';
+    $headerEnd   = $this->opts['headerEnd']   ?? '#696cff';
     $heroEmoji   = $this->opts['heroEmoji']   ?? '📬';
 
     return (new \Illuminate\Notifications\Messages\MailMessage)

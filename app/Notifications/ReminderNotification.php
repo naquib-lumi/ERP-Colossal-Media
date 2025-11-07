@@ -57,9 +57,9 @@ class ReminderNotification extends Notification
         $previewText = $this->opts['previewText'] ?? strip_tags((string) $this->reminder->title);
 
         $logoUrl     = $this->opts['logoUrl']     ?? null;
-        $brandColor  = $this->opts['brandColor']  ?? '#F59E0B'; // amber for reminders
-        $headerStart = $this->opts['headerStart'] ?? '#F59E0B';
-        $headerEnd   = $this->opts['headerEnd']   ?? '#F97316';
+        $brandColor  = $this->opts['brandColor']  ?? '#696cff'; // amber for reminders
+        $headerStart = $this->opts['headerStart'] ?? '#696cff';
+        $headerEnd   = $this->opts['headerEnd']   ?? '#696cff';
         $heroEmoji   = $this->opts['heroEmoji']   ?? '⏰';
 
         // Safe date formatting
