@@ -81,13 +81,14 @@ class RedoOrderController extends Controller
             $redoOrder = $baseOrder->replicate([
                 'id','order_number','created_at','updated_at','submit','draft','status','redo','orderStatus'
             ]);
-            $redoOrder->order_number = $this->nextRedoNumber($baseOrder->order_number);
+            $redoOrder->order_number = $this->normalizeOrderNumber($baseOrder->order_number);
             $redoOrder->redo         = $baseId;
             $redoOrder->draft        = 1;
             $redoOrder->submit       = 0;
             $redoOrder->orderStatus  = 'in_progress';
             $redoOrder->status       = 0;          // 🔵 keep the latest redo visible
             $redoOrder->data_entry_id       = null;          // 🔵 keep the latest redo visible
+            $redoOrder->pending       = 0;          
             $redoOrder->created_at   = now();
             $redoOrder->updated_at   = now();
 

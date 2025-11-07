@@ -64,7 +64,7 @@
                                                     href="mailto:{{ $lead->email }}">{{ $lead->email }}</a></li>
                                             <br>
                                             @auth
-                                                @if (auth()->user()->role === 'headsalesperson')
+                                                @if (auth()->user()->role === 'boss')
                                                     <li>
                                                         <form action="{{ route('boss.leads.destroy', $lead->id) }}" method="POST"
                                                             style="display:inline;"
