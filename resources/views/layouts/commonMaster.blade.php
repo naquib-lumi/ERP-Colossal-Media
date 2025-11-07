@@ -89,6 +89,13 @@
         <link rel="stylesheet"
             href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     @endif
+
+    @if (Request::is('boss/leads') || Request::is('boss/calendar') || Request::is('boss/orders') || Request::is('boss/dashboard') || Request::is('boss/calendar') )
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+        <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+        <link rel="stylesheet"
+            href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    @endif
     <!-- Helpers -->
     <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
     <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
@@ -363,6 +370,12 @@
         <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
         <!-- <script src="{{ asset('assets/js/tables-datatables-advanced.js') }}"></script> -->
     @endif
+
+    @if (Request::is('boss/leads') || Request::is('boss/orders'))
+        <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+        <!-- <script src="{{ asset('assets/js/tables-datatables-advanced.js') }}"></script> -->
+    @endif
+
 
 
     {{-- View-level scripts --}}

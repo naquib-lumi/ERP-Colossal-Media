@@ -203,6 +203,12 @@ $configData = \App\Helpers\Helpers::appClasses();
               </li>
             @endif
             @if (auth()->user()->role === 'boss')
+                <li class="menu-item {{ request()->routeIs('boss.leads') ? 'active' : '' }}">
+                  <a href="{{ route('boss.leads') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-user"></i>
+                    <div data-i18n="Leads">Leads</div>
+                  </a>
+                </li>
                 <li class="menu-item {{ request()->routeIs('boss.reports') ? 'active' : '' }}">
                   <a href="{{ route('boss.reports') }}" class="menu-link">
                     <i class="menu-icon icon-base bx bx-bar-chart-alt"></i>

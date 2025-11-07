@@ -94,7 +94,7 @@ body{background:var(--bg);}
     <!-- KPI -->
     <div class="row g-3">
       <div class="col-md-3">
-        <div class="card soft kpi p-3">
+        <div class="card soft kpi p-3" style="height: 100px;">
           <div class="d-flex justify-content-between align-items-start">
             <p class="title mb-1">Total Leads Added</p>
             <span class="icon-pill"><i class="bi bi-magnet"></i></span>
@@ -103,7 +103,7 @@ body{background:var(--bg);}
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card soft kpi p-3">
+        <div class="card soft kpi p-3" style="height: 100px;">
           <div class="d-flex justify-content-between align-items-start">
             <p class="title mb-1">Total Meetings Held</p>
             <span class="icon-pill"><i class="bi bi-calendar3"></i></span>
@@ -112,7 +112,7 @@ body{background:var(--bg);}
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card soft kpi p-3">
+        <div class="card soft kpi p-3" style="height: 100px;">
           <div class="d-flex justify-content-between align-items-start">
             <p class="title mb-1">Scheduled Meetings</p>
             <span class="icon-pill"><i class="bi bi-check2-square"></i></span>
@@ -124,7 +124,7 @@ body{background:var(--bg);}
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card soft kpi p-3">
+        <div class="card soft kpi p-3" style="height: 100px;">
           <div class="d-flex justify-content-between align-items-start">
             <p class="title mb-1">Canceled Meeting</p>
             <span class="icon-pill"><i class="bi bi-x-square"></i></span>
@@ -331,7 +331,7 @@ body{background:var(--bg);}
           <button class="btn btn-dark-compact btn-sm-compact" type="submit">
             <i class="bi bi-download"></i> Export
           </button>
-          <button class="btn btn-gray-compact btn-sm-compact" type="button">
+          <button class="btn btn-gray-compact btn-sm-compact" type="button" data-bs-toggle="modal" data-bs-target="#addMachineModal">
             <i class="bi bi-plus-lg"></i> Add Machine Type
           </button>
         </div>
@@ -420,9 +420,9 @@ body{background:var(--bg);}
     <button class="btn btn-dark-compact btn-sm-compact">
       <i class="bi bi-download"></i> Export
     </button>
-    <button class="btn btn-gray-compact btn-sm-compact">
+    <!-- <button class="btn btn-gray-compact btn-sm-compact">
       <i class="bi bi-plus-lg"></i> Add Machine Type
-    </button>
+    </button> -->
   </div>
 </div>
 
@@ -456,6 +456,51 @@ body{background:var(--bg);}
   </div>
 
 </div><!-- /page-wrap -->
+
+<!-- ===== Add Machine Type Modal ===== -->
+<div class="modal fade" id="addMachineModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" style="border-radius:16px"
+          method="POST" action="{{ route('boss.dashboard.machines.store') }}">
+      @csrf
+      <div class="modal-header">
+        <h6 class="modal-title"><i class="bi bi-plus-lg me-2"></i>Add Machine</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        @if ($errors->any())
+          <div class="alert alert-danger small">
+            {{ $errors->first() }}
+          </div>
+        @endif
+
+        <div class="mb-3">
+          <label class="form-label small">Machine Name</label>
+          <input type="text" name="machine_name" class="form-control"
+                 value="{{ old('machine_name') }}" placeholder="e.g. Handtop Hybrid">
+        </div>
+
+        <div>
+          <label class="form-label small">Machine Type</label>
+          <select name="machine_type" class="form-select">
+            <option value="" disabled {{ old('machine_type') ? '' : 'selected' }}>Select type</option>
+            <option value="printer"    {{ old('machine_type')==='printer'    ? 'selected' : '' }}>Printer</option>
+            <option value="cutter"     {{ old('machine_type')==='cutter'     ? 'selected' : '' }}>Cutter</option>
+            <option value="lamination" {{ old('machine_type')==='lamination' ? 'selected' : '' }}>Lamination</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-dark" type="submit">
+          <i class="bi bi-save me-1"></i> Save
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script>
 // ===== Monthly Performance（单月构成） =====
@@ -696,6 +741,21 @@ if (donutCtx) {
   const result = machinefilter.querySelector('[name="machine_q"]');
   if (result) result.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); machinefilter.submit(); }});
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const addBtn = document.querySelector('#addMachineModal .btn-dark-compact');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      const name  = document.querySelector('#addMachineModal input[type="text"]').value.trim();
+      const type  = document.querySelector('#addMachineModal select').value;
+      if (!name || !type) { alert('Please enter machine name and type.'); return; }
+      // Frontend only: close modal and show a toast/alert
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addMachineModal'));
+      modal.hide();
+      // Optional: add your toast here
+    });
+  }
+});
 </script>
 
 @endsection

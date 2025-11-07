@@ -177,12 +177,12 @@
         <table id="tbl">
           <thead>
             <tr>
-              <th>Material Name</th>
-              <th>Material Type</th>
-              <th>Unit Cost</th>
-              <th>Used Quantity</th>
-              <th>Total Cost</th>
-              <th style="text-align:right">Actions</th>
+              <th style="font-weight: bold;">Material Name</th>
+              <th style="font-weight: bold;">Material Type</th>
+              <th style="font-weight: bold;">Unit Cost</th>
+              <th style="font-weight: bold;">Used Quantity</th>
+              <th style="font-weight: bold;">Total Cost</th> 
+              <th style="text-align:right; font-weight:bold">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -191,9 +191,13 @@
                 <td>{{ $m->materialName }}</td>
                 <td>{{ optional($m->materialType)->name }}</td>
                 <td>RM {{ number_format($m->unitCost, 4) }} {{ optional($m->unit)->label }}</td>
-                <td class="text-end usedQty"></td>     {{-- NEW: blank for now --}}
-                <td class="text-end totalCost"></td>   {{-- NEW: blank for now --}}
-                <td style="text-align:right;position:relative">
+                <td class="usedQty">
+                  {{ number_format((float)($m->used_quantity ?? 0)) }}
+                </td>
+                <td class="totalCost">
+                  RM {{ number_format((float)($m->total_cost ?? 0), 2) }}
+                </td>
+                <td class="text-end" style="display:flex;justify-content:end;position:relative">
                   <button class="kebab" title="Actions" data-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
                   <div class="dropdown-menu" style="position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:10px;min-width:180px;padding:6px">
                     <button 
