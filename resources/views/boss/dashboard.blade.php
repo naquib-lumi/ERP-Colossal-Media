@@ -94,7 +94,7 @@ body{background:var(--bg);}
     <!-- KPI -->
     <div class="row g-3">
       <div class="col-md-3">
-        <div class="card soft kpi p-3">
+        <div class="card soft kpi p-3" style="height: 100px;">
           <div class="d-flex justify-content-between align-items-start">
             <p class="title mb-1">Total Leads Added</p>
             <span class="icon-pill"><i class="bi bi-magnet"></i></span>
@@ -103,7 +103,7 @@ body{background:var(--bg);}
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card soft kpi p-3">
+        <div class="card soft kpi p-3" style="height: 100px;">
           <div class="d-flex justify-content-between align-items-start">
             <p class="title mb-1">Total Meetings Held</p>
             <span class="icon-pill"><i class="bi bi-calendar3"></i></span>
@@ -112,7 +112,7 @@ body{background:var(--bg);}
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card soft kpi p-3">
+        <div class="card soft kpi p-3" style="height: 100px;">
           <div class="d-flex justify-content-between align-items-start">
             <p class="title mb-1">Scheduled Meetings</p>
             <span class="icon-pill"><i class="bi bi-check2-square"></i></span>
@@ -124,7 +124,7 @@ body{background:var(--bg);}
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card soft kpi p-3">
+        <div class="card soft kpi p-3" style="height: 100px;">
           <div class="d-flex justify-content-between align-items-start">
             <p class="title mb-1">Canceled Meeting</p>
             <span class="icon-pill"><i class="bi bi-x-square"></i></span>

@@ -177,12 +177,12 @@
         <table id="tbl">
           <thead>
             <tr>
-              <th>Material Name</th>
-              <th>Material Type</th>
-              <th>Unit Cost</th>
-              <th>Used Quantity</th>
-              <th>Total Cost</th> 
-              <th style="text-align:right">Actions</th>
+              <th style="font-weight: bold;">Material Name</th>
+              <th style="font-weight: bold;">Material Type</th>
+              <th style="font-weight: bold;">Unit Cost</th>
+              <th style="font-weight: bold;">Used Quantity</th>
+              <th style="font-weight: bold;">Total Cost</th> 
+              <th style="text-align:right; font-weight:bold">Actions</th>
             </tr>
           </thead>
           <tbody>
