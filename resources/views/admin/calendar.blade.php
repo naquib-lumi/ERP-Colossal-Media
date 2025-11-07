@@ -66,26 +66,6 @@
                         <div class="inline-calendar" data-flatpickr></div>
                     </div>
                     <hr class="mx-4 my-3" />
-                    <div class="px-4 pb-2">
-                        <h5 class="mb-3">Event Filters</h5>
-                        <div class="form-check form-check-secondary mb-3 ms-2" style="display: none;">
-                            <input class="form-check-input select-all" type="checkbox" id="selectAll" data-value="all"
-                                checked />
-                            <label class="form-check-label" for="selectAll">View All</label>
-                        </div>
-                        <div class="app-calendar-events-filter">
-                            <div class="form-check form-check-primary mb-3 ms-2">
-                                <input class="form-check-input input-filter" type="checkbox" id="select-meeting"
-                                    data-value="meeting" checked />
-                                <label class="form-check-label" for="select-meeting">Meeting</label>
-                            </div>
-                            <div class="form-check form-check-info mb-3 ms-2">
-                                <input class="form-check-input input-filter" type="checkbox" id="select-delivery"
-                                    data-value="delivery" checked />
-                                <label class="form-check-label" for="select-delivery">Delivery</label>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             <!-- /Calendar Sidebar -->
@@ -133,6 +113,7 @@
                                     <li class="d-flex align-items-center">
                                         <span class="status-dot me-2" style="background-color:#f6c23e;"></span> Postponed
                                     </li>
+
                                 </ul>
                             </div>
                         </div>
@@ -156,10 +137,15 @@
                                 <h6 class="mb-2">Delivery Method</h6>
                                 <ul class="list-unstyled d-flex flex-wrap gap-3 mb-0 ps-2">
                                     <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#007bff;"></span> Self Pickup
+                                        <span class="status-dot me-2" style="background-color:#007bff;"></span> Self
+                                        Pickup
                                     </li>
                                     <li class="d-flex align-items-center">
                                         <span class="status-dot me-2" style="background-color:#28a745;"></span> Courier
+                                    </li>
+                                    <li class="d-flex align-items-center">
+                                        <span class="status-dot me-2" style="background-color:#ffc107;"></span> Delivery
+                                        Installation
                                     </li>
                                 </ul>
                             </div>

@@ -216,11 +216,12 @@ body{background:var(--bg);}
         <div class="row g-3 align-items-end">
           <div class="col-md-3">
             <label class="form-label small">Time Period</label>
-            <select class="form-select" name="period" id="order-period">
-              <option>Monthly</option>
-              <option>Quarterly</option>
-              <option>Yearly</option>
-            </select>
+            <div class="btn-group w-100" role="group" id="order-period-group">
+              <button type="button" class="btn btn-outline-dark btn-sm" data-period="yearly">Yearly</button>
+              <button type="button" class="btn btn-outline-dark btn-sm" data-period="quarterly">Quarterly</button>
+              <button type="button" class="btn btn-outline-dark btn-sm active" data-period="monthly">Monthly</button>
+            </div>
+            <input type="hidden" name="period" id="order-period" value="monthly">
           </div>
           <div class="col-md-5">
             <label class="form-label small">Date Range</label>
@@ -333,14 +334,17 @@ document.querySelectorAll('#sales-period-group button').forEach(btn => {
     btn.classList.add('active');
     document.querySelector('#sales-period').value = btn.dataset.period;
     updateDateRange('sales', btn.dataset.period);
-    document.getElementById('sales-generate').click();
   });
 });
 
-// Order Period select
-document.getElementById('order-period').addEventListener('change', (e) => {
-  updateDateRange('order', e.target.value.toLowerCase());
-  document.getElementById('order-generate').click();
+// Order Period buttons
+document.querySelectorAll('#order-period-group button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#order-period-group button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector('#order-period').value = btn.dataset.period;
+    updateDateRange('order', btn.dataset.period);
+  });
 });
 
 // Sales Generate
@@ -401,10 +405,8 @@ document.getElementById('order-generate').addEventListener('click', () => {
     .catch(err => console.error('Error fetching order fulfillment:', err));
 });
 
-// Initial data fetch on page load
-document.addEventListener('DOMContentLoaded', () => {
+document.getElementById('salesperson').addEventListener('change', () => {
   document.getElementById('sales-generate').click();
-  document.getElementById('order-generate').click();
 });
 </script>
 @endsection

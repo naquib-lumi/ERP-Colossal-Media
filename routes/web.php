@@ -395,7 +395,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/reports/sales-outcomes', [AdminReportController::class, 'salesOutcomes'])->name('admin.report.sales-outcomes');
     Route::post('/admin/reports/order-fulfillment', [AdminReportController::class, 'orderFulfillment'])->name('admin.report.order-fulfillment');
     Route::get('/admin/reports/export-sales', [AdminReportController::class, 'exportSales'])->name('admin.report.export-sales');
-    Route::post('/admin/reports/export-orders', [AdminReportController::class, 'exportOrders'])->name('admin.report.export-orders');
+    Route::get('/admin/reports/export-orders', [AdminReportController::class, 'exportOrders'])->name('admin.report.export-orders');
   
    Route::get('/admin/costing-data', [MaterialsController::class, 'index'])->name('admin.costing-data');
     Route::post('/admin/material-types', [MaterialsController::class, 'storeType'])->name('admin.material-types.store');

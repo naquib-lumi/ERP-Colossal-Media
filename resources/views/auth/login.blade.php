@@ -317,11 +317,7 @@
                     @enderror
                 </div>
 
-                <div class="meta">
-                    @if (Route::has('password.request'))
-                    <a href="{{ route('password.request') }}" class="text-gray-600">Forgot Password?</a>
-                    @endif
-                </div>
+
 
                 <button id="submitBtn" class="btn" type="submit">Sign In</button>
             </form>

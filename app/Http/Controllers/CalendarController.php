@@ -230,7 +230,7 @@ class CalendarController extends Controller
         $statusColors = [
             'self_pickup' => '#007bff',
             'courier' => '#28a745',
-            'default' => '#6c757d'
+            'delivery_installation' => '#ffc107',
         ];
 
         $deliveriesQuery = DeliveryBreakdown::leftJoin('products', 'delivery_breakdowns.ProductID', '=', 'products.ProductID')
@@ -257,7 +257,13 @@ class CalendarController extends Controller
             $color = $statusColors[$delivery->method] ?? $statusColors['default'];
             $textColor = '#fff';
             $leadText = $delivery->lead_name && $delivery->company_name ? $delivery->company_name . ' - ' . $delivery->lead_name : 'Unknown';
-            $title = ucfirst($delivery->method) . ' Delivery - Order #' . $delivery->order_number . ' - ' . $delivery->productName;
+   $methodDisplay = match($delivery->method) {
+    'courier' => 'Courier',
+    'self_pickup' => 'Self Pickup',
+    'delivery_installation' => 'Delivery Installation',
+    default => ucwords(str_replace('_', ' ', $delivery->method))
+};
+$title = $methodDisplay . ' ' . $delivery->order_number . ' - ' . $delivery->productName;
             return [
                 'id' => 'delivery-' . $delivery->BreakdownID,
                 'title' => $title,
