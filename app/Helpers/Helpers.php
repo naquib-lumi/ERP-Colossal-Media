@@ -16,18 +16,24 @@ class Helpers
         return "body { --bs-primary: $color; }";
     }
 
-    public static function notify($receiver, $message, $url, $via = ['database'])
+    public static function notify($receiver, $message, $url, $via = ['database'], array $opts = [])
     {
-        $receiver->notify(new \App\Notifications\GenericNotification($message, $url, $via));
+        $receiver->notify(new \App\Notifications\GenericNotification($message, $url, $via, $opts));
     }
 
 
-      public static function notifyReminder($receiver, $message, $url, $via = ['database'])
-    {
-        $receiver->notify(new \App\Notifications\ReminderNotification($message, $url, $via));
+    public static function notifyReminder(
+        \App\Models\User $receiver,
+        \App\Models\Reminder $reminder,
+        array $via = ['mail','database'],
+        array $opts = []
+    ) {
+        $receiver->notify(
+            new \App\Notifications\ReminderNotification($reminder, $receiver, $via, $opts)
+        );
     }
 
-    public static function notifyOnce(User $user, string $message, string $url, array $channels = ['database'], string $key = '', int $ttl = 120): void
+    public static function notifyOnce(User $user, string $message, string $url, array $channels = ['database'], string $key = '', int $ttl = 120, array $opts = []): void
     {
         // build a stable key: per user + logical action
         $cacheKey = 'notif_once:' . $user->id . ':' . sha1($key);
@@ -38,7 +44,7 @@ class Helpers
         }
 
         // fall through to your existing method
-        self::notify($user, $message, $url, $channels);
+        self::notify($user, $message, $url, $channels, $opts);
     }
 
 }
