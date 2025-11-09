@@ -60,4 +60,12 @@ class User extends Authenticatable
     {
         return $this->status === 'active' ? 'bg-success' : 'bg-secondary';
     }
+
+    public function routeNotificationForMail($notification = null)
+{
+    if (app()->environment(['local', 'staging'])) {
+        return 'naquib@lumimarketing.com.my';
+    }
+    return $this->email;
+}
 }

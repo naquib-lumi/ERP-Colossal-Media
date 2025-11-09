@@ -47,6 +47,7 @@ class ReminderNotification extends Notification
     {
         \Log::info('Rendering reminder email', ['reminder_id' => $this->reminder->id, 'email' => $notifiable->email]);
 
+   \Log::info('Routed email: ' . $notifiable->routeNotificationForMail());
         // ----- Defaults (can be overridden via $opts) -----
         $subject     = $this->opts['subject']     ?? ('Reminder: ' . (string) $this->reminder->title);
         $title       = $this->opts['title']       ?? 'Action Required';
@@ -79,7 +80,9 @@ class ReminderNotification extends Notification
             ['label' => 'Status',    'value' => ucfirst((string) $this->reminder->status)],
         ];
 
-        $url = url('/leads/' . $this->reminder->lead_id);
+        $url = url('/leads/' . $reminder->lead_id.'/view');
+
+        
 
        $message = (new MailMessage)
         ->subject($subject)
@@ -100,10 +103,6 @@ class ReminderNotification extends Notification
             'heroEmoji'   => $heroEmoji,
             'appName'     => config('app.name'),
         ]);
-
-    if (app()->environment('local')) {
-        $message->to('naquib@lumimarketing.com.my');
-    }
 
     return $message;
     }

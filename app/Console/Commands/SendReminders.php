@@ -19,11 +19,11 @@ class SendReminders extends Command
             $now = Carbon::now('Asia/Kuala_Lumpur');
             $this->info("Current time: " . $now->toDateTimeString());
 
-            $reminders = Reminder::where('status', 'upcoming')
-                ->where('remind_at', '<=', $now)
-                ->whereNull('last_notify_time')
-                ->with('creator')
-                ->get();
+   $reminders = Reminder::whereIn('status', ['upcoming', 'overdue'])
+    ->where('remind_at', '<=', $now)
+    ->whereNull('last_notify_time')
+    ->with('creator')
+    ->get();
 
             $this->info("Found " . $reminders->count() . " due reminders.");
 
