@@ -81,27 +81,34 @@ class ReminderNotification extends Notification
 
         $url = url('/leads/' . $this->reminder->lead_id);
 
-        // Render our clean, client-friendly template (see resources/views/emails/reminder.blade.php)
-        return (new MailMessage)
-            ->subject($subject)
-            ->view('emails.reminder', [
-                'subject'     => $subject,
-                'title'       => $title,
-                'intro'       => $intro,
-                'messageText' => 'You have a reminder for the following task.',
-                'ctaLabel'    => $cta,
-                'ctaUrl'      => $url,
-                'salutation'  => $salutation,
-                'previewText' => $previewText,
-                'details'     => $details,
-                'logoUrl'     => $logoUrl,
-                'brandColor'  => $brandColor,
-                'headerStart' => $headerStart,
-                'headerEnd'   => $headerEnd,
-                'heroEmoji'   => $heroEmoji,
-                'appName'     => config('app.name'),
-            ]);
+       $message = (new MailMessage)
+        ->subject($subject)
+        ->view('emails.reminder', [
+            'subject'     => $subject,
+            'title'       => $title,
+            'intro'       => $intro,
+            'messageText' => 'You have a reminder for the following task.',
+            'ctaLabel'    => $cta,
+            'ctaUrl'      => $url,
+            'salutation'  => $salutation,
+            'previewText' => $previewText,
+            'details'     => $details,
+            'logoUrl'     => $logoUrl,
+            'brandColor'  => $brandColor,
+            'headerStart' => $headerStart,
+            'headerEnd'   => $headerEnd,
+            'heroEmoji'   => $heroEmoji,
+            'appName'     => config('app.name'),
+        ]);
+
+    if (app()->environment('local')) {
+        $message->to('naquib@lumimarketing.com.my');
     }
+
+    return $message;
+    }
+            
+    
 
     public function toArray($notifiable)
     {
