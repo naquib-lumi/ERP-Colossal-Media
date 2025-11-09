@@ -831,4 +831,32 @@ class BossLeadController extends Controller
         $redirectRoute = $request->get('highlight') == 'remark' ? route('boss.leads.show', $id) : route('boss.leads');
         return redirect($redirectRoute)->with('success', 'Lead updated successfully');
     }
+
+    public function storeReminder(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'lead_id' => 'required|exists:leads,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'remind_at' => 'required|date',
+        ]);
+
+        $lead = Lead::findOrFail($validated['lead_id']); 
+
+        $validated['salesperson_id'] = $user->id;
+        $validated['created_by'] = $user->id;
+        $validated['is_auto'] = false;
+        $validated['status'] = 'upcoming';
+
+        try {
+            $reminder = Reminder::create($validated);
+            Log::info("Reminder ID {$reminder->id} created for lead ID {$validated['lead_id']}");
+            return response()->json(['success' => true, 'reminder' => $reminder]);
+        } catch (\Exception $e) {
+            Log::error("Error creating reminder: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to create reminder'], 500);
+        }
+    }
 }

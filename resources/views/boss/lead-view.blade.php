@@ -377,7 +377,7 @@
                                                     let noteId = $(this).data('note-id');
                                                     let leadId = $(this).data('lead-id');
                                                     $.ajax({
-                                                        url: `/leads/${leadId}/notes/${noteId}`,
+                                                        url: `/boss/leads/${leadId}/notes/${noteId}`,
                                                         type: 'DELETE',
                                                         data: {
                                                             _token: '{{ csrf_token() }}'
@@ -822,7 +822,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                         let id = $(this).data('id');
                         let status = $(this).val();
                         $.ajax({
-                            url: `/calendar/reminders/${id}/update-status`,
+                            url: `/boss/calendar/reminders/${id}/update-status`,
                             type: 'POST',
                             data: {
                                 status: status,
@@ -903,7 +903,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             _token: '{{ csrf_token() }}',
                         };
                         $.ajax({
-                            url: '{{ route('calendar.reminders.store') }}',
+                            url: '{{ route('boss.calendar.reminders.store') }}',
                             type: 'POST',
                             data: formData,
                             success: function(response) {
@@ -924,7 +924,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                         formData.append('_method', 'PUT');
                         formData.append('_token', '{{ csrf_token() }}');
                         $.ajax({
-                            url: `/calendar/reminders/${id}`,
+                            url: `/boss/calendar/reminders/${id}`,
                             type: 'POST',
                             data: formData,
                             processData: false,

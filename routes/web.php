@@ -487,6 +487,7 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::delete('/boss/api/leads/{id}', [BossLeadController::class, 'destroy'])->name('boss.leads.destroy');
         Route::get('/boss/add-lead', [BossLeadController::class, 'create'])->name('boss.leads.create');
         Route::post('/boss/leads', [BossLeadController::class, 'store'])->name('boss.leads.store');
+        Route::post('/boss/calendar/reminders', [BossLeadController::class, 'storeReminder'])->name('boss.calendar.reminders.store');
     });
 
 
