@@ -38,6 +38,12 @@ class NotificationController extends Controller
         return response()->json(['error' => 'Notification not found'], 404);
     }
 
+    public function archiveAll()
+    {
+        Auth::user()->notifications()->delete();
+        return response()->json(['success' => true]);
+    }
+
     public function index()
     {
         // full page – leave as all notifications (or change to unread() if you prefer)

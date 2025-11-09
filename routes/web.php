@@ -127,6 +127,9 @@ Route::get('/dashboard', function () {
 
         Route::get('/notifications', [NotificationController::class, 'index'])
             ->name('notifications.index');
+            
+            Route::post('/notifications/archive-all', [NotificationController::class, 'archiveAll'])
+    ->name('notifications.archiveAll');
 
         // optional
         Route::get('/notifications/latest-unread', [NotificationController::class, 'latestUnread'])

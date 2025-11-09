@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const bsReminderSidebar = reminderSidebar ? new bootstrap.Offcanvas(reminderSidebar) : null;
     const bsMeetingSidebar = meetingSidebar ? new bootstrap.Offcanvas(meetingSidebar) : null;
 
-    const reminderLeadId = $('#reminderLeadId');
+    const reminderLeadId = $('#lead_id');
     const meetingLeadId = $('#meetingLeadId');
 
     // Initialize Select2 for lead selection

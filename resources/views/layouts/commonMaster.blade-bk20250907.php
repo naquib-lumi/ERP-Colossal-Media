@@ -1,4 +1,4 @@
-<!-- Common Master Blade Updated -->
+<!-- Common Master Blade Updated -->
 <!DOCTYPE html>
 @php
     use Illuminate\Support\Str;
@@ -73,7 +73,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/@form-validation/form-validation.css') }}" />
 
     <!-- Page CSS (conditional) -->
-    @if (Request::is('sales/calendar') || Request::is('calendar/*') || Request::is('admin/calendar') || Request::is('boss/calendar') )
+    @if (Request::is('sales/calendar') || Request::is('calendar/*') || Request::is('admin/calendar') )
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
         <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
     @endif
@@ -83,7 +83,7 @@
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
     @endif
 
-    @if (Request::is('sales/leads') || Request::is('sales/calendar') || Request::is('sales/orders') || Request::is('sales/dashboard') || Request::is('admin/calendar') || Request::is('boss/calendar') )
+    @if (Request::is('sales/leads') || Request::is('sales/calendar') || Request::is('sales/orders') || Request::is('sales/dashboard') || Request::is('admin/calendar') )
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
         <link rel="stylesheet"
@@ -107,46 +107,122 @@
 
 
     <script>
-$(document).ready(function() {
-// Mark all as read
-$('.dropdown-notifications-all').on('click', function() {
-$.ajax({
-url: '{{ route('notifications.markAllAsRead') }}',
-type: 'POST',
-data: {
-_token: '{{ csrf_token() }}'
-},
-success: function() {
-$('.dropdown-notifications-item').addClass('marked-as-read');
-$('.badge-notifications').remove();
-},
-error: function(xhr) {
-console.error('Error marking all notifications as read: ', xhr.responseText);
-alert('Error marking all notifications as read: ' + xhr.responseText);
-}
-});
-});
+        $(document).ready(function() {
+            // Mark as read when clicked
+            $('.dropdown-notifications-read').on('click', function(e) {
+                e.preventDefault();
+                let url = $(this).attr('href');
+                let notificationItem = $(this).closest('.dropdown-notifications-item');
+                let notificationId = notificationItem.data('id');
 
-// Real-time notification count update
-setInterval(function() {
-$.ajax({
-url: '{{ route('notifications.count') }}',
-success: function(count) {
-if (count > 0) {
-$('.badge-notifications').text(count).show();
-$('.bx-bell').addClass('animate_animated animate_tada');
-setTimeout(() => $('.bx-bell').removeClass('animate_animated animate_tada'), 1000);
-} else {
-$('.badge-notifications').remove();
-}
-},
-error: function(xhr) {
-console.error('Error fetching notification count: ', xhr.responseText);
-}
-});
-}, 60000); // Check every minute
-});
-</script>
+                if (!notificationId) {
+                    console.error('Notification ID is undefined');
+                    alert('Error: Notification ID is missing.');
+                    return;
+                }
+
+                let markAsReadUrl = '{{ route('notifications.markAsRead', ['id' => 'PLACEHOLDER']) }}'
+                    .replace('PLACEHOLDER', notificationId);
+
+                $.ajax({
+                    url: markAsReadUrl,
+                    type: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function() {
+                        notificationItem.addClass('marked-as-read');
+                        let count = parseInt($('.badge-notifications').text() || 0);
+                        if (count > 0) {
+                            $('.badge-notifications').text(count - 1);
+                            if (count - 1 === 0) $('.badge-notifications').remove();
+                        }
+                        window.location.href = url;
+                    },
+                    error: function(xhr) {
+                        console.error('Error marking notification as read: ', xhr.responseText);
+                        alert('Error marking notification as read: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            // Mark all as read
+            $('.dropdown-notifications-all').on('click', function() {
+                $.ajax({
+                    url: '{{ route('notifications.markAllAsRead') }}',
+                    type: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function() {
+                        $('.dropdown-notifications-item').addClass('marked-as-read');
+                        $('.badge-notifications').remove();
+                    },
+                    error: function(xhr) {
+                        console.error('Error marking all notifications as read: ', xhr
+                            .responseText);
+                        alert('Error marking all notifications as read: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            // Archive notification
+            $('.dropdown-notifications-archive').on('click', function(e) {
+                e.preventDefault();
+                let notificationItem = $(this).closest('.dropdown-notifications-item');
+                let notificationId = notificationItem.data('id');
+
+                if (!notificationId) {
+                    console.error('Notification ID is undefined');
+                    alert('Error: Notification ID is missing.');
+                    return;
+                }
+
+                let archiveUrl = '{{ route('notifications.archive', ['id' => 'PLACEHOLDER']) }}'.replace(
+                    'PLACEHOLDER', notificationId);
+
+                $.ajax({
+                    url: archiveUrl,
+                    type: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function() {
+                        notificationItem.remove();
+                        let count = parseInt($('.badge-notifications').text() || 0);
+                        if (count > 0) {
+                            $('.badge-notifications').text(count - 1);
+                            if (count - 1 === 0) $('.badge-notifications').remove();
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Error archiving notification: ', xhr.responseText);
+                        alert('Error archiving notification: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            // Real-time notification count update
+            setInterval(function() {
+                $.ajax({
+                    url: '{{ route('notifications.count') }}',
+                    success: function(count) {
+                        if (count > 0) {
+                            $('.badge-notifications').text(count).show();
+                            $('.bx-bell').addClass('animate_animated animate_tada');
+                            setTimeout(() => $('.bx-bell').removeClass(
+                                'animate_animated animate_tada'), 1000);
+                        } else {
+                            $('.badge-notifications').remove();
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Error fetching notification count: ', xhr.responseText);
+                    }
+                });
+            }, 60000); // Check every minute
+        });
+    </script>
 </head>
 {{-- DataTables CSS for pages that need it --}}
 
@@ -206,19 +282,14 @@ console.error('Error fetching notification count: ', xhr.responseText);
         <script src="{{ asset('assets/js/app-calendar.js') }}"></script>
     @endif
 
-      @if (Request::is('admin/calendar'))
+      @if (Request::is('admin/calendar') )
         <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
         <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
         <script src="{{ asset('assets/js/app-calendar-admin.js') }}"></script>
     @endif
 
 
-
-          @if (Request::is('boss/calendar') )
-        <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
-        <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
-        <script src="{{ asset('assets/js/app-calendar-boss.js') }}"></script>
-    @endif
+    
 
     <script src="{{ asset('assets/vendor/libs/@form-validation/popular.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/@form-validation/bootstrap5.js') }}"></script>
@@ -268,21 +339,13 @@ console.error('Error fetching notification count: ', xhr.responseText);
         <script src="{{ asset('assets/js/app-calendar.js') }}"></script>
     @endif
 
-      @if (Request::is('admin/calendar')  )
+      @if (Request::is('admin/calendar') )
         <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
         <!-- Page JS -->
         <!-- <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script> -->
         <script src="{{ asset('assets/js/app-calendar-admin.js') }}"></script>
     @endif
 
-
-
- @if (Request::is('boss/calendar') )
-        <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
-        <!-- Page JS -->
-        <!-- <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script> -->
-        <script src="{{ asset('assets/js/app-calendar-boss.js') }}"></script>
-    @endif
  
 
     <script src="{{ asset('assets/vendor/libs/@form-validation/popular.js') }}"></script>

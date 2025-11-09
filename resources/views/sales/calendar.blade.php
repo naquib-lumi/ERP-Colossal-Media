@@ -173,10 +173,10 @@
                             @csrf
                             <input type="hidden" name="id">
                        <div class="mb-3">
-    <label for="lead_id" class="form-label">Search lead...</label>
-    <select id="lead_id" class="form-control js-lead-select" name="lead_id" style="width:100%"></select>
-    <div class="form-text">Type at least 2 characters. Matches: name, company, phone, email.</div>
-</div>
+                            <label for="lead_id" class="form-label">Search lead...</label>
+                            <select id="lead_id" class="form-control js-lead-select" name="lead_id" style="width:100%"></select>
+                            <div class="form-text">Type at least 2 characters. Matches: name, company, phone, email.</div>
+                        </div>
                             <div class="mb-3">
                                 <label class="form-label" for="reminderTitle">Title</label>
                                 <input type="text" class="form-control" id="reminderTitle" name="title"

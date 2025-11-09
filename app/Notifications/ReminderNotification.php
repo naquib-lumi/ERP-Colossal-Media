@@ -80,7 +80,7 @@ class ReminderNotification extends Notification
             ['label' => 'Status',    'value' => ucfirst((string) $this->reminder->status)],
         ];
 
-        $url = url('/leads/' . $reminder->lead_id.'/view');
+        $url = url('/leads/' . $this->reminder->lead_id.'/view');
 
         
 
@@ -122,10 +122,11 @@ class ReminderNotification extends Notification
             'type'       => 'reminder',
             'reminder_id'=> (int) $this->reminder->id,
             'title'      => (string) $this->reminder->title,
+            'message' => $this->reminder->title,
             'remind_at'  => (string) $remindAt,
             'lead_id'    => (string) $this->reminder->lead_id,
             'status'     => (string) $this->reminder->status,
-            'url'        => url('/leads/' . $this->reminder->lead_id),
+            'url'        => url('/leads/' . $this->reminder->lead_id.'/view'),
         ];
     }
 }
