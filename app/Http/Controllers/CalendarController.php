@@ -36,9 +36,9 @@ class CalendarController extends Controller
     public function adminIndex()
     {
         $user = Auth::user();
-        if (!$user->hasRole('admin')) {
-            abort(403, 'Unauthorized');
-        }
+      if (!($user->hasRole('admin') || $user->hasRole('boss'))) {
+    return response()->json(['error' => 'Unauthorized'], 403);
+}
 
         $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])
             ->orderBy('name')
@@ -50,9 +50,9 @@ class CalendarController extends Controller
   public function events(Request $request)
 {
     $user = Auth::user();
-    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson') || $user->hasRole('admin'))) {
-        return response()->json(['error' => 'Unauthorized'], 403);
-    }
+  if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson') || $user->hasRole('admin') || $user->hasRole('boss'))) {
+    return response()->json(['error' => 'Unauthorized'], 403);
+}
 
     Log::info('events called for user: ' . $user->email);
 
@@ -168,7 +168,7 @@ class CalendarController extends Controller
         ->when($salespersonId > 0, function ($query) use ($salespersonId) {
             $query->where('reminders.created_by', $salespersonId);
         })
-        ->when(!$user->hasRole('admin'), function ($query) use ($user) {
+        ->when(!($user->hasRole('admin') || $user->hasRole('boss')), function ($query) use ($user) {
             $query->where('reminders.created_by', $user->id);
         });
 
@@ -218,9 +218,9 @@ class CalendarController extends Controller
    public function orderEvents(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('admin')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        if (!($user->hasRole('admin') || $user->hasRole('boss'))) {
+    return response()->json(['error' => 'Unauthorized'], 403);
+}
 
         Log::info('orderEvents called for user: ' . $user->email);
 

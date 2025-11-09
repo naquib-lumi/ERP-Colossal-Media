@@ -46,7 +46,7 @@ use App\Http\Controllers\DispatchControlProfileController;
 use App\Http\Controllers\DispatchControlJobOrderTableController;
 
 use App\Http\Controllers\DataEntryController;
-
+use App\Http\Controllers\BossController;
 use App\Http\Controllers\BossDashboardController;
 use App\Http\Controllers\BossFulfillmentController;
 use App\Http\Controllers\BossReportController;
@@ -466,6 +466,11 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         // LEAD MANAGEMENT
         Route::get('/boss/leads/search', [BossLeadController::class, 'searchLeads'])->name('boss.leads.search');
         Route::get('/boss/leads/{id}', [BossLeadController::class, 'getLead'])->name('boss.lead.get');
+
+
+        Route::get('/boss/calendar', [BossController::class, 'calendar'])->name('boss.calendar');
+        Route::get('/boss/calendar/events', [CalendarController::class, 'events'])->name('boss.calendar.events');
+        Route::get('/boss/calendar/order-events', [CalendarController::class, 'orderEvents'])->name('boss.calendar.order-events');
 
         Route::get('/boss/leads', [BossLeadController::class, 'leadManagement'])->name('boss.leads');
         Route::get('/boss/leads/export', [BossLeadController::class, 'exportCsv'])->name('boss.leads.export-csv');

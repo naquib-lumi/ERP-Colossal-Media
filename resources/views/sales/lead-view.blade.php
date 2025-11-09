@@ -725,6 +725,10 @@
                         clearMeetingErrors();
                         let formData = new FormData($('#meetingForm')[0]);
                         formData.append('_token', '{{ csrf_token() }}');
+                        if (!document.getElementById('meetingForm').checkValidity()) {
+    document.getElementById('meetingForm').reportValidity();
+    return;
+}
                         $.ajax({
                             url: '{{ route('meetings.store', ['lead' => $lead->id]) }}',
                             type: 'POST',
@@ -755,6 +759,10 @@
                         let formData = new FormData($('#meetingForm')[0]);
                         formData.append('_method', 'PUT');
                         formData.append('_token', '{{ csrf_token() }}');
+                        if (!document.getElementById('meetingForm').checkValidity()) {
+    document.getElementById('meetingForm').reportValidity();
+    return;
+}
                         $.ajax({
                             url: `/calendar/meetings/${id}`,
                             type: 'POST',
@@ -956,8 +964,22 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('#reminderForm')[0].reset();
                         $('#saveReminderBtn').off('click').text('Add').on('click', saveNewReminder);
                     });
+
+                          $('#saveReminderBtn').on('click', function(e) {
+        e.preventDefault();
+        if ($('#reminderId').val()) {
+            updateReminder();
+        } else {
+            saveNewReminder();
+        }
+    });
                     // Add Reminder with event delegation
                     function saveNewReminder() {
+                   if (!$('#reminderRemindAt').val()) {
+                        $('#reminderModal').modal('hide');
+                        Swal.fire('Error!', 'Remind date and time are required.', 'error');
+                        return;
+                    }
                         let formData = {
                             lead_id: $('#reminderLeadId').val(),
                             title: $('#reminderTitle').val(),
@@ -1003,14 +1025,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                             }
                         });
                     }
-                    $(document).on('click', '#saveReminderBtn', function(e) {
-                        e.preventDefault();
-                        if ($('#reminderId').val()) {
-                            updateReminder();
-                        } else {
-                            saveNewReminder();
-                        }
-                    });
+                 
                     // Attach initial event for saveMeetingBtn
                     $('#saveMeetingBtn').on('click', saveNewMeeting);
                     // Color for reminder dropdowns

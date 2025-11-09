@@ -216,6 +216,13 @@ $configData = \App\Helpers\Helpers::appClasses();
                   </a>
                 </li>
 
+                <li class="menu-item {{ request()->routeIs('boss.calendar') ? 'active' : '' }}">
+                    <a href="{{ route('boss.calendar') }}" class="menu-link">
+                        <i class="menu-icon icon-base bx bx-calendar"></i>
+                        <div data-i18n="Calendar">Calendar</div>
+                    </a>
+                </li>
+
                 <li class="menu-item {{ request()->routeIs('boss.fulfillment') ? 'active' : '' }}">
                     <a href="{{ route('boss.fulfillment') }}" class="menu-link">
                     <i class="menu-icon icon-base bx bx-package"></i>
