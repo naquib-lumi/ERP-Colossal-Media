@@ -251,8 +251,8 @@
 
           <div class="row g-3 mt-2">
             {{-- Size + unit --}}
-            <div class="col-md-3">
-              <small class="text-muted d-block">Size</small>
+            <div class="col-md-4">
+              <small class="text-muted d-block">Size (W x H)</small>
               <div class="fw-medium">
                 {{ rtrim((string)$it->sizeWidth) }} × {{ rtrim((string)$it->sizeHeight) }}
                 {{ $it->sizeUnit ?? '' }}
@@ -260,7 +260,7 @@
             </div>
 
             {{-- Bleed (Top / Right / Bottom / Left) + unit --}}
-            <div class="col-md-5">
+            <div class="col-md-6">
               <small class="text-muted d-block">Bleed</small>
               @php
               $bu = $it->bleedUnit ?: ($it->sizeUnit ?? '');
@@ -274,16 +274,7 @@
               </div>
             </div>
 
-            {{-- Prime Centre --}}
-            <div class="col-md-6">
-              <small class="text-muted d-block">Prime Centre</small>
-              <div class="fw-medium">
-                {{ ((int)($it->prime_centre ?? 0) === 1) ? 'Yes' : 'No' }}
-              </div>
-            </div>
-
-            <div class="col-md-12">
-              @php
+            @php
               // $it is the current item
               $mat = $it->material ?? null;
 
@@ -305,16 +296,38 @@
               } else {
               $materialText = '';
               }
-              @endphp
+            @endphp
+            
+            <div class="col-md-12">
+              <div class="row g-3">
+                <div class="col-md-4">
+                @if($materialText !== '')
+                <small class="text-muted d-block">Material</small>
+                <div class="fw-medium mb-2">{{ $materialText }}</div>
+                @elseif($materialText == '')
+                <small class="text-muted d-block">Material</small>
+                <div class="fw-medium mb-2">—</div>
+                @endif
+                </div>
+              
+                {{-- Prime Centre --}}
+                <div class="col-md-4">
+                  <small class="text-muted d-block">Prime Centre</small>
+                  <div class="fw-medium">
+                    {{ ((int)($it->prime_centre ?? 0) === 1) ? 'Yes' : 'No' }}
+                  </div>
+                </div>
 
-              @if($materialText !== '')
-              <small class="text-muted d-block">Material</small>
-              <div class="fw-medium mb-2">{{ $materialText }}</div>
-              @elseif($materialText == '')
-              <small class="text-muted d-block">Material</small>
-              <div class="fw-medium mb-2">—</div>
-              @endif
+                <div class="col-md-4">
+                  <small class="text-muted d-block">Assemble</small>
+                  <div class="fw-medium">
+                    {{ filled($it->finishing ?? null) ? $it->finishing : '—' }}
+                  </div>
+                </div>
+              </div>
+            </div>
 
+            <div class="col-md-12">
               @if($it->spec)
               <div class="row g-3">
                 <div class="col-md-4">
@@ -355,7 +368,7 @@
           <div class="col-md-6">
             <div class="key">Date &amp; Time:</div>
             <div class="fw-semibold">
-              {{ $d->date ? \Carbon\Carbon::parse($d->date)->format('Y-m-d') : '-' }}
+              {{ $d->date ? \Carbon\Carbon::parse($d->date)->format('Y-m-d') : '-' }} | {{ $d->time ? \Carbon\Carbon::parse($d->time)->format('H:i') : '—' }}
               @if($d->time) @endif
             </div>
           </div>
