@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Models\DeliveryBreakdown;
 
 class CalendarController extends Controller
 {
@@ -227,51 +228,63 @@ class CalendarController extends Controller
         $end = Carbon::parse($request->input('end', now()->endOfMonth()));
 
         $statusColors = [
-            'to_assign' => '#007bff',
-            'assigned' => '#17a2b8',
-            'in_progress' => '#ffc107',
-            'pending' => '#6c757d',
-            'completed' => '#28a745',
-            'rejected' => '#dc3545',
-            'default' => '#6c757d'
+            'self_pickup' => '#007bff',
+            'courier' => '#28a745',
+            'delivery_installation' => '#ffc107',
         ];
 
-        $ordersQuery = Order::leftJoin('leads', 'orders.lead_id', '=', 'leads.id')
+        $deliveriesQuery = DeliveryBreakdown::leftJoin('products', 'delivery_breakdowns.ProductID', '=', 'products.ProductID')
+            ->leftJoin('orders', 'products.OrderID', '=', 'orders.id')
+            ->leftJoin('leads', 'orders.lead_id', '=', 'leads.id')
             ->leftJoin('users', 'orders.salesperson_id', '=', 'users.id')
             ->select([
-                'orders.*',
-                'users.name as user_name',
+                'delivery_breakdowns.*',
+                'products.productName',
+                'orders.order_number',
+                'orders.id as order_id',
+                'users.name as salesperson_name',
                 'leads.company_name',
                 'leads.name as lead_name'
             ])
-            ->whereNotNull('orders.deadline')
-            ->whereBetween('orders.deadline', [$start, $end]);
+            ->whereNotNull('delivery_breakdowns.date')
+            ->whereBetween('delivery_breakdowns.date', [$start, $end]);
 
-        $orders = $ordersQuery->get();
+        $deliveries = $deliveriesQuery->get();
 
-        $orders = $orders->map(function ($order) use ($statusColors) {
-            $color = $statusColors[$order->effective_status] ?? $statusColors['default'];
+        $deliveries = $deliveries->map(function ($delivery) use ($statusColors) {
+            $when = $delivery->when;
+            $isAllDay = $delivery->time === null;
+            $color = $statusColors[$delivery->method] ?? $statusColors['default'];
             $textColor = '#fff';
-            $leadText = $order->lead_name && $order->company_name ? $order->company_name . ' - ' . $order->lead_name : 'Unknown';
+            $leadText = $delivery->lead_name && $delivery->company_name ? $delivery->company_name . ' - ' . $delivery->lead_name : 'Unknown';
+   $methodDisplay = match($delivery->method) {
+    'courier' => 'Courier',
+    'self_pickup' => 'Self Pickup',
+    'delivery_installation' => 'Delivery Installation',
+    default => ucwords(str_replace('_', ' ', $delivery->method))
+};
+$title = $methodDisplay . ' ' . $delivery->order_number . ' - ' . $delivery->productName;
             return [
-                'id' => 'order-' . $order->id,
-                'title' => $order->orderTitle,
-                'start' => $order->deadline->toIso8601String(),
-                'end' => $order->deadline->toIso8601String(),
-                'allDay' => true,
+                'id' => 'delivery-' . $delivery->BreakdownID,
+                'title' => $title,
+                'start' => $when->toIso8601String(),
+                'end' => $when->copy()->addMinutes(30)->toIso8601String(), // Assume 30 min duration if time-based
+                'allDay' => $isAllDay,
                 'extendedProps' => [
-                    'calendar' => 'Order',
-                    'type' => 'order',
-                    'status' => $order->effective_status,
-                    'lead_id' => $order->lead_id,
+                    'calendar' => 'Delivery',
+                    'type' => 'delivery',
+                    'method' => $delivery->method,
+                    'quantity' => $delivery->quantity,
+                    'location' => $delivery->location,
+                    'deliver_install_type' => $delivery->deliver_install_type,
+                    'outsource_cost' => $delivery->outsource_cost,
+                    'lead_id' => $delivery->lead_id ?? null,
                     'lead_text' => $leadText,
-                    'lead_id' => $order->lead_id,
-                    'assigned_to' => $order->user_name ?? 'Unknown',
-                    'description' => $order->orderDetail ?? '',
-                    'order_number' => $order->order_number,
-                    'approval' => $order->approval,
-                    'draft' => $order->draft,
-                    'pending' => $order->pending,
+                    'assigned_to' => $delivery->salesperson_name ?? 'Unknown',
+                    'description' => 'Delivery for ' . $delivery->productName . ' (Qty: ' . $delivery->quantity . ')',
+                    'order_number' => $delivery->order_number,
+                    'product_name' => $delivery->productName,
+                    'order_date' => $delivery->order_date ?? null,
                 ],
                 'backgroundColor' => $color,
                 'borderColor' => $color,
@@ -279,6 +292,7 @@ class CalendarController extends Controller
             ];
         });
 
-        return response()->json($orders->toArray());
+        return response()->json($deliveries->toArray());
     }
+
 }

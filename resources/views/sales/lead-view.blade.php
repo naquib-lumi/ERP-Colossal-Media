@@ -225,16 +225,16 @@
                                                     <div class="ms-2 d-flex align-items-center justify-content-end">
                                                         <select class="form-select form-select-sm reminder-status-update"
                                                             data-id="{{ $reminder->id }}"
-                                                            style="width: auto; background-color: white;">
+                                                            style="width: auto;">
                                                             <option value="upcoming"
-                                                                {{ $reminder->status == 'upcoming' ? 'selected' : '' }}>
-                                                                Upcoming</option>
+                                                                {{ $reminder->status == 'upcoming' ? 'selected' : '' }}
+                                                                style="background-color: #6c757d; color: #fff;">Upcoming</option>
                                                             <option value="overdue"
-                                                                {{ $reminder->status == 'overdue' ? 'selected' : '' }}>
-                                                                Overdue</option>
+                                                                {{ $reminder->status == 'overdue' ? 'selected' : '' }}
+                                                                style="background-color: #dc3545; color: #fff;">Overdue</option>
                                                             <option value="completed"
-                                                                {{ $reminder->status == 'completed' ? 'selected' : '' }}>
-                                                                Completed</option>
+                                                                {{ $reminder->status == 'completed' ? 'selected' : '' }}
+                                                                style="background-color: #28a745; color: #fff;">Completed</option>
                                                         </select>
                                                         <a href="#" class="text-primary ms-2 edit-reminder"
                                                             style="font-size: 0.9rem;">
@@ -299,7 +299,7 @@
                                             @endforelse
                                         </div>
                                         <div class="mt-3">
-                                            <div class="input-group">
+                                            <div class="input-group" id="noteInputGroup">
                                                 <label for="noteAttachment" class="btn btn-outline-secondary mb-0">
                                                     <i class="bx bx-paperclip"></i>
                                                 </label>
@@ -322,6 +322,30 @@
                                 </script>
                                 <script>
                                     $(document).ready(function() {
+                                        const noteInputGroup = document.getElementById('noteInputGroup');
+                                        noteInputGroup.addEventListener('dragover', function(e) {
+                                            e.preventDefault();
+                                            noteInputGroup.classList.add('border-primary');
+                                        });
+                                        noteInputGroup.addEventListener('dragleave', function(e) {
+                                            noteInputGroup.classList.remove('border-primary');
+                                        });
+                                        noteInputGroup.addEventListener('drop', function(e) {
+                                            e.preventDefault();
+                                            noteInputGroup.classList.remove('border-primary');
+                                            const files = e.dataTransfer.files;
+                                            if (files.length > 0) {
+                                                document.getElementById('noteAttachment').files = files;
+                                                const fileName = files[0].name;
+                                                document.getElementById('fileName').textContent = `Attached: ${fileName}`;
+                                            }
+                                        });
+                                        $('#noteContent').on('keydown', function(e) {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                $('#sendNoteBtn').click();
+                                            }
+                                        });
                                         $('#sendNoteBtn').on('click', function() {
                                             let content = $('#noteContent').val().trim();
                                             let file = $('#noteAttachment')[0].files[0];
@@ -430,7 +454,6 @@
                                                 <small class="text-muted d-block mb-1">
     {{ $meeting->start_time->format('D, h:i A') }} - {{ $meeting->end_time->format('h:i A') }}
 </small>
-
                                                 @if ($meeting->type === 'online' && $meeting->url)
                                                     <small class="text-primary d-block"><a href="{{ $meeting->url }}"
                                                             target="_blank"
@@ -445,16 +468,16 @@
                                             <div class="ms-2 d-flex align-items-center justify-content-end">
                                                 <select class="form-select form-select-sm status-update"
                                                     data-id="{{ $meeting->id }}"
-                                                    style="width: auto; background-color: white;">
+                                                    style="width: auto;">
                                                     <option value="scheduled"
-                                                        {{ $meeting->status == 'scheduled' ? 'selected' : '' }}>Scheduled
-                                                    </option>
+                                                        {{ $meeting->status == 'scheduled' ? 'selected' : '' }}
+                                                        style="background-color: #4e73df; color: #fff;">Scheduled</option>
                                                     <option value="canceled"
-                                                        {{ $meeting->status == 'canceled' ? 'selected' : '' }}>Canceled
-                                                    </option>
+                                                        {{ $meeting->status == 'canceled' ? 'selected' : '' }}
+                                                        style="background-color: #000a0b; color: #fff;">Canceled</option>
                                                     <option value="postponed"
-                                                        {{ $meeting->status == 'postponed' ? 'selected' : '' }}>Postponed
-                                                    </option>
+                                                        {{ $meeting->status == 'postponed' ? 'selected' : '' }}
+                                                        style="background-color: #f6c23e; color: #000;">Postponed</option>
                                                 </select>
                                                 <a href="#" class="text-primary ms-2 edit-meeting"
                                                     style="font-size: 0.9rem;">
@@ -491,16 +514,19 @@
                                             <label for="meetingTitle" class="form-label">Title</label>
                                             <input type="text" class="form-control" id="meetingTitle" name="title"
                                                 required>
+                                            <div class="invalid-feedback" id="error-title"></div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="meetingStartTime" class="form-label">Start Date & Time</label>
                                             <input type="datetime-local" class="form-control" id="meetingStartTime"
                                                 name="start_time" required>
+                                            <div class="invalid-feedback" id="error-start_time"></div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="meetingDuration" class="form-label">Duration (minutes)</label>
                                             <input type="number" class="form-control" id="meetingDuration"
                                                 name="duration" min="1" required>
+                                            <div class="invalid-feedback" id="error-duration"></div>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Type</label>
@@ -514,19 +540,23 @@
                                                     id="typeOffline" value="offline">
                                                 <label class="form-check-label" for="typeOffline">Offline</label>
                                             </div>
+                                            <div class="invalid-feedback" id="error-type"></div>
                                         </div>
                                         <div class="mb-3" id="onlineUrl" style="display: block;">
                                             <label for="meetingUrl" class="form-label">URL</label>
                                             <input type="url" class="form-control" id="meetingUrl" name="url">
+                                            <div class="invalid-feedback" id="error-url"></div>
                                         </div>
                                         <div class="mb-3" id="offlineLocation" style="display: none;">
                                             <label for="meetingLocation" class="form-label">Location</label>
                                             <input type="text" class="form-control" id="meetingLocation"
                                                 name="location">
+                                            <div class="invalid-feedback" id="error-location"></div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="meetingNote" class="form-label">Description</label>
                                             <textarea class="form-control" id="meetingNote" name="note" rows="3"></textarea>
+                                            <div class="invalid-feedback" id="error-note"></div>
                                         </div>
                                     </form>
                                 </div>
@@ -677,7 +707,22 @@
                     updateTimeBadges();
                     setInterval(updateTimeBadges, 60000); // Update every minute
                     // Meeting functions defined first
+                    function clearMeetingErrors() {
+                        $('#meetingForm .form-control').removeClass('is-invalid');
+                        $('#meetingForm .invalid-feedback').text('');
+                    }
+                    function showMeetingErrors(errors) {
+                        for (let field in errors) {
+                            let $input = $('#meeting' + field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ''));
+                            if ($input.length === 0 && field === 'type') {
+                                $input = $('input[name="type"]');
+                            }
+                            $input.addClass('is-invalid');
+                            $('#error-' + field).text(errors[field][0]);
+                        }
+                    }
                     function saveNewMeeting() {
+                        clearMeetingErrors();
                         let formData = new FormData($('#meetingForm')[0]);
                         formData.append('_token', '{{ csrf_token() }}');
                         $.ajax({
@@ -692,13 +737,20 @@
                                 location.reload();
                             },
                             error: function(xhr) {
-                                $('#meetingModal').modal('hide');
-                                let errorMsg = parseError(xhr);
-                                Swal.fire('Error!', errorMsg, 'error');
+                                if (xhr.status === 422) {
+                                    let resp = JSON.parse(xhr.responseText);
+                                    if (resp.errors) {
+                                        showMeetingErrors(resp.errors);
+                                    }
+                                } else {
+                                    let errorMsg = parseError(xhr);
+                                    Swal.fire('Error!', errorMsg, 'error');
+                                }
                             }
                         });
                     }
                     function updateMeeting() {
+                        clearMeetingErrors();
                         let id = $('#meetingId').val();
                         let formData = new FormData($('#meetingForm')[0]);
                         formData.append('_method', 'PUT');
@@ -715,9 +767,15 @@
                                 location.reload();
                             },
                             error: function(xhr) {
-                                $('#meetingModal').modal('hide');
-                                let errorMsg = parseError(xhr);
-                                Swal.fire('Error!', errorMsg, 'error');
+                                if (xhr.status === 422) {
+                                    let resp = JSON.parse(xhr.responseText);
+                                    if (resp.errors) {
+                                        showMeetingErrors(resp.errors);
+                                    }
+                                } else {
+                                    let errorMsg = parseError(xhr);
+                                    Swal.fire('Error!', errorMsg, 'error');
+                                }
                             }
                         });
                     }
@@ -795,6 +853,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('#meetingForm')[0].reset();
                         $('input[name="type"][value="online"]').prop('checked', true).trigger('change');
                         $('#saveMeetingBtn').off('click').text('Save Meeting').on('click', saveNewMeeting);
+                        clearMeetingErrors();
                     });
                     // Status update for meetings
                     $('.status-update').on('change', function() {
@@ -868,24 +927,28 @@ $(document).on('click', '.edit-meeting', function(e) {
                     // Debug: Confirm jQuery is loaded
                     console.log('jQuery loaded:', typeof $);
                     // Status Dropdown Update
-                    $('#statusDropdown').on('change', function() {
-                        let status = $(this).val();
-                        $.ajax({
-                            url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
-                            type: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}',
-                                status: status
-                            },
-                            success: function(response) {
-                                location.reload();
-                            },
-                            error: function(xhr) {
-                                let errorMsg = parseError(xhr);
-                                Swal.fire('Error!', errorMsg, 'error');
-                            }
-                        });
-                    });
+             $('#statusDropdown').on('change', function() {
+    let status = $(this).val();
+    $.ajax({
+        url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
+        type: 'POST',
+        data: {
+            _token: '{{ csrf_token() }}',
+            status: status
+        },
+        success: function(response) {
+            if (response.redirect) {
+                location.href = response.redirect;
+            } else {
+                location.reload();
+            }
+        },
+        error: function(xhr) {
+            let errorMsg = parseError(xhr);
+            Swal.fire('Error!', errorMsg, 'error');
+        }
+    });
+});
                     // Reset modal for add
                     $('#reminderModal').on('hidden.bs.modal', function() {
                         $('#reminderModalLabel').text('Add Custom Reminder');
@@ -950,6 +1013,40 @@ $(document).on('click', '.edit-meeting', function(e) {
                     });
                     // Attach initial event for saveMeetingBtn
                     $('#saveMeetingBtn').on('click', saveNewMeeting);
+                    // Color for reminder dropdowns
+                    function updateReminderColor($select) {
+                        let status = $select.val();
+                        let color = '';
+                        if (status === 'upcoming') color = '#6c757d';
+                        else if (status === 'overdue') color = '#dc3545';
+                        else if (status === 'completed') color = '#28a745';
+                        $select.css({'background-color': color, 'color': '#fff'});
+                    }
+                    $('.reminder-status-update').each(function() {
+                        updateReminderColor($(this));
+                    });
+                    $('.reminder-status-update').on('change', function() {
+                        updateReminderColor($(this));
+                    });
+                    // Color for meeting dropdowns
+                    function updateMeetingColor($select) {
+                        let status = $select.val();
+                        let color = '';
+                        let textColor = '#fff';
+                        if (status === 'scheduled') color = '#4e73df';
+                        else if (status === 'canceled') color = '#000a0b';
+                        else if (status === 'postponed') {
+                            color = '#f6c23e';
+                            textColor = '#000';
+                        }
+                        $select.css({'background-color': color, 'color': textColor});
+                    }
+                    $('.status-update').each(function() {
+                        updateMeetingColor($(this));
+                    });
+                    $('.status-update').on('change', function() {
+                        updateMeetingColor($(this));
+                    });
                 });
             </script>
         </div>

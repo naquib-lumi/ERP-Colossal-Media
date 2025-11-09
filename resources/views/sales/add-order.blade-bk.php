@@ -152,11 +152,9 @@
 </style>
 @endpush
 
-<form id="order-form" action="{{ route('orders.update', $order->id) }}" method="POST" enctype="multipart/form-data">
+<form id="order-form" action="{{ route('orders.store') }}" method="POST" enctype="multipart/form-data">
     @csrf
-    @method('PUT')
-    <input type="hidden" name="from" value="{{ request('from') }}">
-    <input type="hidden" name="lead_id" value="{{ $order->lead_id }}">
+    <input type="hidden" name="lead_id" id="lead_id" value="{{ $lead->id ?? '' }}">
     <input type="hidden" id="from_csv" name="from_csv" value="{{ old('from_csv', 0) }}">
 
     <div class="row g-4">
@@ -164,7 +162,7 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="mb-0">Edit Job Order</h5>
+                        <h5 class="mb-0">Job Order</h5>
                     </div>
                 </div>
 
@@ -177,22 +175,31 @@
                                     <h5 mb-0>Lead Information</h5>
                                 </div>
                                 <div class="card-body">
+                                    @if(!$lead)
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Search Lead <span class="text-danger">*</span></label>
+                                        <select id="leadSelect" class="form-select" style="width: 100%;">
+                                            <option value="">Search for a lead</option>
+                                        </select>
+                                        <div id="lead-error" class="validation-msg"></div>
+                                    </div>
+                                    @endif
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label">Company Name</label>
-                                            <input id="companyDisplay" type="text" class="form-control" value="{{ $order->lead->company_name ?? '' }}" readonly>
+                                            <input id="companyDisplay" type="text" class="form-control" value="{{ $lead->company_name ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Lead Name</label>
-                                            <input id="leadNameDisplay" type="text" class="form-control" value="{{ $order->lead->name ?? '' }}" readonly>
+                                            <input id="leadNameDisplay" type="text" class="form-control" value="{{ $lead->name ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Phone</label>
-                                            <input id="phoneDisplay" type="text" class="form-control" value="{{ $order->lead->phone ?? '' }}" readonly>
+                                            <input id="phoneDisplay" type="text" class="form-control" value="{{ $lead->phone ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Email</label>
-                                            <input id="emailDisplay" type="text" class="form-control" value="{{ $order->lead->email ?? '' }}" readonly>
+                                            <input id="emailDisplay" type="text" class="form-control" value="{{ $lead->email ?? '' }}" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -209,7 +216,7 @@
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label">Job Title <span class="text-danger">*</span></label>
-                                            <input name="orderTitle" type="text" class="form-control" value="{{ old('orderTitle', $order->orderTitle) }}">
+                                            <input name="orderTitle" type="text" class="form-control" value="{{ old('orderTitle') }}">
                                             <div id="orderTitle-error" class="validation-msg"></div>
                                             @error('orderTitle')
                                                 <span class="text-danger">{{ $message }}</span>
@@ -217,11 +224,12 @@
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Created Date</label>
-                                            <input type="text" class="form-control" value="{{ $order->orderDate->format('d/m/Y') }}" readonly>
+                                            <input type="text" class="form-control" value="{{ now()->format('d/m/Y') }}" readonly>
+                                            <input type="hidden" name="orderDate" value="{{ now() }}">
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Deadline <span class="text-danger">*</span></label>
-                                            <input name="deadline" type="date" class="form-control" value="{{ old('deadline', $order->deadline->format('Y-m-d')) }}">
+                                            <input name="deadline" type="date" class="form-control" value="{{ old('deadline') }}">
                                             <div id="deadline-error" class="validation-msg"></div>
                                             @error('deadline')
                                                 <span class="text-danger">{{ $message }}</span>
@@ -229,17 +237,18 @@
                                         </div>
                                         <div class="col-md-6 mb-4">
                                             <label class="form-label">Created By</label>
-                                            <input type="text" class="form-control" value="{{ optional($order->salesperson)->name }}" readonly>
+                                            <input type="text" class="form-control" value="{{ Auth::user()->name }}" readonly>
+                                            <input type="hidden" name="created_by" value="{{ Auth::user()->id }}">
                                         </div>
 
                                         <div class="col-12">
                                             <label class="form-label d-block mb-4">Design from artist would need client approval <span class="text-danger">*</span></label>
                                             <div class="d-flex gap-4">
                                                 <label class="form-check-label">
-                                                    <input class="form-check-input me-1" type="radio" name="approval" value="1" {{ old('approval', $order->approval) == 1 ? 'checked' : '' }}> YES
+                                                    <input class="form-check-input me-1" type="radio" name="approval" value="1" {{ old('approval') == 1 ? 'checked' : '' }}> YES
                                                 </label>
                                                 <label class="form-check-label">
-                                                    <input class="form-check-input me-1" type="radio" name="approval" value="0" {{ old('approval', $order->approval) == 0 ? 'checked' : '' }}> NO
+                                                    <input class="form-check-input me-1" type="radio" name="approval" value="0" {{ old('approval') == 0 ? 'checked' : '' }}> NO
                                                 </label>
                                             </div>
                                             <div id="approval-error" class="validation-msg"></div>
@@ -282,81 +291,38 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @php $productIndex = 0; @endphp
-                                        @foreach ($order->products as $product)
-                                            <tr data-product-id="{{ $product->ProductID }}" data-index="{{ $productIndex }}">
+                                        @foreach (old('products', []) as $index => $product)
+                                            <tr data-index="{{ $index }}">
                                                 <td class="product-number">{{ $loop->iteration }}</td>
+                                                <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
+                                                <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ $product['quantity'] ?? '' }}" min="1"></td>
+                                                <td><input type="text" name="products[{{ $index }}][material_info]" class="form-control" value="{{ $product['material_info'] ?? '' }}"></td>
                                                 <td>
-                                                    <input type="hidden" name="products[{{ $productIndex }}][id]" value="{{ $product->ProductID }}">
-                                                    <input type="text" name="products[{{ $productIndex }}][product_name]" class="form-control" value="{{ old("products.{$productIndex}.product_name", $product->productName) }}">
-                                                </td>
-                                                <td>
-                                                    <input type="number" name="products[{{ $productIndex }}][quantity]" class="form-control" value="{{ old("products.{$productIndex}.quantity", $product->totalQuantity) }}" min="1">
-                                                </td>
-                                                <td>
-                                                    <input type="text" name="products[{{ $productIndex }}][material_remark]" class="form-control" value="{{ old("products.{$productIndex}.material_remark", $product->materialRemark ?? '') }}">
-                                                </td>
-                                                <td>
-                                                    <div id="remarks-container-{{ $productIndex }}">
-                                                        @foreach ($product->remarks as $rindex => $remark)
+                                                    <div id="remarks-container-{{ $index }}">
+                                                        @foreach ($product['remarks'] ?? [] as $rindex => $remark)
                                                             <div class="remark-row">
-                                                                <select name="products[{{ $productIndex }}][remarks][{{ $rindex }}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                                                    <option value="artist" {{ $remark->operation == 'artist' ? 'selected' : '' }}>To Artist</option>
-                                                                    <option value="printing" {{ $remark->operation == 'printing' ? 'selected' : '' }}>To Printing</option>
-                                                                    <option value="furnishing" {{ $remark->operation == 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
-                                                                    <option value="installation" {{ $remark->operation == 'installation' ? 'selected' : '' }}>To Installation</option>
-                                                                    <option value="self_pickup" {{ $remark->operation == 'self_pickup' ? 'selected' : '' }}>To Self Pickup</option>
-                                                                    <option value="courier" {{ $remark->operation == 'courier' ? 'selected' : '' }}>To Courier</option>
+                                                                <select name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" class="form-select w-auto" style="min-width:160px;">
+                                                                    <option value="artist" {{ $remark['operation'] == 'artist' ? 'selected' : '' }}>To Artist</option>
+                                                                    <option value="printing" {{ $remark['operation'] == 'printing' ? 'selected' : '' }}>To Printing</option>
+                                                                    <option value="furnishing" {{ $remark['operation'] == 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
+                                                                    <option value="installation" {{ $remark['operation'] == 'installation' ? 'selected' : '' }}>To Installation</option>
+                                                                    <option value="self_pickup" {{ $remark['operation'] == 'self_pickup' ? 'selected' : '' }}>To Self Pickup</option>
+                                                                    <option value="courier" {{ $remark['operation'] == 'courier' ? 'selected' : '' }}>To Courier</option>
                                                                 </select>
-                                                                <input type="text" name="products[{{ $productIndex }}][remarks][{{ $rindex }}][remark]" class="form-control" value="{{ old("products.{$productIndex}.remarks.{$rindex}.remark", $remark->remark ?? '') }}" placeholder="Write a note…">
+                                                                <input type="text" name="products[{{ $index }}][remarks][{{ $rindex }}][remark]" class="form-control" value="{{ $remark['remark'] ?? '' }}" placeholder="Write a note…">
                                                                 <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
                                                                     <i class="bx bx-trash fs-5"></i>
                                                                 </button>
                                                             </div>
                                                         @endforeach
                                                     </div>
-                                                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $productIndex }}">Add Remark</button>
+                                                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $index }}">Add Remark</button>
                                                 </td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $productIndex }}">Delete</button>
+                                                    <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="{{ $index }}">Edit</button>
+                                                    <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $index }}">Delete</button>
                                                 </td>
                                             </tr>
-                                            @php $productIndex++; @endphp
-                                        @endforeach
-                                        @foreach (old('products', []) as $index => $product)
-                                            @if ($index >= $order->products->count())
-                                                <tr data-index="{{ $index }}">
-                                                    <td class="product-number">{{ $index + 1 }}</td>
-                                                    <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
-                                                    <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ $product['quantity'] ?? '' }}" min="1"></td>
-                                                    <td><input type="text" name="products[{{ $index }}][material_remark]" class="form-control" value="{{ $product['material_remark'] ?? '' }}"></td>
-                                                    <td>
-                                                        <div id="remarks-container-{{ $index }}">
-                                                            @foreach ($product['remarks'] ?? [] as $rindex => $remark)
-                                                                <div class="remark-row">
-                                                                    <select name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                                                        <option value="artist" {{ $remark['operation'] == 'artist' ? 'selected' : '' }}>To Artist</option>
-                                                                        <option value="printing" {{ $remark['operation'] == 'printing' ? 'selected' : '' }}>To Printing</option>
-                                                                        <option value="furnishing" {{ $remark['operation'] == 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
-                                                                        <option value="installation" {{ $remark['operation'] == 'installation' ? 'selected' : '' }}>To Installation</option>
-                                                                        <option value="self_pickup" {{ $remark['operation'] == 'self_pickup' ? 'selected' : '' }}>To Self Pickup</option>
-                                                                        <option value="courier" {{ $remark['operation'] == 'courier' ? 'selected' : '' }}>To Courier</option>
-                                                                    </select>
-                                                                    <input type="text" name="products[{{ $index }}][remarks][{{ $rindex }}][remark]" class="form-control" value="{{ $remark['remark'] ?? '' }}" placeholder="Write a note…">
-                                                                    <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                                                        <i class="bx bx-trash fs-5"></i>
-                                                                    </button>
-                                                                </div>
-                                                            @endforeach
-                                                        </div>
-                                                        <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $index }}">Add Remark</button>
-                                                    </td>
-                                                    <td>
-                                                    
-                                                        <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $index }}">Delete</button>
-                                                    </td>
-                                                </tr>
-                                            @endif
                                         @endforeach
                                     </tbody>
                                 </table>
@@ -388,7 +354,7 @@
 
                             <div class="mt-3">
                                 <label class="form-label">Remarks</label>
-                                <textarea name="orderDetail" rows="3" class="form-control" placeholder="Remarks">{{ old('orderDetail', $order->orderDetail) }}</textarea>
+                                <textarea name="orderDetail" rows="3" class="form-control" placeholder="Remarks">{{ old('orderDetail') }}</textarea>
                                 @error('orderDetail')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -416,8 +382,8 @@
 
         <div class="col-12">
             <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
-                <button type="button" class="btn btn-outline-secondary" onclick="cancelOrder()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Update Order</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Order</button>
             </div>
         </div>
     </div>
@@ -446,7 +412,7 @@
                         </div>
                         <div class="col-12">
                             <label>Material Remark</label>
-                            <textarea id="material_remark" class="form-control"></textarea>
+                            <textarea id="material_info" class="form-control"></textarea>
                         </div>
                         <div class="col-12">
                             <label>Remarks</label>
@@ -466,8 +432,56 @@
 </div>
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script>
     $(document).ready(function() {
+        var leadSelect = $('#leadSelect');
+        leadSelect.select2({
+            placeholder: 'Search for a lead',
+            dropdownParent: leadSelect.parent(),
+            minimumInputLength: 2,
+            ajax: {
+                url: '{{ route('orders.leads.search') }}',
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        query: params.term,
+                        _token: '{{ csrf_token() }}'
+                    };
+                },
+                processResults: function(data) {
+                    return {
+                        results: data.map(lead => ({
+                            id: lead.id,
+                            text: lead.text
+                        }))
+                    };
+                },
+                cache: true
+            },
+            escapeMarkup: function(markup) {
+                return markup;
+            }
+        });
+
+        leadSelect.on('select2:select', function(e) {
+            var data = e.params.data;
+            var getLeadBase = "{{ route('orders.leads.get', ':id') }}";
+            $.ajax({
+                url: getLeadBase.replace(':id', data.id),
+                type: 'GET',
+                success: function(lead) {
+                    $('#companyDisplay').val(lead.company_name);
+                    $('#leadNameDisplay').val(lead.name);
+                    $('#phoneDisplay').val(lead.phone);
+                    $('#emailDisplay').val(lead.email);
+                    $('#lead_id').val(lead.id);
+                }
+            });
+        });
+
         function escapeHtml(str) {
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
@@ -481,22 +495,6 @@
         }
 
         renumberProducts();
-
-        let initialFormState = $('#order-form').serialize();
-        let isDirty = false;
-
-        $('#order-form').on('change input', function() {
-            if ($('#order-form').serialize() !== initialFormState) {
-                isDirty = true;
-            }
-        });
-
-        window.addEventListener('beforeunload', function (e) {
-            if (isDirty) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
 
         $('#productModal').on('show.bs.modal', function(e) {
             const button = $(e.relatedTarget);
@@ -516,7 +514,7 @@
                 const row = $(`#product-table tbody tr[data-index="${index}"]`);
                 $('#product_name').val(row.find('input[name$="[product_name]"]').val());
                 $('#quantity').val(row.find('input[name$="[quantity]"]').val());
-                $('#material_remark').val(row.find('input[name$="[material_remark]"]').val());
+                $('#material_info').val(row.find('input[name$="[material_info]"]').val());
 
                 row.find('.remark-row').each(function() {
                     const operation = $(this).find('select').val();
@@ -527,14 +525,6 @@
         });
 
         $('#addRemarkBtn').on('click', function() {
-            if ($('#remarks-container .remark-row').length >= 6) {
-                Swal.fire({
-                    title: 'Max Remarks Reached',
-                    text: 'Maximum 6 remarks per product.',
-                    icon: 'warning'
-                });
-                return;
-            }
             addRemarkRow();
         });
 
@@ -565,43 +555,14 @@
             validateRemarks();
         });
 
-        $(document).on('change', '.remark-row select', function() {
-            const current = $(this);
-            const val = current.val();
-            if (!val) return;
-            const container = current.closest('#remarks-container') || current.closest('[id^="remarks-container-"]');
-            let duplicate = false;
-            container.find('.remark-row select').not(current).each(function() {
-                if ($(this).val() === val) {
-                    duplicate = true;
-                }
-            });
-            if (duplicate) {
-                current.val('');
-                Swal.fire({
-                    title: 'Duplicate Operation',
-                    text: 'This operation is already selected.',
-                    icon: 'error'
-                });
-            }
-        });
-
         $('#saveProduct').on('click', function() {
-            const errors = validateProductForm();
-            if (errors.length > 0) {
-                Swal.fire({
-                    title: 'Please complete the product info',
-                    html: '<ul><li>' + errors.join('</li><li>') + '</li></ul>',
-                    icon: 'error'
-                });
-                return;
-            }
+            if (!validateProductForm()) return;
 
             const index = $('#product_index').val();
             const data = {
                 product_name: $('#product_name').val() || '',
                 quantity: $('#quantity').val() || '',
-                material_remark: $('#material_remark').val() || '',
+                material_info: $('#material_info').val() || '',
                 remarks: []
             };
 
@@ -621,11 +582,7 @@
                 updateProductRow(index, data);
             } else {
                 if (productIndex >= 5) {
-                    Swal.fire({
-                        title: 'Maximum Products Reached',
-                        text: 'Maximum 5 products allowed. Use CSV for more.',
-                        icon: 'warning'
-                    });
+                    alert('Maximum 5 products allowed. Use CSV for more.');
                     return;
                 }
                 addProductRow(data, productIndex);
@@ -634,7 +591,7 @@
                     $('#addProductBtn').hide();
                 }
             }
-            isDirty = true;
+
             $('#productModal').modal('hide');
         });
 
@@ -642,9 +599,9 @@
             const html = `
                 <tr data-index="${index}">
                     <td class="product-number">${index + 1}</td>
-                    <td><input type="hidden" name="products[${index}][id]" value=""><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required></td>
+                    <td><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required></td>
                     <td><input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1" required></td>
-                    <td><input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}"></td>
+                    <td><input type="text" name="products[${index}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}"></td>
                     <td>
                         <div id="remarks-container-${index}">
                             ${data.remarks.map((r, rindex) => `
@@ -667,18 +624,20 @@
                         <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${index}">Add Remark</button>
                     </td>
                     <td>
+                        <button type="button" class="btn btn-sm btn-primary edit-product" data-bs-toggle="modal" data-bs-target="#productModal" data-mode="edit" data-index="${index}">Edit</button>
                         <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${index}">Delete</button>
                     </td>
                 </tr>
             `;
             $('#product-table tbody').append(html);
+            addHiddenFields(index, data);
         }
 
         function updateProductRow(index, data) {
             const row = $(`#product-table tbody tr[data-index="${index}"]`);
-            row.find('td:eq(1)').html(`<input type="hidden" name="products[${index}][id]" value="${row.find('input[name$="[id]"]').val() || ''}"><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required>`);
+            row.find('td:eq(1)').html(`<input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required>`);
             row.find('td:eq(2)').html(`<input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1" required>`);
-            row.find('td:eq(3)').html(`<input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}">`);
+            row.find('td:eq(3)').html(`<input type="text" name="products[${index}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}">`);
             row.find('td:eq(4)').html(`
                 <div id="remarks-container-${index}">
                     ${data.remarks.map((r, rindex) => `
@@ -700,7 +659,35 @@
                 </div>
                 <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${index}">Add Remark</button>
             `);
+            updateHiddenFields(index, data);
             renumberProducts();
+        }
+
+        function addHiddenFields(index, data) {
+            let hiddenHtml = `
+                <div data-index="${index}">
+                    <input type="hidden" name="products[${index}][product_name]" value="${escapeHtml(data.product_name)}">
+                    <input type="hidden" name="products[${index}][quantity]" value="${escapeHtml(data.quantity)}">
+                    <input type="hidden" name="products[${index}][material_info]" value="${escapeHtml(data.material_info)}">
+            `;
+            data.remarks.forEach((r, rindex) => {
+                hiddenHtml += `<input type="hidden" name="products[${index}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`;
+                hiddenHtml += `<input type="hidden" name="products[${index}][remarks][${rindex}][remark]" value="${escapeHtml(r.remark)}">`;
+            });
+            hiddenHtml += '</div>';
+            $('#hidden-products').append(hiddenHtml);
+        }
+
+        function updateHiddenFields(index, data) {
+            const hidden = $(`#hidden-products > div[data-index="${index}"]`);
+            hidden.find('input[name$="[product_name]"]').val(data.product_name);
+            hidden.find('input[name$="[quantity]"]').val(data.quantity);
+            hidden.find('input[name$="[material_info]"]').val(data.material_info);
+            hidden.find('input[name^="products[' + index + '][remarks]"]').remove();
+            data.remarks.forEach((r, rindex) => {
+                hidden.append(`<input type="hidden" name="products[${index}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`);
+                hidden.append(`<input type="hidden" name="products[${index}][remarks][${rindex}][remark]" value="${escapeHtml(r.remark)}">`);
+            });
         }
 
         function renumberProducts() {
@@ -710,8 +697,19 @@
                 $(this).find('.edit-product, .remove-product, .add-remark').attr('data-index', i);
                 const remarksId = `remarks-container-${i}`;
                 $(this).find('[id^="remarks-container-"]').attr('id', remarksId);
-                $(this).find('input[name^="products"], select[name^="products"]').each(function() {
-                    let name = $(this).attr('name').replace(/\[\d+\]/, '[' + i + ']');
+                $(this).find('input[name^="products"]').each(function() {
+                    let name = $(this).attr('name').replace(/\[products\]\[(\d+)\]/, '[products][' + i + ']');
+                    $(this).attr('name', name);
+                });
+            });
+            updateHiddenIndices();
+        }
+
+        function updateHiddenIndices() {
+            $('#hidden-products > div').each(function(i) {
+                $(this).attr('data-index', i);
+                $(this).find('input').each(function() {
+                    let name = $(this).attr('name').replace(/\[products\]\[(\d+)\]/, '[products][' + i + ']');
                     $(this).attr('name', name);
                 });
             });
@@ -720,26 +718,19 @@
         $(document).on('click', '.remove-product', function() {
             const index = $(this).data('index');
             $(`#product-table tbody tr[data-index="${index}"]`).remove();
+            $(`#hidden-products > div[data-index="${index}"]`).remove();
             renumberProducts();
             productIndex = $('#product-table tbody tr').length;
             if (productIndex < 5 && !isFromCsv) {
                 $('#addProductBtn').show();
             }
-            isDirty = true;
         });
 
         $(document).on('click', '.add-remark', function() {
             const index = $(this).data('index');
             const container = $(`#remarks-container-${index}`);
-            if (container.find('.remark-row').length >= 6) {
-                Swal.fire({
-                    title: 'Max Remarks Reached',
-                    text: 'Maximum 6 remarks per product.',
-                    icon: 'warning'
-                });
-                return;
-            }
-            const rindex = container.find('.remark-row').length;
+            const remarks = container.find('.remark-row');
+            const rindex = remarks.length;
             const html = `
                 <div class="remark-row">
                     <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
@@ -758,7 +749,10 @@
                 </div>
             `;
             container.append(html);
-            isDirty = true;
+        });
+
+        $(document).on('click', '.remove-remark', function() {
+            $(this).closest('.remark-row').remove();
         });
 
         const input = document.getElementById('fileInput');
@@ -793,7 +787,6 @@
 
             updateSummary();
             input.value = '';
-            isDirty = true;
         }
 
         function addRow(file, { status = 'ready', note = '' }) {
@@ -813,13 +806,13 @@
                 updateSummary();
                 if (!selectedFile) {
                     $('#product-table tbody').empty();
+                    $('#hidden-products').empty();
                     productIndex = 0;
                     isFromCsv = 0;
                     $('#from_csv').val(0);
                     $('#addProductBtn').show();
                     renumberProducts();
                 }
-                isDirty = true;
             });
 
             listEl.appendChild(li);
@@ -844,6 +837,7 @@
                 const headers = lines[0].split(',').map(h => h.trim());
 
                 $('#product-table tbody').empty();
+                $('#hidden-products').empty();
                 productIndex = 0;
 
                 for (let i = 1; i < lines.length; i++) {
@@ -852,7 +846,7 @@
                     const product = {
                         product_name: data[headers.indexOf('Product_Name')] || '',
                         quantity: data[headers.indexOf('Quantity')] || '',
-                        material_remark: data[headers.indexOf('Material_Info')] || '',
+                        material_info: data[headers.indexOf('Material_Info')] || '',
                         remarks: []
                     };
 
@@ -913,156 +907,115 @@
 
         function validateProductForm() {
             clearValidationErrors();
-            const errors = [];
+            let valid = true;
 
             const productName = $('#product_name').val().trim();
             if (!productName) {
                 showValidationError('#product_name', 'Product name is required');
-                errors.push('Product name is required');
+                valid = false;
             }
 
             const quantity = parseInt($('#quantity').val());
             if (!quantity || quantity < 1) {
                 showValidationError('#quantity', 'Quantity must be at least 1');
-                errors.push('Quantity must be at least 1');
+                valid = false;
             }
 
             const remarks = $('#remarks-container .remark-row');
-            const operations = [];
             remarks.each(function() {
-                const select = $(this).find('select');
-                const input = $(this).find('input');
-                const operation = select.val();
-                const remark = input.val().trim();
-                const opText = select.find('option:selected').text();
+                const operation = $(this).find('select').val();
+                const remark = $(this).find('input').val().trim();
                 if (operation && !remark) {
-                    input.addClass('is-invalid');
-                    errors.push(`Remark text required for "${opText}"`);
-                }
-                if (operation) {
-                    if (operations.includes(operation)) {
-                        select.addClass('is-invalid');
-                        errors.push(`Duplicate operation: "${opText}"`);
-                    }
-                    operations.push(operation);
+                    showValidationError('#remarks-container', 'Remark text is required if operation selected');
+                    valid = false;
+                    return false;
                 }
             });
 
-            return errors;
+            return valid;
         }
 
         function validateRemarks() {
             clearValidationErrors();
-            const errors = [];
+            let valid = true;
             $('#remarks-container .remark-row').each(function() {
                 const operation = $(this).find('select').val();
                 const remark = $(this).find('input').val().trim();
                 if (operation && !remark) {
-                    $(this).find('input').addClass('is-invalid');
-                    errors.push('Remark text required');
+                    showValidationError('#remarks-container', 'Remark text is required if operation selected');
+                    valid = false;
+                    return false;
                 }
             });
-            return errors.length === 0;
+            return valid;
         }
 
         $('#order-form').on('submit', function(e) {
             clearValidationErrors();
-            const errors = [];
+            let valid = true;
+
+            if (!$('#lead_id').val() && !{{ $lead ? 1 : 0 }}) {
+                showValidationError('#leadSelect', 'Lead selection is required');
+                valid = false;
+            }
 
             const orderTitle = $('input[name="orderTitle"]').val().trim();
             if (!orderTitle) {
                 showValidationError('input[name="orderTitle"]', 'Job title is required');
-                errors.push('Job title is required');
+                valid = false;
             }
 
             const deadline = $('input[name="deadline"]').val();
             if (!deadline) {
                 showValidationError('input[name="deadline"]', 'Deadline is required');
-                errors.push('Deadline is required');
+                valid = false;
             }
 
             const approval = $('input[name="approval"]:checked').length;
             if (!approval) {
                 showValidationError('input[name="approval"]', 'Approval selection is required');
-                errors.push('Approval selection is required');
+                valid = false;
             }
 
             const products = $('#product-table tbody tr');
             if (products.length === 0) {
                 $('#products-error').text('At least one product is required').show();
-                errors.push('At least one product is required');
+                valid = false;
             } else {
-                products.each(function(idx) {
-                    const productErrors = [];
+                products.each(function() {
                     const productName = $(this).find('input[name$="[product_name]"]').val().trim();
-                    const quantityInput = $(this).find('input[name$="[quantity]"]');
-                    const quantity = parseInt(quantityInput.val());
+                    const quantity = parseInt($(this).find('input[name$="[quantity]"]').val());
                     if (!productName) {
                         $(this).find('input[name$="[product_name]"]').addClass('is-invalid');
-                        productErrors.push('Product name is required');
+                        valid = false;
+                        return false;
                     }
                     if (!quantity || quantity < 1) {
-                        quantityInput.addClass('is-invalid');
-                        productErrors.push('Quantity must be at least 1');
+                        $(this).find('input[name$="[quantity]"]').addClass('is-invalid');
+                        valid = false;
+                        return false;
                     }
                     const remarks = $(this).find('.remark-row');
-                    const operations = [];
                     remarks.each(function() {
-                        const select = $(this).find('select');
-                        const input = $(this).find('input');
-                        const operation = select.val();
-                        const remark = input.val().trim();
-                        const opText = select.find('option:selected').text();
+                        const operation = $(this).find('select').val();
+                        const remark = $(this).find('input').val().trim();
                         if (operation && !remark) {
-                            input.addClass('is-invalid');
-                            productErrors.push(`Remark text required for "${opText}"`);
-                        }
-                        if (operation) {
-                            if (operations.includes(operation)) {
-                                select.addClass('is-invalid');
-                                productErrors.push(`Duplicate operation: "${opText}"`);
-                            }
-                            operations.push(operation);
+                            $(this).find('input').addClass('is-invalid');
+                            valid = false;
+                            return false;
                         }
                     });
-                    if (productErrors.length > 0) {
-                        errors.push(`Product ${idx + 1}: ${productErrors.join(', ')}`);
-                    }
                 });
             }
 
-            if (errors.length > 0) {
+            if (!valid) {
                 e.preventDefault();
-                Swal.fire({
-                    title: 'Please fix the following errors',
-                    html: '<div style="text-align:left;"><ul><li>' + errors.join('</li><li>') + '</li></ul></div>',
-                    icon: 'error'
-                });
-            } else {
-                isDirty = false;
+                alert('Please fix the errors before saving.');
             }
         });
     });
-
-    function cancelOrder() {
-        if (!isDirty) {
-            history.back();
-            return;
-        }
-        Swal.fire({
-            title: 'Unsaved Changes',
-            html: 'You have unsaved changes. If you leave now, your changes will be lost.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Leave',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                history.back();
-            }
-        });
-    }
 </script>
 @endpush
 
 @endsection
+

@@ -24,7 +24,7 @@ class SalesController extends Controller
         return view('auth.login');
     }
 
-  public function dashboard(Request $request)
+public function dashboard(Request $request)
 {
     $user = Auth::user();
     if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
@@ -35,11 +35,12 @@ class SalesController extends Controller
     $currentMonth = Carbon::now()->month;
     $selectedSalespersonId = $request->get('salesperson_id');
 
-    // Salespeople list for head-salesperson
-    $salespeople = collect();
-    if ($user->hasRole('head-salesperson')) {
-        $salespeople = User::role(['salesperson', 'head-salesperson'])->get(['id', 'name']);
-    }
+   
+  $salespeople = collect();
+if ($user->hasRole('head-salesperson')) {
+    $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get(['id', 'name'])->sortBy('name');
+}
+  
 
     // Leads scope
     $leadsQuery = Lead::whereYear('created_at', $currentYear);
