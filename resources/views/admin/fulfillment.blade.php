@@ -643,12 +643,7 @@
                 <a href="{{ route('admin.fulfillment.product.show', $r->product_id) }}"
                   class="btn btn-icon btn-soft btn-soft-secondary"
                   title="View" data-bs-toggle="tooltip">
-                  <i class="bi bi-eye"></i>
-                </a>
-                <a href="{{ route('admin.fulfillment.edit', $r->product_id) }}"
-                  class="btn btn-icon btn-soft btn-soft-warning"
-                  title="Edit" data-bs-toggle="tooltip">
-                  <i class="bi bi-pencil-square"></i>
+                <i class="bi bi-pencil"></i>
                 </a>
               </div>
             </td>
