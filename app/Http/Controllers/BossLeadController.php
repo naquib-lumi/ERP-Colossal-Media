@@ -19,7 +19,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Validation\Rule;
 use App\Helpers\Helpers;
 use App\Models\Meeting;
-
+use App\Models\Order;
+use Illuminate\Support\Facades\Storage;
 
 use Carbon\Carbon;
 
@@ -436,22 +437,52 @@ class BossLeadController extends Controller
         }, 200, $headers);
     }
 
-    public function show($id)
+    public function show($leadId)
     {
         $user = Auth::user();
 
         $lead = Lead::with([
-            'user',
-            'attachments',
-            'notes.attachments',
-            'reminders' => fn($q) => $q->where('created_by', $user->id)->orderBy('remind_at')->take(10),
-            'orders',
-            'meetings' => fn($q) => $q->orderBy('start_time')
-        ])->findOrFail($id);
+            'orders' => function ($q) {
+                $q->select([
+                    'id',
+                    'lead_id',
+                    'order_number',
+                    'orderTitle',
+                    'orderStatus',
+                    'created_at',
+                    'redo',       // original order id if this row is a redo
+                    'status',     // 0/null = active, 1 = hidden/archived
+                ])
+                // HIDE orders where status = 1
+                ->where(function ($w) {
+                    $w->whereNull('status')->orWhere('status', 0);
+                })
+                ->orderByDesc('created_at');
+            },
+        ])->findOrFail($leadId);
 
-        // if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
-        //     abort(403, 'Unauthorized');
-        // }
+        // map: original order id -> original order_number (for redo rows)
+        $redoIds = $lead->orders->pluck('redo')->filter()->unique()->values();
+        $origMap = $redoIds->isNotEmpty()
+            ? Order::whereIn('id', $redoIds)->pluck('order_number', 'id')
+            : collect();
+
+        // add display fields for the blade
+        $lead->orders->transform(function ($o) use ($origMap) {
+            $isRedo = !empty($o->redo);
+
+            if ($isRedo && $origMap->has($o->redo)) {
+                // show the ORIGINAL base order number + 'R'
+                $o->display_order_number = rtrim($origMap[$o->redo]) . 'R';
+                $o->display_order_id     = (int) $o->redo;
+            } else {
+                $o->display_order_number = $o->order_number;
+                $o->display_order_id     = (int) $o->id;
+            }
+
+            $o->is_redo = $isRedo;
+            return $o;
+        });
 
         return view('boss.lead-view', compact('lead'));
     }
@@ -960,5 +991,36 @@ class BossLeadController extends Controller
             Log::error("Error updating meeting: " . $e->getMessage());
             return response()->json(['error' => 'Failed to update meeting'], 500);
         }
+    }
+
+    public function leadshowOrder(Order $order, $id)
+    {
+        // keep what you already load here (products, items, deliveryBreakdowns, etc.)
+        $order = Order::with('lead.attachments', 'salesperson', 'products', 'artist')->findOrFail($id);
+        $attachments = $order->getAttachmentPathsAttribute()->map(function ($path) {
+            return ['url' => Storage::url($path), 'name' => basename($path), 'size' => Storage::size($path)];
+        });
+        $leadAttachments = $order->lead ? $order->lead->attachments->map(function ($attachment) {
+            return [
+                'url' => asset('storage/' . $attachment->file_location),
+                'name' => basename($attachment->file_location),
+                'size' => $attachment->file_size
+            ];
+        }) : collect();
+        return view('boss.orders.show', compact('order', 'attachments', 'leadAttachments'));
+    }
+
+    private function fileInfoFromPath(string $relPath): array
+    {
+        // adjust disk if needed
+        $url  = Storage::disk('public')->url($relPath);
+        $ext  = pathinfo($relPath, PATHINFO_EXTENSION);
+
+        return [
+            'name' => basename($relPath),
+            'url'  => $url,
+            'size' => null, // unknown for order CSV; can be resolved if you want
+            'ext'  => $ext,
+        ];
     }
 }

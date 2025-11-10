@@ -505,6 +505,8 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::post('/boss/leads/{lead}/meetings', [BossLeadController::class, 'storeFromLead'])->name('boss.meetings.store');
         Route::put('/boss/calendar/meetings/{id}', [BossLeadController::class, 'updateFromCalendar'])->name('boss.calendar.meetings.update');
 
+        Route::get('/boss/orders/{id}', [BossLeadController::class, 'leadshowOrder'])->name('boss.orders.show')->whereNumber('order');;
+
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'fulfillment'])->name('boss.fulfillment');
         Route::get('/boss/fulfillment/show/{id}', [BossFulfillmentController::class, 'fulfillmentShow'])->name('boss.fulfillment.product.show');
         Route::get('/boss/fulfillment/{id}/edit', [BossFulfillmentController::class, 'fulfillmentEdit'])->name('boss.fulfillment.edit');

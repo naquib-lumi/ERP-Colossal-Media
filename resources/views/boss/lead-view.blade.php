@@ -544,40 +544,41 @@
                             <p class="text-muted">No orders yet.</p>
                         @else
                             <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
+                            <table class="table table-striped">
+                                <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Job Title</th>
+                                    <th>Created Date</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                @foreach ($lead->orders as $order)
+                                    @if ($order->orderStatus == 'completed')
                                         <tr>
-                                            <th>Order ID</th>
-                                            <th>Job Title</th>
-                                            <th>Created Date</th>
-                                            <th>Status</th>
-                                            <th>Action</th>
+                                            <td>{{ $order->display_order_number ?? $order->order_number }}</td>
+                                            <td>{{ $order->orderTitle }}</td>
+                                            <td>{{ $order->created_at->format('Y-m-d') }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ $order->orderStatus == 'To_assign' ? 'warning' : ($order->orderStatus == 'completed' ? 'success' : 'secondary') }}">
+                                                    {{ ucfirst($order->orderStatus) }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a href="{{ route('boss.orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary">
+                                                    View
+                                                </a>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($lead->orders as $order)
-                                            <tr>
-                                                <td>{{ $order->order_number }}</td>
-                                                <td>{{ $order->orderTitle }}</td>
-                                                <td>{{ $order->created_at->format('Y-m-d') }}</td>
-                                                <td><span
-                                                        class="badge bg-{{ $order->orderStatus == 'To_assign' ? 'warning' : ($order->orderStatus == 'completed' ? 'success' : 'secondary') }}">{{ ucfirst($order->orderStatus) }}</span>
-                                                </td>
-                                                <td>
-                                                    <a href="{{ route('orders.show', $order->id) }}"
-                                                        class="btn btn-sm btn-outline-primary">View</a>
-                                                    @if ($order->orderStatus == 'to_assign')
-                                                        <a href="{{ route('orders.edit', $order->id) }}?from=lead&lead_id={{ $lead->id }}"
-                                                            class="btn btn-sm btn-outline-warning ms-1">Edit</a>
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                                    @endif
+                                @endforeach
+                                </tbody>
+                            </table>
                             </div>
                         @endif
-                    </div>
+                        </div>
                 </div>
             </div>
             <!-- Reminder Modal -->
