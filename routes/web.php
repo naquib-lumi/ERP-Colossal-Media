@@ -379,6 +379,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/fulfillment', [AdminController::class, 'fulfillment'])->name('admin.fulfillment');
     Route::get('/admin/fulfillment/show/{id}', [AdminController::class, 'fulfillmentShow'])->name('admin.fulfillment.product.show');
     Route::get('/admin/fulfillment/{id}/edit', [AdminController::class, 'fulfillmentEdit'])->name('admin.fulfillment.edit');
+    Route::put('/admin/fulfillment/{product}/deliveries', [AdminController::class, 'updateDeliveries'])->name('admin.fulfillment.deliveries.update');
+    Route::post('/admin/fulfillment/permit', [AdminController::class, 'storePermit'])->name('admin.fulfillment.permit.store');
+    Route::get('/admin/permits/{product}/download', [AdminController::class, 'downloadPermit'])->name('admin.permits.download');
     Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
     Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user');
     Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
@@ -495,6 +498,7 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::delete('/boss/api/leads/{id}', [BossLeadController::class, 'destroy'])->name('boss.leads.destroy');
         Route::get('/boss/add-lead', [BossLeadController::class, 'create'])->name('boss.leads.create');
         Route::post('/boss/leads', [BossLeadController::class, 'store'])->name('boss.leads.store');
+        Route::post('/boss/calendar/reminders', [BossLeadController::class, 'storeReminder'])->name('boss.calendar.reminders.store');
     });
 
 

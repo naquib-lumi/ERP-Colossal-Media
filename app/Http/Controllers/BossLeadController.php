@@ -465,9 +465,9 @@ class BossLeadController extends Controller
         $lead = Lead::findOrFail($id);
 
         // Restrict normal salesperson but allow head-salesperson (and admin if needed)
-        if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        // if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
+        //     return response()->json(['error' => 'Unauthorized'], 403);
+        // }
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -498,9 +498,9 @@ class BossLeadController extends Controller
         $user = Auth::user();
         $lead = Lead::findOrFail($id);
 
-        if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        // if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
+        //     return response()->json(['error' => 'Unauthorized'], 403);
+        // }
 
         $validated = $request->validate([
             'content' => 'required|string',
@@ -541,9 +541,9 @@ class BossLeadController extends Controller
         $note = Note::findOrFail($noteId);
         $user = Auth::user();
 
-        if ($user->hasRole('boss') && $note->user_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        // if ($user->hasRole('boss') && $note->user_id !== $user->id) {
+        //     return response()->json(['error' => 'Unauthorized'], 403);
+        // }
 
         // Delete attachments
         foreach ($note->attachments as $attachment) {
@@ -574,9 +574,9 @@ class BossLeadController extends Controller
 
         $user = Auth::user();
         $lead = Lead::with('attachments')->findOrFail($id);
-        if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        // if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
+        //     return response()->json(['error' => 'Unauthorized'], 403);
+        // }
 
         $html = '<div class="table-responsive">';
         $html .= '<table class="table table-bordered table-hover">';
@@ -718,9 +718,9 @@ class BossLeadController extends Controller
 
         // Salesperson can only update their own leads
         // Head-salesperson can update any lead
-        if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        // if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
+        //     return response()->json(['error' => 'Unauthorized'], 403);
+        // }
 
         $request->validate([
             'status' => 'required|in:accept,reject,followup,new,meeting'
@@ -746,9 +746,9 @@ class BossLeadController extends Controller
         $user = Auth::user();
 
 
-        if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        // if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
+        //     return response()->json(['error' => 'Unauthorized'], 403);
+        // }
 
         $lead->update(['opportunity' => $request->input('opportunity')]);
 
@@ -762,9 +762,9 @@ class BossLeadController extends Controller
 
         // Salesperson can only delete their own leads
         // Head-salesperson can delete any lead
-        if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        // if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
+        //     return response()->json(['error' => 'Unauthorized'], 403);
+        // }
 
         $lead->delete();
 
@@ -830,5 +830,33 @@ class BossLeadController extends Controller
 
         $redirectRoute = $request->get('highlight') == 'remark' ? route('boss.leads.show', $id) : route('boss.leads');
         return redirect($redirectRoute)->with('success', 'Lead updated successfully');
+    }
+
+    public function storeReminder(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'lead_id' => 'required|exists:leads,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'remind_at' => 'required|date',
+        ]);
+
+        $lead = Lead::findOrFail($validated['lead_id']); 
+
+        $validated['salesperson_id'] = $user->id;
+        $validated['created_by'] = $user->id;
+        $validated['is_auto'] = false;
+        $validated['status'] = 'upcoming';
+
+        try {
+            $reminder = Reminder::create($validated);
+            Log::info("Reminder ID {$reminder->id} created for lead ID {$validated['lead_id']}");
+            return response()->json(['success' => true, 'reminder' => $reminder]);
+        } catch (\Exception $e) {
+            Log::error("Error creating reminder: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to create reminder'], 500);
+        }
     }
 }
