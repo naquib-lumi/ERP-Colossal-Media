@@ -7,6 +7,7 @@ use App\Models\MaterialType;
 use App\Models\Unit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class BossDataManagementController extends Controller
 {
@@ -17,6 +18,8 @@ class BossDataManagementController extends Controller
     public function index(Request $request)
     {
         $perPage = 10;
+
+        $activeTab = $request->query('tab', 'cost');
 
         // Filters lists
         $types = MaterialType::orderBy('name')->pluck('name', 'id');
@@ -109,7 +112,45 @@ class BossDataManagementController extends Controller
             return $m;
         });
 
-        return view('boss.datamanagement', compact('materials', 'types', 'units'));
+        // ===== Another Data: Orders + quantities =====
+
+        $orders = DB::table('orders as o')
+        // If this is a redo, o.redo points to the original order
+        ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
+
+        // Aggregate product & item quantities under this order
+        ->leftJoin('products as p', 'p.OrderID', '=', 'o.id')                  // products.OrderID → orders.id
+        ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')  // product_items.ProductID → products.ProductID
+
+        ->groupBy(
+            'o.id',
+            'o.order_number',
+            'o.created_at',
+            'o.status',
+            'o.redo',
+            'base.order_number'
+        )
+        ->select([
+            'o.id',
+            'o.order_number',                // the current order’s number
+            'o.created_at',
+            'o.status',                      // keep orders with status=1; blade can show REDO badge
+
+            // For redo display logic in blade:
+            'base.order_number as base_order_number',
+
+            // simple indicator you can also use, though blade can test o.redo directly
+            DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
+
+            // aggregates
+            DB::raw('COUNT(DISTINCT p.ProductID) AS products_count'),
+            DB::raw('COALESCE(SUM(pi.quantity), 0) AS total_item_quantity'),
+        ])
+        ->orderBy('o.created_at', 'desc')
+        ->paginate(10, ['*'], 'orders_page')
+        ->withQueryString();
+
+        return view('boss.datamanagement', compact('materials', 'types', 'units', 'orders', 'activeTab'));
     }
 
     // ---------- Types ----------

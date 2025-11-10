@@ -7,6 +7,16 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
+  .badge-redo {
+    display:inline-block;
+    padding: .15rem .45rem;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 600;
+    background: #fff7ed;   /* warm amber */
+    color: #b45309;
+    vertical-align: middle;
+  }
   :root{
     --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB; --thead:#F9FAFB;
     --text:#101828; --muted:#667085; --chip:#F2F4F7;
@@ -131,15 +141,20 @@
   <div class="d-flex align-items-center justify-content-between">
     <h1 class="title">Data Management</h1>
   </div>
-
+  @php $activeTab = $activeTab ?? request('tab', 'cost')@endphp
   <!-- Tabs -->
   <div class="tabs">
-    <button type="button" class="tab-btn active" data-target="#costData">Cost Data</button>
-    <button type="button" class="tab-btn" data-target="#anotherData">Another Data</button>
+    <a href="{{ route('boss.datamanagement', ['tab' => 'cost']) }}"
+      class="tab-btn {{ $activeTab === 'cost' ? 'active' : '' }}"
+      data-target="#costData">Cost Data</a>
+
+    <a href="{{ route('boss.datamanagement', ['tab' => 'another']) }}"
+      class="tab-btn {{ $activeTab === 'another' ? 'active' : '' }}"
+      data-target="#anotherData">Another Data</a>
   </div>
   <div class="tabs-border"></div>
 
-  <div class="tab-panel active" id="costData">
+<div class="tab-panel {{ ($activeTab === 'cost') ? 'active' : '' }}" id="costData">
     <div class="card">
       <div class="card-hd">
         <div>
@@ -222,7 +237,10 @@
             of {{ $materials->total() }} materials
           </div>
           <div>
-            {{ $materials->links('pagination::bootstrap-5') }}
+            {{ $materials
+              ->withQueryString()
+              ->appends(['tab' => 'cost'])
+              ->links('pagination::bootstrap-5') }}
           </div>
         </div>
       </div>
@@ -230,7 +248,7 @@
   </div>
 
   <!-- Keep "Another Data" as-is (do not touch) -->
-  <div class="tab-panel" id="anotherData">
+<div class="tab-panel {{ ($activeTab === 'another') ? 'active' : '' }}" id="anotherData">
   <!-- Header: title left, controls right -->
   <div class="another-head">
     <h2 class="another-title">Costing Data Management</h2>
@@ -265,15 +283,57 @@
           <th class="ad-actions">Actions</th>
         </tr>
       </thead>
-      <tbody id="adBody"><!-- dynamic --></tbody>
+      <tbody id="adBody">
+        @forelse($orders as $ord)
+          @php
+            $baseNo = $ord->base_order_number
+                      ?? $ord->order_number
+                      ?? ('ORD-' . now()->format('Y') . '-' . str_pad((int)($ord->id ?? 0), 4, '0', STR_PAD_LEFT));
+            $displayNo = '#' . ltrim($baseNo, '#');
+            if (!empty($ord->is_redo)) {
+                $displayNo .= 'R';
+            }
+            $showRedoBadge = ((int)($ord->status ?? 0) === 1);
+          @endphp
+
+          <tr>
+            <td>
+              <span class="fw-semibold">{{ $displayNo }}</span>
+              @if ($showRedoBadge)
+                <span class="badge-redo ms-2">Rejected for REDO</span>
+              @endif
+            </td>
+            <td>
+              <a href="javascript:void(0)" class="ad-qty-link">
+                {{ number_format((int)($ord->products_count ?? 0)) }} Products
+              </a>
+            </td>
+            <td class="ad-num">{{ number_format((int)($ord->total_item_quantity ?? 0)) }}</td>
+            <td class="ad-num">—</td> {{-- total cost to implement later --}}
+            <td class="ad-actions">
+              <button class="ad-eye" title="View"><i class="bi bi-eye"></i></button>
+            </td>
+          </tr>
+        @empty
+          <tr><td colspan="5" style="padding:20px; color:#667085;">No orders found.</td></tr>
+        @endforelse
+      </tbody>
     </table>
+    <div class="ad-foot">
+      <div class="ad-range">
+        Showing {{ $orders->firstItem() ?? 0 }} to {{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} results
+      </div>
+      <div class="ad-pager">
+        {{ $orders
+          ->withQueryString()
+          ->appends(['tab' => 'another'])
+          ->links('pagination::bootstrap-5') }}
+      </div>
+    </div>
   </div>
 
   <!-- Footer (range + pager) -->
-  <div class="ad-foot">
-    <div class="ad-range" id="adRange">Showing 0 to 0 of 0 results</div>
-    <div class="ad-pager" id="adPager"><!-- dynamic --></div>
-  </div>
+  
 </div>
 </div>
 
@@ -644,85 +704,45 @@ applyFilter = function() {
 window.addEventListener('load', paginateTable);
 
 // ============ Another Data (original, with dummy data) ============
-const DATA2 = [
-  { id:'ORD-2025-001', qtyProducts:6, used:12540, total:37.62, type:'Printing',     days:10 },
-  { id:'ORD-2025-002', qtyProducts:4, used: 8320, total:99.84, type:'Furnishing',   days:22 },
-  { id:'ORD-2025-003', qtyProducts:3, used: 6750, total:57.38, type:'Delivery',     days:15 },
-  { id:'ORD-2025-004', qtyProducts:3, used: 4200, total:27.30, type:'Installation', days:5  },
-  { id:'ORD-2025-005', qtyProducts:5, used: 9850, total:44.33, type:'Printing',     days:30 },
-  { id:'ORD-2025-006', qtyProducts:2, used: 3400, total:32.30, type:'Furnishing',   days:2  },
-  { id:'ORD-2025-007', qtyProducts:2, used: 2980, total:18.90, type:'Delivery',     days:60 },
-  { id:'ORD-2025-008', qtyProducts:7, used:15440, total:71.10, type:'Installation', days:9  },
-  { id:'ORD-2025-009', qtyProducts:4, used: 7720, total:36.26, type:'Printing',     days:12 },
-  { id:'ORD-2025-010', qtyProducts:5, used: 9180, total:49.02, type:'Furnishing',   days:42 },
-  { id:'ORD-2025-011', qtyProducts:3, used: 6000, total:27.00, type:'Delivery',     days:8  },
-  { id:'ORD-2025-012', qtyProducts:6, used:12010, total:66.55, type:'Installation', days:28 },
-];
-const PAGE_SIZE2 = 6;
-let state2 = { q:'', type:'all', days:'all', page:1 };
+(function () {
+  const $$ = s => Array.from(document.querySelectorAll(s));
 
-const adBody  = document.getElementById('adBody');
-const adRange = document.getElementById('adRange');
-const adPager = document.getElementById('adPager');
+  function activate(targetSel) {
+    // buttons
+    $$('.tab-btn').forEach(a => a.classList.toggle('active', a.dataset.target === targetSel));
+    // panels
+    $$('.tab-panel').forEach(p => p.classList.toggle('active', ('#' + p.id) === targetSel));
+  }
 
-function filterData2(){
-  const q = state2.q.toLowerCase();
-  const maxDays = state2.days==='all' ? Infinity :
-                  state2.days==='m'   ? 31 :
-                  state2.days==='lm'  ? 62 : Number(state2.days);
-  return DATA2.filter(d=>{
-    const hitQ = !q || d.id.toLowerCase().includes(q);
-    const hitT = state2.type==='all' || d.type===state2.type;
-    const hitD = d.days <= maxDays;
-    return hitQ && hitT && hitD;
+  function hashFor(targetSel) {
+    return targetSel === '#anotherData' ? '#another' : '#cost';
+  }
+
+  function applyFromHash() {
+    const h = (location.hash || '').toLowerCase();
+    if (h === '#another') activate('#anotherData');
+    else {
+      activate('#costData');
+      if (h !== '#cost') history.replaceState(null, '', '#cost');
+    }
+  }
+
+  // 1) Click tabs → sync hash and activate now
+  document.addEventListener('click', e => {
+    const a = e.target.closest('.tab-btn');
+    if (!a) return;
+    const targetSel = a.dataset.target;
+    const newHash = hashFor(targetSel);
+    if (location.hash !== newHash) history.replaceState(null, '', newHash);
+    activate(targetSel);
+    e.preventDefault();
   });
-}
-function paginate2(items){
-  const start = (state2.page-1)*PAGE_SIZE2;
-  const end   = start + PAGE_SIZE2;
-  return { slice:items.slice(start,end), start:start+1, end:Math.min(end, items.length), total:items.length };
-}
-function rowTpl2(d){
-  return `
-    <tr>
-      <td>${d.id}</td>
-      <td><a href="javascript:void(0)" class="ad-qty-link">${d.qtyProducts} Products</a></td>
-      <td class="ad-num">${d.used.toLocaleString()}</td>
-      <td class="ad-num">RM ${d.total.toFixed(2)}</td>
-      <td class="ad-actions">
-        <button class="ad-eye" aria-label="View"><i class="bi bi-eye"></i></button>
-      </td>
-    </tr>
-  `;
-}
-function render2(){
-  const filtered = filterData2();
-  const pg = paginate2(filtered);
-  if(pg.total===0){
-    adBody.innerHTML = `<tr><td colspan="5" style="padding:20px; color:#667085;">No results found.</td></tr>`;
-    adRange.textContent = `Showing 0 to 0 of 0 results`;
-    adPager.innerHTML = '';
-    return;
-  }
-  adBody.innerHTML = pg.slice.map(rowTpl2).join('');
-  adRange.textContent = `Showing ${pg.start} to ${pg.end} of ${pg.total} results`;
 
-  const pages = Math.ceil(pg.total/PAGE_SIZE2);
-  let html = '';
-  html += `<button class="ad-nav" ${state2.page<=1?'disabled':''} onclick="gotoPage2(${state2.page-1})"><i class="bi bi-chevron-left"></i></button>`;
-  for(let i=1;i<=pages;i++){
-    html += `<button class="ad-page ${i===state2.page?'active':''}" onclick="gotoPage2(${i})">${i}</button>`;
-  }
-  html += `<button class="ad-nav" ${state2.page>=pages?'disabled':''} onclick="gotoPage2(${state2.page+1})"><i class="bi bi-chevron-right"></i></button>`;
-  adPager.innerHTML = html;
-}
-function gotoPage2(p){ state2.page = p; render2(); }
+  // 2) Immediately reflect current hash (works on reload/pagination)
+  applyFromHash();
 
-document.getElementById('adSearch').addEventListener('input', e => { state2.q   = e.target.value.trim(); state2.page=1; render2(); });
-document.getElementById('adType').addEventListener('change',  e => { state2.type= e.target.value;       state2.page=1; render2(); });
-document.getElementById('adDate').addEventListener('change',  e => { state2.days= e.target.value;       state2.page=1; render2(); });
-
-// initial render (only when the tab exists on page)
-if (adBody && adRange && adPager) render2();
+  // 3) Also handle back/forward
+  window.addEventListener('hashchange', applyFromHash);
+})();
 </script>
 @endsection
