@@ -621,67 +621,142 @@ class AdminController extends Controller
     /* -------------------- Fulfillment -------------------- */
     public function fulfillment(Request $request)
     {
-        // entries per page (restore)
+        // --- pagination
         $perPage = (int) $request->query('per_page', 10);
         $perPage = $perPage > 0 ? $perPage : 10;
 
-        // --- latest permit per product ---
+        // --- filters from toolbar
+        $orderId  = trim((string) $request->query('order_id', ''));
+        $artistId = $request->query('artist', '');           // allow '' | '0' | '123'
+        $q        = trim((string) $request->query('q', ''));
+        $task     = strtolower(trim((string) $request->query('task', '')));
+        $status   = strtolower(trim((string) $request->query('status', '')));
+
+        // ---- Date range from "dd/mm/yyyy - dd/mm/yyyy"
+        $from = $to = null;
+        if ($dr = trim((string) $request->query('date_range', ''))) {
+            // tolerate " - " or "~"
+            $parts = preg_split('/\s*[-~]\s*/', $dr);
+            if (!empty($parts[0])) {
+                try { $from = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[0]))->format('Y-m-d'); } catch (\Throwable $e) {}
+            }
+            if (!empty($parts[1])) {
+                try { $to = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[1]))->format('Y-m-d'); } catch (\Throwable $e) {}
+            }
+        }
+
+        // ---- latest permit row per product
         $latestPermit = DB::table('product_permit')
             ->select('product_id', DB::raw('MAX(id) as last_id'))
             ->groupBy('product_id');
 
         $query = DB::table('products as p')
             ->join('orders as o', 'o.id', '=', 'p.OrderID')
-            ->leftJoin('products as op', 'op.ProductID', '=', 'p.redoOf')            // origin
+            ->leftJoin('products as op', 'op.ProductID', '=', 'p.redoOf')
             ->leftJoin('delivery_breakdowns as d', 'd.ProductID', '=', 'p.ProductID')
-            // join latest permit id, then the actual permit row
             ->leftJoinSub($latestPermit, 'pp', 'pp.product_id', '=', 'p.ProductID')
             ->leftJoin('product_permit as pf', 'pf.id', '=', 'pp.last_id')
-
-            // active orders only
-            ->where(function ($q) {
-                $q->whereNull('o.status')->orWhere('o.status', 0);
-            })
+            ->where(function ($q) { $q->whereNull('o.status')->orWhere('o.status', 0); })
             ->where('o.orderStatus', 'completed')
-
             ->select([
-                'p.ProductID',
-                'p.OrderID',
-                'p.productName',
-                'p.taskType',
-                'p.status as product_status',
-                'p.redoOf',
-                'p.editable',
-
-                'o.id as order_id',
-                'o.redo as order_redo',
-                'o.orderTitle',
-                'o.companyName',
-                'o.orderDate',
-                'o.created_at as order_created_at',
-
-                'd.BreakdownID as breakdown_id',
-                'd.date  as delivery_date',
-                'd.time  as delivery_time',
-                'd.location as delivery_location',
-                'd.deliver_install_type',
-                'd.outsource_cost',
-
-                // permit
+                'p.ProductID','p.OrderID','p.productName','p.taskType','p.status as product_status',
+                'p.redoOf','p.editable',
+                'o.id as order_id','o.redo as order_redo','o.orderTitle','o.companyName',
+                'o.orderDate','o.created_at as order_created_at',
+                'd.BreakdownID as breakdown_id','d.date as delivery_date','d.time as delivery_time',
+                'd.location as delivery_location','d.deliver_install_type','d.outsource_cost',
                 'pf.permit_file',
             ])
-
-            // DEFAULT SORT:
-            // 1) rows missing date OR location first
-            // 2) then by delivery date/time
+            // rows missing date/location first → then by delivery date/time
             ->orderByRaw('CASE WHEN d.date IS NULL OR d.location IS NULL THEN 0 ELSE 1 END ASC')
             ->orderByRaw('COALESCE(d.date, o.orderDate, o.created_at) ASC')
             ->orderByRaw('COALESCE(d.time, "00:00:00") ASC');
 
+        // (1) Order box: numeric id or text (job title)
+        if ($orderId !== '') {
+            if (preg_match('/^\d+$/', $orderId)) {
+                $query->where(function ($w) use ($orderId) {
+                    $w->where('o.id', $orderId)
+                    ->orWhere('p.ProductID', 'like', "%{$orderId}%")
+                    ->orWhere('p.redoOf',   'like', "%{$orderId}%");
+                });
+            } else {
+                $query->where('o.orderTitle', 'like', "%{$orderId}%");
+            }
+        }
+
+        // (2) Artist filter (assignee)
+        if ($artistId !== '' && $artistId !== null) {
+            $query->where('o.artist_id', (int) $artistId);
+        }
+
+        // (3) Global search
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('o.orderTitle',  'like', "%{$q}%")
+                ->orWhere('o.companyName','like', "%{$q}%")
+                ->orWhere('p.productName','like', "%{$q}%");
+            });
+        }
+
+        // (4) Task filter
+        if ($task !== '') {
+            $taskNorm = str_replace('&', 'and', $task);
+            $taskNorm = preg_replace('/\s+/', '_', $taskNorm);
+            if (in_array($taskNorm, ['printing','furnishing'], true)) {
+                $query->whereRaw('LOWER(p.taskType) = ?', [$taskNorm]);
+            } elseif (in_array($taskNorm, ['delivery','dispatch_control'], true)) {
+                $query->whereRaw('LOWER(p.taskType) = ?', ['delivery']);
+            } elseif (in_array($taskNorm, ['installation','delivery_installation','delivery_and_installation'], true)) {
+                $query->whereRaw('LOWER(p.taskType) = ?', ['installation']);
+            }
+        }
+
+        // (5) Status filter
+        if ($status !== '') {
+            $query->whereRaw('LOWER(p.status) = ?', [$status]);
+        }
+
+        // --- DELIVERY DATE range (accepts either from/to or date_range)
+    $from = trim((string) $request->query('from', ''));
+    $to   = trim((string) $request->query('to',   ''));
+
+    // normalize to Y-m-d; input[type=date] already posts Y-m-d
+    $normDate = function (?string $v) {
+        if (!$v) return null;
+        $v = trim($v);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) return $v;  // already Y-m-d
+        try { return \Carbon\Carbon::parse($v)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+    };
+
+    $from = $normDate($from);
+    $to   = $normDate($to);
+
+    // fallback: support old "date_range" field in dd/mm/yyyy - dd/mm/yyyy
+    if (!$from && !$to) {
+        if ($dr = trim((string) $request->query('date_range', ''))) {
+            $parts = preg_split('/\s*[-~]\s*/', $dr);
+            if (!empty($parts[0])) {
+                try { $from = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[0]))->format('Y-m-d'); } catch (\Throwable $e) {}
+            }
+            if (!empty($parts[1])) {
+                try { $to   = \Carbon\Carbon::createFromFormat('d/m/Y', trim($parts[1]))->format('Y-m-d'); } catch (\Throwable $e) {}
+            }
+        }
+    }
+
+        if ($from && $to) {
+            $query->whereBetween('d.date', [$from, $to]);
+        } elseif ($from) {
+            $query->whereDate('d.date', '>=', $from);
+        } elseif ($to) {
+            $query->whereDate('d.date', '<=', $to);
+        }
+
         // paginate
         $rows = $query->paginate($perPage)->appends($request->query());
 
-        // map display fields
+        // map display
         $rows->setCollection(
             $rows->getCollection()->map(function ($r) {
                 $baseOrderId   = $r->order_redo ?: $r->order_id;
@@ -701,7 +776,6 @@ class AdminController extends Controller
                     default        => $task !== '' ? ucfirst($task) : '-',
                 };
 
-                // date/time display
                 $dt = null;
                 if ($r->delivery_date) {
                     $dt = $r->delivery_time
@@ -709,55 +783,66 @@ class AdminController extends Controller
                         : \Carbon\Carbon::parse($r->delivery_date)->format('Y-m-d');
                 }
 
-                // install type label
                 $installLabel = match (strtolower((string)$r->deliver_install_type)) {
-                    'in_house', 'in-house' => 'In House',
-                    'outsource'            => 'Outsource',
-                    'both'                 => 'Both',
-                    default                => '—',
+                    'in_house','in-house' => 'In House',
+                    'outsource'           => 'Outsource',
+                    'both'                => 'Both',
+                    default               => '—',
                 };
 
-                // build permit URL (if any)
+                // permit_url from either "path" or "path|OriginalName"
                 $permitUrl = null;
                 if (!empty($r->permit_file)) {
-                    if (Str::startsWith($r->permit_file, ['http://', 'https://'])) {
-                        $permitUrl = $r->permit_file;
-                    } else {
-                        // assuming public disk; adjust if you store elsewhere
-                        $permitPath = ltrim($r->permit_file, '/');
-                        $permitUrl  = asset('storage/' . $permitPath);
-                    }
+                    $parts = explode('|', $r->permit_file, 2);
+                    $storedPath = ltrim($parts[0], '/');               // e.g. "permits/2025/11/file.pdf"
+                    // files are saved on "public" disk → served at /storage/...
+                    $permitUrl  = asset('storage/'.$storedPath);
                 }
 
                 return (object)[
                     'product_code'   => $productCode,
                     'product_id'     => (int)$r->ProductID,
                     'breakdown_id'   => (int)($r->breakdown_id ?? 0),
-
                     'order_title'    => $r->orderTitle,
                     'company'        => $r->companyName,
-
                     'task_label'     => $taskLabel,
                     'status'         => (string)($r->product_status ?? ''),
-
-                    'delivery_dt'    => $dt,                                      // may be null
-                    'delivery_loc'   => (string)($r->delivery_location ?? ''),     // may be ''
-
-                    'install_type'   => $installLabel,                             // formatted for UI
+                    'delivery_dt'    => $dt,
+                    'delivery_loc'   => (string)($r->delivery_location ?? ''),
+                    'install_type'   => $installLabel,
                     'outsource_cost' => is_null($r->outsource_cost) ? null : (float)$r->outsource_cost,
-
-                    // for permit column
                     'permit_url'     => $permitUrl,
                 ];
             })
         );
 
+        // --- populate artist dropdown (all artists & head-artists)
+        $assignees = DB::table('users')
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->orderBy('name')
+            ->get(['id','name','role']);
+
+        // optional: distinct statuses for the status dropdown
+        $statuses = DB::table('products')
+            ->whereNotNull('status')
+            ->selectRaw('LOWER(status) as status')
+            ->distinct()
+            ->orderBy('status')
+            ->pluck('status')
+            ->toArray();
+
         return view('admin.fulfillment', [
-            'rows'     => $rows,     // paginator
-            'per_page' => $perPage,
+            'rows'       => $rows,
+            'per_page'   => $perPage,
+            'assignees'  => $assignees,
+            'statuses'   => $statuses,
+            'filters'    => [
+                'from' => $from,
+                'to'   => $to,
+                // ...whatever else you’re already passing
+            ],
         ]);
     }
-
 
     public function fulfillmentShow(Request $request, int $id)
     {

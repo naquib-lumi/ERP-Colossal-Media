@@ -6,6 +6,19 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
 <style>
+  .bg-purple { background-color: #6f42c1 !important; color: #fff !important; }
+  .bg-teal { background-color: #20c997 !important; color: #fff !important; }
+  .bg-orange { background-color: #fd7e14 !important; color: #fff !important; }
+
+  .badge-pill{border-radius:999px;padding:.28rem .6rem;font-weight:600;font-size:.74rem}
+  .badge-progress{background:#eef2ff;color:#4338ca}
+  .badge-completed{background:#ecfdf5;color:#047857}
+  .badge-rejected{background:#fef2f2;color:#b91c1c}
+  .badge-pending{background:#fff7ed;color:#b45309}
+
+  .toolbar .form-select,
+  .toolbar .input-group{height:38px}
+
   .card-ft nav {
     gap: 20px; /* spacing between selector and navigator */
   }
@@ -513,38 +526,122 @@
 </style>
 
 {{-- Toolbar --}}
-<form class="toolbar" method="get" action="{{ route('admin.fulfillment') }}">
-  <div class="tb-row">
-    <input class="control" name="order_id" value="{{ request('order_id') }}" placeholder="Search by Order ID or Job Title">
-    <input class="control" name="artist" value="{{ request('artist') }}" placeholder="Search artist name...">
-    <input class="control" name="q" value="{{ request('q') }}" placeholder="Search orders or product details">
-    <select class="control" name="task">
-      <option value="">All Task Types</option>
-      <option value="delivery" {{ request('task')==='delivery'?'selected':'' }}>Delivery</option>
-      <option value="installation" {{ request('task')==='installation'?'selected':'' }}>Installation</option>
-    </select>
-    <select class="control" name="status">
-      <option value="">All statuses</option>
-      @foreach(['pending'=>'Pending','in_progress'=>'In Progress','completed'=>'Completed'] as $k=>$v)
-      <option value="{{ $k }}" {{ request('status')===$k?'selected':'' }}>{{ $v }}</option>
-      @endforeach
-    </select>
+@php
+  // keep current values in the form
+  $filters = [
+    'order_id' => request('order_id',''),
+    'q'        => request('q',''),
+    'artist'   => request('artist',''),
+    'task'     => request('task',''),
+    'status'   => request('status',''),
+    'from'     => request('from',''),
+    'to'       => request('to',''),
+  ];
+
+  // task list (labels)
+  $tasks = [
+    ''             => 'All Task Types',
+    'printing'     => 'Printing',
+    'furnishing'   => 'Furnishing',
+    'delivery'     => 'Dispatch Controller',
+    'installation' => 'Delivery & Installation',
+  ];
+
+  // if controller didn’t pass $statuses, provide a sane fallback
+  $statuses = $statuses ?? ['pending','in_progress','completed','rejected'];
+@endphp
+
+<div class="card mb-4">
+  <div class="card-body toolbar">
+    <form id="ff-filter-form" method="GET" action="{{ route('admin.fulfillment') }}" class="row g-2 align-items-center">
+
+      {{-- ===== Title + date + buttons ===== --}}
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h4 class="mb-0">Fulfillment Overview</h4>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <div class="input-group" style="max-width:320px;">
+            <input type="date" id="fromDate" name="from" class="form-control" value="{{ $filters['from'] }}">
+            <span class="input-group-text">~</span>
+            <input type="date" id="toDate"   name="to"   class="form-control" value="{{ $filters['to'] }}">
+          </div>
+          <button type="submit" form="ff-filter-form" class="btn btn-primary px-4">Filter</button>
+          <a href="{{ route('admin.fulfillment') }}" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </div>
+
+      {{-- ===== Filter row ===== --}}
+
+      {{-- Product / Order / ID (short) --}}
+      <div class="col-12 col-lg-2">
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-hash"></i></span>
+          <input type="text"
+                 name="order_id"
+                 class="form-control"
+                 placeholder="Enter Product ID"
+                 value="{{ $filters['order_id'] }}">
+        </div>
+      </div>
+
+      {{-- Search job title, company or product (long) --}}
+      <div class="col-12 col-lg-4">
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input id="ff-search"
+                 type="text"
+                 name="q"
+                 class="form-control"
+                 placeholder="Search job title, company or product name"
+                 value="{{ $filters['q'] }}">
+        </div>
+      </div>
+
+      {{-- All assignees (artist) --}}
+      <div class="col-12 col-lg-2">
+        <select name="artist" class="form-select">
+          <option value="">All assignees</option>
+          @foreach(($assignees ?? collect()) as $u)
+            <option value="{{ $u->id }}" {{ (string)$filters['artist']===(string)$u->id ? 'selected' : '' }}>
+              {{ $u->name }}{{ isset($u->role) ? ' ('.$u->role.')' : '' }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+
+      {{-- Status --}}
+      <div class="col-6 col-lg-2">
+        @php
+          $statusOptions = ['' => 'All Statuses'];
+          foreach ($statuses as $s) {
+            $label = $s === 'in_progress'
+              ? 'In Progress'
+              : \Illuminate\Support\Str::of($s)->replace('_',' ')->title();
+            $statusOptions[$s] = $label;
+          }
+        @endphp
+        <select id="ff-status" name="status" class="form-select">
+          @foreach($statusOptions as $val => $label)
+            <option value="{{ $val }}" {{ $filters['status']===$val ? 'selected' : '' }}>{{ $label }}</option>
+          @endforeach
+        </select>
+      </div>
+
+      {{-- Task types --}}
+      <div class="col-6 col-lg-2">
+        <select id="ff-task" name="task" class="form-select">
+          @foreach($tasks as $val => $label)
+            <option value="{{ $val }}" {{ $filters['task']===$val ? 'selected' : '' }}>{{ $label }}</option>
+          @endforeach
+        </select>
+      </div>
+
+    </form>
   </div>
-  <div class="tb-row2">
-    <input id="dateRange" class="control" name="date_range" value="{{ request('date_range') }}" placeholder="Select date range (dd/mm/yyyy - dd/mm/yyyy)">
-    <button class="btn btn-primary" type="submit">Filter</button>
-    <a class="btn btn-ghost" href="{{ route('admin.fulfillment') }}">Reset</a>
-    <a class="btn btn-outline" href="{{ route('admin.fulfillment', array_merge(request()->all(), ['export'=>1])) }}">
-      <i class='bx bx-export'></i> Export
-    </a>
-  </div>
-</form>
+</div>
 
 {{-- Fulfillment Table --}}
 <div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h4 class="mb-0">Fulfillment Overview</h4>
-  </div>
 
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -573,12 +670,22 @@
           'rejected' => 'bg-danger',
           default => 'bg-secondary'
           };
+
+          $taskLabel  = $r->task_label ?? '-';
+          $taskClass  = match (strtolower($taskLabel)) {
+            'printing'                 => 'bg-secondary text-white',   // gray
+            'furnishing'               => 'bg-purple text-white',      // custom purple (see CSS note below)
+            'dispatch control'         => 'bg-warning text-dark',      // yellow
+            'delivery & installation'  => 'bg-primary text-white',     // blue
+            default                    => 'bg-light text-dark',
+          };
           @endphp
+          
           <tr>
             <td class="fw-semibold">{{ $r->product_code }}</td>
             <td>{{ $r->order_title ?? '-' }}</td>
             <td>{{ $r->company ?? '-' }}</td>
-            <td>{{ $r->task_label }}</td>
+            <td><span class="badge {{ $taskClass }}">{{ $taskLabel }}</span></td>
             <td><span class="badge {{ $statusClass }}">
                 {{ \Illuminate\Support\Str::of($r->status)->replace('_', ' ')->title() ?: '-' }}
               </span></td>
@@ -827,5 +934,22 @@
         <i class="bi bi-eye"></i>
       </a>`;
   }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const fromInput = document.getElementById('fromDate');
+    const toInput   = document.getElementById('toDate');
+
+    function syncMin() {
+      if (fromInput.value) {
+        toInput.min = fromInput.value;
+        if (toInput.value && toInput.value < fromInput.value) {
+          toInput.value = fromInput.value;
+        }
+      } else {
+        toInput.removeAttribute('min');
+      }
+    }
+    fromInput?.addEventListener('change', syncMin);
+    syncMin();
 </script>
 @endsection
