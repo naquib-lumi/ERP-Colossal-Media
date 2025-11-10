@@ -501,6 +501,9 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::post('/boss/calendar/reminders', [BossLeadController::class, 'storeReminder'])->name('boss.calendar.reminders.store');
         Route::post('/boss/calendar/meetings/{id}/update-status', [BossLeadController::class, 'updateCalendarStatus']);
         Route::post('/boss/calendar/reminders/{id}/update-status', [BossLeadController::class, 'updateReminderStatus']);
+        Route::post('/boss/meetings/{id}/status', [BossLeadController::class, 'updateMeetingStatus'])->name('boss.meetings.update.status');
+        Route::post('/boss/leads/{lead}/meetings', [BossLeadController::class, 'storeFromLead'])->name('boss.meetings.store');
+        Route::put('/boss/calendar/meetings/{id}', [BossLeadController::class, 'updateFromCalendar'])->name('boss.calendar.meetings.update');
 
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'fulfillment'])->name('boss.fulfillment');
         Route::get('/boss/fulfillment/show/{id}', [BossFulfillmentController::class, 'fulfillmentShow'])->name('boss.fulfillment.product.show');

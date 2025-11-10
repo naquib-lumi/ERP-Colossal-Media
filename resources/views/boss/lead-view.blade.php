@@ -681,7 +681,7 @@
                         let formData = new FormData($('#meetingForm')[0]);
                         formData.append('_token', '{{ csrf_token() }}');
                         $.ajax({
-                            url: '{{ route('meetings.store', ['lead' => $lead->id]) }}',
+                            url: '{{ route('boss.meetings.store', ['lead' => $lead->id]) }}',
                             type: 'POST',
                             data: formData,
                             contentType: false,
@@ -704,7 +704,7 @@
                         formData.append('_method', 'PUT');
                         formData.append('_token', '{{ csrf_token() }}');
                         $.ajax({
-                            url: `/calendar/meetings/${id}`,
+                            url: `/boss/calendar/meetings/${id}`,
                             type: 'POST',
                             data: formData,
                             contentType: false,
@@ -801,7 +801,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                         let id = $(this).data('id');
                         let status = $(this).val();
                         $.ajax({
-                            url: `/meetings/${id}/status`,
+                            url: `/boss/meetings/${id}/status`,
                             type: 'POST',
                             data: {
                                 status: status,

@@ -876,4 +876,89 @@ class BossLeadController extends Controller
             $reminder->update(['status' => $validated['status']]);
         return response()->json(['success' => true]);
     }
+
+    public function updateMeetingStatus(Request $request, $id)
+    {
+        $validated = $request->validate(['status' => 'required|in:scheduled,canceled,postponed']);
+        $meeting = Meeting::findOrFail($id);
+        $meeting->update(['status' => $validated['status']]);
+        return response()->json(['success' => true]);
+    }
+
+    public function storeFromLead(Request $request, $leadId)
+    {
+        $validated = $request->validate([
+            // 'lead_id' => 'required|exists:leads,id',
+            'title' => 'required|string|max:255',
+            'start_time' => 'required|date',
+            'duration' => 'required|integer|min:1',
+            'type' => 'nullable|in:online,offline',
+            'url' => 'nullable|url',
+            'location' => 'nullable|string',
+            'note' => 'nullable|string',
+        ]);
+        // Check for existing meeting with same lead, title, and start time
+        $existingMeeting = Meeting::where('lead_id', $leadId)
+            ->where('title', $validated['title'])
+            ->where('start_time', Carbon::parse($validated['start_time']))
+            ->first();
+
+        if ($existingMeeting) {
+            return response()->json(['error' => 'A meeting with this title and time already exists for this lead.'], 422);
+        }
+
+        $meeting = Meeting::create([
+            'lead_id' => $leadId,
+            'user_id' => Auth::id(),
+            'title' => $validated['title'],
+            'start_time' => Carbon::parse($validated['start_time']),
+            'end_time' => Carbon::parse($validated['start_time'])->addMinutes((int) $validated['duration']),
+            'type' => $validated['type'],
+            'location' => $validated['type'] === 'offline' ? $validated['location'] : null,
+            'url' => $validated['type'] === 'online' ? $validated['url'] : null,
+            'note' => $validated['note'],
+            'status' => 'scheduled',
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Meeting created successfully', 'meeting' => $meeting]);
+    }
+
+    public function updateFromCalendar(Request $request, $id)
+    {
+        $user = Auth::user();
+        $meeting = Meeting::findOrFail($id);
+
+        Log::info('updateMeeting FormData:', $request->all());
+
+        $validated = $request->validate([
+            'lead_id' => 'required|exists:leads,id',
+            'title' => 'required|string|max:255',
+            'start_time' => 'required|date',
+            'duration' => 'required|integer|min:1',
+            'type' => 'nullable|in:online,offline',
+            'url' => 'nullable|url',
+            'location' => 'nullable|string',
+            'note' => 'nullable|string',
+        ]);
+
+        $lead = Lead::findOrFail($validated['lead_id']);
+
+        $validated['end_time'] = Carbon::parse($validated['start_time'])->addMinutes((int) $validated['duration']);
+        unset($validated['duration']);
+        $type = $validated['type'] ?? null;
+        if ($type === 'online') {
+            $validated['location'] = null;
+        } elseif ($type === 'offline') {
+            $validated['url'] = null;
+        }
+
+        try {
+            $meeting->update($validated);
+            Log::info("Meeting ID {$id} updated for lead ID {$validated['lead_id']}");
+            return response()->json(['success' => true, 'meeting' => $meeting]);
+        } catch (\Exception $e) {
+            Log::error("Error updating meeting: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to update meeting'], 500);
+        }
+    }
 }
