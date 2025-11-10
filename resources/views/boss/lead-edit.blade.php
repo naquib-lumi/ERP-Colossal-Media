@@ -97,7 +97,7 @@
                             <!-- Assign To -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    @if (Auth::user()->hasRole('boss'))
+                                    @if (Auth::user()->hasRole('salesperson'))
                                         <input type="text" class="form-control" id="assignTo" name="salesperson_id" value="{{ Auth::user()->name }}" readonly>
                                         <input type="hidden" name="salesperson_id" value="{{ Auth::user()->id }}">
                                         <label for="assignTo">Assigned To (Me)</label>

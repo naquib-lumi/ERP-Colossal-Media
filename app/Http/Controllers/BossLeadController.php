@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Validation\Rule;
 use App\Helpers\Helpers;
-
+use App\Models\Meeting;
 
 
 use Carbon\Carbon;
@@ -858,5 +858,22 @@ class BossLeadController extends Controller
             Log::error("Error creating reminder: " . $e->getMessage());
             return response()->json(['error' => 'Failed to create reminder'], 500);
         }
+    }
+
+    public function updateCalendarStatus(Request $request, $id)
+    {
+        $validated = $request->validate(['status' => 'required|in:scheduled,canceled,postponed']);
+        $meeting = Meeting::findOrFail($id);
+        $meeting->update(['status' => $validated['status']]);
+        return response()->json(['success' => true]);
+    }
+
+    public function updateReminderStatus(Request $request, $id)
+    {
+            $user = Auth::user();
+            $reminder = Reminder::findOrFail($id);
+            $validated = $request->validate(['status' => 'required|in:upcoming,overdue,completed']);
+            $reminder->update(['status' => $validated['status']]);
+        return response()->json(['success' => true]);
     }
 }

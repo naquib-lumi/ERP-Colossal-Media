@@ -497,7 +497,10 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::delete('/boss/api/leads/{id}', [BossLeadController::class, 'destroy'])->name('boss.leads.destroy');
         Route::get('/boss/add-lead', [BossLeadController::class, 'create'])->name('boss.leads.create');
         Route::post('/boss/leads', [BossLeadController::class, 'store'])->name('boss.leads.store');
+
         Route::post('/boss/calendar/reminders', [BossLeadController::class, 'storeReminder'])->name('boss.calendar.reminders.store');
+        Route::post('/boss/calendar/meetings/{id}/update-status', [BossLeadController::class, 'updateCalendarStatus']);
+        Route::post('/boss/calendar/reminders/{id}/update-status', [BossLeadController::class, 'updateReminderStatus']);
 
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'fulfillment'])->name('boss.fulfillment');
         Route::get('/boss/fulfillment/show/{id}', [BossFulfillmentController::class, 'fulfillmentShow'])->name('boss.fulfillment.product.show');
