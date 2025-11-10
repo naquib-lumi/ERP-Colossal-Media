@@ -444,7 +444,6 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::get('/boss/reports/sales/export', [BossReportController::class, 'exportSales'])->name('boss.reports.sales.export');
         Route::post('/boss/reports/machines', [BossReportController::class, 'storeMachine'])->name('boss.machines.store');
 
-        Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'index'])->name('boss.fulfillment');
         Route::get('/boss/manageuser', [BossManageUserController::class, 'index'])->name('boss.manageuser');
         
         // Users
@@ -499,6 +498,13 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::get('/boss/add-lead', [BossLeadController::class, 'create'])->name('boss.leads.create');
         Route::post('/boss/leads', [BossLeadController::class, 'store'])->name('boss.leads.store');
         Route::post('/boss/calendar/reminders', [BossLeadController::class, 'storeReminder'])->name('boss.calendar.reminders.store');
+
+        Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'fulfillment'])->name('boss.fulfillment');
+        Route::get('/boss/fulfillment/show/{id}', [BossFulfillmentController::class, 'fulfillmentShow'])->name('boss.fulfillment.product.show');
+        Route::get('/boss/fulfillment/{id}/edit', [BossFulfillmentController::class, 'fulfillmentEdit'])->name('boss.fulfillment.edit');
+        Route::put('/boss/fulfillment/{product}/deliveries', [BossFulfillmentController::class, 'updateDeliveries'])->name('boss.fulfillment.deliveries.update');
+        Route::post('/boss/fulfillment/permit', [BossFulfillmentController::class, 'storePermit'])->name('boss.fulfillment.permit.store');
+        Route::get('/boss/permits/{product}/download', [BossFulfillmentController::class, 'downloadPermit'])->name('boss.permits.download');
     });
 
 

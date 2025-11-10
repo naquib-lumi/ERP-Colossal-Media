@@ -951,5 +951,6 @@
     }
     fromInput?.addEventListener('change', syncMin);
     syncMin();
+  });
 </script>
 @endsection
