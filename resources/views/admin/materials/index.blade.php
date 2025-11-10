@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title','Costing Data Management')
+@section('title','Material Management')
 
 @section('content')
 <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -70,7 +70,7 @@
 <div class="page-wrap">
   <div class="card">
     <div class="card-hd">
-      <div class="title">Costing Data Management</div>
+      <div class="title">Material Management</div>
       <div class="actions">
         <button id="btnAddType" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Material Type</button>
         <button id="btnAddUnit" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Unit</button>

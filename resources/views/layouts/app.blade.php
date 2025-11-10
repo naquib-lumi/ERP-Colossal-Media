@@ -130,7 +130,7 @@ $configData = \App\Helpers\Helpers::appClasses();
             <li class="menu-item {{ request()->routeIs('admin.costing-data') ? 'active' : '' }}">
                 <a href="{{ route('admin.costing-data') }}" class="menu-link">
                     <i class="menu-icon icon-base bx bx-data"></i>
-                    <div data-i18n="Coasing Data">Coasing Data</div>
+                    <div data-i18n="Material Data">Material Data</div>
                 </a>
             </li>
             <li class="menu-item {{ request()->routeIs('admin.calendar') ? 'active' : '' }}">
