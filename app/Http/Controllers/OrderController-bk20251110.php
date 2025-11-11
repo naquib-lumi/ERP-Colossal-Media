@@ -36,10 +36,7 @@ class OrderController extends Controller
     $orders = Order::with('lead', 'salesperson', 'products', 'originalOrder')->orderBy('created_at', 'desc');
 
     if (!$user->hasRole('head-salesperson')) {
-        // CHANGED: Filter by lead's salesperson_id instead of order's salesperson_id
-        $orders->whereHas('lead', function($q) use($user) {
-            $q->where('salesperson_id', $user->id);
-        });
+        $orders->where('salesperson_id', $user->id);
     }
 
     if ($request->filled('order_id')) {
@@ -156,10 +153,7 @@ public function exportCsv(Request $request)
     $orders = Order::with('lead', 'salesperson', 'originalOrder')->orderBy('created_at', 'desc');
 
     if (!$user->hasRole('head-salesperson')) {
-        // CHANGED: Filter by lead's salesperson_id instead of order's salesperson_id
-        $orders->whereHas('lead', function($q) use($user) {
-            $q->where('salesperson_id', $user->id);
-        });
+        $orders->where('salesperson_id', $user->id);
     }
 
     if ($request->filled('order_id')) {
@@ -240,8 +234,7 @@ public function exportCsv(Request $request)
     public function getProducts($id)
     {
         $order = Order::findOrFail($id);
-        // CHANGED: Check lead's salesperson_id instead of order's salesperson_id
-        if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+        if ($order->salesperson_id !== Auth::id()) {
             abort(403);
         }
         $products = $order->products->map(function($p) {
@@ -266,15 +259,8 @@ public function exportCsv(Request $request)
         $lead = null;
         if ($leadId) {
             $lead = Lead::findOrFail($leadId);
-            // CHANGED: Check lead's salesperson_id for non-head
-            if (!$user->hasRole('head-salesperson') && $lead->salesperson_id !== $user->id) {
-                abort(403, 'Unauthorized for this lead');
-            }
         } elseif (old('lead_id')) {
             $lead = Lead::find(old('lead_id'));
-            if ($lead && !$user->hasRole('head-salesperson') && $lead->salesperson_id !== $user->id) {
-                abort(403, 'Unauthorized for this lead');
-            }
         }
         return view('sales.add-order', compact('lead'));
     }
@@ -306,10 +292,6 @@ public function exportCsv(Request $request)
         ]);
 
         $lead = Lead::findOrFail($request->lead_id);
-        // CHANGED: Check lead's salesperson_id for non-head
-        if (!$user->hasRole('head-salesperson') && $lead->salesperson_id !== $user->id) {
-            return back()->with('error', 'Unauthorized for this lead');
-        }
 
         $attachments = [];
         if ($request->hasFile('attachments')) {
@@ -458,8 +440,7 @@ public function csvTemplate()
     public function edit($id)
     {
         $order = Order::with(['lead', 'salesperson', 'products.remarks'])->findOrFail($id);
-         // CHANGED: Check lead's salesperson_id instead of order's salesperson_id
-         if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+         if ($order->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
         abort(403, 'Unauthorized');
     }
         return view('sales.order-edit', compact('order'));
@@ -468,21 +449,16 @@ public function csvTemplate()
 public function update(Request $request, $id)
 {
     $user = Auth::user();
-    if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-        return back()->with('error', 'Unauthorized');
-    }
-
     $order = Order::findOrFail($id);
-    $lead = $order->lead;
-    if (!$user->hasRole('head-salesperson') && $lead->salesperson_id !== $user->id) {
-        return back()->with('error', 'Unauthorized for this lead');
+    if ($order->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+        abort(403, 'Unauthorized');
     }
 
     try {
         $request->validate([
             'orderTitle' => 'required|string|max:255',
             'deadline' => 'required|date|after_or_equal:today',
-            'approval' => 'required|boolean',
+            'approval' => 'boolean',
             'orderDetail' => 'nullable|string',
             'products' => 'required|array|min:1',
             'products.*.id' => 'nullable|exists:products,ProductID',
@@ -492,73 +468,17 @@ public function update(Request $request, $id)
             'products.*.remarks' => 'nullable|array',
             'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
-            'csv_file' => 'nullable|file|mimes:csv,txt',
-            'attachments' => 'nullable|array',
-            'attachments.*' => 'file|mimes:pdf,jpg,png,ai|max:2048',
         ]);
-
-        $attachments = explode(',', $order->orderAttachment ?? '');
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('order_attachments', 'public');
-                $attachments[] = $path;
-            }
-        }
-        $attachmentString = implode(',', array_filter($attachments));
 
         $order->update([
             'orderTitle' => $request->orderTitle,
             'deadline' => $request->deadline,
-            'approval' => $request->approval,
+            'approval' => $request->boolean('approval', false),
             'orderDetail' => $request->orderDetail,
-            'orderAttachment' => $attachmentString,
         ]);
 
-        $productsData = $request->products;
-
-        if ($request->hasFile('csv_file')) {
-            $path = $request->file('csv_file')->getPathname();
-            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
-            $spreadsheet = $reader->load($path);
-            $sheet = $spreadsheet->getActiveSheet();
-            $rows = $sheet->toArray();
-
-            $headers = array_map('trim', $rows[0]);
-            array_shift($rows); // Remove header row
-
-            foreach ($rows as $row) {
-                if (empty(array_filter($row))) continue; // Skip empty rows
-                $rowData = array_map(function($value) { return trim($value, '"'); }, $row);
-                $product = [
-                    'product_name' => $rowData[array_search('Product Name', $headers)] ?? '',
-                    'quantity' => $rowData[array_search('Quantity', $headers)] ?? '',
-                    'material_remark' => $rowData[array_search('Material Info', $headers)] ?? '',
-                    'remarks' => [],
-                ];
-                // Map remarks based on exact header names
-                $remarkMappings = [
-                    'Printing Remark' => 'printing',
-                    'Furnishing Remark' => 'furnishing',
-                    'Installation Remark' => 'installation',
-                    'Courier Remark' => 'courier',
-                    'Artist Remark' => 'artist',
-                    'Self Pickup Remark' => 'self_pickup',
-                ];
-                foreach ($remarkMappings as $header => $operation) {
-                    $index = array_search($header, $headers);
-                    if ($index !== false && isset($rowData[$index]) && !empty(trim($rowData[$index]))) {
-                        $product['remarks'][] = [
-                            'operation' => $operation,
-                            'remark' => $rowData[$index],
-                        ];
-                    }
-                }
-                $productsData[] = $product;
-            }
-        }
-
         $currentProductIds = $order->products->pluck('ProductID')->toArray();
-        $submittedProductIds = collect($productsData)->pluck('id')->filter()->unique()->values()->toArray();
+        $submittedProductIds = collect($request->products)->pluck('id')->filter()->unique()->values()->toArray();
         $deletedProductIds = array_diff($currentProductIds, $submittedProductIds);
 
         if (!empty($deletedProductIds)) {
@@ -566,33 +486,46 @@ public function update(Request $request, $id)
             Product::destroy($deletedProductIds);
         }
 
-        foreach ($productsData as $productData) {
-            $product = isset($productData['id']) && $productData['id'] 
-                ? Product::findOrFail($productData['id']) 
-                : Product::create([
+        foreach ($request->products as $index => $productData) {
+            if (isset($productData['id']) && $productData['id']) {
+                // Update existing
+                $product = Product::findOrFail($productData['id']);
+                if ($product->OrderID !== $order->id) {
+                    abort(403);
+                }
+                $product->update([
+                    'productName' => $productData['product_name'],
+                    'totalQuantity' => $productData['quantity'],
+                    'materialRemark' => $productData['material_remark'] ?? null,
+                ]);
+
+                ProductRemark::where('ProductID', $product->ProductID)->delete();
+
+                foreach ($productData['remarks'] ?? [] as $remarkData) {
+                    ProductRemark::create([
+                        'ProductID' => $product->ProductID,
+                        'operation' => $remarkData['operation'],
+                        'remark' => $remarkData['remark'] ?? null,
+                        'user_id' => $user->id,
+                    ]);
+                }
+            } else {
+                // Create new
+                $product = Product::create([
                     'OrderID' => $order->id,
                     'productName' => $productData['product_name'],
                     'totalQuantity' => $productData['quantity'],
                     'materialRemark' => $productData['material_remark'] ?? null,
                 ]);
 
-            if (isset($productData['id'])) {
-                $product->update([
-                    'productName' => $productData['product_name'],
-                    'totalQuantity' => $productData['quantity'],
-                    'materialRemark' => $productData['material_remark'] ?? null,
-                ]);
-            }
-
-            ProductRemark::where('ProductID', $product->ProductID)->delete();
-
-            foreach ($productData['remarks'] ?? [] as $remarkData) {
-                ProductRemark::create([
-                    'ProductID' => $product->ProductID,
-                    'operation' => $remarkData['operation'],
-                    'remark' => $remarkData['remark'] ?? null,
-                    'user_id' => $user->id,
-                ]);
+                foreach ($productData['remarks'] ?? [] as $remarkData) {
+                    ProductRemark::create([
+                        'ProductID' => $product->ProductID,
+                        'operation' => $remarkData['operation'],
+                        'remark' => $remarkData['remark'] ?? null,
+                        'user_id' => $user->id,
+                    ]);
+                }
             }
         }
 
@@ -606,17 +539,13 @@ public function update(Request $request, $id)
     } catch (\Illuminate\Validation\ValidationException $e) {
         return redirect()->back()->withErrors($e->validator)->withInput();
     } catch (\Exception $e) {
-        dd($e->getMessage());
+        return redirect()->back()->with('error', $e->getMessage());
     }
 }
 
 public function show($id)
 {
     $order = Order::with('lead.attachments', 'salesperson', 'products', 'artist')->findOrFail($id);
-    // CHANGED: Check lead's salesperson_id instead of order's salesperson_id
-    if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
-        abort(403, 'Unauthorized');
-    }
     $attachments = $order->getAttachmentPathsAttribute()->map(function ($path) {
         return ['url' => Storage::url($path), 'name' => basename($path), 'size' => Storage::size($path)];
     });
@@ -633,8 +562,7 @@ public function show($id)
     public function submit($id)
     {
         $order = Order::findOrFail($id);
-        // CHANGED: Check lead's salesperson_id instead of order's salesperson_id
-        if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+        if ($order->salesperson_id !== Auth::id()) {
             abort(403, 'Unauthorized');
         }
         $order->update(['orderStatus' => 'to_assign']);
@@ -644,8 +572,7 @@ public function show($id)
     public function destroy($id)
     {
         $order = Order::findOrFail($id);
-        // CHANGED: Check lead's salesperson_id instead of order's salesperson_id
-        if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+        if ($order->salesperson_id !== Auth::id()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
         $order->delete();

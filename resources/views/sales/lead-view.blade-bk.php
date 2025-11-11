@@ -5,7 +5,7 @@
         <!-- Lead Details -->
         <div class="card shadow-sm border-0">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center p-3">
-                <h5 class="mb-0 ">Lead Details - {{ $lead->id }}</h5>
+              <h5 class="mb-0 text-white">Lead Details - {{ $lead->id }}</h5>
                 <div class="d-flex align-items-center gap-2">
                     <select class="form-select form-select-sm bg-light text-dark border-0" id="statusDropdown"
                         style="min-width: 100px;">
@@ -79,7 +79,6 @@
                                                     </li>
                                                 @endif
                                             @endauth
-
                                         </ul>
                                     </div>
                                 </div>
@@ -98,61 +97,60 @@
                                         </div>
                                     </div>
                                 </div>
-
-                                <div class="card mb-4 border-light shadow-sm">
-                                    <div class="card-body p-3">
-                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="card-title">Files</h6>
-                                            <button class="btn btn-outline-primary btn-sm" id="addFileBtn">Add File</button>
-                                        </div>
-                                        <form action="{{ route('leads.add.attachment', ['id' => $lead->id]) }}"
-                                            method="POST" enctype="multipart/form-data" id="addFileForm"
-                                            style="display: none;">
-                                            @csrf
-                                            <div class="mb-3">
-                                                <input type="file" class="form-control" name="attachments[]" multiple
-                                                    accept=".pdf,.doc,.jpg,.png">
-                                            </div>
-                                            <button type="submit" class="btn btn-primary btn-sm">Upload</button>
-                                        </form>
-                                        <table class="table table-bordered table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Name</th>
-                                                    <th>Uploaded By</th>
-                                                    <th>Date</th>
-                                                    <th>File Size</th>
-                                                    <th>Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="attachmentsTableBody">
-                                                @foreach ($lead->attachments as $attachment)
-                                                    <tr>
-                                                        <td>{{ basename($attachment->file_location) }}</td>
-                                                        <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
-                                                        <td>{{ $attachment->created_at->format('Y-m-d') }}</td>
-                                                        <td>{{ round($attachment->file_size / 1024) }} KB</td>
-                                                        <td>
-                                                            <a href="{{ asset('storage/' . $attachment->file_location) }}"
-                                                                class="btn btn-sm btn-outline-primary me-1" download><i
-                                                                    class="bx bx-download"></i></a>
-                                                            <a href="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}"
-                                                                class="btn btn-sm btn-outline-danger delete-attachment"><i
-                                                                    class="bx bx-trash"></i></a>
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
+                               <div class="card mb-4 border-light shadow-sm">
+    <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="card-title">Files</h6>
+            <button class="btn btn-outline-primary btn-sm" id="addFileBtn">Add File</button>
+        </div>
+        <form action="{{ route('leads.add.attachment', ['id' => $lead->id]) }}"
+            method="POST" enctype="multipart/form-data" id="addFileForm"
+            style="display: none;">
+            @csrf
+            <div class="mb-3">
+                <input type="file" class="form-control" name="attachments[]" multiple
+                    accept=".pdf,.doc,.jpg,.png">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+        </form>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th style="min-width: 150px;">Name</th>
+                        <th style="min-width: 100px;">Uploaded By</th>
+                        <th style="min-width: 80px;">Date</th>
+                        <th style="min-width: 70px;">File Size</th>
+                        <th style="min-width: 100px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="attachmentsTableBody">
+                    @foreach ($lead->attachments as $attachment)
+                        <tr>
+                            <td class="text-truncate" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ basename($attachment->file_location) }}">{{ basename($attachment->file_location) }}</td>
+                            <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
+                            <td>{{ $attachment->created_at->format('Y-m-d') }}</td>
+                            <td>{{ round($attachment->file_size / 1024) }} KB</td>
+                            <td>
+                                <a href="{{ asset('storage/' . $attachment->file_location) }}"
+                                    class="btn btn-sm btn-outline-primary me-1" download><i
+                                        class="bx bx-download"></i></a>
+                                <a href="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}"
+                                    class="btn btn-sm btn-outline-danger delete-attachment"><i
+                                        class="bx bx-trash"></i></a>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
                                 <script>
                                     $(document).ready(function() {
                                         $('#addFileBtn').on('click', function() {
                                             $('#addFileForm').slideToggle();
                                         });
-
                                         $('#addFileForm').on('submit', function(e) {
                                             const fileInput = $('input[name="attachments[]"]')[0];
                                             if (!fileInput.files || fileInput.files.length === 0) {
@@ -160,7 +158,6 @@
                                                 Swal.fire('Warning', 'Please select at least one file to upload.', 'warning');
                                             }
                                         });
-
                                         $('#attachmentsTableBody').on('click', '.delete-attachment', function(e) {
                                             e.preventDefault();
                                             Swal.fire({
@@ -230,16 +227,16 @@
                                                     <div class="ms-2 d-flex align-items-center justify-content-end">
                                                         <select class="form-select form-select-sm reminder-status-update"
                                                             data-id="{{ $reminder->id }}"
-                                                            style="width: auto; background-color: white;">
+                                                            style="width: auto;">
                                                             <option value="upcoming"
-                                                                {{ $reminder->status == 'upcoming' ? 'selected' : '' }}>
-                                                                Upcoming</option>
+                                                                {{ $reminder->status == 'upcoming' ? 'selected' : '' }}
+                                                                style="background-color: #6c757d; color: #fff;">Upcoming</option>
                                                             <option value="overdue"
-                                                                {{ $reminder->status == 'overdue' ? 'selected' : '' }}>
-                                                                Overdue</option>
+                                                                {{ $reminder->status == 'overdue' ? 'selected' : '' }}
+                                                                style="background-color: #dc3545; color: #fff;">Overdue</option>
                                                             <option value="completed"
-                                                                {{ $reminder->status == 'completed' ? 'selected' : '' }}>
-                                                                Completed</option>
+                                                                {{ $reminder->status == 'completed' ? 'selected' : '' }}
+                                                                style="background-color: #28a745; color: #fff;">Completed</option>
                                                         </select>
                                                         <a href="#" class="text-primary ms-2 edit-reminder"
                                                             style="font-size: 0.9rem;">
@@ -258,10 +255,7 @@
                                     <div class="card-body p-3">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
                                             <h6 class="card-title">Notes</h6>
-                                            <button class="btn btn-outline-primary btn-sm" id="addNoteBtn">Add
-                                                Note</button>
                                         </div>
-
                                         <div class="chat-container"
                                             style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
                                             @forelse ($lead->notes as $note)
@@ -269,19 +263,19 @@
                                                     style="max-width: 70%;">
                                                     <div class="d-flex justify-content-between align-items-start">
                                                         <div>
-                                                            <p class="mb-1">{{ $note->content }}</p>
+                                                            <p class="mb-1">{{ $note->content ?: '-' }}</p>
                                                             <small class="text-muted">
                                                                 {{ $note->user->name ?? 'Unknown' }} ·
-                                                                @if ($note->date->diffInDays() == 0)
+                                                                @if ($note->created_at->diffInDays() == 0)
                                                                     Today
-                                                                @elseif($note->date->diffInDays() == 1)
+                                                                @elseif($note->created_at->diffInDays() == 1)
                                                                     Yesterday
-                                                                @elseif($note->date->diffInDays() == 2)
+                                                                @elseif($note->created_at->diffInDays() == 2)
                                                                     Two days ago
                                                                 @else
-                                                                    {{ $note->date->format('Y-m-d H:i') }}
+                                                                    {{ $note->created_at->format('Y-m-d H:i') }}
                                                                 @endif
-                                                                {{ $note->date->diffInHours() >= 24 ? '' : 'at ' . $note->date->format('H:i') }}
+                                                                {{ $note->created_at->diffInHours() >= 24 ? '' : 'at ' . $note->created_at->format('H:i') }}
                                                             </small>
                                                         </div>
                                                         <button class="btn btn-outline-danger btn-sm ms-2 delete-note-btn"
@@ -290,7 +284,6 @@
                                                             <i class="bx bx-trash"></i>
                                                         </button>
                                                     </div>
-
                                                     @if ($note->attachments->count() > 0)
                                                         <div class="mt-2 d-flex flex-wrap gap-2">
                                                             @foreach ($note->attachments as $attachment)
@@ -307,17 +300,14 @@
                                                 <p class="text-muted text-center">No notes yet.</p>
                                             @endforelse
                                         </div>
-
                                         <div class="mt-3">
-                                            <div class="input-group">
+                                            <div class="input-group" id="noteInputGroup">
                                                 <label for="noteAttachment" class="btn btn-outline-secondary mb-0">
                                                     <i class="bx bx-paperclip"></i>
                                                 </label>
                                                 <input type="file" id="noteAttachment" accept=".pdf,.doc,.jpg,.png"
                                                     style="display: none;">
-
                                                 <textarea class="form-control" id="noteContent" placeholder="Write a note..." rows="1" style="resize: none;"></textarea>
-
                                                 <button class="btn btn-primary" id="sendNoteBtn">
                                                     <i class="bx bx-send"></i>
                                                 </button>
@@ -326,22 +316,51 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <script>
                                     document.getElementById('noteAttachment').addEventListener('change', function() {
                                         const fileName = this.files.length ? this.files[0].name : '';
                                         document.getElementById('fileName').textContent = fileName ? `Attached: ${fileName}` : '';
                                     });
                                 </script>
-
                                 <script>
                                     $(document).ready(function() {
+                                        const noteInputGroup = document.getElementById('noteInputGroup');
+                                        noteInputGroup.addEventListener('dragover', function(e) {
+                                            e.preventDefault();
+                                            noteInputGroup.classList.add('border-primary');
+                                        });
+                                        noteInputGroup.addEventListener('dragleave', function(e) {
+                                            noteInputGroup.classList.remove('border-primary');
+                                        });
+                                        noteInputGroup.addEventListener('drop', function(e) {
+                                            e.preventDefault();
+                                            noteInputGroup.classList.remove('border-primary');
+                                            const files = e.dataTransfer.files;
+                                            if (files.length > 0) {
+                                                document.getElementById('noteAttachment').files = files;
+                                                const fileName = files[0].name;
+                                                document.getElementById('fileName').textContent = `Attached: ${fileName}`;
+                                            }
+                                        });
+                                        $('#noteContent').on('keydown', function(e) {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                $('#sendNoteBtn').click();
+                                            }
+                                        });
                                         $('#sendNoteBtn').on('click', function() {
-                                            let content = $('#noteContent').val();
+                                            let content = $('#noteContent').val().trim();
+                                            let file = $('#noteAttachment')[0].files[0];
+                                            if (!content && !file) {
+                                                Swal.fire('Warning', 'Please enter a note or attach a file.', 'warning');
+                                                return;
+                                            }
+                                            if (!content && file) {
+                                                content = '-';
+                                            }
                                             let formData = new FormData();
                                             formData.append('content', content);
                                             formData.append('_token', '{{ csrf_token() }}');
-                                            let file = $('#noteAttachment')[0].files[0];
                                             if (file) {
                                                 formData.append('attachments[]', file);
                                             }
@@ -372,7 +391,6 @@
                                                 }
                                             });
                                         });
-
                                         $('.delete-note-btn').on('click', function() {
                                             Swal.fire({
                                                 title: 'Are you sure?',
@@ -412,7 +430,6 @@
                                         });
                                     });
                                 </script>
-
                             </div>
                         </div>
                     </div>
@@ -436,9 +453,9 @@
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="flex-grow-1">
                                                 <h6 class="mb-1 fw-bold">{{ $meeting->title }}</h6>
-                                                <small
-                                                    class="text-muted d-block mb-1">{{ $meeting->start_time->format('h:i A') }}
-                                                    - {{ $meeting->end_time->format('h:i A') }}</small>
+                                                <small class="text-muted d-block mb-1">
+    {{ $meeting->start_time->format('D, h:i A') }} - {{ $meeting->end_time->format('h:i A') }}
+</small>
                                                 @if ($meeting->type === 'online' && $meeting->url)
                                                     <small class="text-primary d-block"><a href="{{ $meeting->url }}"
                                                             target="_blank"
@@ -453,18 +470,17 @@
                                             <div class="ms-2 d-flex align-items-center justify-content-end">
                                                 <select class="form-select form-select-sm status-update"
                                                     data-id="{{ $meeting->id }}"
-                                                    style="width: auto; background-color: white;">
+                                                    style="width: auto;">
                                                     <option value="scheduled"
-                                                        {{ $meeting->status == 'scheduled' ? 'selected' : '' }}>Scheduled
-                                                    </option>
+                                                        {{ $meeting->status == 'scheduled' ? 'selected' : '' }}
+                                                        style="background-color: #4e73df; color: #fff;">Scheduled</option>
                                                     <option value="canceled"
-                                                        {{ $meeting->status == 'canceled' ? 'selected' : '' }}>Canceled
-                                                    </option>
+                                                        {{ $meeting->status == 'canceled' ? 'selected' : '' }}
+                                                        style="background-color: #000a0b; color: #fff;">Canceled</option>
                                                     <option value="postponed"
-                                                        {{ $meeting->status == 'postponed' ? 'selected' : '' }}>Postponed
-                                                    </option>
+                                                        {{ $meeting->status == 'postponed' ? 'selected' : '' }}
+                                                        style="background-color: #f6c23e; color: #000;">Postponed</option>
                                                 </select>
-
                                                 <a href="#" class="text-primary ms-2 edit-meeting"
                                                     style="font-size: 0.9rem;">
                                                     <i class="bx bx-pencil"></i>
@@ -480,7 +496,6 @@
                             @endforelse
                         </div>
                     </div>
-
                     <!-- Update Modal (reuse/add to existing) -->
                     <div class="modal fade" id="meetingModal" tabindex="-1" aria-labelledby="meetingModalLabel"
                         aria-hidden="true">
@@ -501,16 +516,19 @@
                                             <label for="meetingTitle" class="form-label">Title</label>
                                             <input type="text" class="form-control" id="meetingTitle" name="title"
                                                 required>
+                                            <div class="invalid-feedback" id="error-title"></div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="meetingStartTime" class="form-label">Start Date & Time</label>
                                             <input type="datetime-local" class="form-control" id="meetingStartTime"
                                                 name="start_time" required>
+                                            <div class="invalid-feedback" id="error-start_time"></div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="meetingDuration" class="form-label">Duration (minutes)</label>
                                             <input type="number" class="form-control" id="meetingDuration"
                                                 name="duration" min="1" required>
+                                            <div class="invalid-feedback" id="error-duration"></div>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Type</label>
@@ -524,19 +542,23 @@
                                                     id="typeOffline" value="offline">
                                                 <label class="form-check-label" for="typeOffline">Offline</label>
                                             </div>
+                                            <div class="invalid-feedback" id="error-type"></div>
                                         </div>
                                         <div class="mb-3" id="onlineUrl" style="display: block;">
                                             <label for="meetingUrl" class="form-label">URL</label>
                                             <input type="url" class="form-control" id="meetingUrl" name="url">
+                                            <div class="invalid-feedback" id="error-url"></div>
                                         </div>
                                         <div class="mb-3" id="offlineLocation" style="display: none;">
                                             <label for="meetingLocation" class="form-label">Location</label>
                                             <input type="text" class="form-control" id="meetingLocation"
                                                 name="location">
+                                            <div class="invalid-feedback" id="error-location"></div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="meetingNote" class="form-label">Description</label>
                                             <textarea class="form-control" id="meetingNote" name="note" rows="3"></textarea>
+                                            <div class="invalid-feedback" id="error-note"></div>
                                         </div>
                                     </form>
                                 </div>
@@ -549,7 +571,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="tab-pane fade" id="order-history" role="tabpanel" aria-labelledby="order-history-tab">
                         @if ($lead->orders->isEmpty())
                             <p class="text-muted">No orders yet.</p>
@@ -591,7 +612,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Reminder Modal -->
             <div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel"
                 aria-hidden="true">
@@ -632,21 +652,32 @@
                     </div>
                 </div>
             </div>
-
             <script>
                 function parseError(xhr) {
-                    let errorMsg = 'An error occurred.';
-                    try {
-                        let resp = JSON.parse(xhr.responseText);
-                        if (resp.message) errorMsg = resp.message;
-                        else if (resp.errors) {
-                            let errs = [];
-                            for (let k in resp.errors) errs.push(...resp.errors[k]);
-                            errorMsg = errs.join(', ');
-                        }
-                    } catch {}
-                    return errorMsg;
-                }
+    // Default
+    let errorMsg = 'An error occurred.';
+
+    // If 403, show custom message
+    if (xhr.status === 403) {
+        return 'You can only manage meetings for leads assigned to you';
+    }
+
+    try {
+        let resp = JSON.parse(xhr.responseText);
+
+        if (resp.message) {
+            errorMsg = resp.message;
+        } else if (resp.errors) {
+            let errs = [];
+            for (let k in resp.errors) errs.push(...resp.errors[k]);
+            errorMsg = errs.join(', ');
+        }
+    } catch {
+        // silently ignore JSON parse errors
+    }
+
+    return errorMsg;
+}
 
                 $(document).ready(function() {
                     // Activate tab based on hash
@@ -656,7 +687,6 @@
                     if (location.hash === '#order-history') {
                         $('#order-history-tab').tab('show');
                     }
-
                     // Update time badges
                     function updateTimeBadges() {
                         $('.meeting-item').each(function() {
@@ -667,7 +697,6 @@
                             let $badge = $item.find('.time-badge');
                             let $select = $item.find('.status-update');
                             let status = $select.val();
-
                             if (status === 'canceled') {
                                 $badge.text('Canceled').removeClass('bg-primary bg-info bg-success').addClass(
                                     'bg-danger');
@@ -690,14 +719,31 @@
                             }
                         });
                     }
-
                     updateTimeBadges();
                     setInterval(updateTimeBadges, 60000); // Update every minute
-
                     // Meeting functions defined first
+                    function clearMeetingErrors() {
+                        $('#meetingForm .form-control').removeClass('is-invalid');
+                        $('#meetingForm .invalid-feedback').text('');
+                    }
+                    function showMeetingErrors(errors) {
+                        for (let field in errors) {
+                            let $input = $('#meeting' + field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ''));
+                            if ($input.length === 0 && field === 'type') {
+                                $input = $('input[name="type"]');
+                            }
+                            $input.addClass('is-invalid');
+                            $('#error-' + field).text(errors[field][0]);
+                        }
+                    }
                     function saveNewMeeting() {
+                        clearMeetingErrors();
                         let formData = new FormData($('#meetingForm')[0]);
                         formData.append('_token', '{{ csrf_token() }}');
+                        if (!document.getElementById('meetingForm').checkValidity()) {
+                            document.getElementById('meetingForm').reportValidity();
+                            return;
+                            }
                         $.ajax({
                             url: '{{ route('meetings.store', ['lead' => $lead->id]) }}',
                             type: 'POST',
@@ -709,19 +755,33 @@
                                 location.hash = 'meeting';
                                 location.reload();
                             },
-                            error: function(xhr) {
-                                $('#meetingModal').modal('hide');
+                          error: function(xhr) {
+                            if (xhr.status === 422) {
+                                let resp = JSON.parse(xhr.responseText);
+                                if (resp.errors) {
+                                    showMeetingErrors(resp.errors);
+                                }
+                            } else {
                                 let errorMsg = parseError(xhr);
+                                if (xhr.status === 403) {
+                                    errorMsg = 'You can only manage meetings for leads assigned to you.';
+                                    $('#meetingModal').modal('hide');
+                                }
                                 Swal.fire('Error!', errorMsg, 'error');
                             }
+                        }
                         });
                     }
-
                     function updateMeeting() {
+                        clearMeetingErrors();
                         let id = $('#meetingId').val();
                         let formData = new FormData($('#meetingForm')[0]);
                         formData.append('_method', 'PUT');
                         formData.append('_token', '{{ csrf_token() }}');
+                        if (!document.getElementById('meetingForm').checkValidity()) {
+                            document.getElementById('meetingForm').reportValidity();
+                            return;
+                        }
                         $.ajax({
                             url: `/calendar/meetings/${id}`,
                             type: 'POST',
@@ -734,13 +794,22 @@
                                 location.reload();
                             },
                             error: function(xhr) {
-                                $('#meetingModal').modal('hide');
-                                let errorMsg = parseError(xhr);
-                                Swal.fire('Error!', errorMsg, 'error');
-                            }
+    if (xhr.status === 422) {
+        let resp = JSON.parse(xhr.responseText);
+        if (resp.errors) {
+            showMeetingErrors(resp.errors);
+        }
+    } else {
+        let errorMsg = parseError(xhr);
+        if (xhr.status === 403) {
+            errorMsg = 'You can only manage meetings for leads assigned to you.';
+            $('#meetingModal').modal('hide');
+        }
+        Swal.fire('Error!', errorMsg, 'error');
+    }
+}
                         });
                     }
-
                     // Type radio toggle
                     $('input[name="type"]').on('change', function() {
                         if ($(this).val() === 'online') {
@@ -751,7 +820,6 @@
                             $('#offlineLocation').show();
                         }
                     });
-
                     // Edit meeting - double click
                     $(document).on('dblclick', '.meeting-item', function(e) {
                         if ($(e.target).is('.status-update, .status-update *')) return;
@@ -765,7 +833,6 @@
                         let url = $item.data('url') || '';
                         let location = $item.data('location') || '';
                         let note = $item.data('note') || '';
-
                         $('#meetingModalLabel').text('Update Meeting');
                         $('#meetingId').val(id);
                         $('#meetingTitle').val(title);
@@ -781,7 +848,6 @@
                         $('#saveMeetingBtn').off('click').text('Update').on('click', updateMeeting);
                         $('#meetingModal').modal('show');
                     });
-
                     // Edit meeting - button click
 $(document).on('click', '.edit-meeting', function(e) {
     e.preventDefault();
@@ -796,7 +862,6 @@ $(document).on('click', '.edit-meeting', function(e) {
     let url = $item.data('url') || '';
     let location = $item.data('location') || '';
     let note = $item.data('note') || '';
-
     $('#meetingModalLabel').text('Update Meeting');
     $('#meetingId').val(id);
     $('#meetingTitle').val(title);
@@ -812,7 +877,6 @@ $(document).on('click', '.edit-meeting', function(e) {
     $('#saveMeetingBtn').off('click').text('Update').on('click', updateMeeting);
     $('#meetingModal').modal('show');
 });
-
                     // Reset for add new
                     $('#meetingModal').on('hidden.bs.modal', function() {
                         $('#meetingModalLabel').text('Add Meeting');
@@ -820,8 +884,8 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('#meetingForm')[0].reset();
                         $('input[name="type"][value="online"]').prop('checked', true).trigger('change');
                         $('#saveMeetingBtn').off('click').text('Save Meeting').on('click', saveNewMeeting);
+                        clearMeetingErrors();
                     });
-
                     // Status update for meetings
                     $('.status-update').on('change', function() {
                         let id = $(this).data('id');
@@ -843,7 +907,6 @@ $(document).on('click', '.edit-meeting', function(e) {
                             }
                         });
                     });
-
                     // Status update for reminders
                     $('.reminder-status-update').on('change', function() {
                         let id = $(this).data('id');
@@ -864,7 +927,6 @@ $(document).on('click', '.edit-meeting', function(e) {
                             }
                         });
                     });
-
                     // Edit reminder function
                     function editReminder($item) {
                         let id = $item.data('id');
@@ -879,7 +941,6 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('#saveReminderBtn').off('click').text('Update').on('click', updateReminder);
                         $('#reminderModal').modal('show');
                     }
-
                     // Edit reminder - double click
                     $(document).on('dblclick', '.reminder-item', function(e) {
                         if ($(e.target).is(
@@ -887,7 +948,6 @@ $(document).on('click', '.edit-meeting', function(e) {
                                 )) return;
                         editReminder($(this));
                     });
-
                     // Edit reminder - button click
                     $(document).on('click', '.edit-reminder', function(e) {
                         e.preventDefault();
@@ -895,30 +955,31 @@ $(document).on('click', '.edit-meeting', function(e) {
                         let $item = $(this).closest('.reminder-item');
                         editReminder($item);
                     });
-
                     // Debug: Confirm jQuery is loaded
                     console.log('jQuery loaded:', typeof $);
-
                     // Status Dropdown Update
-                    $('#statusDropdown').on('change', function() {
-                        let status = $(this).val();
-                        $.ajax({
-                            url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
-                            type: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}',
-                                status: status
-                            },
-                            success: function(response) {
-                                location.reload();
-                            },
-                            error: function(xhr) {
-                                let errorMsg = parseError(xhr);
-                                Swal.fire('Error!', errorMsg, 'error');
-                            }
-                        });
-                    });
-
+             $('#statusDropdown').on('change', function() {
+    let status = $(this).val();
+    $.ajax({
+        url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
+        type: 'POST',
+        data: {
+            _token: '{{ csrf_token() }}',
+            status: status
+        },
+        success: function(response) {
+            if (response.redirect) {
+                location.href = response.redirect;
+            } else {
+                location.reload();
+            }
+        },
+        error: function(xhr) {
+            let errorMsg = parseError(xhr);
+            Swal.fire('Error!', errorMsg, 'error');
+        }
+    });
+});
                     // Reset modal for add
                     $('#reminderModal').on('hidden.bs.modal', function() {
                         $('#reminderModalLabel').text('Add Custom Reminder');
@@ -927,67 +988,108 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('#saveReminderBtn').off('click').text('Add').on('click', saveNewReminder);
                     });
 
-                    // Add Reminder with event delegation
-                    function saveNewReminder() {
-                        let formData = {
-                            lead_id: $('#reminderLeadId').val(),
-                            title: $('#reminderTitle').val(),
-                            description: $('#reminderDescription').val(),
-                            remind_at: $('#reminderRemindAt').val(),
-                            _token: '{{ csrf_token() }}',
-                        };
-
-                        $.ajax({
-                            url: '{{ route('calendar.reminders.store') }}',
-                            type: 'POST',
-                            data: formData,
-                            success: function(response) {
-                                $('#reminderModal').modal('hide');
-                                $('#reminderForm')[0].reset();
-                                location.reload();
-                            },
-                            error: function(xhr) {
-                                $('#reminderModal').modal('hide');
-                                let errorMsg = parseError(xhr);
-                                Swal.fire('Error!', errorMsg, 'error');
-                            }
-                        });
+                          $('#saveReminderBtn').on('click', function(e) {
+                                    e.preventDefault();
+                                    if ($('#reminderId').val()) {
+                                        updateReminder();
+                                    } else {
+                                        saveNewReminder();
+                                    }
+                                });
+           function saveNewReminder() {
+                    if (!$('#reminderRemindAt').val()) {
+                        $('#reminderModal').modal('hide');
+                        Swal.fire('Error!', 'Remind date and time are required.', 'error');
+                        return;
                     }
-
-                    function updateReminder() {
-                        let id = $('#reminderId').val();
-                        let formData = new FormData($('#reminderForm')[0]);
-                        formData.append('_method', 'PUT');
-                        formData.append('_token', '{{ csrf_token() }}');
-                        $.ajax({
-                            url: `/calendar/reminders/${id}`,
-                            type: 'POST',
-                            data: formData,
-                            processData: false,
-                            contentType: false,
-                            success: function(response) {
-                                $('#reminderModal').modal('hide');
-                                location.reload();
-                            },
-                            error: function(xhr) {
-                                $('#reminderModal').modal('hide');
-                                let errorMsg = parseError(xhr);
-                                Swal.fire('Error!', errorMsg, 'error');
-                            }
-                        });
-                    }
-
-                    $(document).on('click', '#saveReminderBtn', function(e) {
-                        e.preventDefault();
-                        if ($('#reminderId').val()) {
-                            updateReminder();
-                        } else {
-                            saveNewReminder();
-                        }
-                    });
-
+        let formData = {
+            lead_id: $('#reminderLeadId').val(),
+            title: $('#reminderTitle').val(),
+            description: $('#reminderDescription').val(),
+            remind_at: $('#reminderRemindAt').val(),
+            _token: '{{ csrf_token() }}',
+        };
+    $.ajax({
+        url: '{{ route('calendar.reminders.store') }}',
+        type: 'POST',
+        data: formData,
+        success: function(response) {
+            $('#reminderModal').modal('hide');
+            $('#reminderForm')[0].reset();
+            location.reload();
+        },
+        error: function(xhr) {
+            $('#reminderModal').modal('hide');
+            let errorMsg = parseError(xhr);
+            if (xhr.status === 403) {
+                errorMsg = 'You can only add reminders for leads assigned to you.';
+            }
+            Swal.fire('Error!', errorMsg, 'error');
+        }
+    });
+}
+function updateReminder() {
+    let id = $('#reminderId').val();
+    let formData = new FormData($('#reminderForm')[0]);
+    formData.append('_method', 'PUT');
+    formData.append('_token', '{{ csrf_token() }}');
+    $.ajax({
+        url: `/calendar/reminders/${id}`,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            $('#reminderModal').modal('hide');
+            location.reload();
+        },
+        error: function(xhr) {
+            $('#reminderModal').modal('hide');
+            let errorMsg = parseError(xhr);
+            if (xhr.status === 403) {
+                errorMsg = 'You can only update reminders for leads assigned to you.';
+            }
+            Swal.fire('Error!', errorMsg, 'error');
+        }
+    });
+}
+                 
                     // Attach initial event for saveMeetingBtn
                     $('#saveMeetingBtn').on('click', saveNewMeeting);
+                    // Color for reminder dropdowns
+                    function updateReminderColor($select) {
+                        let status = $select.val();
+                        let color = '';
+                        if (status === 'upcoming') color = '#6c757d';
+                        else if (status === 'overdue') color = '#dc3545';
+                        else if (status === 'completed') color = '#28a745';
+                        $select.css({'background-color': color, 'color': '#fff'});
+                    }
+                    $('.reminder-status-update').each(function() {
+                        updateReminderColor($(this));
+                    });
+                    $('.reminder-status-update').on('change', function() {
+                        updateReminderColor($(this));
+                    });
+                    // Color for meeting dropdowns
+                    function updateMeetingColor($select) {
+                        let status = $select.val();
+                        let color = '';
+                        let textColor = '#fff';
+                        if (status === 'scheduled') color = '#4e73df';
+                        else if (status === 'canceled') color = '#000a0b';
+                        else if (status === 'postponed') {
+                            color = '#f6c23e';
+                            textColor = '#000';
+                        }
+                        $select.css({'background-color': color, 'color': textColor});
+                    }
+                    $('.status-update').each(function() {
+                        updateMeetingColor($(this));
+                    });
+                    $('.status-update').on('change', function() {
+                        updateMeetingColor($(this));
+                    });
                 });
             </script>
         </div>

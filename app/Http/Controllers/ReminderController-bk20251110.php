@@ -26,8 +26,8 @@ class ReminderController extends Controller
         ]);
 
         $lead = Lead::findOrFail($validated['lead_id']); 
-        if ($lead->salesperson_id !== $user->id) {
-            return response()->json(['error' => 'You can only add reminders for leads assigned to you.'], 403);
+        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $validated['salesperson_id'] = $user->id;
@@ -63,9 +63,9 @@ class ReminderController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $reminder = Reminder::with('lead')->findOrFail($id);
-        if ($reminder->lead->salesperson_id != $user->id) {
-            return response()->json(['error' => 'You can only update reminders for leads assigned to you.'], 403);
+        $reminder = Reminder::findOrFail($id);
+        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id && !$user->hasRole('head-salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate([
@@ -76,11 +76,9 @@ class ReminderController extends Controller
         ]);
 
         $lead = Lead::findOrFail($validated['lead_id']);
-        if ($lead->salesperson_id !== $user->id) {
-            return response()->json(['error' => 'You can only update reminders for leads assigned to you.'], 403);
+        if ($lead->salesperson_id !== $user->id && !$user->hasRole('head-salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
-
-        $validated['created_by'] = $user->id;
 
         try {
             $reminder->update($validated);
@@ -99,9 +97,9 @@ class ReminderController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $reminder = Reminder::with('lead')->findOrFail($id);
-        if ($reminder->lead->salesperson_id != $user->id) {
-            return response()->json(['error' => 'You can only complete reminders for leads assigned to you.'], 403);
+        $reminder = Reminder::findOrFail($id);
+        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id && !$user->hasRole('head-salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         if ($request->input('confirm') === 'yes') {
@@ -115,14 +113,14 @@ class ReminderController extends Controller
 
     public function destroy($id)
     {
-      
         $user = Auth::user();
         if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
-            return response()->json(['error' => 'Unauthorizedasdasd'], 403);
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
-        $reminder = Reminder::with('lead')->findOrFail($id);
-        if ($reminder->lead->salesperson_id != $user->id) {
-            return response()->json(['error' => 'You can only delete reminders for leads assigned to you.'], 403);
+
+        $reminder = Reminder::findOrFail($id);
+        if ($reminder->lead && $reminder->lead->salesperson_id != $user->id && !$user->hasRole('head-salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $reminder->delete();
@@ -136,9 +134,9 @@ class ReminderController extends Controller
         if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
-        $reminder = Reminder::with('lead')->findOrFail($id);
-        if ($reminder->lead->salesperson_id != $user->id) {
-            return response()->json(['error' => 'You can only update status for reminders of leads assigned to you.'], 403);
+        $reminder = Reminder::findOrFail($id);
+        if ($reminder->created_by != $user->id && !$user->hasRole('head-salesperson')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
         $validated = $request->validate(['status' => 'required|in:upcoming,overdue,completed']);
         $reminder->update(['status' => $validated['status']]);

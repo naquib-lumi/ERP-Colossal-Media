@@ -332,6 +332,7 @@
     </div>
 
     <div class="text-end">
-        <a href="{{ route('sales.orders') }}" class="btn btn-secondary mt-6">Close</a>
-    </div>
+    <a href="{{ url()->previous() }}" class="btn btn-secondary mt-6">Close</a>
+</div>
+
 @endsection

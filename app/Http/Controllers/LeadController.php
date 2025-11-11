@@ -442,9 +442,11 @@ public function show($id)
     $user = Auth::user();
 
     $lead = Lead::with([
-        'user', 'attachments', 'notes.attachments',
+        'user',
+        'attachments',
+        'notes.attachments',
         'reminders' => fn($q) => $q->where('created_by', $user->id)->orderBy('remind_at')->take(10),
-        'orders',
+        'orders' => fn($q) => $q->where('orderStatus', 'completed'),
         'meetings' => fn($q) => $q->orderBy('start_time')
     ])->findOrFail($id);
 
@@ -452,8 +454,11 @@ public function show($id)
         abort(403, 'Unauthorized');
     }
 
-    return view('sales.lead-view', compact('lead'));
+    $isOwner = $lead->salesperson_id == $user->id;
+
+    return view('sales.lead-view', compact('lead', 'isOwner'));
 }
+
 
 
     public function addReminder(Request $request, $id)

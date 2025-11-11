@@ -529,7 +529,7 @@ confirmButtonText: 'Yes, delete it!'
           });
         });
 
-$(`#eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}`).on('change', function () {
+       $(`#eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}`).on('change', function () {
   const newStatus = $(this).val();
   const type = info.event.extendedProps.type;
   const eventId = info.event.id.replace(`${type}-`, '');
@@ -542,6 +542,7 @@ $(`#eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}`).on('change
     },
     success: function (response) {
       if (response.success) {
+        // Update badge here
         const statusBadgeEl = eventModal._element.querySelector('.badge');
         if (statusBadgeEl) {
           let statusColor, statusText;
@@ -559,26 +560,11 @@ $(`#eventStatusSelect_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}`).on('change
         eventModal.hide();
         Swal.fire('Updated!', 'Status has been updated.', 'success');
       } else {
-        eventModal.hide();
         Swal.fire('Error!', 'Error updating status', 'error');
       }
     },
     error: function (xhr) {
-      eventModal.hide();
-      let errorMsg = 'Failed to update status';
-      if (xhr.status === 403) {
-        errorMsg = 'You can only manage meetings for leads assigned to you';
-      } else if (xhr.status === 303) {
-        errorMsg = '303 See Other';
-      } else {
-        try {
-          const resp = JSON.parse(xhr.responseText);
-          errorMsg = resp.message || resp.error || errorMsg;
-        } catch {
-          errorMsg = xhr.responseText || errorMsg;
-        }
-      }
-      Swal.fire('Error!', errorMsg, 'error');
+      Swal.fire('Error!', 'Failed to update status', 'error');
     }
   });
 });

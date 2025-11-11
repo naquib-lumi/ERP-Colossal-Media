@@ -1,11 +1,14 @@
 @extends('layouts.app')
 @section('title', 'Lead Details')
 @section('content')
+    <script>
+        var isOwner = {{ $isOwner ? 'true' : 'false' }};
+    </script>
     <div class="container-xxl flex-grow-1 container-p-y">
         <!-- Lead Details -->
         <div class="card shadow-sm border-0">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center p-3">
-              <h5 class="mb-0 text-white">Lead Details - {{ $lead->id }}</h5>
+                <h5 class="mb-0 text-white">Lead Details - {{ $lead->id }}</h5>
                 <div class="d-flex align-items-center gap-2">
                     <select class="form-select form-select-sm bg-light text-dark border-0" id="statusDropdown"
                         style="min-width: 100px;">
@@ -113,35 +116,40 @@
                                             </div>
                                             <button type="submit" class="btn btn-primary btn-sm">Upload</button>
                                         </form>
-                                        <table class="table table-bordered table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Name</th>
-                                                    <th>Uploaded By</th>
-                                                    <th>Date</th>
-                                                    <th>File Size</th>
-                                                    <th>Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="attachmentsTableBody">
-                                                @foreach ($lead->attachments as $attachment)
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-hover table-sm">
+                                                <thead>
                                                     <tr>
-                                                        <td>{{ basename($attachment->file_location) }}</td>
-                                                        <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
-                                                        <td>{{ $attachment->created_at->format('Y-m-d') }}</td>
-                                                        <td>{{ round($attachment->file_size / 1024) }} KB</td>
-                                                        <td>
-                                                            <a href="{{ asset('storage/' . $attachment->file_location) }}"
-                                                                class="btn btn-sm btn-outline-primary me-1" download><i
-                                                                    class="bx bx-download"></i></a>
-                                                            <a href="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}"
-                                                                class="btn btn-sm btn-outline-danger delete-attachment"><i
-                                                                    class="bx bx-trash"></i></a>
-                                                        </td>
+                                                        <th style="min-width: 150px;">Name</th>
+                                                        <th style="min-width: 100px;">Uploaded By</th>
+                                                        <th style="min-width: 80px;">Date</th>
+                                                        <th style="min-width: 70px;">File Size</th>
+                                                        <th style="min-width: 100px;">Action</th>
                                                     </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody id="attachmentsTableBody">
+                                                    @foreach ($lead->attachments as $attachment)
+                                                        <tr>
+                                                            <td class="text-truncate"
+                                                                style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                                                title="{{ basename($attachment->file_location) }}">
+                                                                {{ basename($attachment->file_location) }}</td>
+                                                            <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
+                                                            <td>{{ $attachment->created_at->format('Y-m-d') }}</td>
+                                                            <td>{{ round($attachment->file_size / 1024) }} KB</td>
+                                                            <td>
+                                                                <a href="{{ asset('storage/' . $attachment->file_location) }}"
+                                                                    class="btn btn-sm btn-outline-primary me-1" download><i
+                                                                        class="bx bx-download"></i></a>
+                                                                <a href="{{ route('leads.attachments.delete', ['id' => $lead->id, 'attachment' => $attachment->id]) }}"
+                                                                    class="btn btn-sm btn-outline-danger delete-attachment"><i
+                                                                        class="bx bx-trash"></i></a>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                                 <script>
@@ -188,7 +196,8 @@
                                                                 if (resp.message) errorMsg = resp.message;
                                                                 else if (resp.errors) {
                                                                     let errs = [];
-                                                                    for (let k in resp.errors) errs.push(...resp.errors[k]);
+                                                                    for (let k in resp.errors) errs.push(...resp
+                                                                        .errors[k]);
                                                                     errorMsg = errs.join(', ');
                                                                 }
                                                             } catch {}
@@ -200,54 +209,60 @@
                                         });
                                     });
                                 </script>
-                                <div class="card mb-4 border-light shadow-sm">
-                                    <div class="card-body p-3">
-                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="card-title">Reminders</h6>
-                                            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
-                                                data-bs-target="#reminderModal">Add Reminder</button>
+                                @if ($isOwner)
+                                    <div class="card mb-4 border-light shadow-sm">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h6 class="card-title">Reminders</h6>
+                                                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
+                                                    data-bs-target="#reminderModal">Add Reminder</button>
+                                            </div>
+                                            <ul class="list-group list-group-flush">
+                                                @forelse ($lead->reminders as $reminder)
+                                                    <li class="list-group-item reminder-item d-flex justify-content-between align-items-center cursor-pointer"
+                                                        data-id="{{ $reminder->id }}"
+                                                        data-title="{{ $reminder->title }}"
+                                                        data-description="{{ $reminder->description ?? '' }}"
+                                                        data-remind-at="{{ $reminder->remind_at->format('Y-m-d\TH:i') }}">
+                                                        <div class="flex-grow-1 me-2">
+                                                            <strong>{{ $reminder->title }}</strong><br>
+                                                            @if ($reminder->description)
+                                                                <small
+                                                                    class="text-muted">{{ $reminder->description }}</small><br>
+                                                            @endif
+                                                            <small class="text-muted">Due:
+                                                                {{ $reminder->remind_at instanceof \Carbon\Carbon ? $reminder->remind_at->format('Y-m-d H:i') : $reminder->remind_at }}</small>
+                                                        </div>
+                                                        <div class="ms-2 d-flex align-items-center justify-content-end">
+                                                            <select
+                                                                class="form-select form-select-sm reminder-status-update"
+                                                                data-id="{{ $reminder->id }}" style="width: auto;">
+                                                                <option value="upcoming"
+                                                                    {{ $reminder->status == 'upcoming' ? 'selected' : '' }}
+                                                                    style="background-color: #6c757d; color: #fff;">
+                                                                    Upcoming</option>
+                                                                <option value="overdue"
+                                                                    {{ $reminder->status == 'overdue' ? 'selected' : '' }}
+                                                                    style="background-color: #dc3545; color: #fff;">Overdue
+                                                                </option>
+                                                                <option value="completed"
+                                                                    {{ $reminder->status == 'completed' ? 'selected' : '' }}
+                                                                    style="background-color: #28a745; color: #fff;">
+                                                                    Completed</option>
+                                                            </select>
+                                                            <a href="#" class="text-primary ms-2 edit-reminder"
+                                                                style="font-size: 0.9rem;">
+                                                                <i class="bx bx-pencil"></i>
+                                                            </a>
+                                                        </div>
+                                                    </li>
+                                                @empty
+                                                    <li class="list-group-item text-muted">No reminders available.</li>
+                                                @endforelse
+                                            </ul>
                                         </div>
-                                        <ul class="list-group list-group-flush">
-                                            @forelse ($lead->reminders as $reminder)
-                                                <li class="list-group-item reminder-item d-flex justify-content-between align-items-center cursor-pointer"
-                                                    data-id="{{ $reminder->id }}" data-title="{{ $reminder->title }}"
-                                                    data-description="{{ $reminder->description ?? '' }}"
-                                                    data-remind-at="{{ $reminder->remind_at->format('Y-m-d\TH:i') }}">
-                                                    <div class="flex-grow-1 me-2">
-                                                        <strong>{{ $reminder->title }}</strong><br>
-                                                        @if ($reminder->description)
-                                                            <small
-                                                                class="text-muted">{{ $reminder->description }}</small><br>
-                                                        @endif
-                                                        <small class="text-muted">Due:
-                                                            {{ $reminder->remind_at instanceof \Carbon\Carbon ? $reminder->remind_at->format('Y-m-d H:i') : $reminder->remind_at }}</small>
-                                                    </div>
-                                                    <div class="ms-2 d-flex align-items-center justify-content-end">
-                                                        <select class="form-select form-select-sm reminder-status-update"
-                                                            data-id="{{ $reminder->id }}"
-                                                            style="width: auto;">
-                                                            <option value="upcoming"
-                                                                {{ $reminder->status == 'upcoming' ? 'selected' : '' }}
-                                                                style="background-color: #6c757d; color: #fff;">Upcoming</option>
-                                                            <option value="overdue"
-                                                                {{ $reminder->status == 'overdue' ? 'selected' : '' }}
-                                                                style="background-color: #dc3545; color: #fff;">Overdue</option>
-                                                            <option value="completed"
-                                                                {{ $reminder->status == 'completed' ? 'selected' : '' }}
-                                                                style="background-color: #28a745; color: #fff;">Completed</option>
-                                                        </select>
-                                                        <a href="#" class="text-primary ms-2 edit-reminder"
-                                                            style="font-size: 0.9rem;">
-                                                            <i class="bx bx-pencil"></i>
-                                                        </a>
-                                                    </div>
-                                                </li>
-                                            @empty
-                                                <li class="list-group-item text-muted">No reminders available.</li>
-                                            @endforelse
-                                        </ul>
                                     </div>
-                                </div>
+                                @endif
                                 <!-- Notes card updated as in previous response -->
                                 <div class="card border-light shadow-sm">
                                     <div class="card-body p-3">
@@ -416,7 +431,8 @@
                                                                 if (resp.message) errorMsg = resp.message;
                                                                 else if (resp.errors) {
                                                                     let errs = [];
-                                                                    for (let k in resp.errors) errs.push(...resp.errors[k]);
+                                                                    for (let k in resp.errors) errs.push(...resp
+                                                                        .errors[k]);
                                                                     errorMsg = errs.join(', ');
                                                                 }
                                                             } catch {}
@@ -434,9 +450,11 @@
                     <div class="tab-pane fade" id="meeting" role="tabpanel" aria-labelledby="meeting-tab">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="card-title">Meetings</h6>
-                            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
-                                data-bs-target="#meetingModal">Add
-                                Meeting</button>
+                            @if ($isOwner)
+                                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
+                                    data-bs-target="#meetingModal">Add
+                                    Meeting</button>
+                            @endif
                         </div>
                         <div class="row">
                             @forelse ($lead->meetings->sortBy('start_time') as $meeting)
@@ -447,13 +465,14 @@
                                         data-end-time="{{ $meeting->end_time->format('Y-m-d\TH:i') }}"
                                         data-type="{{ $meeting->type }}" data-url="{{ $meeting->url ?? '' }}"
                                         data-location="{{ $meeting->location ?? '' }}"
-                                        data-note="{{ $meeting->note ?? '' }}">
+                                        data-note="{{ $meeting->note ?? '' }}" data-status="{{ $meeting->status }}">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="flex-grow-1">
                                                 <h6 class="mb-1 fw-bold">{{ $meeting->title }}</h6>
                                                 <small class="text-muted d-block mb-1">
-    {{ $meeting->start_time->format('D, h:i A') }} - {{ $meeting->end_time->format('h:i A') }}
-</small>
+                                                    {{ $meeting->start_time->format('D, h:i A') }} -
+                                                    {{ $meeting->end_time->format('h:i A') }}
+                                                </small>
                                                 @if ($meeting->type === 'online' && $meeting->url)
                                                     <small class="text-primary d-block"><a href="{{ $meeting->url }}"
                                                             target="_blank"
@@ -465,25 +484,45 @@
                                                     <small class="text-muted d-block mt-1">{{ $meeting->note }}</small>
                                                 @endif
                                             </div>
-                                            <div class="ms-2 d-flex align-items-center justify-content-end">
-                                                <select class="form-select form-select-sm status-update"
-                                                    data-id="{{ $meeting->id }}"
-                                                    style="width: auto;">
-                                                    <option value="scheduled"
-                                                        {{ $meeting->status == 'scheduled' ? 'selected' : '' }}
-                                                        style="background-color: #4e73df; color: #fff;">Scheduled</option>
-                                                    <option value="canceled"
-                                                        {{ $meeting->status == 'canceled' ? 'selected' : '' }}
-                                                        style="background-color: #000a0b; color: #fff;">Canceled</option>
-                                                    <option value="postponed"
-                                                        {{ $meeting->status == 'postponed' ? 'selected' : '' }}
-                                                        style="background-color: #f6c23e; color: #000;">Postponed</option>
-                                                </select>
-                                                <a href="#" class="text-primary ms-2 edit-meeting"
-                                                    style="font-size: 0.9rem;">
-                                                    <i class="bx bx-pencil"></i>
-                                                </a>
-                                            </div>
+                                            @if ($isOwner)
+                                                <div class="ms-2 d-flex align-items-center justify-content-end">
+                                                    <select class="form-select form-select-sm status-update"
+                                                        data-id="{{ $meeting->id }}" style="width: auto;">
+                                                        <option value="scheduled"
+                                                            {{ $meeting->status == 'scheduled' ? 'selected' : '' }}
+                                                            style="background-color: #4e73df; color: #fff;">Scheduled
+                                                        </option>
+                                                        <option value="canceled"
+                                                            {{ $meeting->status == 'canceled' ? 'selected' : '' }}
+                                                            style="background-color: #000a0b; color: #fff;">Canceled
+                                                        </option>
+                                                        <option value="postponed"
+                                                            {{ $meeting->status == 'postponed' ? 'selected' : '' }}
+                                                            style="background-color: #f6c23e; color: #000;">Postponed
+                                                        </option>
+                                                    </select>
+                                                    <a href="#" class="text-primary ms-2 edit-meeting"
+                                                        style="font-size: 0.9rem;">
+                                                        <i class="bx bx-pencil"></i>
+                                                    </a>
+                                                </div>
+                                            @else
+                                                <div class="ms-2">
+                                                    @php
+                                                        $statusColors = [
+                                                            'scheduled' => 'background-color: #4e73df; color: #fff;',
+                                                            'canceled' => 'background-color: #000a0b; color: #fff;',
+                                                            'postponed' => 'background-color: #f6c23e; color: #000;',
+                                                        ];
+                                                    @endphp
+
+                                                    <span class="badge"
+                                                        style="{{ $statusColors[$meeting->status] ?? '' }}">
+                                                        {{ ucfirst($meeting->status) }}
+                                                    </span>
+                                                </div>
+                                            @endif
+
                                         </div>
                                     </div>
                                 </div>
@@ -611,57 +650,68 @@
                 </div>
             </div>
             <!-- Reminder Modal -->
-            <div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel"
-                aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header bg-primary text-white">
-                            <h5 class="modal-title" id="reminderModalLabel">Add Custom Reminder</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="reminderForm">
-                                @csrf
-                                <input type="hidden" name="lead_id" id="reminderLeadId" value="{{ $lead->id ?? '' }}">
-                                <input type="hidden" name="status" value="upcoming">
-                                <input type="hidden" id="reminderId" name="id">
-                                <div class="mb-3">
-                                    <label class="form-label" for="reminderTitle">Title</label>
-                                    <input type="text" class="form-control" id="reminderTitle" name="title"
-                                        placeholder="Reminder Title" required />
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label" for="reminderRemindAt">Remind Time & Date</label>
-                                    <input type="datetime-local" class="form-control" id="reminderRemindAt"
-                                        name="remind_at" required />
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label" for="reminderDescription">Description</label>
-                                    <textarea class="form-control" id="reminderDescription" name="description" placeholder="Reminder Description"
-                                        rows="3"></textarea>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" id="saveReminderBtn">Add</button>
+            @if ($isOwner)
+                <div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel"
+                    aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title" id="reminderModalLabel">Add Custom Reminder</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="reminderForm">
+                                    @csrf
+                                    <input type="hidden" name="lead_id" id="reminderLeadId"
+                                        value="{{ $lead->id ?? '' }}">
+                                    <input type="hidden" name="status" value="upcoming">
+                                    <input type="hidden" id="reminderId" name="id">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="reminderTitle">Title</label>
+                                        <input type="text" class="form-control" id="reminderTitle" name="title"
+                                            placeholder="Reminder Title" required />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="reminderRemindAt">Remind Time & Date</label>
+                                        <input type="datetime-local" class="form-control" id="reminderRemindAt"
+                                            name="remind_at" required />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="reminderDescription">Description</label>
+                                        <textarea class="form-control" id="reminderDescription" name="description" placeholder="Reminder Description"
+                                            rows="3"></textarea>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="saveReminderBtn">Add</button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            @endif
             <script>
                 function parseError(xhr) {
+                    // Default
                     let errorMsg = 'An error occurred.';
+                    // If 403, show custom message
+                    if (xhr.status === 403) {
+                        return 'You can only manage meetings for leads assigned to you';
+                    }
                     try {
                         let resp = JSON.parse(xhr.responseText);
-                        if (resp.message) errorMsg = resp.message;
-                        else if (resp.errors) {
+                        if (resp.message) {
+                            errorMsg = resp.message;
+                        } else if (resp.errors) {
                             let errs = [];
                             for (let k in resp.errors) errs.push(...resp.errors[k]);
                             errorMsg = errs.join(', ');
                         }
-                    } catch {}
+                    } catch {
+                        // silently ignore JSON parse errors
+                    }
                     return errorMsg;
                 }
                 $(document).ready(function() {
@@ -681,25 +731,28 @@
                             let diff = start.diff(now, 'minutes');
                             let $badge = $item.find('.time-badge');
                             let $select = $item.find('.status-update');
-                            let status = $select.val();
+                            let status = $select.length ? $select.val() : $item.data('status');
                             if (status === 'canceled') {
-                                $badge.text('Canceled').removeClass('bg-primary bg-info bg-success').addClass(
-                                    'bg-danger');
+                                $badge.text('Canceled').removeClass(
+                                    'bg-primary bg-info bg-success bg-danger bg-warning').addClass('bg-dark');
                             } else if (status === 'postponed') {
-                                $badge.text('Postponed').removeClass('bg-primary bg-info bg-success').addClass(
-                                    'bg-warning');
+                                $badge.text('Postponed').removeClass('bg-primary bg-info bg-success bg-danger')
+                                    .addClass('bg-warning text-dark');
                             } else if (status === 'scheduled') {
                                 if (diff > 0) {
                                     let unit = diff >= 60 ? 'hours' : 'minutes';
                                     let val = diff >= 60 ? Math.round(diff / 60) : diff;
                                     $badge.text(val + ' ' + unit + (val > 1 ? 's' : '') + ' from now').removeClass(
-                                        'bg-info bg-success bg-danger bg-warning').addClass('bg-primary');
+                                        'bg-info bg-success bg-danger bg-warning bg-dark').addClass(
+                                        'bg-primary');
                                 } else if (diff > -60) {
-                                    $badge.text('Ongoing').removeClass('bg-primary bg-success bg-danger bg-warning')
-                                        .addClass('bg-info');
+                                    $badge.text('Ongoing').removeClass(
+                                        'bg-primary bg-success bg-danger bg-warning bg-dark').addClass(
+                                        'bg-info');
                                 } else {
-                                    $badge.text('Completed').removeClass('bg-primary bg-info bg-danger bg-warning')
-                                        .addClass('bg-success');
+                                    $badge.text('Completed').removeClass(
+                                        'bg-primary bg-info bg-danger bg-warning bg-dark').addClass(
+                                        'bg-success');
                                 }
                             }
                         });
@@ -711,6 +764,7 @@
                         $('#meetingForm .form-control').removeClass('is-invalid');
                         $('#meetingForm .invalid-feedback').text('');
                     }
+
                     function showMeetingErrors(errors) {
                         for (let field in errors) {
                             let $input = $('#meeting' + field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, ''));
@@ -721,14 +775,15 @@
                             $('#error-' + field).text(errors[field][0]);
                         }
                     }
+
                     function saveNewMeeting() {
                         clearMeetingErrors();
                         let formData = new FormData($('#meetingForm')[0]);
                         formData.append('_token', '{{ csrf_token() }}');
                         if (!document.getElementById('meetingForm').checkValidity()) {
-    document.getElementById('meetingForm').reportValidity();
-    return;
-}
+                            document.getElementById('meetingForm').reportValidity();
+                            return;
+                        }
                         $.ajax({
                             url: '{{ route('meetings.store', ['lead' => $lead->id]) }}',
                             type: 'POST',
@@ -748,11 +803,16 @@
                                     }
                                 } else {
                                     let errorMsg = parseError(xhr);
+                                    if (xhr.status === 403) {
+                                        errorMsg = 'You can only manage meetings for leads assigned to you.';
+                                        $('#meetingModal').modal('hide');
+                                    }
                                     Swal.fire('Error!', errorMsg, 'error');
                                 }
                             }
                         });
                     }
+
                     function updateMeeting() {
                         clearMeetingErrors();
                         let id = $('#meetingId').val();
@@ -760,9 +820,9 @@
                         formData.append('_method', 'PUT');
                         formData.append('_token', '{{ csrf_token() }}');
                         if (!document.getElementById('meetingForm').checkValidity()) {
-    document.getElementById('meetingForm').reportValidity();
-    return;
-}
+                            document.getElementById('meetingForm').reportValidity();
+                            return;
+                        }
                         $.ajax({
                             url: `/calendar/meetings/${id}`,
                             type: 'POST',
@@ -782,6 +842,10 @@
                                     }
                                 } else {
                                     let errorMsg = parseError(xhr);
+                                    if (xhr.status === 403) {
+                                        errorMsg = 'You can only manage meetings for leads assigned to you.';
+                                        $('#meetingModal').modal('hide');
+                                    }
                                     Swal.fire('Error!', errorMsg, 'error');
                                 }
                             }
@@ -799,7 +863,7 @@
                     });
                     // Edit meeting - double click
                     $(document).on('dblclick', '.meeting-item', function(e) {
-                        if ($(e.target).is('.status-update, .status-update *')) return;
+                        if (!isOwner || $(e.target).is('.status-update, .status-update *')) return;
                         let $item = $(this);
                         let id = $item.data('id');
                         let title = $item.data('title');
@@ -826,34 +890,35 @@
                         $('#meetingModal').modal('show');
                     });
                     // Edit meeting - button click
-$(document).on('click', '.edit-meeting', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    let $item = $(this).closest('.meeting-item');
-    let id = $item.data('id');
-    let title = $item.data('title');
-    let startTime = $item.data('start-time');
-    let endTime = $item.data('end-time');
-    let duration = moment(endTime).diff(moment(startTime), 'minutes');
-    let type = $item.data('type');
-    let url = $item.data('url') || '';
-    let location = $item.data('location') || '';
-    let note = $item.data('note') || '';
-    $('#meetingModalLabel').text('Update Meeting');
-    $('#meetingId').val(id);
-    $('#meetingTitle').val(title);
-    $('#meetingStartTime').val(startTime);
-    $('#meetingDuration').val(duration);
-    $('input[name="type"][value="' + type + '"]').prop('checked', true).trigger('change');
-    if (type === 'online') {
-        $('#meetingUrl').val(url);
-    } else {
-        $('#meetingLocation').val(location);
-    }
-    $('#meetingNote').val(note);
-    $('#saveMeetingBtn').off('click').text('Update').on('click', updateMeeting);
-    $('#meetingModal').modal('show');
-});
+                    $(document).on('click', '.edit-meeting', function(e) {
+                        if (!isOwner) return false;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        let $item = $(this).closest('.meeting-item');
+                        let id = $item.data('id');
+                        let title = $item.data('title');
+                        let startTime = $item.data('start-time');
+                        let endTime = $item.data('end-time');
+                        let duration = moment(endTime).diff(moment(startTime), 'minutes');
+                        let type = $item.data('type');
+                        let url = $item.data('url') || '';
+                        let location = $item.data('location') || '';
+                        let note = $item.data('note') || '';
+                        $('#meetingModalLabel').text('Update Meeting');
+                        $('#meetingId').val(id);
+                        $('#meetingTitle').val(title);
+                        $('#meetingStartTime').val(startTime);
+                        $('#meetingDuration').val(duration);
+                        $('input[name="type"][value="' + type + '"]').prop('checked', true).trigger('change');
+                        if (type === 'online') {
+                            $('#meetingUrl').val(url);
+                        } else {
+                            $('#meetingLocation').val(location);
+                        }
+                        $('#meetingNote').val(note);
+                        $('#saveMeetingBtn').off('click').text('Update').on('click', updateMeeting);
+                        $('#meetingModal').modal('show');
+                    });
                     // Reset for add new
                     $('#meetingModal').on('hidden.bs.modal', function() {
                         $('#meetingModalLabel').text('Add Meeting');
@@ -865,6 +930,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                     });
                     // Status update for meetings
                     $('.status-update').on('change', function() {
+                        if (!isOwner) return false;
                         let id = $(this).data('id');
                         let status = $(this).val();
                         $.ajax({
@@ -922,7 +988,7 @@ $(document).on('click', '.edit-meeting', function(e) {
                     $(document).on('dblclick', '.reminder-item', function(e) {
                         if ($(e.target).is(
                                 '.reminder-status-update, .reminder-status-update *, .edit-reminder, .edit-reminder *'
-                                )) return;
+                            )) return;
                         editReminder($(this));
                     });
                     // Edit reminder - button click
@@ -935,28 +1001,28 @@ $(document).on('click', '.edit-meeting', function(e) {
                     // Debug: Confirm jQuery is loaded
                     console.log('jQuery loaded:', typeof $);
                     // Status Dropdown Update
-             $('#statusDropdown').on('change', function() {
-    let status = $(this).val();
-    $.ajax({
-        url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
-        type: 'POST',
-        data: {
-            _token: '{{ csrf_token() }}',
-            status: status
-        },
-        success: function(response) {
-            if (response.redirect) {
-                location.href = response.redirect;
-            } else {
-                location.reload();
-            }
-        },
-        error: function(xhr) {
-            let errorMsg = parseError(xhr);
-            Swal.fire('Error!', errorMsg, 'error');
-        }
-    });
-});
+                    $('#statusDropdown').on('change', function() {
+                        let status = $(this).val();
+                        $.ajax({
+                            url: '{{ route('leads.update.status', ['id' => $lead->id]) }}',
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                status: status
+                            },
+                            success: function(response) {
+                                if (response.redirect) {
+                                    location.href = response.redirect;
+                                } else {
+                                    location.reload();
+                                }
+                            },
+                            error: function(xhr) {
+                                let errorMsg = parseError(xhr);
+                                Swal.fire('Error!', errorMsg, 'error');
+                            }
+                        });
+                    });
                     // Reset modal for add
                     $('#reminderModal').on('hidden.bs.modal', function() {
                         $('#reminderModalLabel').text('Add Custom Reminder');
@@ -964,22 +1030,21 @@ $(document).on('click', '.edit-meeting', function(e) {
                         $('#reminderForm')[0].reset();
                         $('#saveReminderBtn').off('click').text('Add').on('click', saveNewReminder);
                     });
+                    $('#saveReminderBtn').on('click', function(e) {
+                        e.preventDefault();
+                        if ($('#reminderId').val()) {
+                            updateReminder();
+                        } else {
+                            saveNewReminder();
+                        }
+                    });
 
-                          $('#saveReminderBtn').on('click', function(e) {
-        e.preventDefault();
-        if ($('#reminderId').val()) {
-            updateReminder();
-        } else {
-            saveNewReminder();
-        }
-    });
-                    // Add Reminder with event delegation
                     function saveNewReminder() {
-                   if (!$('#reminderRemindAt').val()) {
-                        $('#reminderModal').modal('hide');
-                        Swal.fire('Error!', 'Remind date and time are required.', 'error');
-                        return;
-                    }
+                        if (!$('#reminderRemindAt').val()) {
+                            $('#reminderModal').modal('hide');
+                            Swal.fire('Error!', 'Remind date and time are required.', 'error');
+                            return;
+                        }
                         let formData = {
                             lead_id: $('#reminderLeadId').val(),
                             title: $('#reminderTitle').val(),
@@ -999,10 +1064,14 @@ $(document).on('click', '.edit-meeting', function(e) {
                             error: function(xhr) {
                                 $('#reminderModal').modal('hide');
                                 let errorMsg = parseError(xhr);
+                                if (xhr.status === 403) {
+                                    errorMsg = 'You can only add reminders for leads assigned to you.';
+                                }
                                 Swal.fire('Error!', errorMsg, 'error');
                             }
                         });
                     }
+
                     function updateReminder() {
                         let id = $('#reminderId').val();
                         let formData = new FormData($('#reminderForm')[0]);
@@ -1021,11 +1090,14 @@ $(document).on('click', '.edit-meeting', function(e) {
                             error: function(xhr) {
                                 $('#reminderModal').modal('hide');
                                 let errorMsg = parseError(xhr);
+                                if (xhr.status === 403) {
+                                    errorMsg = 'You can only update reminders for leads assigned to you.';
+                                }
                                 Swal.fire('Error!', errorMsg, 'error');
                             }
                         });
                     }
-                 
+
                     // Attach initial event for saveMeetingBtn
                     $('#saveMeetingBtn').on('click', saveNewMeeting);
                     // Color for reminder dropdowns
@@ -1035,7 +1107,10 @@ $(document).on('click', '.edit-meeting', function(e) {
                         if (status === 'upcoming') color = '#6c757d';
                         else if (status === 'overdue') color = '#dc3545';
                         else if (status === 'completed') color = '#28a745';
-                        $select.css({'background-color': color, 'color': '#fff'});
+                        $select.css({
+                            'background-color': color,
+                            'color': '#fff'
+                        });
                     }
                     $('.reminder-status-update').each(function() {
                         updateReminderColor($(this));
@@ -1054,7 +1129,10 @@ $(document).on('click', '.edit-meeting', function(e) {
                             color = '#f6c23e';
                             textColor = '#000';
                         }
-                        $select.css({'background-color': color, 'color': textColor});
+                        $select.css({
+                            'background-color': color,
+                            'color': textColor
+                        });
                     }
                     $('.status-update').each(function() {
                         updateMeetingColor($(this));
