@@ -27,81 +27,79 @@
       @endphp
 
       <div class="w-100 border rounded-3 px-3 py-3">
-        <form id="ordersFilterForm">
-          <div class="row g-2 align-items-center">
-            {{-- Order ID --}}
-            <div class="col-12 col-lg-2">
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bx bx-hash"></i></span>
-                <input id="orderIdSearch" type="text" class="form-control" placeholder="Search Order ID" value="{{ request('order_id', '') }}">
-              </div>
-            </div>
-
-            {{-- Salesperson (head: dropdown / regular: text) --}}
-            <div class="col-12 col-lg-3">
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bx bx-user"></i></span>
-                @if($isHead)
-                  <select id="salespersonFilter" class="form-select" style="border-left:none;">
-                    <option value="">All Salespersons</option>
-                    @foreach(App\Models\User::whereIn('role',['salesperson','head-salesperson'])->get() as $sp)
-                      <option value="{{ $sp->id }}" {{ $selectedSalesperson == $sp->id ? 'selected' : '' }}>{{ $sp->name }}</option>
-                    @endforeach
-                  </select>
-                @else
-                  <input type="text" id="leadSearch" class="form-control" placeholder="Search lead name…" value="{{ request('salesperson','') }}">
-                @endif
-              </div>
-            </div>
-
-            {{-- Global search --}}
-            <div class="col-12 col-lg-3">
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bx bx-search"></i></span>
-                <input id="globalSearch" type="text" class="form-control" placeholder="Search by company, lead name" value="{{ request('q','') }}">
-              </div>
-            </div>
-
-            {{-- Date from --}}
-            <div class="col-6 col-lg-2">
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
-                <input type="date" id="dateFrom" class="form-control" value="{{ request('from','') }}" placeholder="YYYY-MM-DD">
-              </div>
-            </div>
-
-            {{-- Date to --}}
-            <div class="col-6 col-lg-2">
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
-                <input type="date" id="dateTo" class="form-control" value="{{ request('to','') }}" placeholder="YYYY-MM-DD">
-              </div>
-            </div>
-
-            {{-- Status --}}
-            <div class="col-12 col-lg-2">
-              <select id="statusFilter" class="form-select">
-                <option value="">All Status</option>
-                <option value="to_assign"   {{ $statusVal === 'to_assign' ? 'selected' : '' }}>To Assign</option>
-                <option value="assigned"    {{ $statusVal === 'assigned' ? 'selected' : '' }}>Assigned</option>
-                <option value="pending"     {{ $statusVal === 'pending' ? 'selected' : '' }}>Pending</option>
-                <option value="in_progress" {{ $statusVal === 'in_progress' ? 'selected' : '' }}>In Progress</option>
-                <option value="completed"   {{ $statusVal === 'completed' ? 'selected' : '' }}>Completed</option>
-                <option value="rejected"    {{ $statusVal === 'rejected' ? 'selected' : '' }}>Rejected</option>
-              </select>
-            </div>
-
-            {{-- Actions --}}
-            <div class="col-12 col-lg d-flex gap-2 justify-content-lg-end">
-              <button id="exportExcel" type="button" class="btn btn-dark">
-                <i class="bx bx-export me-1"></i> Export
-              </button>
-              <a href="{{ route('sales.orders') }}" class="btn btn-outline-secondary">Reset</a>
-              <a href="{{ route('orders.create') }}" class="btn btn-light text-primary">Add Order</a>
-            </div>
-          </div>
-        </form>
+  <form id="ordersFilterForm">
+    <div class="row g-2 align-items-center">
+      {{-- Order ID --}}
+      <div class="col-12 col-lg-2">
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bx bx-hash"></i></span>
+          <input id="orderIdSearch" type="text" class="form-control" placeholder="Search Order ID" value="{{ request('order_id', '') }}">
+        </div>
       </div>
+
+      {{-- Salesperson (head only) --}}
+      @if($isHead)
+      <div class="col-12 col-lg-3">
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bx bx-user"></i></span>
+          <select id="salespersonFilter" class="form-select" style="border-left:none;">
+            <option value="">All Salespersons</option>
+            @foreach(App\Models\User::whereIn('role',['salesperson','head-salesperson'])->get() as $sp)
+              <option value="{{ $sp->id }}" {{ $selectedSalesperson == $sp->id ? 'selected' : '' }}>{{ $sp->name }}</option>
+            @endforeach
+          </select>
+        </div>
+      </div>
+      @endif
+
+      {{-- Global search --}}
+      <div class="col-12 col-lg-{{ $isHead ? 3 : 5 }}">
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bx bx-search"></i></span>
+          <input id="globalSearch" type="text" class="form-control" placeholder="Search by company, lead name" value="{{ request('q','') }}">
+        </div>
+      </div>
+
+      {{-- Date from --}}
+      <div class="col-6 col-lg-2">
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
+          <input type="date" id="dateFrom" class="form-control" value="{{ request('from','') }}" placeholder="YYYY-MM-DD">
+        </div>
+      </div>
+
+      {{-- Date to --}}
+      <div class="col-6 col-lg-2">
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bx bx-calendar"></i></span>
+          <input type="date" id="dateTo" class="form-control" value="{{ request('to','') }}" placeholder="YYYY-MM-DD">
+        </div>
+      </div>
+
+      {{-- Status --}}
+      <div class="col-12 col-lg-2">
+        <select id="statusFilter" class="form-select">
+          <option value="">All Status</option>
+          <option value="to_assign"   {{ $statusVal === 'to_assign' ? 'selected' : '' }}>To Assign</option>
+          <option value="assigned"    {{ $statusVal === 'assigned' ? 'selected' : '' }}>Assigned</option>
+          <option value="pending"     {{ $statusVal === 'pending' ? 'selected' : '' }}>Pending</option>
+          <option value="in_progress" {{ $statusVal === 'in_progress' ? 'selected' : '' }}>In Progress</option>
+          <option value="completed"   {{ $statusVal === 'completed' ? 'selected' : '' }}>Completed</option>
+          <option value="rejected"    {{ $statusVal === 'rejected' ? 'selected' : '' }}>Rejected</option>
+        </select>
+      </div>
+
+      {{-- Actions --}}
+      <div class="col-12 col-lg d-flex gap-2 justify-content-lg-end">
+        <button id="exportExcel" type="button" class="btn btn-dark">
+          <i class="bx bx-export me-1"></i> Export
+        </button>
+        <a href="{{ route('sales.orders') }}" class="btn btn-outline-secondary">Reset</a>
+        <a href="{{ route('orders.create') }}" class="btn btn-light text-primary">Add Order</a>
+      </div>
+    </div>
+  </form>
+</div>
     </div>
 
     <div class="card-datatable table-responsive p-3">

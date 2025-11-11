@@ -211,9 +211,6 @@
                                             <label class="form-label">Job Title <span class="text-danger">*</span></label>
                                             <input name="orderTitle" type="text" class="form-control" value="{{ old('orderTitle', $order->orderTitle) }}">
                                             <div id="orderTitle-error" class="validation-msg"></div>
-                                            @error('orderTitle')
-                                                <span class="text-danger">{{ $message }}</span>
-                                            @enderror
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Created Date</label>
@@ -223,9 +220,6 @@
                                             <label class="form-label">Deadline <span class="text-danger">*</span></label>
                                             <input name="deadline" type="date" class="form-control" value="{{ old('deadline', $order->deadline->format('Y-m-d')) }}">
                                             <div id="deadline-error" class="validation-msg"></div>
-                                            @error('deadline')
-                                                <span class="text-danger">{{ $message }}</span>
-                                            @enderror
                                         </div>
                                         <div class="col-md-6 mb-4">
                                             <label class="form-label">Created By</label>
@@ -243,9 +237,6 @@
                                                 </label>
                                             </div>
                                             <div id="approval-error" class="validation-msg"></div>
-                                            @error('approval')
-                                                <span class="text-danger">{{ $message }}</span>
-                                            @enderror
                                         </div>
                                     </div>
                                 </div>
@@ -291,7 +282,7 @@
                                                     <input type="text" name="products[{{ $productIndex }}][product_name]" class="form-control" value="{{ old("products.{$productIndex}.product_name", $product->productName) }}">
                                                 </td>
                                                 <td>
-                                                    <input type="number" name="products[{{ $productIndex }}][quantity]" class="form-control" value="{{ old("products.{$productIndex}.quantity", $product->totalQuantity) }}" min="1">
+                                                    <input type="number" name="products[{{ $productIndex }}][quantity]" class="form-control" value="{{ old("products.{$productIndex}.quantity", ltrim($product->totalQuantity, '0') ?: '') }}" min="1">
                                                 </td>
                                                 <td>
                                                     <input type="text" name="products[{{ $productIndex }}][material_remark]" class="form-control" value="{{ old("products.{$productIndex}.material_remark", $product->materialRemark ?? '') }}">
@@ -328,7 +319,7 @@
                                                 <tr data-index="{{ $index }}">
                                                     <td class="product-number">{{ $index + 1 }}</td>
                                                     <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
-                                                    <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ $product['quantity'] ?? '' }}" min="1"></td>
+                                                    <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ ltrim($product['quantity'] ?? '', '0') ?: '' }}" min="1"></td>
                                                     <td><input type="text" name="products[{{ $index }}][material_remark]" class="form-control" value="{{ $product['material_remark'] ?? '' }}"></td>
                                                     <td>
                                                         <div id="remarks-container-{{ $index }}">
@@ -352,7 +343,6 @@
                                                         <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $index }}">Add Remark</button>
                                                     </td>
                                                     <td>
-                                                    
                                                         <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $index }}">Delete</button>
                                                     </td>
                                                 </tr>
@@ -380,36 +370,16 @@
                                 </div>
                                 <input id="fileInput" type="file" accept=".csv" class="file-overlay">
                             </div>
-                            @error('csv_file')
-                                <span class="text-danger">{{ $message }}</span>
-                            @enderror
                             <div id="attach-msg" class="mt-2 text-sm"></div>
                             <ul id="preview" class="mt-3 space-y-2"></ul>
 
                             <div class="mt-3">
                                 <label class="form-label">Remarks</label>
                                 <textarea name="orderDetail" rows="3" class="form-control" placeholder="Remarks">{{ old('orderDetail', $order->orderDetail) }}</textarea>
-                                @error('orderDetail')
-                                    <span class="text-danger">{{ $message }}</span>
-                                @enderror
                             </div>
                         </div>
                     </div>
 
-                    @if ($errors->has('products') || $errors->has('products.*'))
-                    <div class="mt-3 text-danger text-sm">
-                        <ul>
-                            @foreach ($errors->get('products') as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                            @foreach ($errors->get('products.*') as $fieldErrors)
-                                @foreach ($fieldErrors as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            @endforeach
-                        </ul>
-                    </div>
-                    @endif
                 </div>
             </div>
         </div>
@@ -464,12 +434,16 @@
         </div>
     </div>
 </div>
-
 @push('scripts')
 <script>
+var isDirty = false;
     $(document).ready(function() {
         function escapeHtml(str) {
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function ltrim(str, char) {
+            return str.replace(new RegExp(`^${char}+`), '');
         }
 
         let productIndex = $('#product-table tbody tr').length;
@@ -498,6 +472,8 @@
             }
         });
 
+        let modalData = {}; // Store modal data for validation errors
+
         $('#productModal').on('show.bs.modal', function(e) {
             const button = $(e.relatedTarget);
             const mode = button.data('mode');
@@ -523,16 +499,41 @@
                     const remark = $(this).find('input').val();
                     addRemarkRow(operation, remark);
                 });
+            } else if (Object.keys(modalData).length > 0) {
+                // Restore data after validation error
+                $('#product_name').val(modalData.product_name);
+                $('#quantity').val(modalData.quantity);
+                $('#material_remark').val(modalData.material_remark);
+                modalData.remarks.forEach((r, idx) => {
+                    setTimeout(() => addRemarkRow(r.operation, r.remark), idx * 50);
+                });
+                modalData = {};
             }
         });
 
         $('#addRemarkBtn').on('click', function() {
             if ($('#remarks-container .remark-row').length >= 6) {
-                Swal.fire({
-                    title: 'Max Remarks Reached',
-                    text: 'Maximum 6 remarks per product.',
-                    icon: 'warning'
+                modalData = {
+                    product_name: $('#product_name').val() || '',
+                    quantity: $('#quantity').val() || '',
+                    material_remark: $('#material_remark').val() || '',
+                    remarks: []
+                };
+                $('#remarks-container .remark-row').each(function() {
+                    const operation = $(this).find('select').val();
+                    const remark = $(this).find('input').val() || '';
+                    modalData.remarks.push({ operation, remark });
                 });
+                $('#productModal').modal('hide');
+                setTimeout(() => {
+                    Swal.fire({
+                        title: 'Max Remarks Reached',
+                        text: 'Maximum 6 remarks per product.',
+                        icon: 'warning'
+                    }).then(() => {
+                        $('#productModal').modal('show');
+                    });
+                }, 500);
                 return;
             }
             addRemarkRow();
@@ -577,30 +578,76 @@
                 }
             });
             if (duplicate) {
-                current.val('');
-                Swal.fire({
-                    title: 'Duplicate Operation',
-                    text: 'This operation is already selected.',
-                    icon: 'error'
+                modalData = {
+                    product_name: $('#product_name').val() || '',
+                    quantity: $('#quantity').val() || '',
+                    material_remark: $('#material_remark').val() || '',
+                    remarks: []
+                };
+                container.find('.remark-row').each(function() {
+                    const opSelect = $(this).find('select');
+                    const remInput = $(this).find('input');
+                    const operation = opSelect.val();
+                    const remark = remInput.val() || '';
+                    modalData.remarks.push({ operation, remark });
                 });
+                current.val('');
+                if ($('#productModal').hasClass('show')) {
+                    $('#productModal').modal('hide');
+                    setTimeout(() => {
+                        Swal.fire({
+                            title: 'Duplicate Operation',
+                            text: 'This operation is already selected.',
+                            icon: 'error'
+                        }).then(() => {
+                            $('#productModal').modal('show');
+                        });
+                    }, 500);
+                } else {
+                    Swal.fire({
+                        title: 'Duplicate Operation',
+                        text: 'This operation is already selected.',
+                        icon: 'error'
+                    });
+                }
             }
         });
 
         $('#saveProduct').on('click', function() {
             const errors = validateProductForm();
             if (errors.length > 0) {
-                Swal.fire({
-                    title: 'Please complete the product info',
-                    html: '<ul><li>' + errors.join('</li><li>') + '</li></ul>',
-                    icon: 'error'
+                // Store current modal data
+                modalData = {
+                    product_name: $('#product_name').val() || '',
+                    quantity: $('#quantity').val() || '',
+                    material_remark: $('#material_remark').val() || '',
+                    remarks: []
+                };
+                $('#remarks-container .remark-row').each(function() {
+                    const operation = $(this).find('select').val();
+                    const remark = $(this).find('input').val() || '';
+                    if (operation && remark.trim()) {
+                        modalData.remarks.push({ operation, remark });
+                    }
                 });
+
+                $('#productModal').modal('hide');
+                setTimeout(() => {
+                    Swal.fire({
+                        title: 'Please complete the product info',
+                        html: errors.map(m => `<div style="text-align:left">${m}</div>`).join(''),
+                        icon: 'error'
+                    }).then(() => {
+                        $('#productModal').modal('show');
+                    });
+                }, 500);
                 return;
             }
 
             const index = $('#product_index').val();
             const data = {
                 product_name: $('#product_name').val() || '',
-                quantity: $('#quantity').val() || '',
+                quantity: ltrim($('#quantity').val() || '', '0') || '',
                 material_remark: $('#material_remark').val() || '',
                 remarks: []
             };
@@ -621,11 +668,16 @@
                 updateProductRow(index, data);
             } else {
                 if (productIndex >= 5) {
-                    Swal.fire({
-                        title: 'Maximum Products Reached',
-                        text: 'Maximum 5 products allowed. Use CSV for more.',
-                        icon: 'warning'
-                    });
+                    $('#productModal').modal('hide');
+                    setTimeout(() => {
+                        Swal.fire({
+                            title: 'Maximum Products Reached',
+                            text: 'Maximum 5 products allowed. Use CSV for more.',
+                            icon: 'warning'
+                        }).then(() => {
+                            $('#productModal').modal('show');
+                        });
+                    }, 500);
                     return;
                 }
                 addProductRow(data, productIndex);
@@ -642,8 +694,8 @@
             const html = `
                 <tr data-index="${index}">
                     <td class="product-number">${index + 1}</td>
-                    <td><input type="hidden" name="products[${index}][id]" value=""><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required></td>
-                    <td><input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1" required></td>
+                    <td><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
+                    <td><input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1"></td>
                     <td><input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}"></td>
                     <td>
                         <div id="remarks-container-${index}">
@@ -676,8 +728,8 @@
 
         function updateProductRow(index, data) {
             const row = $(`#product-table tbody tr[data-index="${index}"]`);
-            row.find('td:eq(1)').html(`<input type="hidden" name="products[${index}][id]" value="${row.find('input[name$="[id]"]').val() || ''}"><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required>`);
-            row.find('td:eq(2)').html(`<input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1" required>`);
+            row.find('td:eq(1)').html(`<input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}">`);
+            row.find('td:eq(2)').html(`<input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1">`);
             row.find('td:eq(3)').html(`<input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}">`);
             row.find('td:eq(4)').html(`
                 <div id="remarks-container-${index}">
@@ -707,7 +759,7 @@
             $('#product-table tbody tr').each(function(i) {
                 $(this).attr('data-index', i);
                 $(this).find('.product-number').text(i + 1);
-                $(this).find('.edit-product, .remove-product, .add-remark').attr('data-index', i);
+                $(this).find('.remove-product, .add-remark').attr('data-index', i);
                 const remarksId = `remarks-container-${i}`;
                 $(this).find('[id^="remarks-container-"]').attr('id', remarksId);
                 $(this).find('input[name^="products"], select[name^="products"]').each(function() {
@@ -759,6 +811,10 @@
             `;
             container.append(html);
             isDirty = true;
+        });
+
+        $(document).on('input', 'input[type="number"]', function() {
+            this.value = ltrim(this.value, '0') || '';
         });
 
         const input = document.getElementById('fileInput');
@@ -851,7 +907,7 @@
                     const data = lines[i].split(',').map(d => stripQuotes(d.trim()));
                     const product = {
                         product_name: data[headers.indexOf('Product_Name')] || '',
-                        quantity: data[headers.indexOf('Quantity')] || '',
+                        quantity: ltrim(data[headers.indexOf('Quantity')] || '', '0'),
                         material_remark: data[headers.indexOf('Material_Info')] || '',
                         remarks: []
                     };
@@ -921,8 +977,9 @@
                 errors.push('Product name is required');
             }
 
-            const quantity = parseInt($('#quantity').val());
-            if (!quantity || quantity < 1) {
+            const quantityStr = $('#quantity').val().trim();
+            const quantity = parseInt(quantityStr, 10);
+            if (!quantityStr || isNaN(quantity) || quantity < 1) {
                 showValidationError('#quantity', 'Quantity must be at least 1');
                 errors.push('Quantity must be at least 1');
             }
@@ -996,12 +1053,13 @@
                     const productErrors = [];
                     const productName = $(this).find('input[name$="[product_name]"]').val().trim();
                     const quantityInput = $(this).find('input[name$="[quantity]"]');
-                    const quantity = parseInt(quantityInput.val());
+                    const quantityStr = quantityInput.val().trim();
+                    const quantity = parseInt(quantityStr, 10);
                     if (!productName) {
                         $(this).find('input[name$="[product_name]"]').addClass('is-invalid');
                         productErrors.push('Product name is required');
                     }
-                    if (!quantity || quantity < 1) {
+                    if (!quantityStr || isNaN(quantity) || quantity < 1) {
                         quantityInput.addClass('is-invalid');
                         productErrors.push('Quantity must be at least 1');
                     }
@@ -1036,7 +1094,9 @@
                 Swal.fire({
                     title: 'Please fix the following errors',
                     html: '<div style="text-align:left;"><ul><li>' + errors.join('</li><li>') + '</li></ul></div>',
-                    icon: 'error'
+                    icon: 'error',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
                 });
             } else {
                 isDirty = false;
