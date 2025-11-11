@@ -249,9 +249,11 @@
 
   <!-- Keep "Another Data" as-is (do not touch) -->
 <div class="tab-panel {{ ($activeTab === 'another') ? 'active' : '' }}" id="anotherData">
-  <!-- Header: title left, controls right -->
+  <!-- Card + table -->
+  <div class="ad-card">
+    <!-- Header: title left, controls right -->
   <div class="another-head">
-    <h2 class="another-title">Costing Data Management</h2>
+    <div class="title" style="font-size: 20px !important;">Costing Data Management</div>
     <div class="another-controls">
       <input id="adSearch" class="ad-input" type="search" placeholder="Search machine...">
       <select id="adType" class="ad-select" aria-label="All Types">
@@ -270,13 +272,10 @@
       </select>
     </div>
   </div>
-
-  <!-- Card + table -->
-  <div class="ad-card">
     <table class="ad-table">
       <thead>
         <tr>
-          <th>Product ID</th>
+          <th>Order ID</th>
           <th>Product Quantity</th>
           <th class="ad-num">Used Quantity</th>
           <th class="ad-num">Total Cost</th>
@@ -311,7 +310,7 @@
             <td class="ad-num">{{ number_format((int)($ord->total_item_quantity ?? 0)) }}</td>
             <td class="ad-num">—</td> {{-- total cost to implement later --}}
             <td class="ad-actions">
-              <button class="ad-eye" title="View"><i class="bi bi-eye"></i></button>
+              <a class="ad-eye" title="View" href="{{ route('boss.orders.show', $ord->id) }}"><i class="bi bi-eye"></i></a>
             </td>
           </tr>
         @empty

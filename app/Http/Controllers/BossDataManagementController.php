@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Material;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Lead;
+use App\Models\Order;
 use App\Models\MaterialType;
 use App\Models\Unit;
 use Illuminate\Http\Request;
