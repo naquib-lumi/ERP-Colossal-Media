@@ -214,7 +214,7 @@
                 </td>
                 <td class="text-end" style="display:flex;justify-content:end;position:relative">
                   <button class="kebab" title="Actions" data-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
-                  <div class="dropdown-menu" style="position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:10px;min-width:180px;padding:6px">
+                  <div class="dropdown-menu ad-menu" style="position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:10px;min-width:180px;padding:6px">
                     <button 
                       class="dropdown-item btnEdit"
                       data-id="{{ $m->MaterialID }}"
@@ -535,14 +535,22 @@
   });
 
   // Dropdown (simple)
-  document.addEventListener('click',(e)=>{
-    if(e.target.closest('.kebab')){
-      const menu = e.target.closest('td').querySelector('.dropdown-menu');
-      menu.style.display = (menu.style.display==='block'?'none':'block');
-      return;
-    }
-    $$('.dropdown-menu').forEach(m=>m.style.display='none');
-  });
+  document.addEventListener('click', (e) => {
+  // if the click is on our kebab inside a table cell, toggle just that menu
+  const kebab = e.target.closest('.kebab');
+  if (kebab) {
+    const cell = kebab.closest('td');
+    // close all our menus first
+    document.querySelectorAll('.ad-menu').forEach(m => (m.style.display = 'none'));
+    // then toggle the one in this cell
+    const menu = cell?.querySelector('.ad-menu');
+    if (menu) menu.style.display = (menu.style.display === 'block' ? 'none' : 'block');
+    return; // IMPORTANT: don't run the “close all” below
+  }
+
+  // Clicked anywhere else on the page → just close our menus (not Bootstrap’s)
+  document.querySelectorAll('.ad-menu').forEach(m => (m.style.display = 'none'));
+});
 
   function openMask(id){ $('#'+id).classList.add('show'); }
   function closeMask(id){ $('#'+id).classList.remove('show'); }
@@ -670,16 +678,22 @@
   });
 
   // Edit (open)
-  document.addEventListener('click', (e)=>{
-    const btn = e.target.closest('.btnEdit');
-    if(!btn) return;
-    $('#qeId').value = btn.dataset.id;
-    $('#qeName').value = btn.dataset.name || '';
-    $('#qeCurrent').value = btn.dataset.cost ? Number(btn.dataset.cost).toFixed(4) : '';
-    $('#qeNew').value = btn.dataset.cost || '';
-    $('#qeUnit').value = btn.dataset.uom || '';
-    openMask('mdlQuickEdit');
-  });
+  document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btnEdit');
+  if (!btn) return;
+
+  // Remember the row so we don't have to re-find it later
+  window.__editingRow = btn.closest('tr');
+
+  document.getElementById('qeId').value = btn.dataset.id;
+  document.getElementById('qeName').value = btn.dataset.name || '';
+  document.getElementById('qeCurrent').value = btn.dataset.cost ? Number(btn.dataset.cost).toFixed(4) : '';
+  document.getElementById('qeNew').value = btn.dataset.cost || '';
+  document.getElementById('qeUnit').value = btn.dataset.uom || '';
+
+  // open modal
+  openMask('mdlQuickEdit');
+});
 
   // Save Quick Edit
   $('#btnSaveQuick').addEventListener('click', ()=>{
@@ -693,22 +707,43 @@
       method:'PUT',
       headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
       body:JSON.stringify(postData)
-    }).then(r=>r.json()).then(data=>{
-      if(data.success){
-        const tr = Array.from($('#tbl tbody').children).find(tr => tr.querySelector('.btnEdit')?.dataset.id === id);
-        if(tr){
-          tr.children[0].textContent = postData.qeName || tr.children[0].textContent;
-          tr.children[2].textContent = `RM ${Number(postData.qeNew||0).toFixed(4)} ${data.material.unit.label}`;
-          tr.dataset.uom = postData.qeUnit;
-          const btn = tr.querySelector('.btnEdit');
-          btn.dataset.name = tr.children[0].textContent;
-          btn.dataset.cost = postData.qeNew;
-          btn.dataset.uom = postData.qeUnit;
-        }
-        closeMask('mdlQuickEdit');
-        applyFilter();
-      }else{ alert('Failed to update'); }
-    }).catch(()=>alert('Error'));
+    }).then(r=>r.json())
+    
+    .then((data) => {
+      if (!data || !data.success) {
+        alert(data?.message || 'Failed to update');
+        return;
+      }
+
+      // Use the row we remembered when opening the modal
+      const tr = window.__editingRow || null;
+      // Clear the pointer; it's one edit per open
+      window.__editingRow = null;
+
+      // If for some reason the row is gone (e.g. re-render), just close and stop
+      if (!tr) { closeMask('mdlQuickEdit'); return; }
+
+      const nameCell = tr.querySelector('td:nth-child(1)');
+      const costCell = tr.querySelector('td:nth-child(3)');
+
+      const newName   = document.getElementById('qeName').value || (nameCell ? nameCell.textContent : '');
+      const newCost   = Number(document.getElementById('qeNew').value || 0).toFixed(4);
+      const unitLabel = data.unit_label || (data.material && data.material.unit && data.material.unit.label) || '';
+
+      if (nameCell) nameCell.textContent = newName;
+      if (costCell) costCell.textContent = `RM ${newCost} ${unitLabel}`;
+
+      // Also refresh row data attributes on the edit button
+      const btn = tr.querySelector('.btnEdit');
+      if (btn) {
+        btn.dataset.name = newName;
+        btn.dataset.cost = document.getElementById('qeNew').value;
+        btn.dataset.uom  = document.getElementById('qeUnit').value;
+      }
+
+      closeMask('mdlQuickEdit');
+      if (typeof window.applyFilter === 'function') window.applyFilter();
+    })
   });
 
   // Delete

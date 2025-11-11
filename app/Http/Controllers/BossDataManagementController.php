@@ -543,7 +543,11 @@ class BossDataManagementController extends Controller
         ]);
 
         $material->load(['unit:id,label']);
-        return response()->json(['success' => true, 'material' => $material]);
+        return response()->json([
+            'success'    => true,
+            'material'   => $material,
+            'unit_label' => optional($material->unit)->label,
+        ]);
     }
 
     public function destroy($id)
