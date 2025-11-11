@@ -275,12 +275,11 @@
                   
                   <a class="text-decoration-none text-dark"
                     href="{{ $urlWith(['sort'=>'completed','dir'=>$nextDir]) }}">
-                    COMPLETED DATE
+                    COMPLETION DATE
                     <span class="sort-caret">{{ $dir === 'asc' ? '↑' : '↓' }}</span>
                   </a>
                 </th>
                 <th>PROOF FILE</th>
-                <th>REMARKS</th>
                 <th class="text-center">PRODUCT DETAILS</th>
               </tr>
             </thead>
@@ -314,9 +313,6 @@
                   </button>
                 </td>
                 {{-- === /PROOF FILE === --}}
-
-                <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
-
                 {{-- Square icon button for details --}}
                 <td class="text-center">
                   @php

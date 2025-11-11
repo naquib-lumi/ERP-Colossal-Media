@@ -234,7 +234,7 @@
                 <th>
                   <a class="th-sort is-active"
                     href="{{ $urlWith(['sort'=>'completed','dir'=>$nextDir]) }}">
-                    COMPLETED DATE
+                    COMPLETION DATE
                     <span class="sort-caret">{{ $dir === 'asc' ? '↑' : '↓' }}</span>
                   </a>
                 </th>

@@ -271,12 +271,12 @@
       @endphp
       <a class="text-decoration-none text-dark"
         href="{{ $urlWith(['sort'=>'completed','dir'=>$nextDir]) }}">
-        COMPLETED DATE
+        COMPLETION DATE
         <span class="sort-caret">{{ $dir === 'asc' ? '↑' : '↓' }}</span>
       </a>
     </th>
     <th>PROOF FILE</th>   {{-- 👈 keep this column exactly as in your original --}}
-    <th>REMARKS</th>
+    
     <th class="text-center">PRODUCT DETAILS</th>
   </tr>
 </thead>
@@ -307,7 +307,6 @@
     </td>
 
 
-    <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
     <td class="text-center">
       <a href="{{ $viewUrl }}" class="icon-btn" title="View details"><i class="bi bi-eye"></i></a>
     </td>
