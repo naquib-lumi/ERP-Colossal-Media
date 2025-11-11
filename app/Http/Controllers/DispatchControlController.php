@@ -64,6 +64,13 @@ class DispatchControlController extends Controller
                 $w->whereNull('o.orderStatus')
                 ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
             })
+            ->whereNotExists(function ($q2) {
+                $q2->select(DB::raw(1))
+                ->from('fulfillment_progress as fp')
+                ->whereColumn('fp.ProductID', 'p.ProductID')
+                ->where('fp.stage', 'delivery')
+                ->where('fp.status', 'completed');
+            })
             ->when($pid !== '', function ($qb) use ($pid) {
                 $like = '%'.$pid.'%';
 

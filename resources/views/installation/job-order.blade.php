@@ -290,7 +290,7 @@ default => \Illuminate\Support\Str::title($t),
     {{-- Header --}}
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div>
-        <div class="fw-bold">Dispatch Control</div>
+        <div class="fw-bold">Delivery & Installation</div>
         <small class="text-muted">Filter &amp; search</small>
       </div>
       <div class="d-flex gap-2">
