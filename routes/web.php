@@ -458,6 +458,7 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::patch('/boss/profile',     [BossDashboardController::class, 'ProfileUpdate'])->name('boss.profile.update');
 
         Route::get('/boss/datamanagement', [BossDataManagementController::class, 'index'])->name('boss.datamanagement');
+        Route::get('/boss/datamanagement/orders/{order}/products', [BossDataManagementController::class, 'orderProducts'])->name('boss.datamanagement.orderProducts');
         Route::post('/boss/material-types', [BossDataManagementController::class, 'storeType'])->name('boss.material-types.store');
         Route::put('/boss/material-types/{id}', [BossDataManagementController::class, 'updateType'])->name('boss.material-types.update');
         Route::delete('/boss/material-types/{id}', [BossDataManagementController::class, 'destroyType'])->name('boss.material-types.destroy');

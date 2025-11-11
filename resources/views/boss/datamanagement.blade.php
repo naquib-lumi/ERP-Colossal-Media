@@ -124,11 +124,11 @@
 
   /* footer & pager */
   .ad-foot{
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center; justify-content:flex-end;
     margin:10px 18px 0;
   }
   .ad-range{ color:#6b7280; font-size:14px; }
-  .ad-pager{ display:flex; gap:8px; align-items:center; }
+  .ad-pager{ display:flex; gap:8px; align-items:center;}
   .ad-page, .ad-nav{
     min-width:36px; height:36px; border:1px solid #E6E9EF; background:#fff; color:#0f172a;
     border-radius:10px; display:grid; place-items:center; padding:0 10px; cursor:pointer;
@@ -253,7 +253,7 @@
   <div class="ad-card">
     <!-- Header: title left, controls right -->
   <div class="another-head">
-    <div class="title" style="font-size: 20px !important;">Costing Data Management</div>
+    <div class="title" style="font-size: 20px !important;">Order Costing Data</div>
     <div class="another-controls">
       <input id="adSearch" class="ad-input" type="search" placeholder="Search machine...">
       <select id="adType" class="ad-select" aria-label="All Types">
@@ -303,12 +303,14 @@
               @endif
             </td>
             <td>
-              <a href="javascript:void(0)" class="ad-qty-link">
+              <a href="javascript:void(0)"      
+                class="ad-qty-link"
+                data-order-id="{{ $ord->id }}">
                 {{ number_format((int)($ord->products_count ?? 0)) }} Products
               </a>
             </td>
-            <td class="ad-num">{{ number_format((int)($ord->total_item_quantity ?? 0)) }}</td>
-            <td class="ad-num">—</td> {{-- total cost to implement later --}}
+            <td class="ad-num">{{ number_format((int)($ord->used_quantity ?? 0)) }}</td>
+            <td class="ad-num">RM {{ number_format((float)($ord->total_cost ?? 0), 2) }}</td> 
             <td class="ad-actions">
               <a class="ad-eye" title="View" href="{{ route('boss.orders.show', $ord->id) }}"><i class="bi bi-eye"></i></a>
             </td>
@@ -319,9 +321,6 @@
       </tbody>
     </table>
     <div class="ad-foot">
-      <div class="ad-range">
-        Showing {{ $orders->firstItem() ?? 0 }} to {{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} results
-      </div>
       <div class="ad-pager">
         {{ $orders
           ->withQueryString()
@@ -445,6 +444,42 @@
   </div>
 </div>
 
+<!-- Products Breakdown Modal -->
+<div class="x-mask" id="mdlProducts">
+  <div class="x" style="max-width:860px;">
+    <div class="x-hd">
+      <span id="mdlProductsTitle"><i class="bi bi-box-seam"></i> Products</span>
+    </div>
+    <div class="x-bd">
+      <div id="mdlProductsLoading" class="text-muted" style="display:none;">Loading…</div>
+      <div class="table-responsive">
+        <table class="ad-table" id="mdlProductsTbl">
+          <thead>
+            <tr>
+              <th style="white-space:nowrap;">Product</th>
+              <th class="ad-num">Items Qty</th>
+              <th class="ad-num">Order Qty</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th class="ad-num">Total Cost</th>
+            </tr>
+          </thead>
+          <tbody><!-- filled by JS --></tbody>
+          <tfoot>
+            <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #e5e7eb;">
+              <th colspan="5" style="text-align:right;padding:12px 18px;">Total</th>
+              <th class="ad-num" id="mdlProductsGrand" style="padding:12px 18px;color:#0f172a;">RM 0.00</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="x-ft">
+      <button class="btn btn-ghost" data-close="mdlProducts">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
   const $ = s => document.querySelector(s);
@@ -495,6 +530,8 @@
     });
     $('#countTotal').textContent = shown;
   }
+
+  window.applyFilter = applyFilter;
 
   ['input','change'].forEach(ev=>{
     document.addEventListener(ev, (e)=>{
@@ -656,6 +693,83 @@
   window.addEventListener('load', applyFilter);
 })();
 
+function formatStatus(status) {
+  if (!status) return '-';
+  return status
+    .toString()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase()); // capitalize each word
+}
+
+(function () {
+  const $ = s => document.querySelector(s);
+
+  function openProductsModal(orderId, orderLabel) {
+    const modal = $('#mdlProducts');
+    const tbody = $('#mdlProductsTbl tbody');
+    const grand = $('#mdlProductsGrand');
+
+    $('#mdlProductsTitle').innerHTML = `<i class="bi bi-box-seam"></i> Products for <b>${orderLabel}</b>`;
+    tbody.innerHTML = '';
+    grand.textContent = 'RM 0.00';
+    $('#mdlProductsLoading').style.display = 'block';
+    modal.classList.add('show');
+
+    const url = `{{ route('boss.datamanagement.orderProducts', ['order' => '___ID___']) }}`.replace('___ID___', orderId);
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        $('#mdlProductsLoading').style.display = 'none';
+
+        if (!data.success) {
+          tbody.innerHTML = `<tr><td colspan="6" style="padding:16px;color:#6b7280;">Failed to load.</td></tr>`;
+          return;
+        }
+        if (!data.products.length) {
+          tbody.innerHTML = `<tr><td colspan="6" style="padding:16px;color:#6b7280;">No products found.</td></tr>`;
+          return;
+        }
+
+        let total = 0;
+        const fmtRM = n => 'RM ' + Number(n || 0).toFixed(2);
+        const esc = s => (s ?? '').toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+        tbody.innerHTML = data.products.map(p => {
+          total += Number(p.total_cost || 0);
+          return `
+            <tr>
+              <td>${esc(p.name ?? ('#' + p.product_id))}</td>
+              <td class="ad-num">${Number(p.items_quantity || 0).toLocaleString()}</td>
+              <td class="ad-num">${Number(p.order_quantity || 0).toLocaleString()}</td>
+              <td>${formatStatus(p.status)}</td>
+              <td>${esc(p.created_at)}</td>
+              <td class="ad-num">${fmtRM(p.total_cost)}</td>
+            </tr>`;
+        }).join('');
+
+        grand.textContent = fmtRM(total);
+      })
+      .catch(() => {
+        $('#mdlProductsLoading').style.display = 'none';
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:16px;color:#6b7280;">Error loading data.</td></tr>`;
+      });
+  }
+
+  // Attach click handler immediately (runs even if later JS breaks)
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('.ad-qty-link');
+    if (!a) return;
+    e.preventDefault();
+
+    const orderId = a.dataset.orderId;
+    const row = a.closest('tr');
+    const orderLabel = row ? (row.querySelector('td:first-child')?.textContent?.trim() || `#${orderId}`) : `#${orderId}`;
+
+    openProductsModal(orderId, orderLabel);
+  });
+})();
+
 // ========= PAGINATION =========
 let currentPage = 1;
 const rowsPerPage = 10;
@@ -692,12 +806,14 @@ document.getElementById('nextPage').addEventListener('click', () => {
 });
 
 // Modify applyFilter to reapply pagination after filtering
-const _oldApplyFilter = applyFilter;
-applyFilter = function() {
-  _oldApplyFilter();
-  currentPage = 1;
-  paginateTable();
-};
+if (typeof window.applyFilter === 'function') {
+  const _oldApplyFilter = window.applyFilter;
+  window.applyFilter = function () {
+    _oldApplyFilter();
+    currentPage = 1;
+    paginateTable();
+  };
+}
 
 // Initial pagination after load
 window.addEventListener('load', paginateTable);

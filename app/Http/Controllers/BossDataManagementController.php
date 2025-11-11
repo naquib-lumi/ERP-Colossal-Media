@@ -45,16 +45,26 @@ class BossDataManagementController extends Controller
 
             $u = is_string($unit) ? strtolower(trim($unit)) : '';
             switch ($u) {
-                case 'in': case 'inch': case 'inches':
+                case 'in':
+                case 'inch':
+                case 'inches':
                 default:
                     return $v;
-                case 'ft': case 'foot': case 'feet':
+                case 'ft':
+                case 'foot':
+                case 'feet':
                     return $v * 12.0;
-                case 'cm': case 'centimeter': case 'centimeters':
+                case 'cm':
+                case 'centimeter':
+                case 'centimeters':
                     return $v * 0.3937007874;
-                case 'mm': case 'millimeter': case 'millimeters':
+                case 'mm':
+                case 'millimeter':
+                case 'millimeters':
                     return $v * 0.03937007874;
-                case 'm': case 'meter': case 'meters':
+                case 'm':
+                case 'meter':
+                case 'meters':
                     return $v * 39.37007874;
             }
         };
@@ -118,42 +128,268 @@ class BossDataManagementController extends Controller
         // ===== Another Data: Orders + quantities =====
 
         $orders = DB::table('orders as o')
-        // If this is a redo, o.redo points to the original order
-        ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
+            // If this is a redo, o.redo points to the original order
+            ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
 
-        // Aggregate product & item quantities under this order
-        ->leftJoin('products as p', 'p.OrderID', '=', 'o.id')                  // products.OrderID → orders.id
-        ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')  // product_items.ProductID → products.ProductID
+            // Aggregate product & item quantities under this order
+            ->leftJoin('products as p', 'p.OrderID', '=', 'o.id')                  // products.OrderID → orders.id
+            ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')  // product_items.ProductID → products.ProductID
 
-        ->groupBy(
-            'o.id',
-            'o.order_number',
-            'o.created_at',
-            'o.status',
-            'o.redo',
-            'base.order_number'
-        )
-        ->select([
-            'o.id',
-            'o.order_number',                // the current order’s number
-            'o.created_at',
-            'o.status',                      // keep orders with status=1; blade can show REDO badge
+            ->groupBy(
+                'o.id',
+                'o.order_number',
+                'o.created_at',
+                'o.status',
+                'o.redo',
+                'base.order_number'
+            )
+            ->select([
+                'o.id',
+                'o.order_number',                // the current order’s number
+                'o.created_at',
+                'o.status',                      // keep orders with status=1; blade can show REDO badge
 
-            // For redo display logic in blade:
-            'base.order_number as base_order_number',
+                // For redo display logic in blade:
+                'base.order_number as base_order_number',
 
-            // simple indicator you can also use, though blade can test o.redo directly
-            DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
+                // simple indicator you can also use, though blade can test o.redo directly
+                DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
 
-            // aggregates
-            DB::raw('COUNT(DISTINCT p.ProductID) AS products_count'),
-            DB::raw('COALESCE(SUM(pi.quantity), 0) AS total_item_quantity'),
-        ])
-        ->orderBy('o.created_at', 'desc')
-        ->paginate(10, ['*'], 'orders_page')
-        ->withQueryString();
+                // aggregates
+                DB::raw('COUNT(DISTINCT p.ProductID) AS products_count'),
+                DB::raw('COALESCE(SUM(pi.quantity), 0) AS total_item_quantity'),
+            ])
+            ->orderBy('o.created_at', 'desc')
+            ->paginate(10, ['*'], 'orders_page')
+            ->withQueryString();
+
+        // ============== ANOTHER DATA: Orders summary with total cost =================
+        // 1) Base orders page (keep your existing filters here if you add any)
+        $orders = DB::table('orders as o')
+            ->leftJoin('orders as base', 'base.id', '=', 'o.redo') // for redo label
+            ->select([
+                'o.id',
+                'o.order_number',
+                'o.created_at',
+                'o.status',
+                'o.redo',                                // keep redo flag/id
+                DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
+                'base.order_number as base_order_number' // original order number when redo
+            ])
+            ->orderBy('o.created_at', 'desc')
+            ->paginate(10, ['*'], 'orders_page')
+            ->withQueryString();
+
+        if ($orders->isEmpty()) {
+            return view('boss.datamanagement', compact('materials', 'types', 'units', 'orders', 'activeTab'));
+        }
+
+        // Preload products for these orders
+        $orderIds = $orders->pluck('id')->all();
+
+        $products = DB::table('products')
+            ->select('ProductID', 'OrderID', 'totalQuantity')
+            ->whereIn('OrderID', $orderIds)
+            ->get();
+
+        $productsByOrder = $products->groupBy('OrderID');
+
+        // Preload items for those products
+        $productIds = $products->pluck('ProductID')->all();
+
+        $items = DB::table('product_items')
+            ->select('ItemID', 'ProductID', 'quantity', 'sizeWidth', 'sizeHeight', 'sizeUnit', 'material')
+            ->whereIn('ProductID', $productIds ?: [0])
+            ->get();
+
+        $itemsByProduct = $items->groupBy('ProductID');
+
+        // Material unit costs keyed by name
+        $materialCosts = DB::table('materials')
+            ->select('materialName', 'unitCost')
+            ->get()
+            ->keyBy(fn($m) => trim(mb_strtolower($m->materialName)));
+
+        // linear→inch factor (area uses factor^2)
+        $toInchFactor = function (?string $u): float {
+            $u = strtolower((string) $u);
+            return match ($u) {
+                'mm' => 1 / 25.4,
+                'cm' => 1 / 2.54,
+                'ft', 'feet' => 12.0,
+                'inch', 'in', '"' => 1.0,
+                default => 1.0,
+            };
+        };
+
+        // Attach counts + total cost per order
+        $orders->setCollection(
+            $orders->getCollection()->map(function ($ord) use ($productsByOrder, $itemsByProduct, $materialCosts) {
+
+                // factor to convert linear units to inches (area uses factor^2)
+                $toInchFactor = function (?string $u): float {
+                    $u = strtolower((string) $u);
+                    return match ($u) {
+                        'mm' => 1 / 25.4,
+                        'cm' => 1 / 2.54,
+                        'ft', 'feet' => 12.0,
+                        'inch', 'in', '"' => 1.0,
+                        default => 1.0,
+                    };
+                };
+
+                $prods = $productsByOrder->get($ord->id, collect());
+
+                // products count (optional, if you show it)
+                $ord->products_count = $prods->count();
+
+                // === Used quantity: sum of ALL item quantities across ALL products in this order
+                $ord->used_quantity = 0;
+                $totalCost = 0.0;
+
+                foreach ($prods as $p) {
+                    $prodItems = $itemsByProduct->get($p->ProductID, collect());
+
+                    foreach ($prodItems as $it) {
+                        $itemQty = (int) ($it->quantity ?? 0);
+                        $ord->used_quantity += $itemQty;
+
+                        // area per item (square inches)
+                        $w = (float) ($it->sizeWidth ?? 0);
+                        $h = (float) ($it->sizeHeight ?? 0);
+                        $f = $toInchFactor($it->sizeUnit);
+                        $areaSqIn = max(0, $w) * max(0, $h) * ($f * $f);
+
+                        // materials on this item (expects JSON array of names)
+                        $names = [];
+                        if (!empty($it->material)) {
+                            try {
+                                $decoded = json_decode($it->material, true, flags: JSON_THROW_ON_ERROR);
+                                if (is_array($decoded)) {
+                                    $names = array_filter(array_map('strval', $decoded));
+                                }
+                            } catch (\Throwable $e) { /* ignore bad json */
+                            }
+                        }
+
+                        // cost: itemQty × area × unitCost, summed for each material on the item
+                        foreach ($names as $name) {
+                            $key = trim(mb_strtolower($name));
+                            if (isset($materialCosts[$key])) {
+                                $unitCost = (float) $materialCosts[$key]->unitCost;
+                                $totalCost += $itemQty * $areaSqIn * $unitCost;
+                            }
+                        }
+                    }
+                }
+
+                $ord->total_cost = $totalCost;
+
+                // keep this if your blade still reads total_item_quantity
+                $ord->total_item_quantity = $ord->used_quantity;
+
+                return $ord;
+            })
+        );
 
         return view('boss.datamanagement', compact('materials', 'types', 'units', 'orders', 'activeTab'));
+    }
+
+    public function orderProducts(int $orderId)
+    {
+        // Pull products for this order
+        $products = DB::table('products')
+            ->select('ProductID', 'OrderID', 'productName', 'totalQuantity', 'status', 'accepted', 'created_at')
+            ->where('OrderID', $orderId)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($products->isEmpty()) {
+            return response()->json([
+                'success'  => true,
+                'order_id' => $orderId,
+                'products' => [],
+            ]);
+        }
+
+        // Items for these products
+        $productIds = $products->pluck('ProductID')->all();
+
+        $items = DB::table('product_items')
+            ->select('ItemID', 'ProductID', 'quantity', 'sizeWidth', 'sizeHeight', 'sizeUnit', 'material')
+            ->whereIn('ProductID', $productIds ?: [0])
+            ->get()
+            ->groupBy('ProductID');
+
+        // Material unit costs
+        $materialCosts = DB::table('materials')
+            ->select('materialName', 'unitCost')
+            ->get()
+            ->keyBy(fn ($m) => trim(mb_strtolower($m->materialName)));
+
+        // unit conversion (linear → inches; area uses factor^2)
+        $toInchFactor = function (?string $u): float {
+            $u = strtolower((string) $u);
+            return match ($u) {
+                'mm' => 1 / 25.4,
+                'cm' => 1 / 2.54,
+                'ft', 'feet' => 12.0,
+                'inch', 'in', '"' => 1.0,
+                default => 1.0,
+            };
+        };
+
+        $out = [];
+        foreach ($products as $p) {
+            $prodItems  = $items->get($p->ProductID, collect());
+            $usedQty    = 0;
+            $totalCost  = 0.0;
+
+            foreach ($prodItems as $it) {
+                $itemQty = (int) ($it->quantity ?? 0);
+                $usedQty += $itemQty;
+
+                $w = (float) ($it->sizeWidth ?? 0);
+                $h = (float) ($it->sizeHeight ?? 0);
+                $f = $toInchFactor($it->sizeUnit);
+                $areaSqIn = max(0, $w) * max(0, $h) * ($f * $f);
+
+                $names = [];
+                if (!empty($it->material)) {
+                    try {
+                        $decoded = json_decode($it->material, true, flags: JSON_THROW_ON_ERROR);
+                        if (is_array($decoded)) {
+                            $names = array_filter(array_map('strval', $decoded));
+                        }
+                    } catch (\Throwable $e) { /* ignore */ }
+                }
+
+                foreach ($names as $name) {
+                    $key = trim(mb_strtolower($name));
+                    if (isset($materialCosts[$key])) {
+                        $unit = (float) $materialCosts[$key]->unitCost;
+                        $totalCost += $itemQty * $areaSqIn * $unit;
+                    }
+                }
+            }
+
+            $out[] = [
+                'product_id'      => $p->ProductID,
+                'name'            => $p->productName,
+                'status'          => $p->status,
+                'accepted'        => (int) $p->accepted,
+                'created_at'      => \Carbon\Carbon::parse($p->created_at)->format('Y-m-d'),
+                'items_quantity'  => $usedQty,          // sum of item.quantity in this product
+                'order_quantity'  => (int) ($p->totalQuantity ?? 0), // the product's own “order qty” field
+                'total_cost'      => $totalCost,
+            ];
+        }
+
+        return response()->json([
+            'success'  => true,
+            'order_id' => $orderId,
+            'products' => $out,
+        ]);
     }
 
     // ---------- Types ----------
@@ -170,7 +406,7 @@ class BossDataManagementController extends Controller
     {
         $type = MaterialType::findOrFail($id);
         $request->validate([
-            'typeName' => 'required|string|max:255|unique:material_types,name,'.$type->id
+            'typeName' => 'required|string|max:255|unique:material_types,name,' . $type->id
         ]);
         $type->update(['name' => $request->typeName]);
         return response()->json(['success' => true, 'type' => $type->name, 'id' => $type->id]);
@@ -198,8 +434,8 @@ class BossDataManagementController extends Controller
     {
         $unit = Unit::findOrFail($id);
         $request->validate([
-            'unitName'  => 'required|string|max:255|unique:units,name,'.$unit->id,
-            'unitLabel' => 'required|string|max:255|unique:units,label,'.$unit->id,
+            'unitName'  => 'required|string|max:255|unique:units,name,' . $unit->id,
+            'unitLabel' => 'required|string|max:255|unique:units,label,' . $unit->id,
         ]);
         $unit->update(['name' => $request->unitName, 'label' => $request->unitLabel]);
         return response()->json(['success' => true, 'label' => $unit->label, 'id' => $unit->id]);
@@ -227,7 +463,7 @@ class BossDataManagementController extends Controller
             'material_type_id' => $request->material_type_id,
             'unit_id'          => $request->unit_id,
             'unitCost'         => $request->unitCost,
-        ])->load(['materialType:id,name','unit:id,label']);
+        ])->load(['materialType:id,name', 'unit:id,label']);
 
         return response()->json(['success' => true, 'material' => $material]);
     }
