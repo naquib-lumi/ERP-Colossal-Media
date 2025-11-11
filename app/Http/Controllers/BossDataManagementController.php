@@ -11,6 +11,8 @@ use App\Models\Unit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class BossDataManagementController extends Controller
 {
@@ -21,8 +23,15 @@ class BossDataManagementController extends Controller
     public function index(Request $request)
     {
         $perPage = 10;
-
+        $page     = (int) max(1, $request->query('orders_page', 1));
         $activeTab = $request->query('tab', 'cost');
+        $range  = $request->query('range', '30');                     // 30, 7, m, lm, all
+        $q_id   = trim((string)$request->query('q_id', ''));          // search by order number
+        $q_text = trim((string)$request->query('q_text', ''));        // title/company/product
+        $ostate = $request->query('status', 'all');                   // in_progress, completed, rejected, all
+
+        $sort   = $request->query('sort', 'date');                    // products|used|cost|date
+        $dir    = strtolower($request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         // Filters lists
         $types = MaterialType::orderBy('name')->pluck('name', 'id');
@@ -163,134 +172,184 @@ class BossDataManagementController extends Controller
             ->paginate(10, ['*'], 'orders_page')
             ->withQueryString();
 
-        // ============== ANOTHER DATA: Orders summary with total cost =================
-        // 1) Base orders page (keep your existing filters here if you add any)
-        $orders = DB::table('orders as o')
-            ->leftJoin('orders as base', 'base.id', '=', 'o.redo') // for redo label
-            ->select([
-                'o.id',
-                'o.order_number',
-                'o.created_at',
-                'o.status',
-                'o.redo',                                // keep redo flag/id
-                DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
-                'base.order_number as base_order_number' // original order number when redo
-            ])
-            ->orderBy('o.created_at', 'desc')
-            ->paginate(10, ['*'], 'orders_page')
-            ->withQueryString();
+        // ================== ANOTHER DATA: ORDERS ==================
+        // 1) Build query WITH filters first
+        $ordersQuery = DB::table('orders as o')
+            ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
+            ->select('o.id', 'o.order_number', 'o.created_at', 'o.status', 'o.redo',
+                    DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
+                    'base.order_number as base_order_number');
 
-        if ($orders->isEmpty()) {
-            return view('boss.datamanagement', compact('materials', 'types', 'units', 'orders', 'activeTab'));
+        // search by order id / number
+        if ($q_id !== '') {
+        $needle  = ltrim($q_id, '#');
+        $needleR = rtrim($needle, "Rr");
+        $numOnly = (int) preg_replace('/\D+/', '', $needleR);
+        $ordersQuery->where(function ($q) use ($needleR, $numOnly) {
+            $q->where('o.order_number', 'like', "%{$needleR}%")
+            ->orWhere('base.order_number', 'like', "%{$needleR}%");
+            if ($numOnly > 0) $q->orWhere('o.id', $numOnly);
+        });
         }
 
-        // Preload products for these orders
-        $orderIds = $orders->pluck('id')->all();
+        // Status filter (your enum)
+        if ($ostate === 'rejected') {
+            // include rejected orders + redo orders (status = 1)
+            $ordersQuery->where(function ($q) {
+                $q->where('o.orderStatus', 'rejected')
+                ->orWhere('o.status', 1);
+            });
+        } elseif ($ostate === 'in_progress') {
+            // in progress only (exclude redo)
+            $ordersQuery->where('o.orderStatus', 'in_progress')
+                        ->where('o.status', '<>', 1);
+        } elseif ($ostate === 'completed') {
+            // completed only (exclude redo)
+            $ordersQuery->where('o.orderStatus', 'completed')
+                        ->where('o.status', '<>', 1);
+        }
 
+        // Date range filter
+        switch ($range) {
+        case '7':  $ordersQuery->where('o.created_at', '>=', now()->subDays(7));  break;
+        case '30': $ordersQuery->where('o.created_at', '>=', now()->subDays(30)); break;
+        case 'm':  $ordersQuery->whereBetween('o.created_at', [now()->startOfMonth(), now()->endOfMonth()]); break;
+        case 'lm': $ordersQuery->whereBetween('o.created_at', [
+                    now()->subMonthNoOverflow()->startOfMonth(),
+                    now()->subMonthNoOverflow()->endOfMonth()
+                    ]); break;
+        case 'all':
+        default: /* no date filter */ break;
+        }
+
+        // Text search (title/company/product)
+        if ($q_text !== '') {
+        $ordersQuery->where(function ($q) use ($q_text) {
+            $q->where('o.orderTitle', 'like', "%{$q_text}%")
+            ->orWhere('o.companyName', 'like', "%{$q_text}%")
+            ->orWhereExists(function ($sq) use ($q_text) {
+                $sq->from('products as p')
+                ->whereColumn('p.OrderID', 'o.id')
+                ->where('p.productName', 'like', "%{$q_text}%");
+            });
+        });
+        }
+
+        // Pull ALL matching orders (we'll sort and paginate after computing totals)
+        $ordersAll = collect($ordersQuery->orderBy('o.created_at', 'desc')->get());
+
+        // Nothing to do?
+        if ($ordersAll->isEmpty()) {
+        $orders = new LengthAwarePaginator([], 0, $perPage, $page, [
+            'path' => url()->current(), 'pageName' => 'orders_page'
+        ]);
+        return view('boss.datamanagement', compact('materials', 'types', 'units', 'orders', 'activeTab'));
+        }
+
+        // 2) Preload aggregates for ALL matching order IDs
+        $orderIds = $ordersAll->pluck('id')->all();
+
+        // products_count in SQL
+        $productsAgg = DB::table('products')
+        ->select('OrderID', DB::raw('COUNT(DISTINCT ProductID) as products_count'))
+        ->whereIn('OrderID', $orderIds)
+        ->groupBy('OrderID')
+        ->get()
+        ->keyBy('OrderID');
+
+        // used_quantity in SQL (sum of item qty across products)
+        $usedAgg = DB::table('products as p')
+        ->join('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
+        ->select('p.OrderID', DB::raw('COALESCE(SUM(pi.quantity),0) as used_quantity'))
+        ->whereIn('p.OrderID', $orderIds)
+        ->groupBy('p.OrderID')
+        ->get()
+        ->keyBy('OrderID');
+
+        // Items + materials for total_cost (we still do cost in PHP)
         $products = DB::table('products')
-            ->select('ProductID', 'OrderID', 'totalQuantity')
-            ->whereIn('OrderID', $orderIds)
-            ->get();
-
-        $productsByOrder = $products->groupBy('OrderID');
-
-        // Preload items for those products
-        $productIds = $products->pluck('ProductID')->all();
-
+        ->select('ProductID', 'OrderID', 'totalQuantity', 'status', 'created_at')
+        ->whereIn('OrderID', $orderIds)->get();
         $items = DB::table('product_items')
-            ->select('ItemID', 'ProductID', 'quantity', 'sizeWidth', 'sizeHeight', 'sizeUnit', 'material')
-            ->whereIn('ProductID', $productIds ?: [0])
-            ->get();
-
+        ->select('ItemID','ProductID','quantity','sizeWidth','sizeHeight','sizeUnit','material')
+        ->whereIn('ProductID', $products->pluck('ProductID')->all() ?: [0])->get();
         $itemsByProduct = $items->groupBy('ProductID');
 
-        // Material unit costs keyed by name
+        // material unit costs
         $materialCosts = DB::table('materials')
-            ->select('materialName', 'unitCost')
-            ->get()
-            ->keyBy(fn($m) => trim(mb_strtolower($m->materialName)));
+        ->select('materialName','unitCost')
+        ->get()
+        ->keyBy(fn($m)=> trim(mb_strtolower($m->materialName)));
 
-        // linear→inch factor (area uses factor^2)
+        // helper for area factor
         $toInchFactor = function (?string $u): float {
-            $u = strtolower((string) $u);
+            $u = strtolower((string)$u);
             return match ($u) {
-                'mm' => 1 / 25.4,
-                'cm' => 1 / 2.54,
+                'mm' => 1/25.4,
+                'cm' => 1/2.54,
                 'ft', 'feet' => 12.0,
-                'inch', 'in', '"' => 1.0,
+                'inch','in','"' => 1.0,
                 default => 1.0,
             };
         };
 
-        // Attach counts + total cost per order
-        $orders->setCollection(
-            $orders->getCollection()->map(function ($ord) use ($productsByOrder, $itemsByProduct, $materialCosts) {
+        // 3) Compute totals for ALL, then sort
+        $computed = $ordersAll->map(function ($ord) use ($products, $itemsByProduct, $materialCosts, $productsAgg, $usedAgg, $toInchFactor) {
+        $ord->products_count = (int) optional($productsAgg->get($ord->id))->products_count ?? 0;
+        $ord->used_quantity  = (int) optional($usedAgg->get($ord->id))->used_quantity ?? 0;
+        $ord->total_item_quantity = $ord->used_quantity;
 
-                // factor to convert linear units to inches (area uses factor^2)
-                $toInchFactor = function (?string $u): float {
-                    $u = strtolower((string) $u);
-                    return match ($u) {
-                        'mm' => 1 / 25.4,
-                        'cm' => 1 / 2.54,
-                        'ft', 'feet' => 12.0,
-                        'inch', 'in', '"' => 1.0,
-                        default => 1.0,
-                    };
-                };
+        $totalCost = 0.0;
+        foreach ($products->where('OrderID', $ord->id) as $p) {
+            foreach ($itemsByProduct->get($p->ProductID, collect()) as $it) {
+            $qty = (int) ($it->quantity ?? 0);
+            if ($qty <= 0) continue;
+            $w = (float) ($it->sizeWidth ?? 0);
+            $h = (float) ($it->sizeHeight ?? 0);
+            $f = $toInchFactor($it->sizeUnit);
+            $areaSqIn = max(0,$w) * max(0,$h) * ($f*$f);
 
-                $prods = $productsByOrder->get($ord->id, collect());
-
-                // products count (optional, if you show it)
-                $ord->products_count = $prods->count();
-
-                // === Used quantity: sum of ALL item quantities across ALL products in this order
-                $ord->used_quantity = 0;
-                $totalCost = 0.0;
-
-                foreach ($prods as $p) {
-                    $prodItems = $itemsByProduct->get($p->ProductID, collect());
-
-                    foreach ($prodItems as $it) {
-                        $itemQty = (int) ($it->quantity ?? 0);
-                        $ord->used_quantity += $itemQty;
-
-                        // area per item (square inches)
-                        $w = (float) ($it->sizeWidth ?? 0);
-                        $h = (float) ($it->sizeHeight ?? 0);
-                        $f = $toInchFactor($it->sizeUnit);
-                        $areaSqIn = max(0, $w) * max(0, $h) * ($f * $f);
-
-                        // materials on this item (expects JSON array of names)
-                        $names = [];
-                        if (!empty($it->material)) {
-                            try {
-                                $decoded = json_decode($it->material, true, flags: JSON_THROW_ON_ERROR);
-                                if (is_array($decoded)) {
-                                    $names = array_filter(array_map('strval', $decoded));
-                                }
-                            } catch (\Throwable $e) { /* ignore bad json */
-                            }
-                        }
-
-                        // cost: itemQty × area × unitCost, summed for each material on the item
-                        foreach ($names as $name) {
-                            $key = trim(mb_strtolower($name));
-                            if (isset($materialCosts[$key])) {
-                                $unitCost = (float) $materialCosts[$key]->unitCost;
-                                $totalCost += $itemQty * $areaSqIn * $unitCost;
-                            }
-                        }
-                    }
+            $names = [];
+            if (!empty($it->material)) {
+                try {
+                $dec = json_decode($it->material, true, flags: JSON_THROW_ON_ERROR);
+                if (is_array($dec)) $names = array_filter(array_map('strval', $dec));
+                } catch (\Throwable $e) {}
+            }
+            foreach ($names as $name) {
+                $key = trim(mb_strtolower($name));
+                if (isset($materialCosts[$key])) {
+                $unit = (float) $materialCosts[$key]->unitCost;
+                $totalCost += $qty * $areaSqIn * $unit;
                 }
+            }
+            }
+        }
+        $ord->total_cost = $totalCost;
 
-                $ord->total_cost = $totalCost;
+        return $ord;
+        });
 
-                // keep this if your blade still reads total_item_quantity
-                $ord->total_item_quantity = $ord->used_quantity;
+        // Sort across the FULL set
+        $computed = match ($sort) {
+        'products' => $computed->sortBy('products_count', SORT_REGULAR, $dir === 'desc'),
+        'used'     => $computed->sortBy('used_quantity', SORT_REGULAR, $dir === 'desc'),
+        'cost'     => $computed->sortBy('total_cost', SORT_REGULAR, $dir === 'desc'),
+        default    => $computed->sortBy('created_at',  SORT_REGULAR, $dir === 'desc'), // date
+        };
 
-                return $ord;
-            })
+        // 4) Paginate AFTER sorting (so sorting spans all pages)
+        $total = $computed->count();
+        $slice = $computed->values()->slice(($page-1)*$perPage, $perPage)->values();
+
+        $orders = new LengthAwarePaginator(
+            $slice,
+            $total,
+            $perPage,
+            $page,
+            ['path' => url()->current(), 'pageName' => 'orders_page']
         );
+        $orders->appends($request->except('orders_page'));
 
         return view('boss.datamanagement', compact('materials', 'types', 'units', 'orders', 'activeTab'));
     }

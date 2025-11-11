@@ -255,32 +255,70 @@
   <div class="another-head">
     <div class="title" style="font-size: 20px !important;">Order Costing Data</div>
     <div class="another-controls">
-      <input id="adSearch" class="ad-input" type="search" placeholder="Search machine...">
-      <select id="adType" class="ad-select" aria-label="All Types">
-        <option value="all">All Types</option>
-        <option value="Printing">Printing</option>
-        <option value="Furnishing">Furnishing</option>
-        <option value="Delivery">Delivery</option>
-        <option value="Installation">Installation</option>
-      </select>
-      <select id="adDate" class="ad-select" aria-label="Last 30 Days">
-        <option value="30">Last 30 Days</option>
-        <option value="7">Last 7 Days</option>
-        <option value="m">This Month</option>
-        <option value="lm">Last Month</option>
-        <option value="all">All Time</option>
-      </select>
+      <form method="GET" action="{{ route('boss.datamanagement') }}" class="another-controls" id="adFilters">
+        <input type="hidden" name="tab" value="another">
+
+        {{-- 1) Search by Order ID --}}
+        <input name="q_id" value="{{ $filters['q_id'] ?? request('q_id') }}"
+              id="adSearchId" class="ad-input" type="search" placeholder="Order ID" style="max-width:120px">
+
+        {{-- 2) Search by Title / Company / Product --}}
+        <input name="q_text" value="{{ $filters['q_text'] ?? request('q_text') }}"
+              id="adSearchText" class="ad-input" type="search" placeholder="Title, company, or product…" style="max-width:200px">
+
+        {{-- 3) Status filter --}}
+        @php $status = $filters['status'] ?? request('status','all'); @endphp
+        <select name="status" id="adType" class="ad-select" aria-label="Status">
+          <option value="all" {{ $status==='all'?'selected':'' }}>All Status</option>
+          <option value="in_progress" {{ $status==='in_progress'?'selected':'' }}>In Progress</option>
+          <option value="completed" {{ $status==='completed'?'selected':'' }}>Completed</option>
+          <option value="rejected" {{ $status==='rejected'?'selected':'' }}>Rejected</option>
+        </select>
+
+        {{-- 4) Date range --}}
+        @php $range = $filters['range'] ?? request('range','30'); @endphp
+        <select name="range" id="adDate" class="ad-select" aria-label="Date range">
+          <option value="30" {{ $range==='30'?'selected':'' }}>Last 30 Days</option>
+          <option value="7"  {{ $range==='7'?'selected':''  }}>Last 7 Days</option>
+          <option value="m"  {{ $range==='m'?'selected':''  }}>This Month</option>
+          <option value="lm" {{ $range==='lm'?'selected':'' }}>Last Month</option>
+          <option value="all"{{ $range==='all'?'selected':''}}>All Time</option>
+        </select>
+
+        <button class="btn btn-primary" type="submit">Apply</button>
+        <button type="button" class="btn btn-ghost" id="adReset">Reset</button>
+      </form>
     </div>
   </div>
     <table class="ad-table">
+      @php
+        $sort = $filters['sort'] ?? request('sort','date');
+        $dir  = $filters['dir']  ?? request('dir','desc');
+        $flip = $dir === 'asc' ? 'desc' : 'asc';
+        $q = request()->except('page','orders_page');
+        $link = function($key) use($q,$sort,$dir,$flip){
+            return route('boss.datamanagement', array_merge($q, [
+                'tab' => 'another',
+                'sort'=> $key,
+                'dir' => ($sort===$key ? $flip : 'desc'),
+            ]));
+        };
+        $arrow = fn($key) => $sort===$key ? ($dir==='asc'?'▲':'▼') : '';
+      @endphp
       <thead>
-        <tr>
-          <th>Order ID</th>
-          <th>Product Quantity</th>
-          <th class="ad-num">Used Quantity</th>
-          <th class="ad-num">Total Cost</th>
-          <th class="ad-actions">Actions</th>
-        </tr>
+      <tr>
+        <th>Order ID</th>
+        <th>
+          <a href="{{ $link('products') }}" class="sort-link">Product Quantity {{ $arrow('products') }}</a>
+        </th>
+        <th class="ad-num">
+          <a href="{{ $link('used') }}" class="sort-link">Used Quantity {{ $arrow('used') }}</a>
+        </th>
+        <th class="ad-num">
+          <a href="{{ $link('cost') }}" class="sort-link">Total Cost {{ $arrow('cost') }}</a>
+        </th>
+        <th class="ad-actions">Actions</th>
+      </tr>
       </thead>
       <tbody id="adBody">
         @forelse($orders as $ord)
@@ -458,9 +496,9 @@
             <tr>
               <th style="white-space:nowrap;">Product</th>
               <th class="ad-num">Items Qty</th>
-              <th class="ad-num">Order Qty</th>
+              <th class="ad-num">Product Qty</th>
               <th>Status</th>
-              <th>Created</th>
+              <th>Created At</th>
               <th class="ad-num">Total Cost</th>
             </tr>
           </thead>
@@ -769,6 +807,31 @@ function formatStatus(status) {
     openProductsModal(orderId, orderLabel);
   });
 })();
+
+  (function(){
+    const f = document.getElementById('adFilters');
+    if (!f) return;
+
+    // Submit on range / status change
+    document.getElementById('adType')?.addEventListener('change', ()=> f.submit());
+    document.getElementById('adDate')?.addEventListener('change', ()=> f.submit());
+
+    // Press Enter in either search field => submit
+    const enter = e => { if (e.key === 'Enter') { e.preventDefault(); f.submit(); } };
+    document.getElementById('adSearchId')?.addEventListener('keydown', enter);
+    document.getElementById('adSearchText')?.addEventListener('keydown', enter);
+  })();
+
+  (function(){
+    const resetBtn = document.getElementById('adReset');
+    if (!resetBtn) return;
+
+    resetBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Go back to base list with only the tab param
+      window.location.href = "{{ route('boss.datamanagement', ['tab' => 'another']) }}";
+    });
+  })();
 
 // ========= PAGINATION =========
 let currentPage = 1;
