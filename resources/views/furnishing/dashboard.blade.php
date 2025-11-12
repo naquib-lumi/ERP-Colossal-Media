@@ -310,8 +310,18 @@
             $accepted     = (int)($j->accepted ?? 0) === 1;
 
             // 👇 定义查看/编辑链接：铅笔 -> 直接进入编辑态
-            $viewUrl = route('furnishing.job.show', $j->ProductID);
+            $viewUrl = route('furnishing.job.show', [$j->ProductID, 'from' => 'dashboard']);
             $editUrl = route('furnishing.job.show', [$j->ProductID, 'edit' => 1]);
+
+            // deadline styling helpers
+            $deadlineRaw = $j->deadline ?: null;
+            $deadlineStr = $deadlineRaw ? \Carbon\Carbon::parse($deadlineRaw)->format('Y-m-d') : '—';
+            $today       = now()->startOfDay();
+            $dlDate      = $deadlineRaw ? \Carbon\Carbon::parse($deadlineRaw)->startOfDay() : null;
+            $isOverdue   = $dlDate ? $dlDate->lt($today) : false;                             // past today → red
+            $isDueSoon   = $dlDate ? (!$isOverdue && $dlDate->lte($today->copy()->addDays(3))) : false; // next 3 days → amber
+            $dlClass     = $isOverdue ? 'text-danger fw-semibold'
+                        : ($isDueSoon ? 'text-warning fw-semibold' : '');
           @endphp
 
           <tr id="job-{{ $j->ProductID }}"
@@ -322,8 +332,13 @@
             <td>{{ ($j->cutter ?? '-') === '-' ? '—' : $j->cutter }}</td>
             <td>{{ is_numeric($j->sq_inch ?? null) ? number_format((float)$j->sq_inch, 0).' sq in' : '0 sq in' }}</td>
 
-            <td class="td-deadline" data-date="{{ $j->deadline ?: '' }}">
-              {{ $j->deadline ? \Carbon\Carbon::parse($j->deadline)->format('Y-m-d') : '—' }}
+            <td class="td-deadline {{ $dlClass }}" data-date="{{ $j->deadline ?: '' }}">
+              {{ $deadlineStr }}
+              @if($isOverdue)
+                <span class="badge bg-danger-subtle text-danger ms-2">Expired</span>
+              @elseif($isDueSoon)
+                <span class="badge bg-warning-subtle text-warning ms-2">Near</span>
+              @endif
             </td>
             <td class="td-submitted" data-date="{{ $j->submission_date ?: '' }}">
               {{ $j->submission_date ? \Carbon\Carbon::parse($j->submission_date)->format('Y-m-d') : '—' }}

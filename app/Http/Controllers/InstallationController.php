@@ -244,6 +244,7 @@ class InstallationController extends Controller
             ->count('fp.ProductID');
 
         $list = [];
+        $today = now()->startOfDay();
         foreach ($byProduct as $p) {
             $year = $p['orderDate'] ? substr($p['orderDate'], 0, 4) : date('Y');
             $ord  = str_pad((string)$p['order_base_id'],   3, '0', STR_PAD_LEFT);
@@ -254,6 +255,12 @@ class InstallationController extends Controller
             $p['progress'] = $progressWidth($p);
             $instStatus = $p['stages']['installation']['status'] ?? null;
             $p['installation_completed'] = $instStatus === 'completed' ? 1 : 0;
+
+            $dlRaw = $p['deadline'] ?? null;
+            $dl    = $dlRaw ? \Carbon\Carbon::parse($dlRaw)->startOfDay() : null;
+
+            $p['is_overdue']  = $dl ? $dl->lt($today) : false;                         // deadline < today
+            $p['is_due_soon'] = $dl ? (!$p['is_overdue'] && $dl->lte($today->copy()->addDays(3))) : false;
 
             $list[] = $p;
         }

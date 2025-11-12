@@ -143,6 +143,14 @@ class FurnishingController extends Controller
                 DB::raw("$sqExpr as sq_inch"),
                 DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.cutter, '')), ''), '—') as cutter"),
                 DB::raw('MAX(r.ProductID) as redo_product_id'),
+
+                // deadline flags for UI
+                DB::raw("CASE WHEN o.deadline IS NOT NULL AND o.deadline < CURDATE()
+                        THEN 1 ELSE 0 END AS is_overdue"),
+                DB::raw("CASE WHEN o.deadline IS NOT NULL AND o.deadline >= CURDATE()
+                            AND o.deadline <= DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+                        THEN 1 ELSE 0 END AS is_due_soon"),
+
                 DB::raw("
                 CONCAT(
                     '#ORD-',

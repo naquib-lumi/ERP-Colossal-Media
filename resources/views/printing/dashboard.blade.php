@@ -295,15 +295,28 @@
               $isPrinting = strtolower((string)($row->taskType ?? '')) === 'printing';
               $accepted   = (int)($row->accepted ?? 0) === 1;
 
+              // deadline flags from controller (is_overdue / is_due_soon)
+              $isOverdue   = (int)($row->is_overdue ?? 0) === 1;
+              $isDueSoon   = (int)($row->is_due_soon ?? 0) === 1;
+              $dlClass     = $isOverdue ? 'text-danger fw-semibold'
+                          : ($isDueSoon ? 'text-warning fw-semibold' : '');
+
               // 目标：铅笔 => 直接打开编辑态
-              $showUrl     = route('printing.orders.show', $row->ProductID);
+              $showUrl     = route('printing.orders.show', [$row->ProductID, 'from' => 'dashboard']);
               $editUrl     = route('printing.orders.show', [$row->ProductID, 'edit' => 1]);
             @endphp
             <tr id="job-{{ $row->ProductID }}" class="js-row-open" data-code="{{ $row->display_product_id }}" data-href="{{ $showUrl }}" style="cursor:pointer;">
               <td class="whitespace-nowrap font-medium">{{ $row->display_product_id }}</td>
               <td>{{ ($row->printer ?? '-') === '-' ? '—' : $row->printer }}</td>
               <td>{{ is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0).' sq in' : '0 sq in' }}</td>
-              <td class="td-deadline" data-date="{{ $row->deadline ?: '' }}">{{ $deadline }}</td>
+              <td class="td-deadline {{ $dlClass }}" data-date="{{ $deadlineRaw ?? '' }}">
+                {{ $deadline }}
+                @if($isOverdue)
+                  <span class="badge bg-danger-subtle text-danger ms-2">Expired</span>
+                @elseif($isDueSoon)
+                  <span class="badge bg-warning-subtle text-warning ms-2">Near</span>
+                @endif
+              </td>
               <td class="td-submitted" data-date="{{ $row->submission_date ?: '' }}">{{ $submitted }}</td>
               <td class="text-nowrap">
                 @if (!$accepted || !$isPrinting)

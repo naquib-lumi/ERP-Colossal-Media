@@ -249,7 +249,7 @@
                   $prodName = $row->product_name ?? '—';
                   $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
                   $remarks = $row->materialRemark ?: '–';
-                  $detailsUrl = route('furnishing.history.show', $row->ProductID);
+                  $detailsUrl = route('furnishing.history.show', [$row->ProductID, 'from' => 'history']);
                 @endphp
                 <tr class="js-row-open" data-href="{{ $detailsUrl }}" style="cursor:pointer;">
                   <td class="fw-semibold">{{ $row->product_code }}</td>

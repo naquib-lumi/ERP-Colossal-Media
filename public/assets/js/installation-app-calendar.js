@@ -1,6 +1,8 @@
 'use strict';
 
 document.addEventListener('DOMContentLoaded', function () {
+  if (window.__installCalBooted) return;
+window.__installCalBooted = true;
   if (typeof Calendar === 'undefined') return;
 
   const isRtl = (document.documentElement.dir || '').toLowerCase() === 'rtl';
@@ -100,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const bg = ev.backgroundColor || '#3b82f6';
         const tx = ev.textColor || '#fff';
         const title = ev.extendedProps?.product_name || ev.title || 'Installation';
-        const code  = ev.extendedProps?.product_code ? ` <span class="text-muted">(${ev.extendedProps.product_code})</span>` : '';
+        const code = ev.extendedProps?.product_code ? ` <span class="text-muted">(${ev.extendedProps.product_code})</span>` : '';
         const whenStr = when ? when.toLocaleString() : '—';
 
         return `
@@ -205,6 +207,21 @@ document.addEventListener('DOMContentLoaded', function () {
         xp.deliver_install_type ||
         '—';
 
+      const deliveryLocation =
+        xp.delivery_location || xp.location || xp.address || '—';
+
+      const deliveryQty =
+        (xp.product_qty ?? xp.quantity ?? xp.qty ?? null);
+
+      const productTotalQty =
+        (xp.product_qty_total ?? xp.totalQuantity ?? null);
+
+      const deliveryQtyDisplay =
+        (deliveryQty === null || deliveryQty === undefined) ? '—' : String(deliveryQty);
+
+      const productTotalQtyDisplay =
+        (productTotalQty === null || productTotalQty === undefined) ? '—' : String(productTotalQty);
+
       const productName = xp.product_name || e.title || 'Installation';
       const productCode = xp.product_code || '';
       const company = xp.company_name || '—';
@@ -228,6 +245,20 @@ document.addEventListener('DOMContentLoaded', function () {
         ? (`/installation/job/${xp.product_id}`)
         : '#';
 
+      // status colors
+      const statusKey = (xp.status || 'in_progress').toString().toLowerCase();
+      const statusPalette = {
+        completed: ['#22c55e', '#ffffff'],
+        rejected: ['#ef4444', '#ffffff'],
+        in_progress: ['#3b82f6', '#ffffff'],
+        scheduled: ['#3b82f6', '#ffffff'] // fallback
+      };
+      const [statusBg, statusTx] = statusPalette[statusKey] || ['#3b82f6', '#ffffff'];
+
+      // normalize labels used in the template
+      const companyName = company; // you already computed `company`
+      const deadlineStr = deadline ? moment(deadline).format('MMM D, YYYY') : '—';
+
       // remove old
       document.getElementById(modalId)?.remove();
 
@@ -245,64 +276,101 @@ document.addEventListener('DOMContentLoaded', function () {
               <div class="modal-body pt-0">
                 <div class="border rounded-3 p-3" style="background:#fff;">
                   <div class="d-flex align-items-start justify-content-between mb-2">
-                    <div>
-                      <div class="text-uppercase small text-muted mb-1" style="letter-spacing:.04em;">Job Title</div>
+                    <div style="margin-bottom:10px !important;">
+                      <div class="text-uppercase small text-muted mb-1 field-title">
+                        <i class="bi bi-briefcase me-1"></i> Job Title
+                      </div>
                       <div class="fw-bold" style="font-size:1.2rem;">${jobTitle}</div>
                     </div>
                     <div class="text-end">
-                      <div class="text-uppercase small text-muted mb-1">Product ID</div>
-                      <div class="fw-semibold">${productCode}</div>
+                      <div class="text-uppercase small text-muted mb-1 field-title">
+                        <i class="bi bi-upc me-1"></i> Product ID
+                      </div>
+                      <div class="fw-semibold">${productCode || '—'}</div>
                     </div>
                   </div>
 
-                  <div class="d-flex align-items-center gap-2 mb-3">
+                  <div class="d-flex align-items-center gap-2 mb-3" style="margin-bottom:10px !important;">
                     <span class="badge d-inline-flex align-items-center gap-2"
                           style="background:#eef2ff;color:#3730a3;border-radius:999px;padding:.35rem .6rem;font-weight:600">
                       <i class="bi bi-truck"></i> Delivery / Installation
                     </span>
-                    <span class="badge"
-                          style="background:${bg};color:${tx};border-radius:999px;padding:.35rem .6rem">
+                    <span class="badge" style="background:${statusBg};color:${statusTx};border-radius:999px;padding:.35rem .6rem">
                       ${statusText}
                     </span>
                   </div>
 
-                  <div class="row mb-2">
+                  <div class="row mb-2" style="margin-bottom:10px !important;">
                     <div class="col-6">
-                      <div class="text-uppercase small text-muted">Company</div>
-                      <div class="fw-semibold">${company}</div>
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-buildings me-1"></i> Company
+                      </div>
+                      <div class="fw-semibold">${companyName || '—'}</div>
                     </div>
                     <div class="col-6 text-end">
-                      <div class="text-uppercase small text-muted">Deadline</div>
-                      <div class="fw-semibold">${deadline ? moment(deadline).format('MMM D, YYYY') : '—'}</div>
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-calendar2-check me-1"></i> Deadline
+                      </div>
+                      <div class="fw-semibold">${deadlineStr}</div>
                     </div>
                   </div>
 
-                  <div class="row mb-2 pt-2 border-top">
+                  <div class="row mb-2 pt-2 border-top" style="margin-bottom:10px !important;">
                     <div class="col-6">
-                      <div class="text-uppercase small text-muted">Delivery date</div>
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-calendar-event me-1"></i> Delivery Date
+                      </div>
                       <div class="fw-semibold">${whenDate}</div>
                     </div>
                     <div class="col-6 text-end">
-                      <div class="text-uppercase small text-muted">Delivery time</div>
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-clock me-1"></i> Delivery Time
+                      </div>
                       <div class="fw-semibold">${whenTime}</div>
                     </div>
                   </div>
 
-                  <div class="row mb-2">
-                    <div class="col-12">
-                      <div class="text-uppercase small text-muted">Delivery method</div>
-                      <div class="fw-semibold">${deliveryMethod}</div>
+                  <div class="row mb-2" style="margin-bottom:10px !important;">
+                    <div class="col-8">
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-truck me-1"></i> Delivery Method
+                      </div>
+                      <div class="fw-semibold">${deliveryMethod || '—'}</div>
+                    </div>
+                    <div class="col-4 text-end">
+                      <div class="text-uppercase small text-muted"><i class="bi bi-brush me-1"></i>Assigned artist</div>
+                      <div class="fw-semibold">${assigned}</div>
                     </div>
                   </div>
 
-                  <div class="row mb-1">
+                  <!-- 🔹 NEW -->
+                  <div class="row mb-2" style="margin-bottom:10px !important;">
+                    <div class="col-8">
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-geo-alt me-1"></i> Delivery Location
+                      </div>
+                      <div class="fw-semibold">${deliveryLocation}</div>
+                    </div>
+                    <div class="col-4 text-end">
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-123 me-1"></i> Delivery Qty
+                      </div>
+                      <div class="fw-semibold">${deliveryQtyDisplay}</div>
+                    </div>
+                  </div>
+
+                  <div class="row mb-2" style="margin-bottom:10px !important;">
                     <div class="col-6">
-                      <div class="text-uppercase small text-muted">Product</div>
-                      <div class="fw-semibold">${productName}</div>
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-box-seam me-1"></i> Product
+                      </div>
+                      <div class="fw-semibold">${productName || '—'}</div>
                     </div>
                     <div class="col-6 text-end">
-                      <div class="text-uppercase small text-muted">Assigned artist</div>
-                      <div class="fw-semibold">${assigned}</div>
+                      <div class="text-uppercase small text-muted field-title">
+                        <i class="bi bi-diagram-3 me-1"></i> Total Qty
+                      </div>
+                      <div class="fw-semibold">${productTotalQtyDisplay}</div>
                     </div>
                   </div>
 
@@ -341,6 +409,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // 🔴 2) CALENDAR EVENT → MODAL (same info as above)
       eventClick: function (info) {
+        info.jsEvent?.preventDefault();
+        info.jsEvent?.stopPropagation();
+        info.jsEvent?.stopImmediatePropagation();
         const e = info.event;
         const safeId = (e.id || 'evt').toString().replace(/[^a-zA-Z0-9]/g, '');
         const modalId = 'eventDetailModal_' + safeId;
@@ -375,6 +446,21 @@ document.addEventListener('DOMContentLoaded', function () {
           xp.deliver_install_type ||
           '—';
 
+        const deliveryLocation =
+          xp.delivery_location || xp.location || xp.address || '—';
+
+        const deliveryQty =
+          (xp.product_qty ?? xp.quantity ?? xp.qty ?? null);
+
+        const productTotalQty =
+          (xp.product_qty_total ?? xp.totalQuantity ?? null);
+
+        const deliveryQtyDisplay =
+          (deliveryQty === null || deliveryQty === undefined) ? '—' : String(deliveryQty);
+
+        const productTotalQtyDisplay =
+          (productTotalQty === null || productTotalQty === undefined) ? '—' : String(productTotalQty);
+
         const productName = xp.product_name || e.title || 'Installation';
         const productCode = xp.product_code || '';
         const company = xp.company_name || '—';
@@ -398,6 +484,20 @@ document.addEventListener('DOMContentLoaded', function () {
           ? (`/installation/job/${xp.product_id}`)
           : '#';
 
+        // status colors
+        const statusKey = (xp.status || 'in_progress').toString().toLowerCase();
+        const statusPalette = {
+          completed: ['#22c55e', '#ffffff'],
+          rejected: ['#ef4444', '#ffffff'],
+          in_progress: ['#3b82f6', '#ffffff'],
+          scheduled: ['#3b82f6', '#ffffff'] // fallback
+        };
+        const [statusBg, statusTx] = statusPalette[statusKey] || ['#3b82f6', '#ffffff'];
+
+        // normalize labels used in the template
+        const companyName = company; // you already computed `company`
+        const deadlineStr = deadline ? moment(deadline).format('MMM D, YYYY') : '—';
+
         document.getElementById(modalId)?.remove();
 
         const html = `
@@ -414,66 +514,102 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 <div class="modal-body pt-0">
                   <div class="border rounded-3 p-3" style="background:#fff;">
-
                     <div class="d-flex align-items-start justify-content-between mb-2">
-                      <div>
-                        <div class="text-uppercase small text-muted mb-1" style="letter-spacing:.04em;">Job Title</div>
+                      <div style="margin-bottom:10px !important;">
+                        <div class="text-uppercase small text-muted mb-1 field-title">
+                          <i class="bi bi-briefcase me-1"></i> Job Title
+                        </div>
                         <div class="fw-bold" style="font-size:1.2rem;">${jobTitle}</div>
                       </div>
                       <div class="text-end">
-                        <div class="text-uppercase small text-muted mb-1">Product ID</div>
-                        <div class="fw-semibold">${productCode}</div>
+                        <div class="text-uppercase small text-muted mb-1 field-title">
+                          <i class="bi bi-upc me-1"></i> Product ID
+                        </div>
+                        <div class="fw-semibold">${productCode || '—'}</div>
                       </div>
                     </div>
 
-                    <div class="d-flex align-items-center gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-3" style="margin-bottom:10px !important;">
                       <span class="badge d-inline-flex align-items-center gap-2"
                             style="background:#eef2ff;color:#3730a3;border-radius:999px;padding:.35rem .6rem;font-weight:600">
                         <i class="bi bi-truck"></i> Delivery / Installation
                       </span>
-                      <span class="badge"
-                            style="background:${bg};color:${tx};border-radius:999px;padding:.35rem .6rem">
+                      <span class="badge" style="background:${statusBg};color:${statusTx};border-radius:999px;padding:.35rem .6rem">
                         ${statusText}
                       </span>
                     </div>
 
-                    <div class="row mb-2">
+                    <div class="row mb-2" style="margin-bottom:10px !important;">
                       <div class="col-6">
-                        <div class="text-uppercase small text-muted">Company</div>
-                        <div class="fw-semibold">${company}</div>
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-buildings me-1"></i> Company
+                        </div>
+                        <div class="fw-semibold">${companyName || '—'}</div>
                       </div>
                       <div class="col-6 text-end">
-                        <div class="text-uppercase small text-muted">Deadline</div>
-                        <div class="fw-semibold">${deadline ? moment(deadline).format('MMM D, YYYY') : '—'}</div>
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-calendar2-check me-1"></i> Deadline
+                        </div>
+                        <div class="fw-semibold">${deadlineStr}</div>
                       </div>
                     </div>
 
-                    <div class="row mb-2 pt-2 border-top">
+                    <div class="row mb-2 pt-2 border-top" style="margin-bottom:10px !important;">
                       <div class="col-6">
-                        <div class="text-uppercase small text-muted">Delivery date</div>
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-calendar-event me-1"></i> Delivery Date
+                        </div>
                         <div class="fw-semibold">${whenDate}</div>
                       </div>
                       <div class="col-6 text-end">
-                        <div class="text-uppercase small text-muted">Delivery time</div>
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-clock me-1"></i> Delivery Time
+                        </div>
                         <div class="fw-semibold">${whenTime}</div>
                       </div>
                     </div>
 
-                    <div class="row mb-2">
-                      <div class="col-12">
-                        <div class="text-uppercase small text-muted">Delivery method</div>
-                        <div class="fw-semibold">${deliveryMethod}</div>
+                    <div class="row mb-2" style="margin-bottom:10px !important;">
+                      <div class="col-8">
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-truck me-1"></i> Delivery Method
+                        </div>
+                        <div class="fw-semibold">${deliveryMethod || '—'}</div>
+                      </div>
+                      <div class="col-4 text-end">
+                        <div class="text-uppercase small text-muted"><i class="bi bi-brush me-1"></i>Assigned artist</div>
+                        <div class="fw-semibold">${assigned}</div>
                       </div>
                     </div>
 
-                    <div class="row mb-1">
+                    <!-- 🔹 NEW -->
+                    <div class="row mb-2" style="margin-bottom:10px !important;">
+                      <div class="col-8">
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-geo-alt me-1"></i> Delivery Location
+                        </div>
+                        <div class="fw-semibold">${deliveryLocation}</div>
+                      </div>
+                      <div class="col-4 text-end">
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-123 me-1"></i> Delivery Qty
+                        </div>
+                        <div class="fw-semibold">${deliveryQtyDisplay}</div>
+                      </div>
+                    </div>
+
+                    <div class="row mb-2" style="margin-bottom:10px !important;">
                       <div class="col-6">
-                        <div class="text-uppercase small text-muted">Product</div>
-                        <div class="fw-semibold">${productName}</div>
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-box-seam me-1"></i> Product
+                        </div>
+                        <div class="fw-semibold">${productName || '—'}</div>
                       </div>
                       <div class="col-6 text-end">
-                        <div class="text-uppercase small text-muted">Assigned artist</div>
-                        <div class="fw-semibold">${assigned}</div>
+                        <div class="text-uppercase small text-muted field-title">
+                          <i class="bi bi-diagram-3 me-1"></i> Total Qty
+                        </div>
+                        <div class="fw-semibold">${productTotalQtyDisplay}</div>
                       </div>
                     </div>
 
@@ -499,8 +635,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // LEFT panel click -> use our first modal function
     upcomingList?.addEventListener('click', function (e) {
+      // prevent bubbling / duplicate invocations
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
       const item = e.target.closest('.upcoming-item');
       if (!item) return;
+
       const eventId = item.getAttribute('data-event-id');
       if (!eventId) return;
 
@@ -559,4 +701,19 @@ document.addEventListener('DOMContentLoaded', function () {
       localStorage.setItem('artistCalSidebarCollapsed', collapsed ? '1' : '0');
     });
   })();
+
+  let __modalOpening = false;
+
+function openInstallModalFromEvent(e) {
+  if (__modalOpening) return;
+  __modalOpening = true;
+
+  // your existing code that builds + shows modal...
+  const modalEl = document.getElementById(modalId);
+  const bsModal = new bootstrap.Modal(modalEl);
+  bsModal.show();
+
+  // reset guard when hidden
+  modalEl.addEventListener('hidden.bs.modal', () => { __modalOpening = false; }, { once: true });
+}
 });

@@ -4,7 +4,8 @@
 @section('content')
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="user-id" content="{{ $artistId ?? Auth::id() }}">
-
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
   .modal .btn-close::before {
     background-color: white !important;

@@ -646,7 +646,23 @@
                   </div>
                 </td>
                 <td>{{ $dateIn }}</td>
-                <td>{{ $deadline }}</td>
+                @php
+                  $deadline     = data_get($r, 'deadline');
+                  $isOverdue    = (bool) data_get($r, 'is_overdue', false);
+                  $isDueSoon    = (bool) data_get($r, 'is_due_soon', false);
+                  $deadlineStr  = $deadline ? \Carbon\Carbon::parse($deadline)->format('Y-m-d') : '—';
+                  $cls          = $isOverdue ? 'text-danger fw-semibold'
+                                : ($isDueSoon ? 'text-warning fw-semibold' : 'text-body');
+                @endphp
+
+                <td>
+                  <span class="deadline-date {{ $cls }}">{{ $deadlineStr }}</span>
+                  @if($isOverdue)
+                    <span class="badge bg-danger-subtle text-danger ms-2">Expired</span>
+                  @elseif($isDueSoon)
+                    <span class="badge bg-warning-subtle text-warning ms-2">Near</span>
+                  @endif
+                </td>
                 <td class="text-center">
                   @php
                     $pid = $r['ProductID'] ?? ($r->ProductID ?? null);
@@ -658,7 +674,7 @@
                   <div class="d-inline-flex gap-1">
                     {{-- Always show View --}}
                     @if (!$accepted || $isInstallCompleted || !$isInstallation)
-                    <a href="{{ route('installation.job.show', $pid) }}" class="action-btn" title="View">
+                    <a href="{{ route('installation.job.show', [$pid, 'from' => 'dashboard']) }}" class="action-btn" title="View">
                       <i class="bi bi-eye"></i>
                     </a>
                     @endif
