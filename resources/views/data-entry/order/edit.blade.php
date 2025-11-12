@@ -2257,6 +2257,13 @@
           updateDeliverySummaryBar();
         }
 
+        const totalQtyInput =
+          root.querySelector(`input[name="products[${pIndex}][qty_total]"]`) ||
+          root.querySelector('#totalQty');
+        const _revalidateFromTotal = () => validateDeliveries();
+        totalQtyInput?.addEventListener('input', _revalidateFromTotal);
+        totalQtyInput?.addEventListener('change', _revalidateFromTotal);
+
         delWrap.addEventListener('input', (e) => {
           if (e.target.matches('.del-qty') || e.target.closest('.del-qty')) validateDeliveries();
         });
