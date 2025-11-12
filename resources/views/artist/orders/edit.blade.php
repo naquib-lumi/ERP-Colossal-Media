@@ -3313,13 +3313,44 @@
 
     async function onSubmitClick(e) {
       const formRoot = document.getElementById('order-form') || document.body;
-      if (!remarksAreValid(formRoot)) {
+      // gather invalid products
+      const invalidProducts = [];
+      const products = Array.from(document.querySelectorAll('.accordion-collapse[id^="pCollapse"]'));
+      for (const root of products) {
+        if (!remarksAreValid(root)) {
+          // Prefer header button text with banners removed
+          const headerBtn = root.closest('.accordion-item')?.querySelector('.accordion-button');
+          let label = '';
+          if (headerBtn) {
+            const clone = headerBtn.cloneNode(true);
+            // remove REDO/REJECT banners, reasons, chips
+            clone.querySelectorAll('.js-reason-banner, .redo-banner, .reason, .tag, .by').forEach(el => el.remove());
+            label = (clone.textContent || '').replace(/\s+/g, ' ').trim();
+          }
+          // fallback: product name input
+          if (!label) {
+            const nameInput = root.querySelector('input[name*="[name]"]');
+            const code = root.closest('.accordion-item')?.querySelector('.accordion-button')?.textContent?.match(/Product\s*#\S+/)?.[0] || 'Product';
+            const nm = (nameInput?.value || '').trim();
+            label = nm ? `${code} — ${nm}` : code;
+          }
+          // final cleanup: drop trailing REDO/REJECT tokens if any survived
+          label = label.replace(/\s*REDO.*$/i, '').replace(/\s*REJECTED.*$/i, '').trim();
+          invalidProducts.push(label);
+        }
+      }
+
+      if (invalidProducts.length > 0) {
         e.preventDefault();
         e.stopPropagation();
+        const listHtml = '<ul style="text-align:left;margin:0 0 0 1.25rem;padding:0;">' +
+          invalidProducts.map(p => `<li>${p}</li>`).join('') +
+          '</ul>';
+
         Swal.fire({
           icon: 'warning',
           title: 'Incomplete Remarks',
-          text: 'Please ensure all remarks selected departments have corresponding remarks before submitting.',
+          html: `<div style="text-align:left">Please complete the remarks for the following products:</div>${listHtml}`,
           confirmButtonText: 'OK',
           confirmButtonColor: '#3085d6'
         });
