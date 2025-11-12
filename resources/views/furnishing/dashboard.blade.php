@@ -310,7 +310,7 @@
             $accepted     = (int)($j->accepted ?? 0) === 1;
 
             // 👇 定义查看/编辑链接：铅笔 -> 直接进入编辑态
-            $viewUrl = route('furnishing.job.show', $j->ProductID);
+            $viewUrl = route('furnishing.job.show', [$j->ProductID, 'from' => 'dashboard']);
             $editUrl = route('furnishing.job.show', [$j->ProductID, 'edit' => 1]);
 
             // deadline styling helpers

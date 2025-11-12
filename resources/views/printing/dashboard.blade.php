@@ -302,7 +302,7 @@
                           : ($isDueSoon ? 'text-warning fw-semibold' : '');
 
               // 目标：铅笔 => 直接打开编辑态
-              $showUrl     = route('printing.orders.show', $row->ProductID);
+              $showUrl     = route('printing.orders.show', [$row->ProductID, 'from' => 'dashboard']);
               $editUrl     = route('printing.orders.show', [$row->ProductID, 'edit' => 1]);
             @endphp
             <tr id="job-{{ $row->ProductID }}" class="js-row-open" data-code="{{ $row->display_product_id }}" data-href="{{ $showUrl }}" style="cursor:pointer;">

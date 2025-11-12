@@ -674,7 +674,7 @@
                   <div class="d-inline-flex gap-1">
                     {{-- Always show View --}}
                     @if (!$accepted || $isInstallCompleted || !$isInstallation)
-                    <a href="{{ route('installation.job.show', $pid) }}" class="action-btn" title="View">
+                    <a href="{{ route('installation.job.show', [$pid, 'from' => 'dashboard']) }}" class="action-btn" title="View">
                       <i class="bi bi-eye"></i>
                     </a>
                     @endif

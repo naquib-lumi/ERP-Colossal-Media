@@ -259,7 +259,7 @@
                   </td>
 
                   <td class="text-center">
-                    <a href="{{ route('printing.history.show', $row->ProductID) }}" class="icon-btn" title="View details">
+                    <a href="{{ route('printing.history.show', [$row->ProductID, 'from' => 'history']) }}" class="icon-btn" title="View details">
                       <i class="bi bi-eye"></i>
                     </a>
 

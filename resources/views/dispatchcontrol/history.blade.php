@@ -328,7 +328,7 @@
                   // If you have a details route, drop it here:
                   $detailsUrl = $row->details_url ?? '#';
                   @endphp
-                  <a href="{{ route('dispatchcontrol.history.show', $row->ProductID) }}"
+                  <a href="{{ route('dispatchcontrol.history.show', [$row->ProductID, 'from' => 'history']) }}"
                     class="icon-btn" title="View details">
                     <i class="bi bi-eye"></i> {{-- or your existing eye icon --}}
                   </a>

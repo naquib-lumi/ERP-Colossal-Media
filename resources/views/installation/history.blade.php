@@ -287,7 +287,7 @@
     $prodName  = $row->productName ?? '—';
     $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
     $remarks   = $row->materialRemark ?: '–';
-    $viewUrl   = $row->details_url ?? route('installation.job.show', $row->ProductID);
+    $viewUrl   = $row->details_url ?? route('installation.job.show', [$row->ProductID, 'from' => 'history']);
   @endphp
   <tr class="js-row-open" data-href="{{ $viewUrl }}" style="cursor:pointer;">
     <td class="fw-semibold">{{ $code }}</td>

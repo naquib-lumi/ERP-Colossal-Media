@@ -574,7 +574,7 @@
               <td class="text-center">
                 <div class="d-inline-flex gap-1">
                   @if (!$accepted || $isdeliveryCompleted || !$isdelivery)
-                    <a href="{{ route('dispatchcontrol.job.show', $pid) }}" class="action-btn" title="View">
+                    <a href="{{ route('dispatchcontrol.job.show', [$pid, 'from' => 'dashboard']) }}" class="action-btn" title="View">
                       <i class="bi bi-eye"></i>
                     </a>
                   @endif

@@ -191,15 +191,21 @@
       $uploader = $header->artist_name ?? '—';
       $canEdit = ((int)($header->accepted ?? 0) === 1) && strtolower((string)($header->orderStatus ?? '')) !== 'rejected';
     @endphp
-
+    @php
+      $from = request('from');
+      $backUrl = match ($from) {
+        'history'   => route('furnishing.history'),
+        'dashboard' => route('furnishing.dashboard'),
+        default     => (url()->previous() ?: route('printing.dashboard')),
+      };
+    @endphp
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
-        <!-- <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a> -->
-        <a href="{{ route('furnishing.dashboard') }}"
-            class="text-decoration-none text-muted me-3"
-            style="display: inline-flex; align-items: center; gap: 8px;">
-            <i class="bi bi-arrow-left-circle fw-semibold"
-                style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        <a href="{{ $backUrl }}"
+          class="text-decoration-none text-muted me-3"
+          style="display:inline-flex;align-items:center;gap:8px;">
+          <i class="bi bi-arrow-left-circle fw-semibold"
+            style="font-size:1.4rem;font-weight:600;color:#6c757d;"></i>
         </a>
         <h1 class="h4 fw-bold mb-0">Furnishing Task — <span class="text-muted">{{ $product_code }}</span></h1>
       </div>
@@ -866,11 +872,46 @@ document.addEventListener('click', function (e) {
   const by     = (pill.getAttribute('data-by') || '').trim();
   const at     = (pill.getAttribute('data-at') || '').trim();
 
-  document.getElementById('redoReasonText').textContent = reason || 'No reason provided.';
-  document.getElementById('redoReasonBy').textContent   = by || '—';
-  document.getElementById('redoReasonAt').textContent   = at || '—';
+  // ensure modal exists (create once if missing)
+  let modalEl = document.getElementById('redoReasonModal');
+  if (!modalEl) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+<div class="modal fade" id="redoReasonModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-header" style="background:#e5484d;color:#fff;">
+        <h5 class="modal-title d-flex align-items-center gap-2" style="color:white;margin-bottom:10px">
+          <i class="bi bi-exclamation-octagon-fill" style="color:white;"></i> Redo Reason
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-between small text-muted mb-2" style="gap:1rem;">
+          <div><span class="fw-semibold">By:</span> <span id="redoReasonBy">—</span></div>
+          <div><span class="fw-semibold">At:</span> <span id="redoReasonAt">—</span></div>
+        </div>
+        <div class="p-3 rounded" style="background:#fff5f6;border:1px solid #ffd6d9;">
+          <div id="redoReasonText" style="white-space:pre-wrap;">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+    document.body.appendChild(wrapper.firstElementChild);
+    modalEl = document.getElementById('redoReasonModal');
+  }
 
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('redoReasonModal')).show();
+  // set fields safely
+  const txtEl = document.getElementById('redoReasonText');
+  const byEl  = document.getElementById('redoReasonBy');
+  const atEl  = document.getElementById('redoReasonAt');
+
+  if (txtEl) txtEl.textContent = reason || 'No reason provided.';
+  if (byEl)  byEl.textContent  = by || '—';
+  if (atEl)  atEl.textContent  = at || '—';
+
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
 });
 </script>
 
