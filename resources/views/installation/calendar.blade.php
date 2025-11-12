@@ -78,6 +78,8 @@
       white-space: nowrap;
     }
   }
+
+  
 </style>
 
 <div class="card app-calendar-wrapper" id="artistCalendarWrapper">
