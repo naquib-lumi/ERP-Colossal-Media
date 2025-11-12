@@ -470,7 +470,7 @@
                                             <div class="flex-grow-1">
                                                 <h6 class="mb-1 fw-bold">{{ $meeting->title }}</h6>
                                                 <small class="text-muted d-block mb-1">
-                                                    {{ $meeting->start_time->format('D, h:i A') }} -
+                                                    {{ $meeting->start_time->format('l, d M Y, h:i A') }} -
                                                     {{ $meeting->end_time->format('h:i A') }}
                                                 </small>
                                                 @if ($meeting->type === 'online' && $meeting->url)
