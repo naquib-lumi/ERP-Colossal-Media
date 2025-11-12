@@ -479,7 +479,7 @@ class DispatchControlController extends Controller
             // 2) Mark INSTALLATION stage completed in fulfillment_progress
             $existing = DB::table('fulfillment_progress')
                 ->where('ProductID', $product)
-                ->where('stage', 'installation')
+                ->where('stage', 'delivery')
                 ->lockForUpdate()
                 ->first();
 
