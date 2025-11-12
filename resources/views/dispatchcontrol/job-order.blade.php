@@ -234,7 +234,7 @@ default => \Illuminate\Support\Str::title($t),
 
   {{-- Stats --}}
   <div class="row g-3 mb-3">
-    <div class="col-6 col-md-4 col-xl-2 cursor-pointer" data-go-status="printing">
+    <div class="col-6 col-lg cursor-pointer" data-go-status="printing">
       <div class="stat card-soft">
         <i class="bi bi-printer text-primary"></i>
         <div>
@@ -242,7 +242,7 @@ default => \Illuminate\Support\Str::title($t),
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-xl-2 cursor-pointer" data-go-status="furnishing">
+    <div class="col-6 col-lg cursor-pointer" data-go-status="furnishing">
       <div class="stat card-soft">
         <i class="bi bi-brush text-warning"></i>
         <div>
@@ -250,23 +250,15 @@ default => \Illuminate\Support\Str::title($t),
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-xl-2 cursor-pointer">
-      <div class="stat card-soft">
-        <i class="bi bi-truck text-info"></i>
-        <div>
-          <div class="count">{{ number_format($stats['delivery_needing_permit'] ?? 0) }}</div><small>Delivery Needing Permit</small>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-4 col-xl-2 cursor-pointer">
+    <div class="col-6 col-lg cursor-pointer" data-go-status="installation">
       <div class="stat card-soft">
         <i class="bi bi-wrench-adjustable text-dark"></i>
         <div>
-          <div class="count">{{ number_format($stats['installation_needing_permit'] ?? 0) }}</div><small>Installation Needing Permit</small>
+          <div class="count">{{ number_format($stats['installation'] ?? 0) }}</div><small>Delivery & Installation Overview</small>
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-xl-2">
+    <div class="col-6 col-lg">
       <div class="stat card-soft">
         <i class="bi bi-bag-check text-secondary"></i>
         <div>
@@ -274,7 +266,7 @@ default => \Illuminate\Support\Str::title($t),
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-xl-2">
+    <div class="col-6 col-lg">
       <div class="stat card-soft">
         <i class="bi bi-bicycle text-success"></i>
         <div>
@@ -322,7 +314,7 @@ default => \Illuminate\Support\Str::title($t),
       </div>
 
       {{-- Artist --}}
-      <div class="input-group" style="width:260px;">
+      <div class="input-group">
         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
         <select name="artist" class="form-select">
           <option value="">All artists</option>
@@ -335,7 +327,7 @@ default => \Illuminate\Support\Str::title($t),
       </div>
 
       {{-- Type --}}
-      <select name="task_type" class="form-select" style="width:210px;">
+      <select name="task_type" class="form-select" style="width:180px;">
         <option value="">All Types</option>
         <option value="printing"     @selected(request('task_type')==='printing')>Printing</option>
         <option value="furnishing"   @selected(request('task_type')==='furnishing')>Furnishing</option>

@@ -472,8 +472,8 @@ class PrintingController extends Controller
                     ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
                     ->where('pi.ProductID', $product)
                     ->where(function ($q) {
-                        $q->whereNotNull('s.lamination')->where('s.lamination', '<>', '')
-                            ->orWhereNotNull('s.cutter')->where('s.cutter', '<>', '');
+                        $q->whereNotNull('s.lamination')->where('s.lamination', '!=', 'no')
+                            ->orWhereNotNull('s.cutter')->where('s.cutter', '!=', 'no');
                     })
                     ->exists();
 

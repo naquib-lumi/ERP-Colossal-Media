@@ -5,6 +5,15 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <style>
+  .lb-meta .lb-caption {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb-strip img.active {
+    outline: 3px solid #4ade80; /* green highlight */
+  }
+
   /* Page & cards */
   .page-wrap {
     max-width: 1180px;
@@ -132,8 +141,8 @@
   .cx-modal.cx-lightbox { width:min(1100px, 96vw); max-height:92vh; overflow:hidden; display:flex; flex-direction:column; }
 
   .cx-header { display:flex; align-items:center; gap:.5rem; border-bottom:1px solid #eee; padding:.75rem 1rem; }
-  .cx-title { font-weight:700; }
-  .cx-close { margin-left:auto; background:transparent; border:0; cursor:pointer; }
+  .cx-title { font-weight:700; color: white;}
+  .cx-close { margin-left:auto; background:transparent; border:0; cursor:pointer; color: white;}
 
   .cx-body { padding:12px 16px; display:flex; flex-direction:column; gap:12px; }
 
@@ -275,12 +284,11 @@
                   
                   <a class="text-decoration-none text-dark"
                     href="{{ $urlWith(['sort'=>'completed','dir'=>$nextDir]) }}">
-                    COMPLETED DATE
+                    COMPLETION DATE
                     <span class="sort-caret">{{ $dir === 'asc' ? '↑' : '↓' }}</span>
                   </a>
                 </th>
                 <th>PROOF FILE</th>
-                <th>REMARKS</th>
                 <th class="text-center">PRODUCT DETAILS</th>
               </tr>
             </thead>
@@ -314,9 +322,6 @@
                   </button>
                 </td>
                 {{-- === /PROOF FILE === --}}
-
-                <td><span class="truncate" title="{{ $remarks }}">{{ $remarks }}</span></td>
-
                 {{-- Square icon button for details --}}
                 <td class="text-center">
                   @php
@@ -410,7 +415,12 @@
           <button class="lb-nav lb-next" type="button" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
         </div>
 
-        <div id="lbCaption" class="lb-caption">—</div>
+        <div class="lb-meta" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px;">
+          <div id="lbCaption" class="lb-caption" style="font-weight:600; color:white;">—</div>
+          <div id="lbUploadedAt" class="text-muted small" style="white-space:nowrap; color: white;">
+            <!-- Uploaded: Oct 10, 2025 07:19 AM -->
+          </div>
+        </div>
 
         <div id="lbStrip" class="lb-strip">
           <!-- thumbnails injected here -->
@@ -470,6 +480,7 @@
   const empty = document.getElementById('lbEmpty');
   const prev  = modal.querySelector('.lb-prev');
   const next  = modal.querySelector('.lb-next');
+  const uploadedEl = document.getElementById('lbUploadedAt');
 
   let files = [];   // [{url,name}, ...]
   let idx   = 0;    // current index
@@ -522,8 +533,18 @@
     if (i < 0) i = files.length - 1;
     if (i >= files.length) i = 0;
     idx = i;
-    img.src = files[idx].url;
-    cap.textContent = files[idx].name || '';
+
+    const file = files[idx];
+    img.src = file.url;
+    cap.textContent = file.name || '';
+
+    // show uploaded datetime
+    if (uploadedEl) {
+      uploadedEl.textContent = file.uploaded_at
+        ? `Uploaded: ${file.uploaded_at}`
+        : '';
+    }
+
     renderThumbs(idx);
   }
 
@@ -531,6 +552,7 @@
 
   async function loadProofs(url) {
     img.src = ''; cap.textContent = ''; strip.innerHTML = '';
+    if (uploadedEl) uploadedEl.textContent = '';
     empty.style.display = 'none';
     files = []; idx = 0;
 
@@ -563,52 +585,56 @@
 });
 
 (() => {
-  const ymdToUs = v => /^\d{4}-\d{2}-\d{2}$/.test(v) ? (v.slice(5,7)+'/'+v.slice(8,10)+'/'+v.slice(0,4)) : v;
-  const usToYmd = v => {
-    const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!m) return '';
-    const [,mm,dd,yy] = m;
-    return `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
-  };
+  const y2us=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)?(v.slice(5,7)+'/'+v.slice(8,10)+'/'+v.slice(0,4)):v;
+  const us2y=v=>{const m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!m)return'';const[,mm,dd,yy]=m;return `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`};
+  function attachNativeDate(input){
+    const open=()=>{if(input.type!=='date'){const y=us2y(input.value.trim());input.type='date';if(y)input.value=y;input.showPicker?input.showPicker():input.focus();}};
+    const close=()=>{if(input.type==='date'){if(input.value)input.value=y2us(input.value);input.type='text';}};
+    input.addEventListener('focus',open); input.addEventListener('click',open);
+    input.addEventListener('change',()=>{if(input.type==='date' && input.value){input.type='text';input.value=y2us(input.value);input.dispatchEvent(new Event('change',{bubbles:true}));}});
+    input.addEventListener('blur',close);
+  }
+  document.querySelectorAll('.js-date').forEach(attachNativeDate);
+})();
 
-  document.querySelectorAll('.js-date').forEach(input => {
-    // lock width so the switch text/date doesn't resize
-    const rect = input.getBoundingClientRect();
-    input.style.width = rect.width + 'px';
+  // document.querySelectorAll('.js-date').forEach(input => {
+  //   // lock width so the switch text/date doesn't resize
+  //   const rect = input.getBoundingClientRect();
+  //   input.style.width = rect.width + 'px';
 
-    function openPicker(){
-      if (input.type !== 'date') {
-        const prev = input.value.trim();          // mm/dd/yyyy (text)
-        input.type = 'date';
-        input.value = usToYmd(prev) || '';
-        input.showPicker?.();
-      }
-    }
+  //   function openPicker(){
+  //     if (input.type !== 'date') {
+  //       const prev = input.value.trim();          // mm/dd/yyyy (text)
+  //       input.type = 'date';
+  //       input.value = usToYmd(prev) || '';
+  //       input.showPicker?.();
+  //     }
+  //   }
 
-    // ✅ convert immediately when the user picks a date
-    function onChange(){
-      if (input.type === 'date' && input.value) {
-        const us = ymdToUs(input.value);          // yyyy-mm-dd → mm/dd/yyyy
-        input.type = 'text';
-        input.value = us;
-        // bubble a change for forms/filters that listen to it
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    }
+  //   // ✅ convert immediately when the user picks a date
+  //   function onChange(){
+  //     if (input.type === 'date' && input.value) {
+  //       const us = ymdToUs(input.value);          // yyyy-mm-dd → mm/dd/yyyy
+  //       input.type = 'text';
+  //       input.value = us;
+  //       // bubble a change for forms/filters that listen to it
+  //       input.dispatchEvent(new Event('change', { bubbles: true }));
+  //     }
+  //   }
 
-    // Fallback if user focuses then clicks away without picking
-    function closePicker(){
-      if (input.type === 'date') {
-        input.value = input.value ? ymdToUs(input.value) : '';
-        input.type = 'text';
-      }
-    }
+  //   // Fallback if user focuses then clicks away without picking
+  //   function closePicker(){
+  //     if (input.type === 'date') {
+  //       input.value = input.value ? ymdToUs(input.value) : '';
+  //       input.type = 'text';
+  //     }
+  //   }
 
-    input.addEventListener('focus', openPicker);
-    input.addEventListener('click', openPicker);
-    input.addEventListener('change', onChange);   // ← important
-    input.addEventListener('blur', closePicker);
-  });
+  //   input.addEventListener('focus', openPicker);
+  //   input.addEventListener('click', openPicker);
+  //   input.addEventListener('change', onChange);   // ← important
+  //   input.addEventListener('blur', closePicker);
+  // });
 
   // double-click row to view
   document.addEventListener('dblclick', e => {
@@ -619,7 +645,21 @@
     const url = tr.dataset.href;
     if (url) window.location.href = url;
   });
-})();
+
+function showProofAt(index) {
+  const file = files[index];
+  if (!file) return;
+
+  document.getElementById('lbImage').src = file.url;
+  document.getElementById('lbCaption').textContent = file.name || '—';
+
+  const uploadedEl = document.getElementById('lbUploadedAt');
+  if (uploadedEl) {
+    uploadedEl.textContent = file.uploaded_at
+      ? `Uploaded: ${file.uploaded_at}`
+      : '';
+  }
+}
 </script>
 @endpush
 @endsection

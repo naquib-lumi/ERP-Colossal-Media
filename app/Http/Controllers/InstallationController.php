@@ -69,6 +69,13 @@ class InstallationController extends Controller
                 $w->whereNull('o.orderStatus')
                 ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
             })
+            ->whereNotExists(function ($q2) {
+                $q2->select(DB::raw(1))
+                ->from('fulfillment_progress as fp')
+                ->whereColumn('fp.ProductID', 'p.ProductID')
+                ->where('fp.stage', 'installation')
+                ->where('fp.status', 'completed');
+            })
             ->when($pid !== '', function ($qb) use ($pid) {
                 $like = '%'.$pid.'%';
 
@@ -578,19 +585,9 @@ class InstallationController extends Controller
                 })
                 ->count(),
 
-            'delivery_needing_permit' => DB::table('delivery_breakdowns as d')
-                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+            'installation' => DB::table('products as p')
                 ->join('orders as o', 'o.id', '=', 'p.OrderID')
-                ->whereRaw('LOWER(d.deliver_install_type) = "delivery"')
-                ->where(function ($w) {
-                    $w->whereNull('o.status')->orWhere('o.status', 0);
-                })
-                ->count(),
-
-            'installation_needing_permit' => DB::table('delivery_breakdowns as d')
-                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
-                ->join('orders as o', 'o.id', '=', 'p.OrderID')
-                ->whereRaw('LOWER(d.deliver_install_type) = "installation"')
+                ->whereRaw('LOWER(p.taskType) = "installation"')
                 ->where(function ($w) {
                     $w->whereNull('o.status')->orWhere('o.status', 0);
                 })

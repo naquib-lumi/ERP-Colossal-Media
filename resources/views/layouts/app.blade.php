@@ -169,7 +169,13 @@ $configData = \App\Helpers\Helpers::appClasses();
               </li>
             @endif
             @if (in_array(auth()->user()->role, ['operations-delivery-installation']))
-            <li class="menu-item {{ request()->routeIs('installation.job-order') ? 'active' : '' }}">
+              <li class="menu-item {{ request()->routeIs('installation.calendar') ? 'active' : '' }}">
+                <a href="{{ route('installation.calendar') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-calendar"></i>
+                  <div data-i18n="Calendar">Calendar</div>
+                </a>
+              </li>
+              <li class="menu-item {{ request()->routeIs('installation.job-order') ? 'active' : '' }}">
                 <a href="{{ route('installation.job-order') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-file"></i>
                   <div data-i18n="Job Order">Job Order</div>
@@ -179,12 +185,6 @@ $configData = \App\Helpers\Helpers::appClasses();
                 <a href="{{ route('installation.history') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-history"></i>
                   <div data-i18n="Order History">Order History</div>
-                </a>
-              </li>
-              <li class="menu-item {{ request()->routeIs('installation.calendar') ? 'active' : '' }}">
-                <a href="{{ route('installation.calendar') }}" class="menu-link">
-                  <i class="menu-icon icon-base bx bx-calendar"></i>
-                  <div data-i18n="Calendar">Calendar</div>
                 </a>
               </li>
             @endif
