@@ -2817,8 +2817,15 @@
       const btnDraft  = document.getElementById('btn-draft');
 
       // If hasInvalid → disable; otherwise enable (even when 0 files)
-      btnSubmit?.toggleAttribute('disabled', hasInvalid);
-      btnDraft ?.toggleAttribute('disabled', hasInvalid);
+      if (hasInvalid) {
+        btnSubmit?.setAttribute('disabled', '');
+        btnDraft ?.setAttribute('disabled', '');
+      } else {
+        // No invalid attachments. Enable only if there are no other invalid fields.
+        const anyInvalid = document.querySelector('.is-invalid,[aria-invalid="true"]') !== null;
+        btnSubmit?.toggleAttribute('disabled', anyInvalid);
+        btnDraft ?.toggleAttribute('disabled', anyInvalid);
+      }
     }
 
     function addRow(file, { key = null, status = 'ready', note = '' }) {
