@@ -2168,17 +2168,24 @@
         }
 
         function getTotalAllowed() {
+          // Prefer the live input value first for instant feedback while typing
+          const totalQtyEl =
+            root.querySelector(`input[name="products[${pIndex}][qty_total]"]`) ||
+            root.querySelector('#totalQty');
+          if (totalQtyEl) {
+            const v = (totalQtyEl.value ?? '').replace(/,/g, '').trim();
+            const n = parseFloat(v);
+            if (Number.isFinite(n)) return n;
+          }
+
+          // Fallback to the summary span (may lag behind a bit)
           const span = root.querySelector('#del-sum-total-' + pIndex);
           if (span) {
             const s = (span.textContent || '').replace(/,/g, '').trim();
             const n = parseFloat(s);
             if (!Number.isNaN(n)) return n;
           }
-
-          const totalQtyEl = root.querySelector(`input[name="products[${pIndex}][qty_total]"]`);
-          const v = (totalQtyEl?.value ?? '').replace(/,/g, '').trim();
-          const n = parseFloat(v);
-          return Number.isFinite(n) ? n : 0;
+          return 0;
         }
 
         function setItemQtyValidity(ok, msg = '') {
@@ -2385,17 +2392,24 @@
         });
 
         function getTotalAllowed() {
+          // Prefer the live input value first for instant feedback while typing
+          const totalQtyEl =
+            root.querySelector(`input[name="products[${pIndex}][qty_total]"]`) ||
+            root.querySelector('#totalQty');
+          if (totalQtyEl) {
+            const v = (totalQtyEl.value ?? '').replace(/,/g, '').trim();
+            const n = parseFloat(v);
+            if (Number.isFinite(n)) return n;
+          }
+
+          // Fallback to the summary span (may lag behind a bit)
           const span = root.querySelector('#del-sum-total-' + pIndex);
           if (span) {
             const s = (span.textContent || '').replace(/,/g, '').trim();
             const n = parseFloat(s);
             if (!Number.isNaN(n)) return n;
           }
-
-          const totalQtyEl = root.querySelector(`input[name="products[${pIndex}][qty_total]"]`);
-          const v = (totalQtyEl?.value ?? '').replace(/,/g, '').trim();
-          const n = parseFloat(v);
-          return Number.isFinite(n) ? n : 0;
+          return 0;
         }
 
         function sumDeliveryQty() {
@@ -2432,16 +2446,18 @@
           updateDeliverySummaryBar();
         }
 
+        
+
+        delWrap.addEventListener('input', (e) => {
+          if (e.target.matches('.del-qty') || e.target.closest('.del-qty')) validateDeliveries();
+        });
+
         const totalQtyInput =
           root.querySelector(`input[name="products[${pIndex}][qty_total]"]`) ||
           root.querySelector('#totalQty');
         const _revalidateFromTotal = () => validateDeliveries();
         totalQtyInput?.addEventListener('input', _revalidateFromTotal);
         totalQtyInput?.addEventListener('change', _revalidateFromTotal);
-
-        delWrap.addEventListener('input', (e) => {
-          if (e.target.matches('.del-qty') || e.target.closest('.del-qty')) validateDeliveries();
-        });
 
         // first pass
         reindexDeliveries();
