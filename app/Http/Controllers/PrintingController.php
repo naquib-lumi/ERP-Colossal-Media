@@ -476,6 +476,8 @@ class PrintingController extends Controller
             DB::transaction(function () use ($product, &$computedNextStage) {
                 $now = now();
 
+                $installFields = [];
+
                 $hasFurnishingWork = DB::table('product_items as pi')
                     ->leftJoin('specifications as s', 'pi.ItemID', '=', 's.ItemID')
                     ->where('pi.ProductID', $product)
@@ -497,9 +499,6 @@ class PrintingController extends Controller
 
                     $hasDelivery     = in_array('self_pickup', $methods, true) || in_array('courier', $methods, true);
                     $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true);
-
-                    // extra install fields only when BOTH delivery & installation exist
-                    $installFields = [];
 
                     if ($hasDelivery && $hasInstallation) {
                         $computedNextStage  = 'delivery';

@@ -112,6 +112,10 @@ class InstallationController extends Controller
                 'p.OrderID',
                 'p.taskType as current_stage',
                 'p.status   as current_status',
+                // NEW
+                'p.installation_task_type',
+                'p.installation_status',
+                'p.installation_accepted',
                 'o.order_number',
                 'o.orderDate',
                 'o.deadline',
@@ -178,7 +182,11 @@ class InstallationController extends Controller
                     'current_stage'   => $curStage  ? strtolower($curStage)  : null,
                     'current_status'  => $curStatus ? strtolower($curStatus) : null,
                     'accepted'        => (int)($r->accepted ?? 0),
-
+                    // NEW
+                    'installation_task_type' => $r->installation_task_type ?? null,
+                    'installation_status'     => $r->installation_status ? strtolower($r->installation_status) : null,
+                    'installation_accepted'   => $r->installation_accepted ?? null,
+                    
                     'order_base_id'    => $r->redo ?? $r->order_id,                 // COALESCE(o.redo, o.id)
                     'product_base_id'  => $r->redoOf ?? $r->ProductID,              // COALESCE(p.redoOf, p.ProductID)
                     'append_R'         => ((isset($r->redoOf) && (int)$r->editable === 1)

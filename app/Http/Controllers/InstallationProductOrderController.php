@@ -469,9 +469,11 @@ class InstallationProductOrderController extends Controller
 
         DB::transaction(function () use ($product, $stage, $now) {
             // 1️⃣ Update product's accepted flag to 1
-            DB::table('products')
-                ->where('ProductID', $product)
-                ->update(['accepted' => 1, 'updated_at' => $now]);
+            DB::table('products')->where('ProductID', $product)->update([
+                'accepted' => 1,
+                'installation_accepted' => DB::raw('CASE WHEN installation_task_type=1 THEN 1 ELSE installation_accepted END'),
+                'updated_at' => $now,
+            ]);
 
             // 2️⃣ Upsert fulfillment_progress
             DB::table('fulfillment_progress')->upsert(
@@ -582,12 +584,14 @@ class InstallationProductOrderController extends Controller
 
             // 1) Product-level acceptance flag -> rejected
             DB::table('products')
-                ->where('ProductID', $product)
-                ->update([
-                    'accepted'   => 0,
-                    'status'     => 'rejected',
-                    'updated_at' => $now,
-                ]);
+            ->where('ProductID', (int)$product)
+            ->update([
+                'accepted' => 0,
+                'status' => 'rejected',
+                'installation_accepted' => DB::raw('CASE WHEN installation_task_type=1 THEN 0 ELSE installation_accepted END'),
+                'installation_status' => DB::raw('CASE WHEN installation_task_type=1 THEN "rejected" ELSE installation_status END'),
+                'updated_at' => $now,
+            ]);
 
             // 2) Order-level status -> rejected
             DB::table('orders')
