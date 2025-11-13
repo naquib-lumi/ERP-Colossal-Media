@@ -1014,7 +1014,13 @@ class ArtistController extends Controller
                                     ->first();
                     if (!$productRow) continue;
 
-                    // --- NEW: per-product header fields ---
+                    // 1️⃣ Snapshot original acceptance flags directly from DB
+                    $originalFlags = DB::table('products')
+                        ->where('ProductID', $productRow->ProductID)
+                        ->select('accepted', 'installation_accepted')
+                        ->first();
+
+                    // --- per-product header fields (safe) ---
                     if (array_key_exists('name', $group)) {
                         $productRow->productName = $group['name'] === '' ? null : $group['name'];
                     }
@@ -1025,6 +1031,7 @@ class ArtistController extends Controller
                     if (array_key_exists('material', $group)) {
                         $productRow->materialRemark = $group['material'] === '' ? null : $group['material'];
                     }
+
                     $productRow->save();
 
                     // -------- Items --------
@@ -1263,6 +1270,16 @@ class ArtistController extends Controller
                             ->delete();
                     }
                     $productRow->syncTaskTypeFromSpecs();
+
+                    // 2️⃣ Force-restore original accepted flags at the very end
+                    if ($originalFlags) {
+                        DB::table('products')
+                            ->where('ProductID', $productRow->ProductID)
+                            ->update([
+                                'accepted'             => $originalFlags->accepted,
+                                'installation_accepted'=> $originalFlags->installation_accepted,
+                            ]);
+                    }
                 } 
             });
 
