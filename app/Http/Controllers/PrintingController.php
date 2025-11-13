@@ -496,10 +496,18 @@ class PrintingController extends Controller
                         ->all();
 
                     $hasDelivery     = in_array('self_pickup', $methods, true) || in_array('courier', $methods, true);
-                    $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true);;
+                    $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true);
+
+                    // extra install fields only when BOTH delivery & installation exist
+                    $installFields = [];
 
                     if ($hasDelivery && $hasInstallation) {
                         $computedNextStage  = 'delivery';
+                        $installFields = [
+                            'installation_task_type' => 1,
+                            'installation_status'    => 'in_progress', // note: spelled consistently
+                            'installation_accepted'  => null,
+                        ];
                     } elseif ($hasDelivery) {
                         $computedNextStage  = 'delivery';
                     } elseif ($hasInstallation) {
@@ -511,12 +519,12 @@ class PrintingController extends Controller
 
                 DB::table('products')
                     ->where('ProductID', $product)
-                    ->update([
+                    ->update(array_merge([
                         'status'     => 'in_progress',
                         'taskType'   => $computedNextStage,
                         'accepted'   => null,
                         'updated_at' => $now,
-                    ]);
+                    ], $installFields));
 
                 $existing = DB::table('fulfillment_progress')
                     ->where('ProductID', $product)

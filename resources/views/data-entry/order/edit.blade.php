@@ -1993,17 +1993,24 @@
         }
 
         function getTotalAllowed() {
+          // Prefer the live input value first for instant feedback while typing
+          const totalQtyEl =
+            root.querySelector(`input[name="products[${pIndex}][qty_total]"]`) ||
+            root.querySelector('#totalQty');
+          if (totalQtyEl) {
+            const v = (totalQtyEl.value ?? '').replace(/,/g, '').trim();
+            const n = parseFloat(v);
+            if (Number.isFinite(n)) return n;
+          }
+
+          // Fallback to the summary span (may lag behind a bit)
           const span = root.querySelector('#del-sum-total-' + pIndex);
           if (span) {
             const s = (span.textContent || '').replace(/,/g, '').trim();
             const n = parseFloat(s);
             if (!Number.isNaN(n)) return n;
           }
-
-          const totalQtyEl = root.querySelector(`input[name="products[${pIndex}][qty_total]"]`);
-          const v = (totalQtyEl?.value ?? '').replace(/,/g, '').trim();
-          const n = parseFloat(v);
-          return Number.isFinite(n) ? n : 0;
+          return 0;
         }
 
         function setItemQtyValidity(ok, msg = '') {
@@ -2210,17 +2217,24 @@
         });
 
         function getTotalAllowed() {
+          // Prefer the live input value first for instant feedback while typing
+          const totalQtyEl =
+            root.querySelector(`input[name="products[${pIndex}][qty_total]"]`) ||
+            root.querySelector('#totalQty');
+          if (totalQtyEl) {
+            const v = (totalQtyEl.value ?? '').replace(/,/g, '').trim();
+            const n = parseFloat(v);
+            if (Number.isFinite(n)) return n;
+          }
+
+          // Fallback to the summary span (may lag behind a bit)
           const span = root.querySelector('#del-sum-total-' + pIndex);
           if (span) {
             const s = (span.textContent || '').replace(/,/g, '').trim();
             const n = parseFloat(s);
             if (!Number.isNaN(n)) return n;
           }
-
-          const totalQtyEl = root.querySelector(`input[name="products[${pIndex}][qty_total]"]`);
-          const v = (totalQtyEl?.value ?? '').replace(/,/g, '').trim();
-          const n = parseFloat(v);
-          return Number.isFinite(n) ? n : 0;
+          return 0;
         }
 
         function sumDeliveryQty() {
@@ -2256,6 +2270,13 @@
           setQtyValidity(ok, ok ? '' : 'Delivery quantities exceed Product Total Quantity.');
           updateDeliverySummaryBar();
         }
+
+        const totalQtyInput =
+          root.querySelector(`input[name="products[${pIndex}][qty_total]"]`) ||
+          root.querySelector('#totalQty');
+        const _revalidateFromTotal = () => validateDeliveries();
+        totalQtyInput?.addEventListener('input', _revalidateFromTotal);
+        totalQtyInput?.addEventListener('change', _revalidateFromTotal);
 
         delWrap.addEventListener('input', (e) => {
           if (e.target.matches('.del-qty') || e.target.closest('.del-qty')) validateDeliveries();
@@ -2594,6 +2615,25 @@
       input.value = '';
     });
 
+    function updateButtonsState() {
+      // disable only if there is ANY invalid chip in the preview list
+      const hasInvalid = document.querySelector('#preview .err') !== null;
+
+      const btnSubmit = document.getElementById('btn-submit');
+      const btnDraft  = document.getElementById('btn-draft');
+
+      // If hasInvalid → disable; otherwise enable (even when 0 files)
+      if (hasInvalid) {
+        btnSubmit?.setAttribute('disabled', '');
+        btnDraft ?.setAttribute('disabled', '');
+      } else {
+        // No invalid attachments. Enable only if there are no other invalid fields.
+        const anyInvalid = document.querySelector('.is-invalid,[aria-invalid="true"]') !== null;
+        btnSubmit?.toggleAttribute('disabled', anyInvalid);
+        btnDraft ?.toggleAttribute('disabled', anyInvalid);
+      }
+    }
+
     function addRow(file, {
       key = null,
       status = 'ready',
@@ -2614,10 +2654,11 @@
         const k = li.dataset.key;
         if (k && selected.has(k)) selected.delete(k);
         li.remove();
-        updateSummary();
+        updateButtonsState();
       });
 
       listEl.appendChild(li);
+      updateButtonsState();
     }
 
     function updateSummary() {
