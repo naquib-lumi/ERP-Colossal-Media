@@ -1742,7 +1742,7 @@
         <p class="mb-0">All required fields are complete. What do you want to do with this order?</p>
       </div>
       <div class="modal-footer flex-column gap-2 border-0">
-        <button type="button" class="btn btn-dark w-100" id="btn-confirm-send-printing">Send to Operation Department</button>
+        <button type="button" class="btn btn-dark w-100" id="btn-confirm-send-printing">Confirm to Proceed to Operation</button>
         <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">← Back to Order Page</button>
       </div>
     </div>
