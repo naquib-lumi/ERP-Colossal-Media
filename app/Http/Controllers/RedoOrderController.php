@@ -131,7 +131,9 @@ class RedoOrderController extends Controller
                 $np->editable   = $editable;
                 $np->created_at = now();
                 $np->updated_at = now();
-                $np->accepted = null;
+                if ($editable) {
+                    $np->accepted = null;
+                }
                 $np->save();
 
                 foreach ($origin->items as $it) {
