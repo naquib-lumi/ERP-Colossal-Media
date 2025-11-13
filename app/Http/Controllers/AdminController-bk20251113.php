@@ -7,10 +7,10 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Models\Lead;
 use App\Models\Order;
-use App\Models\Product;
 use App\Models\LeadAttachment;
 use Carbon\Carbon;
 use App\Models\ProductPermit;
+use App\Models\Product;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -65,65 +65,74 @@ class AdminController extends Controller
     /* -------------------- Dashboard -------------------- */
 
     public function dashboard(Request $request)
-{
-    $user = Auth::user();
-    if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('admin')) abort(403, 'Unauthorized');
 
-    $now = Carbon::now();
-    $startOfYear = $now->copy()->startOfYear();
+        $period = $request->get('period', 'this_month');
+        $now = Carbon::now();
 
-    // Exclude orders that have a 'redo' reference
-    $excludedOrderIds = Order::whereNotNull('redo')->pluck('redo')->toArray();
+        switch ($period) {
+            case 'this_year':
+                $start = $now->startOfYear()->toDateString();
+                $end   = $now->endOfYear()->toDateString();
+                break;
+            case 'last_month':
+                $start = $now->copy()->subMonthNoOverflow()->startOfMonth()->toDateString();
+                $end   = $now->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
+                break;
+            case '3_months':
+                $start = $now->copy()->subMonthsNoOverflow(3)->startOfMonth()->toDateString();
+                $end   = $now->endOfMonth()->toDateString();
+                break;
+            case 'this_month':
+            default:
+                $start = $now->startOfMonth()->toDateString();
+                $end   = $now->endOfMonth()->toDateString();
+        }
 
-    // ✅ All counts cumulative from start of year until now
-    $totalOrders = Order::where('orderDate', '>=', $startOfYear)
-        ->whereNotIn('id', $excludedOrderIds)
-        ->count();
+        $excludedOrderIds = Order::whereNotNull('redo')->pluck('redo')->toArray();
 
-    $inProgressCount = Order::where('orderStatus', 'in_progress')
-        ->where('orderDate', '>=', $startOfYear)
-        ->whereNotIn('id', $excludedOrderIds)
-        ->count();
+        $ordersToAssign = Order::where('orderStatus', 'to_assign')
+            ->whereBetween('orderDate', [$start, $end])
+            ->whereNotIn('id', $excludedOrderIds)
+            ->count();
 
-    $completedCount = Order::where('orderStatus', 'completed')
-        ->where('orderDate', '>=', $startOfYear)
-        ->whereNotIn('id', $excludedOrderIds)
-        ->count();
+        $totalOrders = Order::whereBetween('orderDate', [$start, $end])
+            ->whereNotIn('id', $excludedOrderIds)
+            ->count();
 
-    // ✅ In-progress products
-    $inProgressProducts = Product::query()
-        ->join('orders as o', 'o.id', '=', 'products.OrderID')
-        ->where('products.status', 'in_progress')
-        ->whereNotIn('o.id', $excludedOrderIds)
-        ->with('order.artist')
-        ->select('products.*')
-        ->orderBy('o.deadline', 'asc')
-        ->take(3)
-        ->get();
+        $inProgressCount = Order::where('orderStatus', 'in_progress')
+            ->whereBetween('orderDate', [$start, $end])
+            ->whereNotIn('id', $excludedOrderIds)
+            ->count();
 
-    // ✅ Completed products
-    $completedProducts = Product::query()
-        ->join('orders as o', 'o.id', '=', 'products.OrderID')
-        ->where('products.status', 'completed')
-        ->whereNotIn('o.id', $excludedOrderIds)
-        ->with('order.artist')
-        ->select('products.*')
-        ->orderBy('products.updated_at', 'asc')
-        ->take(3)
-        ->get();
+        $completedCount = Order::where('orderStatus', 'completed')
+            ->whereBetween('orderDate', [$start, $end])
+            ->whereNotIn('id', $excludedOrderIds)
+            ->count();
 
-    // ✅ Last updated = latest order update date
-    $lastUpdatedOrder = Order::latest('updated_at')->first();
-    $lastUpdated = $lastUpdatedOrder
-        ? $lastUpdatedOrder->updated_at->format('M d, Y')
-        : $now->format('M d, Y');
+        $inProgressOrders = Order::where('orderStatus', 'in_progress')
+            ->with('artist')
+            ->whereNotIn('id', $excludedOrderIds)
+            ->orderBy('deadline', 'asc')
+            ->take(3)
+            ->get();
 
-    return view('admin.dashboard', compact(
-        'totalOrders', 'inProgressCount', 'completedCount',
-        'inProgressProducts', 'completedProducts', 'lastUpdated'
-    ));
-}
+        $completedOrders = Order::where('orderStatus', 'completed')
+            ->with('artist')
+            ->whereNotIn('id', $excludedOrderIds)
+            ->orderBy('updated_at', 'asc')
+            ->take(3)
+            ->get();
 
+        $lastUpdated = $now->format('M d, Y');
+
+        return view('admin.dashboard', compact(
+            'ordersToAssign', 'totalOrders', 'inProgressCount', 'completedCount', 'period',
+            'inProgressOrders', 'completedOrders', 'lastUpdated'
+        ));
+    }
 
     /* -------------------- Charts API -------------------- */
 

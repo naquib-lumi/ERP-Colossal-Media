@@ -62,11 +62,30 @@
       <h2>Dashboard Overview</h2>
       <p class="dash-muted">Last updated: {{ $lastUpdated }}</p>
     </div>
+    <div class="col-auto">
+      <select class="form-select form-select-sm" onchange="location='?period='+this.value;">
+        <option value="this_month" {{ $period == 'this_month' ? 'selected' : '' }}>This Month</option>
+        <option value="this_year" {{ $period == 'this_year' ? 'selected' : '' }}>This Year</option>
+        <option value="last_month" {{ $period == 'last_month' ? 'selected' : '' }}>Last Month</option>
+        <option value="3_months" {{ $period == '3_months' ? 'selected' : '' }}>Last 3 Months</option>
+      </select>
+    </div>
   </div>
 
   {{-- ===== top metric cards ===== --}}
   <div class="row mb-4 g-3">
-    <div class="col-md-4">
+    <div class="col-md-3">
+      <div class="card soft metric-card h-100">
+        <div class="card-body d-flex justify-content-between align-items-center">
+          <div>
+            <div class="metric-title">Orders to Assign</div>
+            <div class="metric-value">{{ $ordersToAssign }}</div>
+          </div>
+          <div class="icon-pill pill-blue"><i class="bx bx-puzzle"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
       <div class="card soft metric-card h-100">
         <div class="card-body d-flex justify-content-between align-items-center">
           <div>
@@ -77,7 +96,7 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card soft metric-card h-100">
         <div class="card-body d-flex justify-content-between align-items-center">
           <div>
@@ -88,7 +107,7 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card soft metric-card h-100">
         <div class="card-body d-flex justify-content-between align-items-center">
           <div>
@@ -119,26 +138,26 @@
       <div class="card soft h-100">
         <div class="section-hd">
           <span class="hd-bar"></span>
-          <h5 class="m-0">Products In Progress</h5>
+          <h5 class="m-0">Orders In Progress</h5>
         </div>
         <div class="card-body">
-          @forelse($inProgressProducts as $product)
-            @php $label=ucwords(str_replace('_', ' ', $product->status)); @endphp
-            <a href="{{ route('admin.fulfillment.product.show', $product->ProductID) }}" class="list-card d-block text-decoration-none">
+          @forelse($inProgressOrders as $order)
+            @php $label=$order->getStatusLabelAttribute(); @endphp
+            <div class="list-card">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
-                  <div class="order-no">{{ $product->order->order_number }}</div>
-                  <div class="order-meta">{{ $product->productName }}</div>
-                  <div class="order-meta">Assigned To: <span>{{ $product->order->artist?->name ?? 'N/A' }}</span></div>
+                  <div class="order-no">{{ $order->order_number }}</div>
+                  <div class="order-meta">{{ $order->orderTitle }}</div>
+                  <div class="order-meta">Assigned To: <span>{{ $order->artist?->name ?? 'N/A' }}</span></div>
                 </div>
                 <div class="text-end">
                   <span class="{{ $badgeClass($label) }}">{{ $label }}</span>
-                  <div class="order-meta fw-semibold mt-1">Due: {{ $product->order->deadline ? $product->order->deadline->format('M d, Y') : 'N/A' }}</div>
+                  <div class="order-meta fw-semibold mt-1">Due: {{ $order->deadline ? $order->deadline->format('M d, Y') : 'N/A' }}</div>
                 </div>
               </div>
-            </a>
+            </div>
           @empty
-            <p class="text-center dash-muted">No products in progress.</p>
+            <p class="text-center dash-muted">No orders in progress.</p>
           @endforelse
         </div>
       </div>
@@ -148,26 +167,26 @@
       <div class="card soft h-100">
         <div class="section-hd">
           <span class="hd-bar green"></span>
-          <h5 class="m-0">Recent Completed Products</h5>
+          <h5 class="m-0">Recent Completed Order</h5>
         </div>
         <div class="card-body">
-          @forelse($completedProducts as $product)
-            @php $label=ucwords(str_replace('_', ' ', $product->status)); @endphp
-            <a href="{{ route('admin.fulfillment.product.show', $product->ProductID) }}" class="list-card d-block text-decoration-none">
+          @forelse($completedOrders as $order)
+            @php $label=$order->getStatusLabelAttribute(); @endphp
+            <div class="list-card">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
-                  <div class="order-no">{{ $product->order->order_number }}</div>
-                  <div class="order-meta">{{ $product->productName }}</div>
-                  <div class="order-meta">Completed By: <span>{{ $product->order->artist?->name ?? 'N/A' }}</span></div>
+                  <div class="order-no">{{ $order->order_number }}</div>
+                  <div class="order-meta">{{ $order->orderTitle }}</div>
+                  <div class="order-meta">Completed By: <span>{{ $order->artist?->name ?? 'N/A' }}</span></div>
                 </div>
                 <div class="text-end">
                   <span class="{{ $badgeClass($label) }}">{{ $label }}</span>
-                  <div class="order-meta fw-semibold mt-1">{{ $product->updated_at->format('M d, Y') }}</div>
+                  <div class="order-meta fw-semibold mt-1">{{ $order->updated_at->format('M d, Y') }}</div>
                 </div>
               </div>
-            </a>
+            </div>
           @empty
-            <p class="text-center dash-muted">No completed products.</p>
+            <p class="text-center dash-muted">No completed orders.</p>
           @endforelse
         </div>
       </div>
@@ -180,7 +199,7 @@
       <div class="card soft flex-fill h-100">
         <div class="section-hd">
           <span class="hd-bar"></span>
-          <h6 class="m-0">Monthly Sales Performance</h6>
+          <h6 class="m-0">Monthly Performance</h6>
         </div>
         <div class="card-body"><div id="leadsChart"></div></div>
       </div>
