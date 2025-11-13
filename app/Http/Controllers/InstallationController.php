@@ -69,6 +69,10 @@ class InstallationController extends Controller
                 $w->whereNull('o.orderStatus')
                 ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
             })
+            ->where(function ($w) {
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'in_progress');
+            })
             ->whereNotExists(function ($q2) {
                 $q2->select(DB::raw(1))
                 ->from('fulfillment_progress as fp')
