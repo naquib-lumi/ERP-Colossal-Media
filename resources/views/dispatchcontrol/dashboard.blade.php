@@ -713,11 +713,18 @@
               }
 
               $dotClass=function(array $row,string $stage)use($DOT,$currentStage,$currentStatus){
-                if($stage===$currentStage && $currentStatus==='in_progress'){ return 'dot '.$DOT[$stage].' gray'; }
-                if(!isset($row['stages'][$stage]) && $stage!==$currentStage) return null;
-                $s=$row['stages'][$stage]['status']??null;
-                if($s==='completed') return 'dot '.$DOT[$stage];
-                elseif($s==='rejected') return 'dot red '.$DOT[$stage];
+                // Extra: if installation task is active and in_progress, show gray dot on INSTALLATION column (p4)
+                if ($stage==='installation'
+                    && (int)($row['installation_task_type'] ?? 0) === 1
+                    && strtolower((string)($row['installation_status'] ?? '')) === 'in_progress') {
+                  return 'dot '.$DOT[$stage].' gray';
+                }
+
+                if ($stage===$currentStage && $currentStatus==='in_progress') { return 'dot '.$DOT[$stage].' gray'; }
+                if (!isset($row['stages'][$stage]) && $stage!==$currentStage) return null;
+                $s = $row['stages'][$stage]['status']??null;
+                if ($s==='completed') return 'dot '.$DOT[$stage];
+                elseif ($s==='rejected') return 'dot red '.$DOT[$stage];
                 else return 'dot gray '.$DOT[$stage];
               };
 
