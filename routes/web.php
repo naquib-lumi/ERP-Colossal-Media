@@ -387,6 +387,8 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
     Route::put('/admin/user/{user}', [AdminController::class, 'updateUser'])->name('admin.user.update');
     Route::patch('/admin/user/{user}/disable', [AdminController::class, 'disableUser'])->name('admin.user.disable');
+    Route::patch('/admin/user/{user}/resetpassword', [AdminController::class, 'resetPassword'])->name('admin.user.resetpassword');
+
     Route::get('/admin/orders', [AdminController::class, 'orders'])->name('admin.orders');
     Route::get('/admin/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
     Route::post('/admin/orders/data', [AdminController::class, 'getOrders'])->name('admin.orders.data');

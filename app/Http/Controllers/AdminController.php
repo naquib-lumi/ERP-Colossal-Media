@@ -246,7 +246,6 @@ class AdminController extends Controller
     {
         return [
             'admin',
-            'boss',
             'salesperson',
             'head-salesperson',
             'head-artist',
@@ -326,7 +325,7 @@ class AdminController extends Controller
             ])->toJson();
     }
 
-    /** 创建用户（status 默认 active；允许传密码，不传则自动生成临时强密码） */
+        /** 创建用户（status 默认 active；允许传密码，不传则自动生成临时强密码） */
     public function storeUser(Request $request)
     {
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
@@ -356,50 +355,64 @@ class AdminController extends Controller
     }
 
     /** 更新用户（保护：不能自己降级/停用自己） */
-   public function updateUser(Request $request, User $user)
-{
-    if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
+    public function updateUser(Request $request, User $user)
+    {
+        if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
 
-    $roles = $this->allowedRoles();
+        $roles = $this->allowedRoles();
 
-    $data = $request->validate([
-        'name'           => ['required','string','max:255'],
-        'email'          => ['required','email','max:255','unique:users,email,'.$user->id],
-        'contact_number' => ['nullable','string','max:30'],
-        'role'           => ['sometimes', 'required', Rule::in($roles)],
-        'password'       => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols()],
-        'status'         => ['required','in:active,inactive'],
-    ]);
+        $data = $request->validate([
+            'name'           => ['required','string','max:255'],
+            'email'          => ['required','email','max:255','unique:users,email,'.$user->id],
+            'contact_number' => ['nullable','string','max:30'],
+            'role'           => ['sometimes', 'required', Rule::in($roles)],
+            'password'       => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols()],
+            'status'         => ['required','in:active,inactive'],
+        ]);
 
-    if (auth()->id() === $user->id && strtolower($data['status']) === 'inactive') {
-        return back()->withErrors(['status' => 'You cannot deactivate your own account.']);
+        if (auth()->id() === $user->id && strtolower($data['status']) === 'inactive') {
+            return back()->withErrors(['status' => 'You cannot deactivate your own account.']);
+        }
+        if (auth()->id() === $user->id && $user->role === 'admin' && $request->filled('role') && $data['role'] !== 'admin') {
+            return back()->withErrors(['role' => 'You cannot downgrade your own admin role.']);
+        }
+
+        $user->fill([
+            'name'           => $data['name'],
+            'email'          => $data['email'],
+            'contact_number' => $data['contact_number'] ?? null,
+            'status'         => strtolower($data['status']),
+        ]);
+
+        if ($request->filled('role')) {
+            $user->role = $data['role'];
+        }
+
+        if (!empty($data['password'])) {
+            $user->password = Hash::make($data['password']);
+        }
+
+        $user->save();
+
+        return $request->expectsJson()
+            ? response()->json(['success'=>true,'message'=>'User updated successfully.','user'=>$user])
+            : redirect()->route('admin.manageuser', $request->only('q','role','status'))
+                        ->with('success', 'User updated successfully.');
     }
-    if (auth()->id() === $user->id && $user->role === 'admin' && $request->filled('role') && $data['role'] !== 'admin') {
-        return back()->withErrors(['role' => 'You cannot downgrade your own admin role.']);
+
+    /** 重置密码到 password123 */
+    public function resetPassword(Request $request, User $user)
+    {
+        if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
+
+        $user->password = Hash::make('password123');
+        $user->save();
+
+        return back()->with('success', 'Password reset to password123.');
     }
 
-    $user->fill([
-        'name'           => $data['name'],
-        'email'          => $data['email'],
-        'contact_number' => $data['contact_number'] ?? null,
-        'status'         => strtolower($data['status']),
-    ]);
+    
 
-    if ($request->filled('role')) {
-        $user->role = $data['role'];
-    }
-
-    if (!empty($data['password'])) {
-        $user->password = Hash::make($data['password']);
-    }
-
-    $user->save();
-
-    return $request->expectsJson()
-        ? response()->json(['success'=>true,'message'=>'User updated successfully.','user'=>$user])
-        : redirect()->route('admin.manageuser', $request->only('q','role','status'))
-                    ->with('success', 'User updated successfully.');
-}
 
     /** 启/停用切换（自己不能停用自己） */
     public function disableUser(Request $request, User $user)

@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+@push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
@@ -87,6 +88,7 @@ input:checked + .slider:before{transform:translateX(20px)}
 /* helpers */
 .hidden{display:none !important;}
 </style>
+@endpush
 
 <div class="container-fluid py-4 px-4">
   <div class="page-wrap">
@@ -94,21 +96,10 @@ input:checked + .slider:before{transform:translateX(20px)}
       <h1 class="hd-title">Manage Users</h1>
     </div>
 
-    @if(session('success'))
-      <div class="alert alert-success mx-3">{{ session('success') }}</div>
-    @endif
-    @if($errors->any())
-      <div class="alert alert-danger mx-3">
-        <ul class="mb-0">
-          @foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach
-        </ul>
-      </div>
-    @endif
-
     <div class="table-section">
       {{-- Toolbar --}}
       <form id="filterForm" class="section-toolbar" method="GET" action="{{ route('admin.manageuser') }}">
-        <input name="q" value="{{ request('q','') }}" type="text" class="control input" placeholder="Search users...">
+        <input name="q" id="searchInput" value="{{ request('q','') }}" type="text" class="control input" placeholder="Search users...">
         @php $role = request('role','all'); @endphp
         <select name="role" class="control select">
           <option value="all" {{ $role==='all'?'selected':'' }}>All Roles</option>
@@ -137,6 +128,9 @@ input:checked + .slider:before{transform:translateX(20px)}
         </button>
         <button type="submit" class="btn btn-secondary soft btn-rect">
           <i class="bi bi-funnel"></i> Apply
+        </button>
+        <button type="button" id="resetFilter" class="btn btn-secondary soft btn-rect">
+          <i class="bi bi-arrow-counterclockwise"></i> Reset
         </button>
       </form>
 
@@ -188,11 +182,16 @@ input:checked + .slider:before{transform:translateX(20px)}
                   <i class="bi bi-pencil-square"></i>
                 </button>
 
-                <form action="{{ route('admin.user.disable',$user->id) }}" method="POST" style="display:inline"
-                      onsubmit="return confirm('Are you sure you want to {{ $active? 'disable':'enable' }} this user?');">
+                <form action="{{ route('admin.user.disable',$user->id) }}" method="POST" style="display:inline" class="disable-form">
                   @csrf @method('PATCH')
-                  <button type="submit" class="icon-btn" title="{{ $active? 'Disable':'Enable' }}">
+                  <button type="submit" class="icon-btn disable-btn" title="{{ $active? 'Disable':'Enable' }}">
                     <i class="bi bi-{{ $active? 'person-dash':'person-check' }}"></i>
+                  </button>
+                </form>
+                <form action="{{ route('admin.user.resetpassword',$user->id) }}" method="POST" style="display:inline" class="reset-form">
+                  @csrf @method('PATCH')
+                  <button type="submit" class="icon-btn reset-btn" title="Reset Password">
+                    <i class="bi bi-key"></i>
                   </button>
                 </form>
               </td>
@@ -317,6 +316,7 @@ input:checked + .slider:before{transform:translateX(20px)}
   </div>
 </div>
 
+@push('scripts')
 <script>
 /** Elements */
 const modal   = document.getElementById('userModal');
@@ -438,18 +438,70 @@ togglePwdBtn.addEventListener('click',(ev)=>{
 });
 
 /* 搜索框回车提交 */
-document.querySelector('input[name="q"]').addEventListener('keydown', e=>{
+let searchInput = document.querySelector('input[name="q"]');
+searchInput.addEventListener('keydown', e=>{
   if(e.key==='Enter'){ document.getElementById('filterForm').submit(); }
+});
+
+/* Reset filter */
+document.getElementById('resetFilter').addEventListener('click', () => {
+  window.location.href = '{{ route('admin.manageuser') }}';
 });
 
 /* 提交前再次同步状态（保险） */
 form.addEventListener('submit', () => {
   fStatus.value = fStatusSw.checked ? 'active' : 'inactive';
 });
-</script>
+
+/* SweetAlert for disable */
+document.querySelectorAll('.disable-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    let form = btn.closest('form');
+    let active = form.querySelector('.disable-btn').title === 'Disable';
+    let msg = `Are you sure you want to ${active ? 'disable' : 'enable'} this user?`;
+    Swal.fire({
+      title: 'Confirm',
+      text: msg,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes'
+    }).then(result => {
+      if (result.isConfirmed) form.submit();
+    });
+  });
+});
+
+/* SweetAlert for reset */
+document.querySelectorAll('.reset-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    let form = btn.closest('form');
+    Swal.fire({
+      title: 'Confirm',
+      text: 'Reset password to password123?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes'
+    }).then(result => {
+      if (result.isConfirmed) form.submit();
+    });
+  });
+});
+
+@if(session('success'))
+Swal.fire('Success', '{{ session('success') }}', 'success');
+@endif
+
+@if($errors->any())
+let errMsg = '{{ implode("<br>", $errors->all()) }}';
+Swal.fire('Error', errMsg, 'error');
+@endif
 
 {{-- 新增失败：自动打开 Add 模态 --}}
 @if($errors->any() && old('_mode')==='create')
-<script> prepareCreate(); openModal(); </script>
+prepareCreate(); openModal();
 @endif
+</script>
+@endpush
 @endsection
