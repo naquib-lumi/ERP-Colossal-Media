@@ -385,7 +385,7 @@ default => \Illuminate\Support\Str::title($t),
       <div class="input-group">
         <span class="input-group-text"><i class="bi bi-hash"></i></span>
         <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}"
-               class="form-control" placeholder="# Enter Product ID" style="width:160px;">
+               class="form-control" placeholder="# Enter Product ID" style="max-width:130px;">
       </div>
 
       {{-- Keyword search (grows) --}}
@@ -398,7 +398,7 @@ default => \Illuminate\Support\Str::title($t),
       {{-- Artist --}}
       <div class="input-group">
         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-        <select name="artist" class="form-select">
+        <select name="artist" class="form-select" style="max-width:130px;">
           <option value="">All artists</option>
           @foreach(($artists ?? []) as $a)
             <option value="{{ $a->id }}" @selected((string)$a->id === (string)request('artist', $artist ?? ''))>
@@ -409,7 +409,7 @@ default => \Illuminate\Support\Str::title($t),
       </div>
 
       {{-- Type --}}
-      <select name="task_type" class="form-select" style="width:180px;">
+      <select name="task_type" class="form-select" style="max-width:150px;">
         <option value="">All Types</option>
         <option value="printing"     @selected(request('task_type')==='printing')>Printing</option>
         <option value="furnishing"   @selected(request('task_type')==='furnishing')>Furnishing</option>
@@ -418,7 +418,7 @@ default => \Illuminate\Support\Str::title($t),
       </select>
 
       {{-- Status --}}
-      <select name="status" class="form-select" style="width:190px;">
+      <select name="status" class="form-select" style="max-width:140px;">
         <option value="">All Statuses</option>
         <option value="in_progress" @selected(request('status')==='in_progress')>In Progress</option>
         <option value="completed"   @selected(request('status')==='completed')>Completed</option>
