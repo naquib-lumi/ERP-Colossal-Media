@@ -55,8 +55,11 @@ class PrintingController extends Controller
                 ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
             })
             ->where(function ($w) {
-                $w->whereNull('o.orderStatus')
-                ->orWhere('o.orderStatus', '!=', 'in_progress');
+                $w->where('p.editable', '=', 0)  // ✅ bypass check if editable = 0
+                ->orWhere(function ($w2) {
+                    $w2->whereNull('o.orderStatus')
+                        ->orWhere('o.orderStatus', '!=', 'in_progress');
+                });
             })
             ->whereIn('p.status', ['in_progress', 'pending', 'completed'])
             ->whereNotExists(function ($q2) {
