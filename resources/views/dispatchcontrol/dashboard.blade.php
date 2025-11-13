@@ -289,6 +289,198 @@
     box-shadow: 0 6px 18px rgba(22,163,74,.22);
   }
   .cx-footer .btn.btn-accept:hover { background: #15803d; }
+  @media (max-width: 768px){
+
+  /* 顶部统计卡：更紧凑可换行 */
+  .stat-card{
+    padding:14px 16px;
+    gap:10px;
+  }
+  .stat-card .num{font-size:28px}
+  .stat-card .label{font-size:.8rem}
+
+  /* 过滤头部：标题与动作分两行，按钮略缩小 */
+  .filter-head{
+    flex-direction: column;
+    align-items: stretch;
+    gap:10px;
+  }
+  .filter-head .title{
+    justify-content: space-between;
+  }
+  .filter-head .actions{
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap:8px;
+  }
+  .filter-head .btn{
+    height:34px;
+    padding:0 12px;
+    font-size:12px;
+    border-radius:8px;
+  }
+  .filter-head .actions .form-check-input{
+    width:2.1rem;height:1.1rem;
+  }
+
+  /* 输入区：两列 → 已有；进一步压缩间距与控件高度 */
+  .filters-row{ gap:10px; }
+  .filter-card .form-label{ font-size:.8rem; }
+  .filter-card .input-group .form-control,
+  .filter-card .input-group .form-select{
+    height:38px;
+    font-size:.9rem;
+  }
+
+  /* 表格：略缩字距与内边距；动作按钮更小 */
+  .table-progress thead th{
+    font-size:11px;
+    padding:12px;
+  }
+  .table-progress td,
+  .table-progress th{
+    padding:12px 12px;
+    font-size:.95rem;
+  }
+  .action-btn{
+    width:32px;height:32px;border-radius:8px;
+  }
+
+  /* Pipeline 更细、更小的点 */
+  .pipeline{ height:16px; }
+  .pipeline .track{ height:5px; }
+  .pipeline .fill{ height:5px; }
+  .dot{
+    width:10px;height:10px;
+    box-shadow:0 0 0 1.5px #fff;
+  }
+
+  /* 分页更紧凑 */
+  .card-ft{ padding:10px 12px; }
+  .pagination{ gap:4px; }
+  .pagination .page-link{
+    padding:7px 10px;
+    font-size:12px;
+    border-radius:8px;
+  }
+
+  /* Modal 更贴边、更顺手 */
+  .cx-wrap{ padding:12px; }
+  .cx-modal{ border-radius:10px; }
+  .cx-header,.cx-footer{ padding:12px 14px; }
+  .cx-body{ padding:0 14px 12px 14px; }
+  .cx-footer .btn{
+    min-width:120px;
+    padding:9px 12px;
+    border-radius:8px;
+  }
+}
+
+/* ----------- 小屏手机 (≤576px) ---------- */
+@media (max-width: 576px){
+
+  /* 统计卡：竖排布局，数字在上，标签在下 */
+  .stat-card{
+    padding:12px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap:4px;
+  }
+  .stat-card .num{ font-size:24px; }
+  .stat-card .label{ font-size:.78rem; }
+
+  /* Filter 头：按钮全宽堆叠，开关与文字更紧 */
+  .filter-head .actions{
+    width:100%;
+    gap:8px;
+  }
+  .filter-head .actions .btn{
+    width:100%;
+  }
+  .filter-head .actions .form-check{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  /* 输入区：单列（你原本已设），再缩进一丢丢 */
+  .filters-row{
+    grid-template-columns: 1fr;
+    gap:8px;
+  }
+
+  /* 表格：允许横向滚动 + 缩窄列宽 + 减少内边距 */
+  .table-responsive{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .table-progress{
+    min-width: 720px; /* 保持列结构，交给 .table-responsive 横滚 */
+    font-size:.92rem;
+  }
+  .table-progress col.col-id{ width:140px; }
+  .table-progress col.col-stage{ width: 28%; }
+  .table-progress col.col-date,
+  .table-progress col.col-deadline{ width:120px; }
+  .table-progress col.col-actions{ width:96px; }
+
+  .table-progress thead th{ padding:10px; }
+  .table-progress td{ padding:10px; }
+
+  /* 动作按钮与 icon 区更紧凑 */
+  .action-btn{
+    width:30px;height:30px;border-radius:8px;
+  }
+
+  /* Pipeline 再小一点 */
+  .pipeline{ height:14px; }
+  .pipeline .track{ height:4px; }
+  .pipeline .fill{ height:4px; }
+  .dot{ width:8px;height:8px; }
+
+  /* 分页按钮满宽两端贴合（更容易点） */
+  .pagination{
+    justify-content: space-between;
+    gap:6px;
+  }
+  .pagination .page-link{
+    padding:7px 9px;
+    font-size:11.5px;
+    border-radius:8px;
+  }
+
+  /* Modal：小屏全屏化体验 */
+  .cx-wrap{ padding:0; }
+  .cx-modal{
+    max-width:none;
+    width:100%;
+    height:100vh;
+    border-radius:0;
+    display:flex;flex-direction:column;
+  }
+  .cx-header,.cx-footer{ padding:12px; }
+  .cx-body{
+    padding:0 12px 12px 12px;
+    overflow:auto;
+    flex:1;
+  }
+  .cx-footer .btn{
+    width:100%;
+    min-width:0;
+  }
+
+  /* 隐藏 Laravel 默认分页外边距（你已有规则再强化一下） */
+  nav[role="navigation"]{ margin:0 !important; }
+}
+
+/* ----------- 可选辅助工具类（无需改HTML也可用） ---------- */
+/* 在不改结构的情况下，你也可以按需要在列上加这些类：
+   .sm-hide（≤576 隐藏），.sm-shrink（≤576 更小字号/内边距） */
+@media (max-width:576px){
+  .sm-hide{ display:none !important; }
+  .sm-shrink{ font-size:.85em !important; }
+}
 </style>
 
 <div class="container-fluid py-4 px-4" style="max-width:1200px;margin:0 auto">

@@ -362,6 +362,112 @@
   .icon-pill:active{ transform:translateY(0); }
   .icon-pill:focus-visible{ outline:2px solid #C7D2FE; outline-offset:2px; border-color:#A5B4FC; }
 
+/* ========= Mobile Add-on (append only, non-destructive) ========= */
+
+/* 平板及以下：更紧凑的布局与可读性 */
+@media (max-width: 992px) {
+  /* KPI 卡片：允许换行、字号略降 */
+  .stat-card {
+    padding: 14px 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .kpi-icon {
+    width: 36px; height: 36px; border-radius: 10px; font-size: 16px;
+  }
+  .stat-card .num   { font-size: 28px; }
+  .stat-card .label { font-size: 12px; }
+
+  /* 过滤区：标题与按钮可换行，输入控件更灵活 */
+  .filter-head { flex-wrap: wrap; gap: 10px; }
+  .filter-head .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filters-row { gap: 10px; }
+  .fx-id     { flex: 1 1 180px; max-width: 100%; }
+  .fx-search { flex: 2 1 260px; min-width: 220px; }
+  .fx-artist { flex: 1 1 200px; max-width: 100%; }
+  .fx-date   { flex: 1 1 160px; max-width: 100%; }
+
+  /* 表格：允许横向滚动，避免挤爆 */
+  .table-progress {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    border-radius: 10px;
+  }
+  .table-progress thead th,
+  .table-progress tbody td { white-space: nowrap; }
+
+  /* 操作按钮触控优化 */
+  .action-btn { width: 36px; height: 36px; }
+  .pagination { gap: 4px; }
+  .pagination .page-link { padding: 8px 10px; font-size: 12px; }
+
+  /* 弹窗：边距更贴合小屏 */
+  .cx-wrap  { padding: 12px; }
+  .cx-modal { max-width: 92vw; border-radius: 10px; }
+  .cx-header, .cx-body, .cx-footer { padding-left: 14px; padding-right: 14px; }
+}
+
+/* 手机：更激进堆叠与全宽按钮 */
+@media (max-width: 576px) {
+  /* KPI 卡片：上下布局 */
+  .stat-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+  .stat-card .num { font-size: 24px; }
+  .kpi-icon { width: 34px; height: 34px; }
+
+  /* 过滤区输入：单列铺满 */
+  .filters-row { gap: 8px; }
+  .filters-row > * { flex: 1 1 100%; max-width: 100%; }
+  .filter-actions-top { justify-content: stretch; gap: 8px; }
+  .filter-actions-top .btn,
+  .filter-head .actions .btn { width: 100%; }
+
+  /* 表格：进一步压缩列宽（colgroup 固定宽度在小屏上不友好，这里以滚动为主） */
+  .table-progress { white-space: nowrap; }
+  .table-progress td, .table-progress th { padding: 12px 12px; }
+
+  /* 流程条/节点：更细、更小的点位，避免遮挡 */
+  .pipeline { height: 16px; }
+  .pipeline .track { height: 5px; }
+  .pipeline .fill  { height: 5px; }
+  .dot { width: 10px; height: 10px; }
+  /* 统一移动端的节点位置（覆盖你上面的重复定义） */
+  .dot.p1 { left: 10%; }
+  .dot.p2 { left: 38%; }
+  .dot.p3 { left: 66%; }
+  .dot.p4 { left: 92%; }
+
+  /* 分页：自动换行不挤压 */
+  .pagination { flex-wrap: wrap; }
+  .pagination .page-link { padding: 8px 10px; min-width: 38px; text-align: center; }
+}
+
+/* 极小屏保底（<=360px） */
+@media (max-width: 360px) {
+  .stat-card { padding: 12px 12px; }
+  .stat-card .num { font-size: 22px; }
+  .kpi-icon { width: 30px; height: 30px; font-size: 14px; }
+
+  .pagination .page-link { padding: 7px 9px; font-size: 11px; }
+  .dot { width: 9px; height: 9px; }
+}
+
+/* --------- 可选：更丝滑的表格滚动阴影提示（不影响功能） --------- */
+@media (max-width: 992px) {
+  .table-progress {
+    background:
+      linear-gradient(to right, #fff 30%, rgba(255,255,255,0)) left/20px 100% no-repeat,
+      linear-gradient(to left,  #fff 30%, rgba(255,255,255,0)) right/20px 100% no-repeat;
+    background-attachment: local, local;
+  }
+}
+
 </style>
 
 <div class="container-fluid py-4 px-4" style="max-width:1200px;margin:0 auto">

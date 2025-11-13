@@ -46,10 +46,8 @@
 
   .filter-toolbar {
     display: flex;
-    flex-wrap: wrap;
-    /* allow wrapping */
-    gap: 0.5rem;
-    /* spacing between items */
+    flex-wrap: wrap; /* allow wrapping */
+    gap: 0.5rem;     /* spacing between items */
     align-items: center;
     justify-content: flex-start;
   }
@@ -57,19 +55,13 @@
   .filter-toolbar .input-group,
   .filter-toolbar select,
   .filter-toolbar .btn {
-    flex: 1 1 auto;
-    /* allow flexible width */
-    min-width: 180px;
-    /* ensure readability on smaller screens */
+    flex: 1 1 auto;   /* allow flexible width */
+    min-width: 180px; /* ensure readability on smaller screens */
   }
 
   @media (max-width: 992px) {
-
     /* for tablet/laptop */
-    .filter-toolbar .btn {
-      flex: 0 0 auto;
-      /* keep buttons compact */
-    }
+    .filter-toolbar .btn { flex: 0 0 auto; /* keep buttons compact */ }
   }
 
   /* Layout polish */
@@ -90,9 +82,7 @@
     height: 100px;
   }
 
-  .stat i {
-    font-size: 20px
-  }
+  .stat i { font-size: 20px }
 
   .stat .count {
     font-weight: 800;
@@ -100,36 +90,22 @@
     line-height: 1
   }
 
-  .stat small {
-    color: #667085
-  }
+  .stat small { color: #667085 }
 
   /* Toolbar */
-  .toolbar {
-    gap: 10px
-  }
+  .toolbar { gap: 10px }
 
   .toolbar .form-control,
   .toolbar .form-select,
-  .toolbar .btn {
-    height: 44px
-  }
+  .toolbar .btn { height: 44px }
 
-  .toolbar .form-select {
-    min-width: 190px
-  }
-
-  .toolbar .btn {
-    white-space: nowrap
-  }
+  .toolbar .form-select { min-width: 190px }
+  .toolbar .btn { white-space: nowrap }
 
   /* prevent label wrapping like in your screenshot */
   .btn-icon {
-    width: 44px;
-    height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center
+    width: 44px; height: 44px;
+    display: inline-flex; align-items: center; justify-content: center
   }
 
   /* Table */
@@ -141,9 +117,7 @@
     background: #F8FAFC
   }
 
-  .table tbody tr:hover {
-    background: #FAFBFC
-  }
+  .table tbody tr:hover { background: #FAFBFC }
 
   .pill {
     display: inline-block;
@@ -154,49 +128,157 @@
   }
 
   .action-btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border: 1px solid #D0D5DD;
-    border-radius: 8px;
-    background: #fff;
-    color: #475467;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center
+    width: 32px; height: 32px; padding: 0;
+    border: 1px solid #D0D5DD; border-radius: 8px;
+    background: #fff; color: #475467;
+    display: inline-flex; align-items: center; justify-content: center
   }
-
-  .action-btn:hover {
-    background: #F2F4F7;
-    color: #111827
-  }
+  .action-btn:hover { background: #F2F4F7; color: #111827 }
 
   /* Empty state inside table */
-  .empty-wrap {
-    padding: 38px 12px;
-    text-align: center
-  }
+  .empty-wrap { padding: 38px 12px; text-align: center }
 
   .empty-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #EEF2FF;
-    color: #4F46E5;
-    margin-bottom: 12px
+    width: 52px; height: 52px; border-radius: 12px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #EEF2FF; color: #4F46E5; margin-bottom: 12px
   }
 
-  .empty-title {
-    font-weight: 700;
-    color: #111827
-  }
+  .empty-title { font-weight: 700; color: #111827 }
 
   .empty-text {
-    color: #667085
+    color: #667085;    /* ← 修复：补上分号与右花括号 */
   }
+
+  /* ===== 下面是你追加的 Mobile Add-on，原样保留 ===== */
+
+  @media (max-width: 992px) {
+    /* ===== Toolbar 优化 ===== */
+    .dc-toolbar {
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 8px;
+    }
+    .dc-toolbar .grow { flex: 1 1 100%; min-width: 0; }
+    .dc-toolbar .form-control,
+    .dc-toolbar .form-select,
+    .dc-toolbar .btn { height: 40px; font-size: 14px; }
+
+    /* ===== Filter Toolbar ===== */
+    .filter-toolbar { gap: 8px; justify-content: flex-start; }
+    .filter-toolbar .input-group,
+    .filter-toolbar select,
+    .filter-toolbar .btn { flex: 1 1 45%; min-width: 160px; }
+
+    /* ===== Stats Cards ===== */
+    .stat {
+      flex-direction: row; justify-content: flex-start;
+      padding: 14px 16px; height: auto;
+    }
+    .stat i { font-size: 18px; }
+    .stat .count { font-size: 16px; }
+    .stat small { font-size: 12px; }
+
+    /* ===== 表格容器：允许横向滚动 ===== */
+    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table { white-space: nowrap; border-radius: 10px; }
+    .table thead th { font-size: 11px; }
+    .table td, .table th { padding: 10px 12px; }
+
+    /* ===== 空状态居中微调 ===== */
+    .empty-wrap { padding: 30px 10px; }
+    .empty-icon { width: 46px; height: 46px; margin-bottom: 10px; }
+
+    /* ===== 按钮尺寸略缩 ===== */
+    .btn-icon, .action-btn { width: 38px; height: 38px; }
+  }
+
+  /* 手机（<=576px）：全宽堆叠布局 */
+  @media (max-width: 576px) {
+    /* ===== Toolbar 全宽堆叠 ===== */
+    .dc-toolbar {
+      flex-direction: column; align-items: stretch;
+      gap: 8px; padding: 8px;
+    }
+    .dc-toolbar > * { flex: 1 1 100%; min-width: 100%; }
+    .dc-toolbar .btn { width: 100%; }
+
+    /* ===== Filter Toolbar 堆叠 ===== */
+    .filter-toolbar {
+      flex-direction: column; align-items: stretch; gap: 8px;
+    }
+    .filter-toolbar .input-group,
+    .filter-toolbar select,
+    .filter-toolbar .btn {
+      width: 100%; min-width: 0; flex: 1 1 100%;
+    }
+
+    /* ===== Stats Cards 堆叠 ===== */
+    .stat { flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; }
+    .stat .count { font-size: 18px; }
+    .stat small { font-size: 11px; }
+
+    /* ===== 表格横向滑动 ===== */
+    .table { font-size: 13px; }
+    .table td, .table th { padding: 8px 10px; }
+
+    /* ===== 按钮大小适配单手操作 ===== */
+    .btn-icon, .action-btn { width: 36px; height: 36px; }
+
+    /* ===== 空状态适配窄屏 ===== */
+    .empty-wrap { padding: 28px 8px; }
+    .empty-title { font-size: 15px; }
+    .empty-text { font-size: 13px; }
+  }
+
+  /* 极小屏 <=360px 再保底 */
+  @media (max-width: 360px) {
+    .dc-toolbar .form-control,
+    .dc-toolbar .form-select,
+    .dc-toolbar .btn { height: 38px; font-size: 13px; }
+    .table td, .table th { padding: 6px 8px; }
+    .btn-icon, .action-btn { width: 34px; height: 34px; }
+    .stat .count { font-size: 16px; }
+  }
+
+  /* ===== 可选UX提升：table横滑渐隐提示 ===== */
+  @media (max-width: 992px) {
+    .table-responsive{
+      background:
+        linear-gradient(to right, #fff 25%, rgba(255,255,255,0)) left/20px 100% no-repeat,
+        linear-gradient(to left,  #fff 25%, rgba(255,255,255,0)) right/20px 100% no-repeat;
+      background-attachment: local, local;
+    }
+  }
+
+  /* ===== 你前条消息里的 Filter Card 微调，保持原样 ===== */
+  .filter-card{ padding: 12px 12px 14px 12px; }
+
+  .filter-actions-top{
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;
+  }
+  .filter-actions-top .btn{
+    height: 40px; line-height: 38px; border-radius: 10px; font-weight: 700; font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px;
+  }
+
+  .filter-card .input-group.input-group-sm .form-control,
+  .filter-card .input-group.input-group-sm .form-select{ height: 40px; font-size: 13px; }
+  .filter-card .form-control, .filter-card .form-select{ border-radius: 10px; }
+  .filter-card .has-icon .input-group-text{ background:#fff; border-right:0; }
+
+  .filter-card .form-group, .filters-row > *{ margin-bottom: 8px; }
+
+  @media (max-width: 420px){
+    .filter-actions-top{ grid-template-columns: 1fr; gap: 8px; }
+    .filter-actions-top .btn{ width: 100%; }
+  }
+
+  .filter-card ::placeholder{ color:#9aa3af; }
+  .filter-card .form-select{ padding-right: 2.25rem; background-position: right .6rem center; }
+
+
 </style>
 @php
 // Safe defaults so the view never breaks
