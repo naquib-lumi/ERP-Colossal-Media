@@ -79,7 +79,7 @@ class InstallationProductOrderController extends Controller
     /**
      *（可选）详情页：同样基于 dummy data
      */
-    public function show(int $productId)
+    public function show(Request $request, int $productId)
     {
         // --- 1) Load the selected product + order header ---
         $headerRow = DB::table('products as p')
@@ -423,6 +423,7 @@ class InstallationProductOrderController extends Controller
         $dataEntry = $header->data_entry_name ?: '—';
         $uploader = $assignee;
         $permit   = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
+$isHistoryView = $request->query('from') === 'history';
 
         return view('installation.job_order_show', [
             // current single-product variables (unchanged)
@@ -444,6 +445,8 @@ class InstallationProductOrderController extends Controller
             'remarksByOp' => $remarksByOp,
             'remarks' => $remarks,
             'job_order_code'   => $displayOrderCode,
+        // 🔹 add this:
+        'isHistoryView' => $isHistoryView,
         ]);
     }
 
