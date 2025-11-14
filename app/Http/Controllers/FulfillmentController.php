@@ -52,6 +52,13 @@ public function index(Request $request)
             $w->whereNull('o.orderStatus')
             ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
         })
+        ->where(function ($w) {
+            $w->where('p.editable', '=', 0)  // ✅ bypass check if editable = 0
+            ->orWhere(function ($w2) {
+                $w2->whereNull('o.orderStatus')
+                    ->orWhere('o.orderStatus', '!=', 'in_progress');
+            });
+        })
         ->whereNotNull('p.taskType');
 
     // Permission: non head-artist only sees own orders
