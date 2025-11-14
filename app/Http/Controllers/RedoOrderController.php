@@ -165,12 +165,14 @@ class RedoOrderController extends Controller
                     $nd->updated_at = now();
                     $nd->save();
                 }
-                foreach ($origin->progress as $pg) {
-                    $npgr = $pg->replicate(['ProgressID','ProductID','created_at','updated_at']);
-                    $npgr->ProductID  = $np->ProductID;
-                    $npgr->created_at = now();
-                    $npgr->updated_at = now();
-                    $npgr->save();
+                if ((int)$np->editable === 0) {
+                    foreach ($origin->progress as $pg) {
+                        $npgr = $pg->replicate(['ProgressID','ProductID','created_at','updated_at']);
+                        $npgr->ProductID  = $np->ProductID;
+                        $npgr->created_at = now();
+                        $npgr->updated_at = now();
+                        $npgr->save();
+                    }
                 }
             }
 
