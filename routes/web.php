@@ -5,6 +5,7 @@ use App\Http\Controllers\SalesController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdminManageUserController;
 use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\MaterialsController;
 use App\Http\Controllers\CalendarController;
@@ -382,12 +383,12 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::put('/admin/fulfillment/{product}/deliveries', [AdminController::class, 'updateDeliveries'])->name('admin.fulfillment.deliveries.update');
     Route::post('/admin/fulfillment/permit', [AdminController::class, 'storePermit'])->name('admin.fulfillment.permit.store');
     Route::get('/admin/permits/{product}/download', [AdminController::class, 'downloadPermit'])->name('admin.permits.download');
-    Route::get('/admin/manageuser', [AdminController::class, 'manageUser'])->name('admin.manageuser');
-    Route::get('/admin/user', [AdminController::class, 'user'])->name('admin.user');
-    Route::post('/admin/user', [AdminController::class, 'storeUser'])->name('admin.user.store');
-    Route::put('/admin/user/{user}', [AdminController::class, 'updateUser'])->name('admin.user.update');
-    Route::patch('/admin/user/{user}/disable', [AdminController::class, 'disableUser'])->name('admin.user.disable');
-    Route::patch('/admin/user/{user}/resetpassword', [AdminController::class, 'resetPassword'])->name('admin.user.resetpassword');
+    Route::get('/admin/manageuser', [AdminManageUserController::class, 'manageUser'])->name('admin.manageuser');
+    Route::get('/admin/user', [AdminManageUserController::class, 'user'])->name('admin.user');
+    Route::post('/admin/user', [AdminManageUserController::class, 'storeUser'])->name('admin.user.store');
+    Route::put('/admin/user/{user}', [AdminManageUserController::class, 'updateUser'])->name('admin.user.update');
+    Route::patch('/admin/user/{user}/disable', [AdminManageUserController::class, 'disableUser'])->name('admin.user.disable');
+    Route::patch('/admin/user/{user}/resetpassword', [AdminManageUserController::class, 'resetPassword'])->name('admin.user.resetpassword');
 
     Route::get('/admin/orders', [AdminController::class, 'orders'])->name('admin.orders');
     Route::get('/admin/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
@@ -406,16 +407,16 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/reports/export-sales', [AdminReportController::class, 'exportSales'])->name('admin.report.export-sales');
     Route::get('/admin/reports/export-orders', [AdminReportController::class, 'exportOrders'])->name('admin.report.export-orders');
   
+   // routes/web.php (updated)
    Route::get('/admin/costing-data', [MaterialsController::class, 'index'])->name('admin.costing-data');
     Route::post('/admin/material-types', [MaterialsController::class, 'storeType'])->name('admin.material-types.store');
     Route::put('/admin/material-types/{id}', [MaterialsController::class, 'updateType'])->name('admin.material-types.update');
     Route::delete('/admin/material-types/{id}', [MaterialsController::class, 'destroyType'])->name('admin.material-types.destroy');
-    Route::post('/admin/units', [MaterialsController::class, 'storeUnit'])->name('admin.units.store');
-    Route::put('/admin/units/{id}', [MaterialsController::class, 'updateUnit'])->name('admin.units.update');
-    Route::delete('/admin/units/{id}', [MaterialsController::class, 'destroyUnit'])->name('admin.units.destroy');
+    Route::patch('/admin/material-types/{id}/toggle', [MaterialsController::class, 'toggleType'])->name('admin.material-types.toggle');
     Route::post('/admin/materials', [MaterialsController::class, 'store'])->name('admin.materials.store');
     Route::put('/admin/materials/{id}', [MaterialsController::class, 'update'])->name('admin.materials.update');
     Route::delete('/admin/materials/{id}', [MaterialsController::class, 'destroy'])->name('admin.materials.destroy');
+    Route::patch('/admin/materials/{id}/toggle', [MaterialsController::class, 'toggle'])->name('admin.materials.toggle');
 
     // Profile
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');

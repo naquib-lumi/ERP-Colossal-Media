@@ -91,15 +91,27 @@ class AdminController extends Controller
         ->count();
 
     // ✅ In-progress products
-    $inProgressProducts = Product::query()
-        ->join('orders as o', 'o.id', '=', 'products.OrderID')
-        ->where('products.status', 'in_progress')
-        ->whereNotIn('o.id', $excludedOrderIds)
-        ->with('order.artist')
-        ->select('products.*')
-        ->orderBy('o.deadline', 'asc')
-        ->take(3)
-        ->get();
+$inProgressProducts = Product::from('products as p')
+    ->join('orders as o', 'o.id', '=', 'p.OrderID')
+    ->where('p.status', 'in_progress')
+    ->whereNotIn('o.id', $excludedOrderIds)
+    ->with('order.artist')
+    ->select('p.*')
+    ->selectRaw("
+        CONCAT(
+            '#ORD-',
+            YEAR(o.orderDate), '-',
+            LPAD(COALESCE(o.redo, o.id), 3, '0'),
+            '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+            CASE WHEN (p.redoOf IS NOT NULL AND p.editable = 1)
+                THEN 'R'
+                ELSE ''
+            END
+        ) AS display_product_id
+    ")
+    ->orderBy('p.created_at', 'desc')
+    ->take(3)
+    ->get();
 
     // ✅ Completed products
     $completedProducts = Product::query()
@@ -240,197 +252,6 @@ class AdminController extends Controller
         ]);
     }
 
-    /* ====================== Manage Users ====================== */
-
-    private function allowedRoles(): array
-    {
-        return [
-            'admin',
-            'salesperson',
-            'head-salesperson',
-            'head-artist',
-            'artist',
-            'operations-printing',
-            'operations-furnishing',
-            'operations-dispatch-control',
-            'operations-delivery-installation',
-            'data-entry',
-            'installation',
-        ];
-    }
-
-    /** 列表页（分页 + 搜索/筛选），表格中不显示 admin */
-    public function manageUser(Request $request)
-    {
-        if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
-
-        $q      = trim((string)$request->query('q', ''));
-        $role   = $request->query('role', 'all');
-        $status = $request->query('status', 'all');
-
-        $users = User::query()
-            ->where('role', '!=', 'admin')
-            ->when($q !== '', function ($qb) use ($q) {
-                $qb->where(function ($w) use ($q) {
-                    $w->where('name', 'like', "%{$q}%")
-                      ->orWhere('email', 'like', "%{$q}%")
-                      ->orWhere('contact_number', 'like', "%{$q}%");
-                });
-            })
-            ->when($role !== 'all' && $role !== 'admin', fn($qb) => $qb->where('role', $role))
-            ->when($status !== 'all', fn($qb) => $qb->whereRaw('LOWER(status)=?', [strtolower($status)]))
-            ->orderBy('name')
-            ->paginate(10)
-            ->withQueryString();
-
-        return view('admin.manageuser', [
-            'users'       => $users,
-            'roleOptions' => $this->allowedRoles(),
-        ]);
-    }
-
-    /** （可选）DataTables JSON */
-    public function user(Request $request)
-    {
-        if (!Auth::user()->hasRole('admin')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        $q      = trim((string)$request->get('q',''));
-        $role   = $request->get('role');
-        $status = $request->get('status');
-
-        $query = User::query()
-            ->select(['id','name','email','contact_number','status','role','created_at','updated_at'])
-            ->where('role', '!=', 'admin');
-
-        if ($q !== '') {
-            $query->where(function($w) use ($q){
-                $w->where('name','like',"%{$q}%")
-                  ->orWhere('email','like',"%{$q}%")
-                  ->orWhere('contact_number','like',"%{$q}%");
-            });
-        }
-        if ($role && $role !== 'all' && $role !== 'admin') {
-            $query->where('role', $role);
-        }
-        if ($status && $status !== 'all') {
-            $query->whereRaw('LOWER(status)=?', [strtolower($status)]);
-        }
-
-        return DataTables::of($query)
-            ->addColumn('actions', fn(User $u) => [
-                'update' => route('admin.user.update', $u),
-                'toggle' => route('admin.user.disable', $u),
-            ])->toJson();
-    }
-
-        /** 创建用户（status 默认 active；允许传密码，不传则自动生成临时强密码） */
-    public function storeUser(Request $request)
-    {
-        if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
-
-        $roles = $this->allowedRoles();
-
-        $data = $request->validate([
-            'name'           => ['required','string','max:255'],
-            'email'          => ['required','email','max:255','unique:users,email'],
-            'contact_number' => ['nullable','string','max:30'],
-            'role'           => ['required', Rule::in($roles)],
-            'password'       => ['nullable','string','min:8'],
-            'status'         => ['nullable','in:active,inactive'],
-        ]);
-
-        $plain = $data['password'] ?: Str::password(12);
-        $user  = User::create([
-            'name'           => $data['name'],
-            'email'          => $data['email'],
-            'contact_number' => $data['contact_number'] ?? null,
-            'role'           => $data['role'],
-            'password'       => Hash::make($plain),
-            'status'         => strtolower($data['status'] ?? 'active'),
-        ]);
-
-        return back()->with('success', 'User created. Temp password: '.$plain);
-    }
-
-    /** 更新用户（保护：不能自己降级/停用自己） */
-    public function updateUser(Request $request, User $user)
-    {
-        if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
-
-        $roles = $this->allowedRoles();
-
-        $data = $request->validate([
-            'name'           => ['required','string','max:255'],
-            'email'          => ['required','email','max:255','unique:users,email,'.$user->id],
-            'contact_number' => ['nullable','string','max:30'],
-            'role'           => ['sometimes', 'required', Rule::in($roles)],
-            'password'       => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols()],
-            'status'         => ['required','in:active,inactive'],
-        ]);
-
-        if (auth()->id() === $user->id && strtolower($data['status']) === 'inactive') {
-            return back()->withErrors(['status' => 'You cannot deactivate your own account.']);
-        }
-        if (auth()->id() === $user->id && $user->role === 'admin' && $request->filled('role') && $data['role'] !== 'admin') {
-            return back()->withErrors(['role' => 'You cannot downgrade your own admin role.']);
-        }
-
-        $user->fill([
-            'name'           => $data['name'],
-            'email'          => $data['email'],
-            'contact_number' => $data['contact_number'] ?? null,
-            'status'         => strtolower($data['status']),
-        ]);
-
-        if ($request->filled('role')) {
-            $user->role = $data['role'];
-        }
-
-        if (!empty($data['password'])) {
-            $user->password = Hash::make($data['password']);
-        }
-
-        $user->save();
-
-        return $request->expectsJson()
-            ? response()->json(['success'=>true,'message'=>'User updated successfully.','user'=>$user])
-            : redirect()->route('admin.manageuser', $request->only('q','role','status'))
-                        ->with('success', 'User updated successfully.');
-    }
-
-    /** 重置密码到 password123 */
-    public function resetPassword(Request $request, User $user)
-    {
-        if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
-
-        $user->password = Hash::make('password123');
-        $user->save();
-
-        return back()->with('success', 'Password reset to password123.');
-    }
-
-    
-
-
-    /** 启/停用切换（自己不能停用自己） */
-    public function disableUser(Request $request, User $user)
-    {
-        if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
-
-        if (auth()->id() === $user->id) {
-            return back()->withErrors(['status' => 'You cannot deactivate your own account.']);
-        }
-
-        $user->status = strtolower((string)$user->status) === 'active' ? 'inactive' : 'active';
-        $user->save();
-
-        return $request->expectsJson()
-            ? response()->json(['success'=>true,'status'=>$user->status,'message'=>'User status updated successfully.'])
-            : redirect()->route('admin.manageuser', $request->only('q','role','status'))
-                        ->with('success', 'User status updated successfully.');
-    }
 
     /* -------------------- Orders (Admin Overview) -------------------- */
 

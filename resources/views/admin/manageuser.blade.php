@@ -88,7 +88,6 @@ input:checked + .slider:before{transform:translateX(20px)}
 /* helpers */
 .hidden{display:none !important;}
 </style>
-@endpush
 
 <div class="container-fluid py-4 px-4">
   <div class="page-wrap">
@@ -96,15 +95,25 @@ input:checked + .slider:before{transform:translateX(20px)}
       <h1 class="hd-title">Manage Users</h1>
     </div>
 
+    @if(session('success'))
+      <div class="alert alert-success mx-3">{{ session('success') }}</div>
+    @endif
+    @if($errors->any())
+      <div class="alert alert-danger mx-3">
+        <ul class="mb-0">
+          @foreach($errors->all() as $e) <li>{{ $e }}</li> @endforeach
+        </ul>
+      </div>
+    @endif
+
     <div class="table-section">
       {{-- Toolbar --}}
-      <form id="filterForm" class="section-toolbar" method="GET" action="{{ route('admin.manageuser') }}">
-        <input name="q" id="searchInput" value="{{ request('q','') }}" type="text" class="control input" placeholder="Search users...">
+      <form id="filterForm" class="section-toolbar" onsubmit="return false;">
+        <input id="searchInput" value="{{ request('q','') }}" type="text" class="control input" placeholder="Search users...">
         @php $role = request('role','all'); @endphp
-        <select name="role" class="control select">
+        <select id="roleSelect" class="control select">
           <option value="all" {{ $role==='all'?'selected':'' }}>All Roles</option>
           <option value="admin" {{ $role==='admin'?'selected':'' }}>Admin</option>
-          <option value="boss" {{ $role==='boss'?'selected':'' }}>Boss</option>
           <option value="salesperson" {{ $role==='salesperson'?'selected':'' }}>Salesperson</option>
           <option value="head-salesperson" {{ $role==='head-salesperson'?'selected':'' }}>Head Salesperson</option>
           <option value="head-artist" {{ $role==='head-artist'?'selected':'' }}>Head Artist</option>
@@ -117,7 +126,7 @@ input:checked + .slider:before{transform:translateX(20px)}
           <option value="installation" {{ $role==='installation'?'selected':'' }}>Installation</option>
         </select>
         @php $st = request('status','all'); @endphp
-        <select name="status" class="control select">
+        <select id="statusSelect" class="control select">
           <option value="all" {{ $st==='all'?'selected':'' }}>All Status</option>
           <option value="active" {{ $st==='active'?'selected':'' }}>Active</option>
           <option value="inactive" {{ $st==='inactive'?'selected':'' }}>Inactive</option>
@@ -125,9 +134,6 @@ input:checked + .slider:before{transform:translateX(20px)}
         <div style="flex:1"></div>
         <button type="button" id="btnAddUser" class="btn btn-dark btn-rect">
           <i class="bi bi-plus-lg"></i> Add New User
-        </button>
-        <button type="submit" class="btn btn-secondary soft btn-rect">
-          <i class="bi bi-funnel"></i> Apply
         </button>
         <button type="button" id="resetFilter" class="btn btn-secondary soft btn-rect">
           <i class="bi bi-arrow-counterclockwise"></i> Reset
@@ -150,7 +156,7 @@ input:checked + .slider:before{transform:translateX(20px)}
           <tbody>
           @forelse($users as $user)
             @php $active = strtolower((string)($user->status ?? '')) === 'active'; @endphp
-            <tr>
+            <tr data-role="{{ $user->role }}" data-status="{{ strtolower((string)($user->status ?? '')) }}">
               <td>
                 <div class="user-cell">
                   @php $av = $user->avatar_url ?? null; @endphp
@@ -205,14 +211,7 @@ input:checked + .slider:before{transform:translateX(20px)}
 
       {{-- Foot --}}
       <div class="section-foot">
-        @if(method_exists($users,'firstItem') && $users->total() > 0)
-          <div class="range-text">Showing {{ $users->firstItem() }}–{{ $users->lastItem() }} of {{ $users->total() }} results</div>
-        @else
-          <div class="range-text">Showing 0–0 of 0 results</div>
-        @endif
-        <div class="pager">
-          {{ $users->appends(request()->only('q','role','status'))->onEachSide(1)->links('pagination::bootstrap-5') }}
-        </div>
+        <div class="range-text">Showing 0–0 of 0 results</div>
       </div>
     </div>
   </div>
@@ -253,7 +252,6 @@ input:checked + .slider:before{transform:translateX(20px)}
             <select name="role" id="f_role" class="form-select @error('role') is-invalid @enderror" required>
               <option disabled value="" {{ old('role')? '':'selected' }}>Select a role</option>
               <option value="admin" {{ old('role')==='admin'?'selected':'' }}>Admin</option>
-              <option value="boss" {{ old('role')==='boss'?'selected':'' }}>Boss</option>
               <option value="salesperson" {{ old('role')==='salesperson'?'selected':'' }}>Salesperson</option>
               <option value="head-salesperson" {{ old('role')==='head-salesperson'?'selected':'' }}>Head Salesperson</option>
               <option value="head-artist" {{ old('role')==='head-artist'?'selected':'' }}>Head Artist</option>
@@ -317,191 +315,182 @@ input:checked + .slider:before{transform:translateX(20px)}
 </div>
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-/** Elements */
-const modal   = document.getElementById('userModal');
-const openBtn = document.getElementById('btnAddUser');
-const closeBtn= document.getElementById('userClose');
-const cancelBtn=document.getElementById('userCancel');
+(() => {
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
 
-const form    = document.getElementById('userForm');
-const methodSpoof = document.getElementById('methodSpoof');
-const modalTitle  = document.getElementById('modalTitle');
-const saveText    = document.getElementById('saveText');
-const rowPwd      = document.getElementById('rowPwd');
+  function openModal(){ $('#userModal').style.display = 'flex'; }
+  function closeModal(){ $('#userModal').style.display = 'none'; }
 
-const fMode  = document.getElementById('f_mode');
-const fName  = document.getElementById('f_name');
-const fEmail = document.getElementById('f_email');
-const fRole  = document.getElementById('f_role');
-const fPhone = document.getElementById('f_phone');
-const fPwd   = document.getElementById('f_pwd');
-const togglePwdBtn = document.getElementById('togglePwd'); // 新增
-const fStatusSw = document.getElementById('f_status_sw');
-const fStatus    = document.getElementById('f_status');
-const statusText = document.getElementById('statusText');
+  $('#btnAddUser').addEventListener('click', () => { prepareCreate(); openModal(); });
+  $('#userClose').addEventListener('click', closeModal);
+  $('#userCancel').addEventListener('click', closeModal);
+  $('#userModal').addEventListener('click', e => { if (e.target === $('#userModal')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#userModal').style.display === 'flex') closeModal(); });
 
-/** Modal controls */
-function openModal(){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); }
-function closeModal(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
-openBtn.addEventListener('click', ()=>{ prepareCreate(); openModal(); });
-closeBtn.addEventListener('click', closeModal);
-cancelBtn.addEventListener('click', closeModal);
-modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && modal.classList.contains('open')) closeModal(); });
+  function prepareCreate() {
+    $('#userForm').action = '{{ route('admin.user.store') }}';
+    $('#methodSpoof').value = 'POST';
+    $('#modalTitle').textContent = 'Add New User';
+    $('#saveText').textContent = 'Save User';
+    $('#rowPwd').classList.remove('hidden');
+    $('#f_pwd').disabled = false;
+    $('#f_pwd').setAttribute('name', 'password');
+    $('#f_pwd').type = 'password';
+    $('#f_pwd').value = '';
+    $('#togglePwd').disabled = false;
+    $('#f_mode').value = 'create';
+    $('#f_role').disabled = false;
+    $('#f_name').value = '{{ old('name', '') }}';
+    $('#f_email').value = '{{ old('email', '') }}';
+    $('#f_role').value = '{{ old('role', '') }}';
+    $('#f_phone').value = '{{ old('contact_number', '') }}';
+    const oldActive = '{{ strtolower(old('status', 'active')) === 'active' }}';
+    $('#f_status_sw').checked = oldActive;
+    $('#f_status').value = oldActive ? 'active' : 'inactive';
+    $('#statusText').textContent = oldActive ? 'Active' : 'Inactive';
+  }
 
-/** 新增模式 */
-/** 新增模式 */
-function prepareCreate(){
-  form.action = @json(route('admin.user.store'));
-  methodSpoof.value = 'POST';
-  modalTitle.textContent = 'Add New User';
-  saveText.textContent = 'Save User';
-  rowPwd.classList.remove('hidden');
+  function prepareEdit(u) {
+    $('#userForm').action = u.update;
+    $('#methodSpoof').value = 'PUT';
+    $('#modalTitle').textContent = 'Edit User';
+    $('#saveText').textContent = 'Save Changes';
+    $('#rowPwd').classList.add('hidden');
+    $('#f_pwd').value = '';
+    $('#f_pwd').type = 'password';
+    $('#f_pwd').disabled = true;
+    $('#f_pwd').removeAttribute('name');
+    $('#togglePwd').disabled = true;
+    $('#f_mode').value = 'edit';
+    $('#f_role').disabled = true;
+    $('#f_name').value = u.name;
+    $('#f_email').value = u.email;
+    $('#f_role').value = u.role || '';
+    $('#f_phone').value = u.phone || '';
+    const active = (u.status === 'active');
+    $('#f_status_sw').checked = active;
+    $('#f_status').value = active ? 'active' : 'inactive';
+    $('#statusText').textContent = active ? 'Active' : 'Inactive';
+  }
 
-  // 新增：启用密码并确保有 name
-  fPwd.disabled = false;
-  fPwd.setAttribute('name','password');
-  fPwd.type = 'password';
-  fPwd.value = '';
-  if (togglePwdBtn) togglePwdBtn.disabled = false;
-
-  fMode.value = 'create';
-  fRole.disabled = false; // Enable role select for create
-
-  // 回填旧值（失败返回）
-  fName.value  = @json(old('name',''));
-  fEmail.value = @json(old('email',''));
-  fRole.value  = @json(old('role',''));
-  fPhone.value = @json(old('contact_number',''));
-  const oldActive = @json(strtolower(old('status','active'))==='active');
-  fStatusSw.checked = oldActive; fStatus.value = oldActive?'active':'inactive';
-  statusText.textContent = oldActive ? 'Active' : 'Inactive';
-}
-
-/** 编辑模式（隐藏密码并禁止提交） */
-function prepareEdit(u){
-  form.action = u.update;
-  methodSpoof.value = 'PUT';
-  modalTitle.textContent = 'Edit User';
-  saveText.textContent = 'Save Changes';
-  rowPwd.classList.add('hidden');
-
-  // 关键：编辑时不让密码随表单提交（双保险）
-  fPwd.value = '';
-  fPwd.type = 'password';
-  fPwd.disabled = true;
-  fPwd.removeAttribute('name');
-  if (togglePwdBtn) togglePwdBtn.disabled = true;
-
-  fMode.value = 'edit';
-  fRole.disabled = true; // Disable role select for edit
-
-  fName.value = u.name;
-  fEmail.value = u.email;
-  fRole.value = u.role || '';
-  fPhone.value = u.phone || '';
-  const active = (u.status === 'active');
-  fStatusSw.checked = active;
-  fStatus.value = active ? 'active' : 'inactive';
-  statusText.textContent = active ? 'Active' : 'Inactive';
-}
-/** 行内编辑按钮 */
-document.querySelector('tbody').addEventListener('click', function(e){
-  const btn = e.target.closest('button[data-mode="edit"]');
-  if(!btn) return;
-  const u = {
-    id: btn.dataset.id,
-    name: btn.dataset.name,
-    email: btn.dataset.email,
-    role: btn.dataset.role,
-    phone: btn.dataset.phone,
-    status: btn.dataset.status, // 已是小写
-    update: @json(route('admin.user.update', ['user' => '___ID___'])).replace('___ID___', btn.dataset.id)
-  };
-  prepareEdit(u); openModal();
-});
-
-/* status 与隐藏域同步 */
-fStatusSw.addEventListener('change', ()=>{
-  const act = fStatusSw.checked;
-  fStatus.value = act ? 'active' : 'inactive';
-  statusText.textContent = act ? 'Active' : 'Inactive';
-});
-
-/* password eye */
-togglePwdBtn.addEventListener('click',(ev)=>{
-  if (fPwd.disabled) return; // 编辑模式禁用时忽略
-  const isPw = fPwd.getAttribute('type')==='password';
-  fPwd.setAttribute('type', isPw?'text':'password');
-  ev.currentTarget.innerHTML = `<i class="bi ${isPw?'bi-eye-slash':'bi-eye'}"></i>`;
-});
-
-/* 搜索框回车提交 */
-let searchInput = document.querySelector('input[name="q"]');
-searchInput.addEventListener('keydown', e=>{
-  if(e.key==='Enter'){ document.getElementById('filterForm').submit(); }
-});
-
-/* Reset filter */
-document.getElementById('resetFilter').addEventListener('click', () => {
-  window.location.href = '{{ route('admin.manageuser') }}';
-});
-
-/* 提交前再次同步状态（保险） */
-form.addEventListener('submit', () => {
-  fStatus.value = fStatusSw.checked ? 'active' : 'inactive';
-});
-
-/* SweetAlert for disable */
-document.querySelectorAll('.disable-btn').forEach(btn => {
-  btn.addEventListener('click', e => {
-    e.preventDefault();
-    let form = btn.closest('form');
-    let active = form.querySelector('.disable-btn').title === 'Disable';
-    let msg = `Are you sure you want to ${active ? 'disable' : 'enable'} this user?`;
-    Swal.fire({
-      title: 'Confirm',
-      text: msg,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes'
-    }).then(result => {
-      if (result.isConfirmed) form.submit();
+  $$('button[data-mode="edit"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const u = {
+        id: btn.dataset.id,
+        name: btn.dataset.name,
+        email: btn.dataset.email,
+        role: btn.dataset.role,
+        phone: btn.dataset.phone,
+        status: btn.dataset.status,
+        update: '{{ route('admin.user.update', ['user' => '___ID___']) }}'.replace('___ID___', btn.dataset.id)
+      };
+      prepareEdit(u);
+      openModal();
     });
   });
-});
 
-/* SweetAlert for reset */
-document.querySelectorAll('.reset-btn').forEach(btn => {
-  btn.addEventListener('click', e => {
-    e.preventDefault();
-    let form = btn.closest('form');
-    Swal.fire({
-      title: 'Confirm',
-      text: 'Reset password to password123?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes'
-    }).then(result => {
-      if (result.isConfirmed) form.submit();
+  $('#f_status_sw').addEventListener('change', () => {
+    const act = $('#f_status_sw').checked;
+    $('#f_status').value = act ? 'active' : 'inactive';
+    $('#statusText').textContent = act ? 'Active' : 'Inactive';
+  });
+
+  $('#togglePwd').addEventListener('click', ev => {
+    if ($('#f_pwd').disabled) return;
+    const isPw = $('#f_pwd').type === 'password';
+    $('#f_pwd').type = isPw ? 'text' : 'password';
+    ev.currentTarget.innerHTML = `<i class="bi ${isPw ? 'bi-eye-slash' : 'bi-eye'}"></i>`;
+  });
+
+  $('#userForm').addEventListener('submit', () => {
+    $('#f_status').value = $('#f_status_sw').checked ? 'active' : 'inactive';
+  });
+
+  function applyFilter() {
+    const q = ($('#searchInput').value || '').trim().toLowerCase();
+    const role = $('#roleSelect').value || 'all';
+    const status = $('#statusSelect').value || 'all';
+    let shown = 0;
+    $$('tbody tr').forEach(tr => {
+      const name = tr.querySelector('.user-cell > div:nth-child(2)').textContent.toLowerCase();
+      const email = tr.children[2].textContent.toLowerCase();
+      const phone = tr.children[3].textContent.toLowerCase();
+      const r = tr.dataset.role;
+      const s = tr.dataset.status;
+      const matchSearch = !q || name.includes(q) || email.includes(q) || phone.includes(q);
+      const matchRole = role === 'all' || r === role;
+      const matchStatus = status === 'all' || s === status;
+      const ok = matchSearch && matchRole && matchStatus;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    const rangeText = $('.range-text');
+    if (rangeText) rangeText.textContent = `Showing 1–${shown} of ${shown} results`;
+  }
+
+  $('#searchInput').addEventListener('input', applyFilter);
+  $('#roleSelect').addEventListener('change', applyFilter);
+  $('#statusSelect').addEventListener('change', applyFilter);
+
+  $('#resetFilter').addEventListener('click', () => {
+    $('#searchInput').value = '';
+    $('#roleSelect').value = 'all';
+    $('#statusSelect').value = 'all';
+    applyFilter();
+  });
+
+  $$('.disable-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const form = btn.closest('form');
+      const active = btn.title === 'Disable';
+      const msg = `Are you sure you want to ${active ? 'disable' : 'enable'} this user?`;
+      Swal.fire({
+        title: 'Confirm',
+        text: msg,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes'
+      }).then(result => {
+        if (result.isConfirmed) form.submit();
+      });
     });
   });
-});
 
-@if(session('success'))
-Swal.fire('Success', '{{ session('success') }}', 'success');
-@endif
+  $$('.reset-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const form = btn.closest('form');
+      Swal.fire({
+        title: 'Confirm',
+        text: 'Reset password to password123?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes'
+      }).then(result => {
+        if (result.isConfirmed) form.submit();
+      });
+    });
+  });
 
-@if($errors->any())
-let errMsg = '{{ implode("<br>", $errors->all()) }}';
-Swal.fire('Error', errMsg, 'error');
-@endif
+  @if(session('success'))
+  Swal.fire('Success', '{{ session('success') }}', 'success');
+  @endif
 
-{{-- 新增失败：自动打开 Add 模态 --}}
-@if($errors->any() && old('_mode')==='create')
-prepareCreate(); openModal();
-@endif
+  @if($errors->any())
+  let errMsg = '{{ implode("<br>", $errors->all()) }}';
+  Swal.fire('Error', errMsg, 'error');
+  @endif
+
+  @if($errors->any() && old('_mode')==='create')
+  prepareCreate(); openModal();
+  @endif
+
+  window.addEventListener('load', applyFilter);
+})();
 </script>
 @endpush
 @endsection

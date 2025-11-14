@@ -127,7 +127,7 @@
             <a href="{{ route('admin.fulfillment.product.show', $product->ProductID) }}" class="list-card d-block text-decoration-none">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
-                  <div class="order-no">{{ $product->order->order_number }}</div>
+                  <div class="order-no">{{ $product->display_product_id }}</div>
                   <div class="order-meta">{{ $product->productName }}</div>
                   <div class="order-meta">Assigned To: <span>{{ $product->order->artist?->name ?? 'N/A' }}</span></div>
                 </div>
