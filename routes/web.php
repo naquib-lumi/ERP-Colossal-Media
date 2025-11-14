@@ -414,7 +414,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/admin/material-types/{id}', [MaterialsController::class, 'destroyType'])->name('admin.material-types.destroy');
     Route::patch('/admin/material-types/{id}/toggle', [MaterialsController::class, 'toggleType'])->name('admin.material-types.toggle');
     Route::post('/admin/materials', [MaterialsController::class, 'store'])->name('admin.materials.store');
-    Route::put('/admin/materials/{id}', [MaterialsController::class, 'update'])->name('admin.materials.update');
+    Route::put('/admin/materials/update/{id}', [MaterialsController::class, 'update'])->name('admin.materials.update');
     Route::delete('/admin/materials/{id}', [MaterialsController::class, 'destroy'])->name('admin.materials.destroy');
     Route::patch('/admin/materials/{id}/toggle', [MaterialsController::class, 'toggle'])->name('admin.materials.toggle');
 

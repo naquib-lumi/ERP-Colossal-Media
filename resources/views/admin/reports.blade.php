@@ -100,16 +100,7 @@ body{background:var(--bg);}
               @endforeach
             </select>
           </div>
-          <div class="col-md-3">
-            <label class="form-label small">Time Period</label>
-            <div class="btn-group w-100" role="group" id="sales-period-group">
-              <button type="button" class="btn btn-outline-dark btn-sm" data-period="yearly">Yearly</button>
-              <button type="button" class="btn btn-outline-dark btn-sm" data-period="quarterly">Quarterly</button>
-              <button type="button" class="btn btn-outline-dark btn-sm active" data-period="monthly">Monthly</button>
-            </div>
-            <input type="hidden" name="period" id="sales-period" value="monthly">
-          </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <label class="form-label small">Date Range</label>
             <div class="d-flex align-items-center gap-2">
               <input type="date" name="start_date" id="sales-start-date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}">
@@ -117,7 +108,8 @@ body{background:var(--bg);}
               <input type="date" name="end_date" id="sales-end-date" class="form-control" value="{{ now()->endOfMonth()->format('Y-m-d') }}">
             </div>
           </div>
-          <div class="col-md-2 text-md-end d-flex gap-2">
+          <div class="col-md-3 text-md-end d-flex gap-2">
+            <button type="button" id="sales-reset" class="btn btn-outline-secondary btn-sm-compact">Reset</button>
             <button type="button" id="sales-generate" class="btn btn-primary btn-sm-compact">Generate</button>
              <button type="submit" formaction="{{ route('admin.report.export-sales') }}" class="btn btn-dark-compact btn-sm-compact">
               <i class="bi bi-download me-1"></i> Export
@@ -214,23 +206,15 @@ body{background:var(--bg);}
       <form id="order-filters">
         @csrf
         <div class="row g-3 align-items-end">
-          <div class="col-md-3">
-            <label class="form-label small">Time Period</label>
-            <div class="btn-group w-100" role="group" id="order-period-group">
-              <button type="button" class="btn btn-outline-dark btn-sm" data-period="yearly">Yearly</button>
-              <button type="button" class="btn btn-outline-dark btn-sm" data-period="quarterly">Quarterly</button>
-              <button type="button" class="btn btn-outline-dark btn-sm active" data-period="monthly">Monthly</button>
-            </div>
-            <input type="hidden" name="period" id="order-period" value="monthly">
-          </div>
-          <div class="col-md-5">
+          <div class="col-md-8">
             <label class="form-label small">Date Range</label>
             <div class="d-flex gap-2">
               <input type="date" name="start_date" id="order-start-date" class="form-control" value="{{ now()->startOfMonth()->format('Y-m-d') }}">
               <input type="date" name="end_date" id="order-end-date" class="form-control" value="{{ now()->endOfMonth()->format('Y-m-d') }}">
             </div>
           </div>
-          <div class="col-md-2 ms-auto text-md-end d-flex gap-2">
+          <div class="col-md-4 ms-auto text-md-end d-flex gap-2">
+            <button type="button" id="order-reset" class="btn btn-outline-secondary btn-sm-compact">Reset</button>
             <button type="button" id="order-generate" class="btn btn-primary btn-sm-compact">Generate</button>
             <button type="submit" formaction="{{ route('admin.report.export-orders') }}" class="btn btn-dark-compact btn-sm-compact">
               <i class="bi bi-download me-1"></i> Export
@@ -294,6 +278,45 @@ let orderFulfill = new Chart(document.getElementById('orderFulfill'), {
   }
 });
 
+// Function to reset sales section
+function resetSales() {
+  document.getElementById('salesperson').value = 'All Salespersons';
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  document.getElementById('sales-start-date').value = start.toISOString().split('T')[0];
+  document.getElementById('sales-end-date').value = end.toISOString().split('T')[0];
+
+  // Reset KPIs
+  document.getElementById('total-leads').textContent = '0';
+  document.getElementById('leads-delta').textContent = '';
+  document.getElementById('leads-delta').className = 'delta';
+  document.getElementById('total-meetings').textContent = '0';
+  document.getElementById('meetings-delta').textContent = '';
+  document.getElementById('meetings-delta').className = 'delta';
+  document.getElementById('accepted-meetings').textContent = '0';
+  document.getElementById('rejected-meetings').textContent = '0';
+
+  // Reset charts
+  barMonthly.data.datasets[0].data = [0, 0, 0, 0, 0];
+  barMonthly.update();
+  pieOutcome.data.datasets[0].data = [0, 0];
+  pieOutcome.update();
+}
+
+// Function to reset order section
+function resetOrder() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  document.getElementById('order-start-date').value = start.toISOString().split('T')[0];
+  document.getElementById('order-end-date').value = end.toISOString().split('T')[0];
+
+  // Reset chart
+  orderFulfill.data.datasets[0].data = [0, 0, 0, 0];
+  orderFulfill.update();
+}
+
 // Tabs
 document.querySelectorAll('#reportTabs .nav-link').forEach(a => {
   a.addEventListener('click', () => {
@@ -304,48 +327,11 @@ document.querySelectorAll('#reportTabs .nav-link').forEach(a => {
   });
 });
 
-// Function to update date range inputs
-function updateDateRange(section, period) {
-  const startInput = document.querySelector(`#${section}-start-date`);
-  const endInput = document.querySelector(`#${section}-end-date`);
-  const today = new Date();
-  let startDate, endDate;
+// Sales Reset
+document.getElementById('sales-reset').addEventListener('click', resetSales);
 
-  if (period === 'yearly') {
-    startDate = new Date(today.getFullYear(), 0, 1);
-    endDate = new Date(today.getFullYear(), 11, 31);
-  } else if (period === 'quarterly') {
-    const quarter = Math.floor(today.getMonth() / 3);
-    startDate = new Date(today.getFullYear(), quarter * 3, 1);
-    endDate = new Date(today.getFullYear(), (quarter + 1) * 3 - 1, new Date(today.getFullYear(), (quarter + 1) * 3, 0).getDate());
-  } else {
-    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  }
-
-  startInput.value = startDate.toISOString().split('T')[0];
-  endInput.value = endDate.toISOString().split('T')[0];
-}
-
-// Sales Period buttons
-document.querySelectorAll('#sales-period-group button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#sales-period-group button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelector('#sales-period').value = btn.dataset.period;
-    updateDateRange('sales', btn.dataset.period);
-  });
-});
-
-// Order Period buttons
-document.querySelectorAll('#order-period-group button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#order-period-group button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelector('#order-period').value = btn.dataset.period;
-    updateDateRange('order', btn.dataset.period);
-  });
-});
+// Order Reset
+document.getElementById('order-reset').addEventListener('click', resetOrder);
 
 // Sales Generate
 document.getElementById('sales-generate').addEventListener('click', () => {
@@ -358,8 +344,10 @@ document.getElementById('sales-generate').addEventListener('click', () => {
     .then(data => {
       document.getElementById('total-leads').textContent = data.total_leads;
       document.getElementById('leads-delta').className = data.leads_delta >= 0 ? 'delta text-success' : 'delta text-danger';
+      document.getElementById('leads-delta').textContent = data.leads_delta >= 0 ? `+${data.leads_delta}%` : `${data.leads_delta}%`;
       document.getElementById('total-meetings').textContent = data.total_meetings;
       document.getElementById('meetings-delta').className = data.meetings_delta >= 0 ? 'delta text-success' : 'delta text-danger';
+      document.getElementById('meetings-delta').textContent = data.meetings_delta >= 0 ? `+${data.meetings_delta}%` : `${data.meetings_delta}%`;
       document.getElementById('accepted-meetings').textContent = data.accepted;
       document.getElementById('rejected-meetings').textContent = data.rejected;
     })

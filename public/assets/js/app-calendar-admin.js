@@ -297,90 +297,96 @@ function modifyToggler(calendar) {
           dotEl.style.borderColor = info.event.borderColor;
         }
       },
-      eventClick: function (info) {
-        console.log('Delivery Event Click Data:', info.event.extendedProps);
-let modalId = 'orderDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
-if (!$('#' + modalId).length) {
-  const methodColors = {
-    'self_pickup': 'bg-primary',
-    'courier': 'bg-success',
-    'delivery_installation': 'bg-warning'
-  };
-  const methodBadge = `<span class="badge ${methodColors[info.event.extendedProps.method] || 'bg-secondary'} me-2">${info.event.extendedProps.method ? info.event.extendedProps.method.replace('_', ' ').toUpperCase() : 'Unknown'}</span>`;
-  const leadText = info.event.extendedProps.lead_text || 'N/A';
-  const title = `Delivery - ${info.event.extendedProps.order_number || 'N/A'} - ${info.event.extendedProps.product_name || 'Untitled'}`;
-  let modalBody = `
-    <div class="row mb-3">
-      <div class="col-12">
-        <h4 class="mb-1 fw-bold">${title}</h4>
-        <div class="text-muted">${methodBadge}📦 Delivery | Lead: ${leadText}</div>
+     eventClick: function (info) {
+  console.log('Delivery Event Click Data:', info.event.extendedProps);
+  let modalId = 'orderDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
+  if (!$('#' + modalId).length) {
+    const methodColors = {
+      'self_pickup': 'bg-primary',
+      'courier': 'bg-success',
+      'delivery_installation': 'bg-warning'
+    };
+    const methodBadge = `<span class="badge ${methodColors[info.event.extendedProps.method] || 'bg-secondary'} me-2">${info.event.extendedProps.method ? info.event.extendedProps.method.replace('_', ' ').toUpperCase() : 'Unknown'}</span>`;
+    const leadText = info.event.extendedProps.lead_text || 'N/A';
+    const title = `Delivery - ${info.event.extendedProps.order_number || 'N/A'} - ${info.event.extendedProps.product_name || 'Untitled'}`;
+    let modalBody = `
+      <div class="row mb-3">
+        <div class="col-12">
+          <h4 class="mb-1 fw-bold">${title}</h4>
+          <div class="text-muted">${methodBadge}📦 Delivery | Lead: ${leadText}</div>
+          <div class="mb-2"><i class="bx bx-calendar me-1"></i>Job Order Deadline: <span id="orderDeadlineDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <div class="col-md-6">
-        <div class="mb-2"><i class="bx bx-hash me-1"></i>Order Number: <span id="orderNumberDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
-        <div class="mb-2"><i class="bx bx-package me-1"></i>Product: <span id="orderProductDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
-        <div class="mb-2"><i class="bx bx-user me-1"></i>Lead Name: <span id="orderLeadNameDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
-        <div class="mb-2"><i class="bx bx-building-house me-1"></i>Lead Company: <span id="orderLeadCompanyDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="mb-2"><i class="bx bx-hash me-1"></i>Order Number: <span id="orderNumberDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+          <div class="mb-2"><i class="bx bx-package me-1"></i>Product: <span id="orderProductDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+          <div class="mb-2"><i class="bx bx-user me-1"></i>Lead Name: <span id="orderLeadNameDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+          <div class="mb-2"><i class="bx bx-building-house me-1"></i>Lead Company: <span id="orderLeadCompanyDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+        </div>
+        <div class="col-md-6">
+          <div class="mb-2"><i class="bx bx-list-ol me-1"></i>Quantity: <span id="orderQuantityDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+          <div class="mb-2"><i class="bx bx-map-pin me-1"></i>Location: <span id="orderLocationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+          <div class="mb-2"><i class="bx bx-wrench me-1"></i>Deliver/Install Type: <span id="orderDeliverTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+          <div class="mb-2"><i class="bx bx-dollar me-1"></i>Outsource Cost: <span id="orderOutsourceCostDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
+        </div>
       </div>
-      <div class="col-md-6">
-        <div class="mb-2"><i class="bx bx-list-ol me-1"></i>Quantity: <span id="orderQuantityDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
-        <div class="mb-2"><i class="bx bx-map-pin me-1"></i>Location: <span id="orderLocationDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
-        <div class="mb-2"><i class="bx bx-wrench me-1"></i>Deliver/Install Type: <span id="orderDeliverTypeDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
-        <div class="mb-2"><i class="bx bx-dollar me-1"></i>Outsource Cost: <span id="orderOutsourceCostDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
-      </div>
-    </div>
-    <hr class="my-3">
-    <div class="row">
-      <div class="col-12">
-        <div class="mb-3"><strong>Description:</strong></div>
-        <p id="orderDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></p>
-      </div>
-    </div>`;
+      <hr class="my-3">
+      <div class="row">
+        <div class="col-12">
+          <div class="mb-3"><strong>Permit Attachment:</strong></div>
+          <p id="orderPermitDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></p>
+        </div>
+      </div>`;
 
-  $('body').append(`
-    <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="${modalId}Label">Delivery Details</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            ${modalBody}
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    $('body').append(`
+      <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="${modalId}Label">${info.event.extendedProps.order_number || 'N/A'}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              ${modalBody}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  `);
-}
-
-const safeId = info.event.id.replace(/[^a-zA-Z0-9]/g, '');
-$('#orderNumberDetail_' + safeId).text(info.event.extendedProps.order_number || 'N/A');
-$('#orderProductDetail_' + safeId).text(info.event.extendedProps.product_name || 'N/A');
-$('#orderQuantityDetail_' + safeId).text(info.event.extendedProps.quantity || 'N/A');
-$('#orderLocationDetail_' + safeId).text(info.event.extendedProps.location || 'N/A');
-$('#orderDeliverTypeDetail_' + safeId).text(info.event.extendedProps.deliver_install_type || 'N/A');
-$('#orderOutsourceCostDetail_' + safeId).text(info.event.extendedProps.outsource_cost ? 'RM ' + info.event.extendedProps.outsource_cost : 'N/A');
-const orderLeadText = info.event.extendedProps.lead_text || 'N/A';
-let orderLeadName = 'N/A', orderLeadCompany = 'N/A';
-if (orderLeadText !== 'N/A' && orderLeadText !== 'Unknown') {
-  const parts = orderLeadText.split(' - ');
-  if (parts.length === 2) {
-    orderLeadCompany = parts[0];
-    orderLeadName = parts[1];
+    `);
   }
-}
-$('#orderLeadNameDetail_' + safeId).text(orderLeadName);
-$('#orderLeadCompanyDetail_' + safeId).text(orderLeadCompany);
-$('#orderDescriptionDetail_' + safeId).text(info.event.extendedProps.description || 'N/A');
 
-const eventModal = new bootstrap.Modal(document.getElementById(modalId));
-eventModal.show();
-      },
+  const safeId = info.event.id.replace(/[^a-zA-Z0-9]/g, '');
+  $('#orderNumberDetail_' + safeId).text(info.event.extendedProps.order_number || 'N/A');
+  $('#orderProductDetail_' + safeId).text(info.event.extendedProps.product_name || 'N/A');
+  $('#orderQuantityDetail_' + safeId).text(info.event.extendedProps.quantity || 'N/A');
+  $('#orderLocationDetail_' + safeId).text(info.event.extendedProps.location || 'N/A');
+  $('#orderDeliverTypeDetail_' + safeId).text(info.event.extendedProps.deliver_install_type || 'N/A');
+  $('#orderOutsourceCostDetail_' + safeId).text(info.event.extendedProps.outsource_cost ? 'RM ' + info.event.extendedProps.outsource_cost : 'N/A');
+  const orderLeadText = info.event.extendedProps.lead_text || 'N/A';
+  let orderLeadName = 'N/A', orderLeadCompany = 'N/A';
+  if (orderLeadText !== 'N/A' && orderLeadText !== 'Unknown') {
+    const parts = orderLeadText.split(' - ');
+    if (parts.length === 2) {
+      orderLeadCompany = parts[0];
+      orderLeadName = parts[1];
+    }
+  }
+  $('#orderLeadNameDetail_' + safeId).text(orderLeadName);
+  $('#orderLeadCompanyDetail_' + safeId).text(orderLeadCompany);
+  $('#orderDeadlineDetail_' + safeId).text(info.event.extendedProps.job_order_deadline ? moment(info.event.extendedProps.job_order_deadline).format('MMM DD, YYYY') : 'N/A');
+  let permitText = 'No Permit Attached';
+  if (info.event.extendedProps.permit_attachment) {
+    permitText = `<a href="${info.event.extendedProps.permit_attachment}" target="_blank" class="btn btn-sm btn-outline-primary">View Permit</a>`;
+  }
+  $('#orderPermitDetail_' + safeId).html(permitText);
+
+  const eventModal = new bootstrap.Modal(document.getElementById(modalId));
+  eventModal.show();
+},
       datesSet: function () {
         modifyToggler(orderCalendar);
       },

@@ -6,10 +6,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 class MaterialsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $materials = Material::with('materialType')->get();
         $types = MaterialType::all();
+        $materials = Material::with('materialType')->get();
+        if ($request->ajax()) {
+            return response()->json([
+                'materials' => $materials,
+                'types' => $types,
+            ]);
+        }
         return view('admin.materials.index', compact('materials', 'types'));
     }
     public function storeType(Request $request)

@@ -44,7 +44,7 @@
   .dropdown-item:hover{background:#F3F4F6}
   .text-danger{color:#DC2626}
   .pagination{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:0 20px 18px}
-  .pager{width:34px;height:34px;border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;background:#fff;cursor:pointer}
+  .pager{width:34px;height:34px;border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;background:#fff}
   .pager.active{background:#111827;color:#fff;border-color:#111827}
   /* ===== Custom modal (no bootstrap classes) ===== */
   .x-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:2000}
@@ -57,9 +57,7 @@
   .label{font-size:12px;color:var(--muted);margin-bottom:6px}
   .control{height:42px;border:1px solid var(--border);border-radius:10px;padding:0 12px;width:100%}
   .hidden{display:none!important}
-  .inactive td { color: var(--muted); }
-  .dropdown-menu .dropdown-item { opacity: 1; }
-  .swal2-container { z-index: 3000 !important; }
+  .inactive { color: var(--muted); opacity: 0.7; }
 </style>
 <div class="page-wrap">
   <div class="card">
@@ -95,29 +93,39 @@
             <th style="width:10%;text-align:right">Actions</th>
           </tr>
         </thead>
-@foreach($materials as $material)
-  <tr data-type="{{ $material->material_type_id }}" class="{{ $material->active ? '' : 'inactive' }}">
-    <td>{{ $material->materialName }}</td>
-    <td>{{ $material->materialType->name }}</td>
-    <td>RM {{ number_format($material->unitCost,4) }} / SQ INCH</td>
-    <td>{{ $material->active ? 'Active' : 'Inactive' }}</td>
-    <td style="text-align:right; position:relative">
-      <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
-        <i class="bi bi-three-dots-vertical"></i>
-      </button>
-      <div class="dropdown-menu">
-        <button class="dropdown-item btnEdit" data-id="{{ $material->MaterialID }}" data-name="{{ $material->materialName }}" data-type="{{ $material->material_type_id }}" data-cost="{{ $material->unitCost }}">
-          <i class="bi bi-pencil me-2"></i> Edit
-        </button>
-        <button class="dropdown-item btnToggle" data-id="{{ $material->MaterialID }}" data-active="{{ $material->active }}">
-          <i class="bi bi-toggle{{ $material->active ? 'on' : 'off' }} me-2"></i> {{ $material->active ? 'Deactivate' : 'Activate' }}
-        </button>
-      </div>
-    </td>
-  </tr>
-@endforeach
+        <tbody>
+          @foreach($materials as $material)
+            <tr data-type="{{ $material->material_type_id }}" class="{{ $material->active ? '' : 'inactive' }}">
+              <td>{{ $material->materialName }}</td>
+              <td>{{ $material->materialType->name }}</td>
+              <td>RM {{ number_format($material->unitCost,4) }} SQ INCH</td>
+              <td>{{ $material->active ? 'Active' : 'Inactive' }}</td>
+              <td style="text-align:right; position:relative">
+                <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <div class="dropdown-menu">
+                  <button class="dropdown-item btnEdit" data-id="{{ $material->MaterialID }}" data-name="{{ $material->materialName }}" data-type="{{ $material->material_type_id }}" data-cost="{{ $material->unitCost }}">
+                    <i class="bi bi-pencil me-2"></i> Edit
+                  </button>
+                  <button class="dropdown-item btnToggle" data-id="{{ $material->MaterialID }}" data-active="{{ $material->active }}">
+                    <i class="bi bi-toggle{{ $material->active ? 'on' : 'off' }} me-2"></i> {{ $material->active ? 'Deactivate' : 'Activate' }}
+                  </button>
+                  <button class="dropdown-item text-danger btnDelete" data-id="{{ $material->MaterialID }}"><i class="bi bi-trash me-2"></i> Delete</button>
+                </div>
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
       </table>
-
+      <div class="pagination">
+        <div class="pager" id="prev"><i class="bi bi-chevron-left"></i></div>
+        <div class="pager active">1</div>
+        <div class="pager" id="next"><i class="bi bi-chevron-right"></i></div>
+      </div>
+      <div style="padding:0 20px 18px;color:var(--muted);font-size:12px">
+        Showing <span id="countShown">{{ $materials->count() }}</span> of <span id="countTotal">{{ $materials->count() }}</span> materials
+      </div>
     </div>
   </div>
 </div>
@@ -129,9 +137,12 @@
       <button class="kebab" data-close="mdlTypes" aria-label="Close"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="x-bd" style="padding:0">
-      <div class="toolbar" style="padding:14px 20px;border-bottom:1px solid var(--border);justify-content:flex-end">
-        <button id="btnAddType" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Type</button>
-      </div>
+     <div class="toolbar" style="padding:14px 20px;border-bottom:1px solid var(--border); display:flex; justify-content:flex-end;">
+    <button id="btnAddType" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Add Type
+    </button>
+</div>
+
       <div style="overflow:auto;max-height:400px">
         <table id="tblTypes">
           <thead>
@@ -196,17 +207,15 @@
         <div class="label">Material Name *</div>
         <input id="matName" type="text" class="control" placeholder="e.g., PVC Banner, Foam Core Board">
       </div>
-   <div class="field">
-  <div class="label">Material Category *</div>
-  <select id="matType" class="control">
-    <option value="">Select category...</option>
-    @foreach($types as $type)
-      @if($type->active)
-        <option value="{{ $type->id }}">{{ $type->name }}</option>
-      @endif
-    @endforeach
-  </select>
-</div>
+      <div class="field">
+        <div class="label">Material Category *</div>
+        <select id="matType" class="control">
+          <option value="">Select category...</option>
+          @foreach($types as $type)
+            <option value="{{ $type->id }}">{{ $type->name }}</option>
+          @endforeach
+        </select>
+      </div>
       <div class="field">
         <div class="label">Unit Cost (RM) *</div>
         <input id="matCost" type="number" step="0.0001" class="control" placeholder="0.0069">
@@ -261,16 +270,24 @@
   const csrf = $('meta[name="csrf-token"]')?.content;
   function openMask(id){ const m = $(`#${id}`); if(m) m.style.display='flex' }
   function closeMask(id){ const m = $(`#${id}`); if(m) m.style.display='none' }
-  function applyFilter(){
-    const q = ($('#q')?.value || '').toLowerCase();
-    const type = $('#typeFilter')?.value || 'all';
-    $$('#tbl tbody tr').forEach(tr => {
-      const name = tr.children[0].textContent.toLowerCase();
-      const matType = tr.dataset.type;
-      const matchesSearch = name.includes(q);
-      const matchesType = type === 'all' || matType === type;
-      tr.style.display = matchesSearch && matchesType ? '' : 'none';
+  function applyFilter(tableId, qId, filterId){
+    const q = ($(qId)?.value || '').trim().toLowerCase();
+    const type = $(filterId)?.value || 'all';
+    let shown = 0;
+    $$(tableId + ' tbody tr').forEach(tr=>{
+      const name = tr.children[0].innerText.toLowerCase();
+      const tVal = tr.getAttribute('data-type') || '';
+      const ok = (!q || name.includes(q)) && (type==='all' || tVal===type);
+      tr.style.display = ok ? '' : 'none';
+      if(ok) shown++;
     });
+    return shown;
+  }
+  function applyFilters(){
+    const shownMat = applyFilter('#tbl', '#q', '#typeFilter');
+    const cs = $('#countShown');
+    if (cs) cs.textContent = shownMat;
+    applyFilter('#tblTypes', '#qType', null);
   }
   document.addEventListener('click', (e)=>{
     const t = e.target;
@@ -315,9 +332,8 @@
     if (togTypeBtn){
       const id = togTypeBtn.dataset.id;
       fetch(`/admin/material-types/${id}/toggle`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
-        body: JSON.stringify({_method: 'PATCH'})
+        method: 'PATCH',
+        headers: {'X-CSRF-TOKEN': csrf}
       }).then(res => res.json()).then(data => {
         if(data.success){
           const tr = togTypeBtn.closest('tr');
@@ -326,11 +342,40 @@
           togTypeBtn.dataset.active = data.active;
           togTypeBtn.innerHTML = `<i class="bi bi-toggle${data.active ? 'on' : 'off'} me-2"></i> ${data.active ? 'Deactivate' : 'Activate'}`;
           tr.classList.toggle('inactive', !data.active);
-          applyFilter();
+          applyFilters();
         } else {
           Swal.fire({ icon: 'error', title: 'Error toggling' });
         }
       }).catch(() => Swal.fire({ icon: 'error', title: 'Error' }));
+      return;
+    }
+    const delTypeBtn = t.closest('.btnDeleteType');
+    if (delTypeBtn){
+      Swal.fire({
+        title: 'Are you sure?',
+        text: "You won't be able to revert this!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, delete it!'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          const id = delTypeBtn.dataset.id;
+          fetch(`/admin/material-types/${id}`, {
+            method: 'DELETE',
+            headers: {'X-CSRF-TOKEN': csrf}
+          }).then(res => res.json()).then(data => {
+            if(data.success){
+              delTypeBtn.closest('tr').remove();
+              Swal.fire('Deleted!', 'The material type has been deleted.', 'success');
+              location.reload(); // to update type selects
+            } else {
+              Swal.fire({ icon: 'error', title: 'Error deleting' });
+            }
+          }).catch(() => Swal.fire({ icon: 'error', title: 'Error' }));
+        }
+      });
       return;
     }
     const editBtn = t.closest('.btnEdit');
@@ -352,9 +397,8 @@
     if (togBtn){
       const id = togBtn.dataset.id;
       fetch(`/admin/materials/${id}/toggle`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
-        body: JSON.stringify({_method: 'PATCH'})
+        method: 'PATCH',
+        headers: {'X-CSRF-TOKEN': csrf}
       }).then(res => res.json()).then(data => {
         if(data.success){
           const tr = togBtn.closest('tr');
@@ -363,11 +407,41 @@
           togBtn.dataset.active = data.active;
           togBtn.innerHTML = `<i class="bi bi-toggle${data.active ? 'on' : 'off'} me-2"></i> ${data.active ? 'Deactivate' : 'Activate'}`;
           tr.classList.toggle('inactive', !data.active);
-          applyFilter();
+          applyFilters();
         } else {
           Swal.fire({ icon: 'error', title: 'Error toggling' });
         }
       }).catch(() => Swal.fire({ icon: 'error', title: 'Error' }));
+      return;
+    }
+    const delBtn = t.closest('.btnDelete');
+    if (delBtn){
+      Swal.fire({
+        title: 'Are you sure?',
+        text: "You won't be able to revert this!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, delete it!'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          const id = delBtn.dataset.id;
+          fetch(`/admin/materials/${id}`, {
+            method: 'DELETE',
+            headers: {'X-CSRF-TOKEN': csrf}
+          }).then(res => res.json()).then(data => {
+            if(data.success){
+              delBtn.closest('tr').remove();
+              $('#countTotal').textContent = Number($('#countTotal').textContent) - 1;
+              applyFilters();
+              Swal.fire('Deleted!', 'The material has been deleted.', 'success');
+            } else {
+              Swal.fire({ icon: 'error', title: 'Error deleting' });
+            }
+          }).catch(() => Swal.fire({ icon: 'error', title: 'Error' }));
+        }
+      });
       return;
     }
     if (t.closest('#saveTypeBtn')){
@@ -375,12 +449,11 @@
       if(!name) return Swal.fire({ icon: 'warning', title: 'Please enter a material type name' });
       const id = $('#saveTypeBtn').dataset.id;
       const url = id ? `/admin/material-types/${id}` : '{{ route("admin.material-types.store") }}';
-      const method = id ? 'POST' : 'POST';
-      const postBody = id ? {typeName: name, _method: 'PUT'} : {typeName: name};
+      const method = id ? 'PUT' : 'POST';
       fetch(url, {
         method,
         headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
-        body: JSON.stringify(postBody)
+        body: JSON.stringify({typeName: name})
       }).then(res => res.json()).then(data => {
         if(data.success){
           const selIds = ['typeFilter', 'matType', 'qeType'];
@@ -420,6 +493,7 @@
                     <button class="dropdown-item btnToggleType" data-id="${data.type.id}" data-active="true">
                       <i class="bi bi-toggleon me-2"></i> Deactivate
                     </button>
+                    <button class="dropdown-item text-danger btnDeleteType" data-id="${data.type.id}"><i class="bi bi-trash me-2"></i> Delete</button>
                   </div>
                 </td>
               `;
@@ -427,8 +501,7 @@
             }
           }
           closeMask('mdlType');
-          Swal.fire({ icon: 'success', title: 'Success', text: 'Material type saved successfully.', timer: 1500, showConfirmButton: false });
-          applyFilter();
+          applyFilters();
         } else {
           Swal.fire({ icon: 'error', title: 'Error saving type' });
         }
@@ -450,64 +523,81 @@
         body: JSON.stringify(postData)
       }).then(res => res.json()).then(data => {
         if (data.success) {
+          const m = data.material;
+          const tr = document.createElement('tr');
+          tr.setAttribute('data-type', m.material_type_id);
+          tr.classList.add(m.active ? '' : 'inactive');
+          tr.innerHTML = `
+            <td>${m.materialName}</td>
+            <td>${m.materialType.name}</td>
+            <td>RM ${Number(m.unitCost).toFixed(4)} SQ INCH</td>
+            <td>${m.active ? 'Active' : 'Inactive'}</td>
+            <td style="text-align:right; position:relative">
+              <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
+              <div class="dropdown-menu">
+                <button class="dropdown-item btnEdit" data-id="${m.MaterialID}" data-name="${m.materialName}" data-type="${m.material_type_id}" data-cost="${m.unitCost}">
+                  <i class="bi bi-pencil me-2"></i> Edit
+                </button>
+                <button class="dropdown-item btnToggle" data-id="${m.MaterialID}" data-active="${m.active}">
+                  <i class="bi bi-toggle${m.active ? 'on' : 'off'} me-2"></i> ${m.active ? 'Deactivate' : 'Activate'}
+                </button>
+                <button class="dropdown-item text-danger btnDelete" data-id="${m.MaterialID}"><i class="bi bi-trash me-2"></i> Delete</button>
+              </div>
+            </td>
+          `;
+          $('#tbl tbody').append(tr);
+          $('#countTotal').textContent = Number($('#countTotal').textContent) + 1;
           closeMask('mdlMaterial');
-          Swal.fire({ icon: 'success', title: 'Success', text: 'Material added successfully.', timer: 1500, showConfirmButton: false }).then(() => location.reload());
+          applyFilters();
+          Swal.fire({ icon: 'success', title: 'Success', text: 'Material added successfully.', timer: 1500, showConfirmButton: false });
         } else {
           Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Failed to save material.' });
         }
       }).catch(() => Swal.fire({ icon: 'error', title: 'Request Failed' }));
       return;
     }
-if (t.closest('#btnSaveQuick')){
-  const postData = {
-    qeName: $('#qeName').value.trim(),
-    qeType: $('#qeType').value,
-    qeNew: parseFloat($('#qeNew').value),
-  };
-  const id = $('#qeId').value;
-  if (!id) return Swal.fire({ icon: 'warning', title: 'Missing ID' });
-  if (isNaN(postData.qeNew)) return Swal.fire({ icon: 'warning', title: 'Please enter a valid unit cost' });
-  fetch(`/admin/materials/update/${id}`, {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
-    body: JSON.stringify(postData)
-  }).then(res => res.json())
-  .then(data => {
-    console.log("DEBUG:", data);
-    if (data.success) {
-      closeMask('mdlQuickEdit');
-      Swal.fire({
-        icon: 'success',
-        title: 'Success',
-        text: 'Material updated successfully.',
-        timer: 1500,
-        showConfirmButton: false
-      }).then(() => location.reload());
-    } else {
-      Swal.fire({
-        icon: 'error',
-        title: 'Update Failed',
-        text: data.message ?? 'Unknown error occurred'
-      });
+    if (t.closest('#btnSaveQuick')){
+      const postData = {
+        qeName: $('#qeName').value.trim(),
+        qeType: $('#qeType').value,
+        qeNew: parseFloat($('#qeNew').value),
+      };
+      const id = $('#qeId').value;
+      if(isNaN(postData.qeNew)) return Swal.fire({ icon: 'warning', title: 'Please enter a valid unit cost' });
+      fetch(`/admin/materials/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
+        body: JSON.stringify(postData)
+      }).then(res => res.json()).then(data => {
+        if(data.success){
+          const tr = $$('#tbl tbody tr').find(tr => tr.querySelector('.btnEdit').dataset.id === id);
+          if(tr){
+            tr.children[0].textContent = postData.qeName || tr.children[0].textContent;
+            tr.children[1].textContent = data.material.materialType.name;
+            tr.children[2].textContent = `RM ${Number(postData.qeNew).toFixed(4)} SQ INCH`;
+            tr.dataset.type = postData.qeType;
+            const btn = tr.querySelector('.btnEdit');
+            btn.dataset.name = tr.children[0].textContent;
+            btn.dataset.type = postData.qeType;
+            btn.dataset.cost = postData.qeNew;
+          }
+          closeMask('mdlQuickEdit');
+          applyFilters();
+        } else {
+          Swal.fire({ icon: 'error', title: 'Error updating' });
+        }
+      }).catch(() => Swal.fire({ icon: 'error', title: 'Error' }));
+      return;
     }
-  })
-  .catch(err => {
-    console.error("FETCH ERROR:", err);
-    Swal.fire({
-      icon: 'error',
-      title: 'Request Failed',
-      text: err.message
-    });
-  });
-  return;
-}
   });
   ['input','change'].forEach(ev=>{
     document.addEventListener(ev, (e)=>{
-      if (['q','typeFilter'].includes(e.target.id)) applyFilter();
+      if (['q','typeFilter','qType'].includes(e.target.id)) applyFilters();
     });
   });
-  window.addEventListener('load', applyFilter);
+  window.addEventListener('load', applyFilters);
   document.querySelector('#tbl tbody').addEventListener('dblclick', e => {
     const tr = e.target.closest('tr');
     if (tr) {

@@ -114,7 +114,12 @@ class CalendarController extends Controller
             });
         })
         ->when($salespersonId > 0, function ($query) use ($salespersonId) {
-            $query->where('meetings.user_id', $salespersonId);
+            // CHANGED: Filter by lead's salesperson_id instead of meeting's user_id
+            $query->where('leads.salesperson_id', $salespersonId);
+        })
+        ->when($user->hasRole('salesperson') && !$user->hasRole('head-salesperson') && !$user->hasRole('admin'), function ($query) use ($user) {
+            // CHANGED: Force filter by user's id on lead's salesperson_id for non-head salespeople
+            $query->where('leads.salesperson_id', $user->id);
         });
 
     $meetings = $meetingsQuery->get();

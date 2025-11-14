@@ -220,7 +220,7 @@ class CalendarController extends Controller
     return response()->json($allEvents);
 }
 
-   public function orderEvents(Request $request)
+  public function orderEvents(Request $request)
     {
         $user = Auth::user();
         if (!($user->hasRole('admin') || $user->hasRole('boss'))) {
@@ -247,6 +247,8 @@ class CalendarController extends Controller
                 'products.productName',
                 'orders.order_number',
                 'orders.id as order_id',
+                'orders.deadline as job_order_deadline',
+                DB::raw('(SELECT pp.permit_file FROM product_permit pp WHERE pp.product_id = products.ProductID ORDER BY pp.uploaded_at DESC LIMIT 1) as permit_attachment'),
                 'users.name as salesperson_name',
                 'leads.company_name',
                 'leads.name as lead_name'
@@ -290,6 +292,8 @@ $title = $methodDisplay . ' ' . $delivery->order_number . ' - ' . $delivery->pro
                     'order_number' => $delivery->order_number,
                     'product_name' => $delivery->productName,
                     'order_date' => $delivery->order_date ?? null,
+                    'job_order_deadline' => $delivery->job_order_deadline,
+                    'permit_attachment' => $delivery->permit_attachment,
                 ],
                 'backgroundColor' => $color,
                 'borderColor' => $color,
@@ -299,5 +303,7 @@ $title = $methodDisplay . ' ' . $delivery->order_number . ' - ' . $delivery->pro
 
         return response()->json($deliveries->toArray());
     }
+
+
 
 }
