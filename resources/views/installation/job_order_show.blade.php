@@ -770,6 +770,7 @@
     @php
     // user can edit only when order is accepted=1 and not rejected
     $canEdit = ((int)($header->accepted ?? 0) === 1) && strtolower((string)($header->orderStatus ?? '')) !== 'rejected';
+    $canInstallEdit = ((int)($header->installation_accepted ?? 0) === 1) && strtolower((string)($header->orderStatus ?? '')) !== 'rejected';
     @endphp
 
     @php
@@ -1045,7 +1046,7 @@
 
 
     {{-- Add Remarks（编辑态出现） --}}
-    @if($canEdit)
+    @if($canEdit || $canInstallEdit)
     <div class="card soft mb-4 edit-only">
       <div class="card-body">
         <div class="section-hd"><i class="bi bi-chat-dots"></i> Add Remarks</div>
@@ -1122,9 +1123,9 @@
     </form>
 
     @php
+      $isHistoryView = (bool)($isHistoryView ?? false);
       $role = auth()->user()->role ?? '';
 
-      // role → stage
       $roleToStage = [
         'operations-printing'              => 'printing',
         'operation-furnishing'             => 'furnishing',
@@ -1134,27 +1135,65 @@
 
       $myStage   = $roleToStage[$role] ?? null;
       $prodStage = strtolower((string)($header->taskType ?? ''));
-      $allowDeliveryOverride = ($prodStage === 'delivery');
-      $canSeeDecision = empty($isHistoryView)
-        && ( ($myStage === $prodStage) || $allowDeliveryOverride )
-        && strtolower((string)($header->orderStatus ?? '')) !== 'rejected'
-        && (int)($header->accepted ?? 0) === 0;
 
-      $canEditThisStage = empty($isHistoryView) && $canEdit && ( ($myStage === $prodStage) || $allowDeliveryOverride );
+      $orderNotRejected = strtolower((string)($header->orderStatus ?? '')) !== 'rejected';
 
+      // main accepted flags (for the "normal" stage)
       $isRejected = isset($header->accepted) && (int)$header->accepted === 0;
       $isAccepted = isset($header->accepted) && (int)$header->accepted === 1;
       $isPending  = !isset($header->accepted) || $header->accepted === null;
 
+      // installation fields
+      $installationTaskType = (int)($header->installation_task_type ?? 0);
+      $installationAccepted = $header->installation_accepted ?? null;
+      $installationStatus = strtolower((string)($header->installation_status ?? ''));
+      $installationNotCompleted = $installationStatus !== 'completed';
+
+      $hasInstallationStage    = ($installationTaskType === 1);
+      $isInstallationUser      = ($myStage === 'installation');
+      $installationPending     = $hasInstallationStage && ($installationAccepted === null);
+      $installationAcceptedYes = $hasInstallationStage && ((int)($installationAccepted ?? 0) === 1);
+
+      $canSeeDecision = empty($isHistoryView)
+        && $orderNotRejected
+        && (
+            // normal stage accept
+            ($myStage === $prodStage && $isPending)
+
+            // installation override accept
+            || ($isInstallationUser 
+                && $hasInstallationStage 
+                && $installationPending 
+                && $installationNotCompleted)
+        );
+
       $isCompleted = strtolower((string)($header->status ?? '')) === 'completed';
 
+      $canEditThisStage = !$isHistoryView && (
+
+        ($myStage === $prodStage
+          && $prodStage === 'installation'
+          && $isAccepted
+          && !$isCompleted)
+
+        ||
+
+        ($isInstallationUser 
+          && $hasInstallationStage 
+          && $installationAcceptedYes 
+          && $installationNotCompleted)
+      );
+
+      if ($isHistoryView) {
+          $canSeeDecision   = false;
+          $canEditThisStage = false;
+      }
+
+      // (DB/productName retrieval code below can stay)
       use Illuminate\Support\Facades\DB;
       use Illuminate\Support\Facades\Request;
 
-      // Get current product ID from URL, e.g. /installation/job/44
       $productId = (int) Request::route('product');
-
-      // Fetch product name directly from DB (ensures correct product)
       $productName = DB::table('products')->where('ProductID', $productId)->value('productName');
     @endphp
     
@@ -1169,7 +1208,7 @@
             <a href="{{ route('installation.dashboard') }}" class="btn btn-back">Back</a>
           @endif
           
-          @if ($isPending && $canSeeDecision)
+          @if ($canSeeDecision)
             <button type="button" id="btnAccept" class="btn btn-accept">
               <i class="bi bi-check2"></i> Accept
             </button>
@@ -1179,7 +1218,7 @@
             <a href="{{ route('installation.dashboard') }}" class="btn btn-back">Back</a>
           @endif
 
-          @if ($isAccepted && $canEditThisStage && !$isCompleted)
+          @if (!$isHistoryView && $canEditThisStage)
             <div class="toolbar">
               <button type="button" id="btnEdit" class="btn btn-back">
                 <i class="bi bi-pencil"></i> Edit

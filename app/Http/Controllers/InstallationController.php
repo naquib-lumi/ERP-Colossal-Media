@@ -423,12 +423,15 @@ class InstallationController extends Controller
         ]);
     }
 
-    public function completeWithProof(Request $request, int $product)
+    public function completeWithProof(Request $request, $product)
     {
+        // force to integer ProductID (0 if invalid)
+        $productId = (int) $product;
+
         // Load product + order info up-front for notifications
         $p = DB::table('products')
-            ->where('ProductID', $product)
-            ->select('ProductID','productName','OrderID')
+            ->where('ProductID', $productId)
+            ->select('ProductID','productName','OrderID', 'taskType', 'installation_task_type')
             ->first();
 
         if (!$p) {
@@ -457,17 +460,17 @@ class InstallationController extends Controller
         $userId = (int)($request->user()->id ?? 0);
         $now    = now();
 
-        DB::transaction(function () use ($validated, $product, $orderId, $userId, $now) {
+        DB::transaction(function () use ($validated, $productId, $orderId, $userId, $now, $p) {
 
             // 1) Store images
             $records = [];
             foreach ($validated['photos'] as $file) {
-                $dir  = "installation_proofs/{$product}";
+                $dir  = "installation_proofs/{$productId}";
                 $name = Str::uuid()->toString().'.'.$file->getClientOriginalExtension();
                 $path = $file->storeAs($dir, $name, 'public');  // storage/app/public/...
 
                 $records[] = [
-                    'ProductID'     => $product,
+                    'ProductID'     => $productId,
                     'OrderID'       => $orderId,
                     'file_path'     => $path,
                     'original_name' => $file->getClientOriginalName(),
@@ -485,7 +488,7 @@ class InstallationController extends Controller
 
             // 2) Mark INSTALLATION stage completed in fulfillment_progress
             $existing = DB::table('fulfillment_progress')
-                ->where('ProductID', $product)
+                ->where('ProductID', $productId)
                 ->where('stage', 'installation')
                 ->lockForUpdate()
                 ->first();
@@ -500,7 +503,7 @@ class InstallationController extends Controller
                     ]);
             } else {
                 DB::table('fulfillment_progress')->insert([
-                    'ProductID'   => $product,
+                    'ProductID'   => $productId,
                     'stage'       => 'installation',
                     'acceptedAt'  => null,
                     'completedAt' => $now,
@@ -510,12 +513,22 @@ class InstallationController extends Controller
                 ]);
             }
 
+            $productStage = strtolower((string) ($p->taskType ?? ''));
+            $hasInstallStage = ((int)($p->installation_task_type ?? 0) === 1);
+
+            $updateProduct = ['updated_at' => $now];
+
+            if ($productStage === 'installation') {
+                // original behaviour
+                $updateProduct['status'] = 'completed';
+            } elseif ($hasInstallStage) {
+                // delivery + installation scenario
+                $updateProduct['installation_status'] = 'completed';
+            }
+
             DB::table('products')
-                ->where('ProductID', $product)
-                ->update([
-                    'status'     => 'completed',
-                    'updated_at' => $now,
-            ]);
+            ->where('ProductID', $productId)
+            ->update($updateProduct);
 
         });
 

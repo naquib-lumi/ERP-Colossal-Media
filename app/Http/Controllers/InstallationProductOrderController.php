@@ -107,6 +107,9 @@ class InstallationProductOrderController extends Controller
                 'o.orderAttachment',
                 'o.status as orderStatus',
                 'p.accepted',
+                // 🔹 NEW: installation fields
+                'p.installation_task_type',
+                'p.installation_accepted',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
                 DB::raw('COALESCE(de.name, "") as data_entry_name'),
             ])
@@ -149,6 +152,9 @@ class InstallationProductOrderController extends Controller
             'orderStatus'   => $headerRow->orderStatus,
             'accepted'      => $headerRow->accepted,
             'data_entry_name' => $headerRow->data_entry_name,
+            // 🔹 NEW: pass installation info to view
+            'installation_task_type' => $headerRow->installation_task_type,
+            'installation_accepted'  => $headerRow->installation_accepted,
         ];
 
         $canEdit = ((int)($headerRow->accepted ?? 0) === 1) && (strtolower((string)($headerRow->orderStatus ?? '')) !== 'rejected');
@@ -468,12 +474,38 @@ class InstallationProductOrderController extends Controller
         }
 
         DB::transaction(function () use ($product, $stage, $now) {
-            // 1️⃣ Update product's accepted flag to 1
-            DB::table('products')->where('ProductID', $product)->update([
-                'accepted' => 1,
-                'installation_accepted' => DB::raw('CASE WHEN installation_task_type=1 THEN 1 ELSE installation_accepted END'),
+            // Load full product row to check taskType
+            $prod = DB::table('products')
+                ->where('ProductID', $product)
+                ->select('taskType', 'installation_task_type')
+                ->first();
+
+            if (!$prod) {
+                throw new \Exception('Product not found.');
+            }
+
+            $isInstallationUser = ($stage === 'installation');
+            $isInstallationTaskType = ((int)$prod->installation_task_type === 1);
+
+            // --------------------------
+            // Decide what to update
+            // --------------------------
+            $updateData = [
                 'updated_at' => $now,
-            ]);
+            ];
+
+            // 1️⃣ If this stage IS the main taskType → normal accept
+            if ($stage === strtolower($prod->taskType)) {
+                $updateData['accepted'] = 1;
+            }
+
+            // 2️⃣ Installation override case (taskType != installation but installation_task_type = 1)
+            if ($isInstallationUser && $isInstallationTaskType) {
+                $updateData['installation_accepted'] = 1;
+            }
+
+            // 1️⃣ Update product's accepted flag to 1
+            DB::table('products')->where('ProductID', $product)->update($updateData);
 
             // 2️⃣ Upsert fulfillment_progress
             DB::table('fulfillment_progress')->upsert(
@@ -705,6 +737,10 @@ class InstallationProductOrderController extends Controller
                 'products.ProductID',
                 'products.productName',
                 'products.accepted',
+                'products.installation_task_type',
+                'products.taskType as taskType',
+                'products.installation_accepted',
+                'products.installation_status',
                 'orders.id as order_id',
                 'orders.order_number',
                 'orders.orderStatus',
@@ -712,7 +748,29 @@ class InstallationProductOrderController extends Controller
                 'orders.salesperson_id')
             ->first();
 
-        if (!$order || (int)($order->accepted ?? 0) !== 1 || strtolower((string)$order->orderStatus) === 'rejected') {
+        if (!$order) {
+            return back()->with('error', 'This job cannot be edited.');
+        }
+
+        $orderRejected = strtolower((string)$order->orderStatus) === 'rejected';
+
+        $taskType = strtolower((string)$order->taskType);
+        $hasInstallationStage   = ((int)$order->installation_task_type === 1);
+        $installationAccepted   = ((int)($order->installation_accepted ?? 0) === 1);
+        $installationStatus     = strtolower((string)($order->installation_status ?? ''));
+        $installationInProgress = ($installationStatus === 'in_progress');
+
+        // a) normal flow: main accepted flag
+        $normalEditable = ((int)($order->accepted ?? 0) === 1);
+
+        // b) delivery + installation: your new rule
+        $installationEditable =
+            $hasInstallationStage
+            && $installationAccepted
+            && $installationInProgress
+            && $taskType !== 'installation';
+
+        if ($orderRejected || (!$normalEditable && !$installationEditable)) {
             return back()->with('error', 'This job cannot be edited.');
         }
 
@@ -863,13 +921,43 @@ class InstallationProductOrderController extends Controller
 
     private function assertRoleMatchesProductStage(int $productId): void
     {
-        $row = DB::table('products')->select('taskType')->where('ProductID', $productId)->first();
+        $row = DB::table('products')
+            ->select('taskType', 'installation_task_type', 'installation_accepted', 'installation_status')
+            ->where('ProductID', $productId)
+            ->first();
+
         abort_unless($row, 404, 'Product not found.');
 
         $productStage = strtolower((string)($row->taskType ?? ''));
         $roleStage    = $this->stageForRole(request()->user());
 
-        abort_unless($productStage === $roleStage, 403, 'Not allowed to act on this stage.');
+        // Normal case: role stage must match product stage
+        if ($productStage === $roleStage) {
+            return;
+        }
+
+        // Special case: installation user may act on delivery+installation products
+        $isInstallationUser   = ($roleStage === 'installation');
+        $installationTaskType = (int)($row->installation_task_type ?? 0);
+        $installationAccepted = $row->installation_accepted ?? null;
+        $installationStatus = strtolower((string)($row->installation_status ?? ''));
+        $hasInstallationStage = ($installationTaskType === 1);
+
+        // 1) Before installation accept (for Accept/Reject)
+        $canBeforeAccept =
+            $hasInstallationStage
+            && $installationAccepted === null
+            && $installationStatus !== 'completed';
+
+        // 2) After installation accepted but still in progress (for Edit/Save)
+        $canAfterAccept =
+            $hasInstallationStage
+            && ((int)($installationAccepted ?? 0) === 1)
+            && $installationStatus === 'in_progress';
+
+        $canOverride = $isInstallationUser && ($canBeforeAccept || $canAfterAccept);
+
+        abort_unless($canOverride, 403, 'Not allowed to act on this stage.');
     }
 
 }
