@@ -653,10 +653,10 @@
             <th>Company</th>
             <th>Task Type</th>
             <th>Status</th>
+            <th>Deadline</th>
             <th>Delivery Date</th>
             <th>Location</th>
             <th>Install Type</th>
-            <th>Outsource Cost</th>
             <th class="text-center">Permit</th>
             <th class="text-end" style="min-width:120px;">Actions</th>
           </tr>
@@ -681,21 +681,32 @@
           };
           @endphp
           
-          <tr>
+          <tr id="job-{{ $r->product_id }}" class="js-row-open" data-code="{{ $r->product_code }}" data-href="{{ route('admin.fulfillment.product.show', $r->product_id) }}" style="cursor:pointer;">
             <td class="fw-semibold">{{ $r->product_code }}</td>
             <td>{{ $r->order_title ?? '-' }}</td>
             <td>{{ $r->company ?? '-' }}</td>
             <td><span class="badge {{ $taskClass }}">{{ $taskLabel }}</span></td>
-            <td><span class="badge {{ $statusClass }}">
+            <td>
+              <span class="badge {{ $statusClass }}">
                 {{ \Illuminate\Support\Str::of($r->status)->replace('_', ' ')->title() ?: '-' }}
-              </span></td>
+              </span>
+            </td>
+
+            {{-- Deadline (from orders.deadline) --}}
+            <td>
+              @if(!empty($r->deadline))
+                {{ $r->deadline }}
+              @else
+                —
+              @endif
+            </td>
 
             {{-- Delivery date: show exclamation if missing --}}
             <td>
               @if($r->delivery_dt)
-              {{ $r->delivery_dt }}
+                {{ $r->delivery_dt }}
               @else
-              <i class="bi bi-exclamation-circle text-warning" title="Missing delivery date"></i>
+                <i class="bi bi-exclamation-circle text-warning" title="Missing delivery date"></i>
               @endif
             </td>
 
@@ -717,14 +728,6 @@
               };
             @endphp
             <td>{{ $installLabel }}</td>
-
-            <td>
-              @if(!is_null($r->outsource_cost))
-              RM {{ number_format($r->outsource_cost, 2) }}
-              @else
-              —
-              @endif
-            </td>
 
             {{-- Permit upload trigger (ensure icon visible) --}}
             <td class="text-center">
@@ -952,5 +955,14 @@
     fromInput?.addEventListener('change', syncMin);
     syncMin();
   });
+
+  document.addEventListener('dblclick', function(e) {
+  const tr = e.target.closest('tr.js-row-open');
+  if (!tr) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+  const url = tr.dataset.href;
+  if (url) window.location.href = url;
+});
 </script>
 @endsection
