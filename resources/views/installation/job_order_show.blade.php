@@ -1087,32 +1087,73 @@
           <span class="uploader-chip ms-auto">{{ $uploader }}</span>
         </div>
         @php
-        // If you later pass real $attachments, this will render them. Keeping demo fallback.
-        $files = $attachments ?? [
-        ['name' => 'requirements.pdf', 'size' => '1.2 MB', 'url' => '#'],
-        ['name' => 'logo.png', 'size' => '856 KB', 'url' => '#'],
-        ['name' => 'design-specs.pdf','size' => '2.4 MB', 'url' => '#'],
-        ];
+          $files = $attachments ?? [];
         @endphp
-        @foreach($files as $f)
-        @php
-        $n = strtolower($f['name'] ?? '');
-        $icon = (str_ends_with($n, '.pdf') ? 'file-earmark-pdf'
-        : (preg_match('/\.(png|jpe?g|gif|svg)$/', $n) ? 'file-earmark-image' : 'file-earmark'));
-        @endphp
-        <div class="file-row">
-          <div class="file-meta">
-            <i class="bi bi-{{ $icon }}"></i>
-            <div>
-              <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
-              <div class="file-size">{{ $f['size'] ?? '' }}</div>
+
+        @if (count($files) === 0)
+          <div class="text-muted small">No attachments uploaded.</div>
+        @else
+          @foreach($files as $f)
+            @php
+              $n = strtolower($f['name'] ?? '');
+              $icon = (str_ends_with($n, '.pdf') ? 'file-earmark-pdf'
+                      : (preg_match('/\.(png|jpe?g|gif|svg)$/', $n) ? 'file-earmark-image' : 'file-earmark'));
+            @endphp
+            <div class="file-row">
+              <div class="file-meta">
+                <i class="bi bi-{{ $icon }}"></i>
+                <div>
+                  <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
+                  <div class="file-size">{{ $f['size'] ?? '' }}</div>
+                </div>
+              </div>
+              <a class="btn btn-light border btn-sm" href="{{ $f['url'] ?? '#' }}" target="_blank">
+                <i class="bi bi-eye me-1"></i>View
+              </a>
             </div>
-          </div>
-          <a class="btn btn-light border btn-sm" href="{{ $f['url'] ?? '#' }}"><i class="bi bi-eye me-1"></i>View</a>
-        </div>
-        @endforeach
+          @endforeach
+        @endif
       </div>
     </div>
+
+    {{-- Permit Attachments --}}
+        @php
+          $permitFiles = $permitAttachments ?? [];
+        @endphp
+
+        @if (count($permitFiles))
+          <div class="card soft mb-4">
+            <div class="card-body">
+              <div class="d-flex align-items-center mb-2">
+                <div class="section-hd mb-0">
+                  <i class="bi bi-file-earmark-lock2"></i> Permit Attachments
+                </div>
+              </div>
+
+              @foreach($permitFiles as $f)
+                @php
+                  $n = strtolower($f['name'] ?? '');
+                  $icon = (str_ends_with($n, '.pdf') ? 'file-earmark-pdf'
+                          : (preg_match('/\.(png|jpe?g|gif|svg)$/', $n) ? 'file-earmark-image' : 'file-earmark'));
+                @endphp
+                <div class="file-row">
+                  <div class="file-meta">
+                    <i class="bi bi-{{ $icon }}"></i>
+                    <div>
+                      <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
+                      <div class="file-size">{{ $f['size'] ?? '' }}</div>
+                    </div>
+                  </div>
+                  <a class="btn btn-light border btn-sm"
+                    href="{{ $f['url'] ?? '#' }}"
+                    target="_blank">
+                    <i class="bi bi-eye me-1"></i>View
+                  </a>
+                </div>
+              @endforeach
+            </div>
+          </div>
+        @endif
     <form id="acceptForm" method="POST" action="{{ route('installation.orders.accept', $header->ProductID) }}" style="display:none">
       @csrf
     </form>

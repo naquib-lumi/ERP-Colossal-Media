@@ -318,9 +318,12 @@
           <span id="qtyRemaining">{{ (int)($product->totalQuantity ?? 0) }}</span>
         </div>
       </div>
-
+      @php
+          $isCompleted = strtolower((string) $product->status) === 'completed';
+      @endphp
       {{-- Edit + Add Row buttons --}}
       <div class="ms-3 d-flex align-items-center gap-2">
+        @if(!$isCompleted)
         <button type="button" class="btn btn-sm btn-primary" id="btnEdit">
           <i class="bi bi-pencil-square me-1"></i> Edit
         </button>
@@ -329,6 +332,7 @@
         <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnAddRow">
           <i class="bi bi-plus-circle me-1"></i> Add Delivery
         </button>
+        @endif
       </div>
 
     </div>
@@ -338,7 +342,7 @@
       @csrf
       @method('PUT')
 
-      <div class="table-responsive">
+      <div class="table-responsive delivery-row">
         
         <table class="table table-sm align-middle">
           <thead>
@@ -382,7 +386,7 @@
             @endphp
             <td>
               <select name="rows[{{ $d->BreakdownID }}][method]"
-                      class="form-select form-select-sm js-method">
+                      class="form-select form-select-sm js-method delivery-method" required>
                 <option value="">—</option>
                 <option value="delivery_installation" {{ $canon==='delivery_installation' ? 'selected' : '' }}>Delivery &amp; Installation</option>
                 <option value="courier" {{ $canon==='courier' ? 'selected' : '' }}>Courier</option>
@@ -393,12 +397,12 @@
             <td style="max-width:100px;">
               <input type="number"
                     name="rows[{{ $d->BreakdownID }}][quantity]"
-                    class="form-control form-control-sm qty-input"
+                    class="form-control form-control-sm qty-input delivery-qty"
                     value="{{ (int)($d->quantity ?? 0) }}"
                     min="1"
                     step="1"
                     inputmode="numeric"
-                    onkeydown="return !['e','E','+','-','.'].includes(event.key)">
+                    onkeydown="return !['e','E','+','-','.'].includes(event.key)" required>
             </td>
 
             {{-- Install fields (will be disabled unless method == delivery_installation) --}}
@@ -622,7 +626,7 @@
 
       <td>
         <select name="rows[${key}][method]"
-                class="form-select form-select-sm js-method">
+                class="form-select form-select-sm js-method delivery-method" required>
           <option value="">—</option>
           <option value="delivery_installation">Delivery &amp; Installation</option>
           <option value="courier">Courier</option>
@@ -632,12 +636,12 @@
 
       <td style="max-width:100px;">
         <input type="number"
-               class="form-control form-control-sm qty-input"
+               class="form-control form-control-sm qty-input delivery-qty"
                name="rows[${key}][quantity]"
                min="1"
                step="1"
                inputmode="numeric"
-               onkeydown="return !['e','E','+','-','.'].includes(event.key)">
+               onkeydown="return !['e','E','+','-','.'].includes(event.key)" required>
       </td>
 
       <td>
@@ -994,5 +998,43 @@ $(document).on('input', '.qty-input', function () {
     observer.observe(tbody, { childList: true, subtree: true });
   }
 })();
+
+// Validate Delivery Form Before Submit (Frontend)
+// document.addEventListener("click", function (e) {
+//     if (e.target.closest("#btnSaveDeliveries")) {
+
+//         let hasError = false;
+//         let errorMsg = "";
+
+//         document.querySelectorAll(".delivery-row").forEach(function (row) {
+
+//             const method = row.querySelector(".delivery-method")?.value?.trim();
+//             const qty     = row.querySelector(".delivery-qty")?.value;
+
+//             if (!method) {
+//                 hasError = true;
+//                 errorMsg = "Method is required for all delivery rows.";
+//             }
+
+//             if (!qty || qty <= 0) {
+//                 hasError = true;
+//                 errorMsg = "Quantity must be entered and greater than 0.";
+//             }
+//         });
+
+//         if (hasError) {
+//             e.preventDefault();
+//             Swal.fire({
+//                 icon: "warning",
+//                 title: "Missing Required Fields",
+//                 text: errorMsg,
+//                 confirmButtonColor: "#7367F0"
+//             });
+//             return false;
+//         }
+
+//         return true;
+//     }
+// });
 </script>
 @endpush

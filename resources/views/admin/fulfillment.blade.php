@@ -747,13 +747,24 @@
               @endif
             </td>
 
-            {{-- Actions (restore) --}}
+            {{-- Actions --}}
             <td class="text-end">
               <div class="btn-actions">
+                @php
+                  $isCompleted = strtolower((string) $r->status) === 'completed';
+                @endphp
+
                 <a href="{{ route('admin.fulfillment.product.show', $r->product_id) }}"
                   class="btn btn-icon btn-soft btn-soft-secondary"
-                  title="View" data-bs-toggle="tooltip">
-                <i class="bi bi-pencil"></i>
+                  title="{{ $isCompleted ? 'View' : 'Edit' }}"
+                  data-bs-toggle="tooltip">
+                  @if($isCompleted)
+                    {{-- Completed ⇒ view icon --}}
+                    <i class="bi bi-eye"></i>
+                  @else
+                    {{-- Not completed ⇒ edit icon (current behaviour) --}}
+                    <i class="bi bi-pencil"></i>
+                  @endif
                 </a>
               </div>
             </td>
