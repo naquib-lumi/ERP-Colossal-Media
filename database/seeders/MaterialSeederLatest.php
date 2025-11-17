@@ -34,8 +34,6 @@ class MaterialSeederLatest extends Seeder
         DB::table('materials')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        $unitId = DB::table('units')->where('name', 'perSqInch')->value('id');
-
         // Materials data with type mapping
         $materials = [
             // Stickers / Films
@@ -107,7 +105,6 @@ class MaterialSeederLatest extends Seeder
             $rows[] = [
                 'materialName' => $name,
                 'material_type_id' => $typeId,
-                'unit_id' => $unitId,
                 'unitCost' => $cost,
                 'created_at' => $now,
                 'updated_at' => $now,

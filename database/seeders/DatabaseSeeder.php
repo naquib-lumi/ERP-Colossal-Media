@@ -12,9 +12,8 @@ class DatabaseSeeder extends Seeder
         $this->call(LeadSeeder::class);
         $this->call(MeetingSeeder::class);
         $this->call(ArtistSeeder::class);
-        $this->call(OrdersTableSeeder::class);
+        //$this->call(OrdersTableSeeder::class);
         $this->call(ProductsTableSeeder::class);
-        $this->call(MaterialSeeder::class);
         $this->call(ProductTaskTypeSeeder::class);
         $this->call(OperationSeeder::class);
         $this->call(DataEntrySeeder::class);
@@ -22,5 +21,6 @@ class DatabaseSeeder extends Seeder
         $this->call(BossSeeder::class);
         $this->call(MaterialSeederLatest::class);
         $this->call(MachineSeeder::class);
+        $this->call(AdminSeeder::class);
     }
 }
