@@ -609,76 +609,87 @@
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>
-        <input type="date"
-               class="form-control form-control-sm js-date"
-               name="rows[${key}][date]">
+        <input type="date" class="form-control form-control-sm js-date" name="rows[${key}][date]">
       </td>
       <td>
-        <input type="time"
-               class="form-control form-control-sm"
-               name="rows[${key}][time]">
+        <input type="time" class="form-control form-control-sm" name="rows[${key}][time]">
       </td>
       <td>
-        <input type="text"
-               class="form-control form-control-sm"
-               name="rows[${key}][location]">
+        <input type="text" class="form-control form-control-sm" name="rows[${key}][location]">
       </td>
-
       <td>
-        <select name="rows[${key}][method]"
-                class="form-select form-select-sm js-method delivery-method" required>
+        <select name="rows[${key}][method]" class="form-select form-select-sm js-method" required>
           <option value="">—</option>
           <option value="delivery_installation">Delivery &amp; Installation</option>
           <option value="courier">Courier</option>
           <option value="self pickup">Self Pickup</option>
         </select>
       </td>
-
       <td style="max-width:100px;">
         <input type="number"
-               class="form-control form-control-sm qty-input delivery-qty"
-               name="rows[${key}][quantity]"
-               min="1"
-               step="1"
-               inputmode="numeric"
-               onkeydown="return !['e','E','+','-','.'].includes(event.key)" required>
+              class="form-control form-control-sm qty-input"
+              name="rows[${key}][quantity]"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              onkeydown="return !['e','E','+','-','.'].includes(event.key)" required>
       </td>
-
       <td>
-        <select name="rows[${key}][deliver_install_type]"
-                class="form-select form-select-sm js-install-type">
+        <select name="rows[${key}][deliver_install_type]" class="form-select form-select-sm js-install-type">
           <option value="">—</option>
           <option value="in-house">In House</option>
           <option value="outsource">Outsource</option>
           <option value="both">Both</option>
         </select>
       </td>
-
       <td>
-        <input type="number"
-               min="0"
-               step="0.01"
-               class="form-control form-control-sm js-install-cost"
-               name="rows[${key}][outsource_cost]">
+        <input type="number" min="0" step="0.01"
+              name="rows[${key}][outsource_cost]"
+              class="form-control form-control-sm js-install-cost">
       </td>
-
       <td class="text-center">
-        <button type="button"
-                class="btn btn-sm btn-link text-danger btnDeleteRow">
+        <button type="button" class="btn btn-sm btn-link text-danger btnDeleteRow">
           <i class="bi bi-trash"></i>
         </button>
-        <input type="hidden"
-               name="rows[${key}][_delete]"
-               value="0" />
+        <input type="hidden" name="rows[${key}][_delete]" value="0" />
       </td>
     `;
     tbody.appendChild(tr);
 
-    // initialise method / install / cost + date min + qty summary
+    // ====== NEW LOGIC (reuse your existing behaviour, just extended) ======
+    const methodSelect = tr.querySelector('.js-method');
+    if (!methodSelect) return;
+
+    // read current methods from existing rows (excluding this new one if empty)
+    const methods = Array.from(document.querySelectorAll('#editTbody .js-method'))
+      .map(s => s.value)
+      .filter(v => v); // remove empty
+
+    const hasCourierOrPickup = methods.some(v => v === 'courier' || v === 'self pickup');
+    const hasDI              = methods.some(v => v === 'delivery_installation');
+
+    // 1) Only Courier / Self Pickup so far -> block Delivery & Installation
+    if (hasCourierOrPickup && !hasDI) {
+      const optDI = methodSelect.querySelector('option[value="delivery_installation"]');
+      if (optDI) {
+        optDI.disabled = true;
+        optDI.hidden   = true;
+      }
+    }
+    // 2) Only Delivery & Installation so far -> block Courier & Self Pickup
+    else if (!hasCourierOrPickup && hasDI) {
+      ['courier', 'self pickup'].forEach(val => {
+        const opt = methodSelect.querySelector(`option[value="${val}"]`);
+        if (opt) {
+          opt.disabled = true;
+          opt.hidden   = true;
+        }
+      });
+    }
+    // case 3: mix of both -> nothing blocked (do nothing)
+
+    // keep your existing install toggle behaviour
     toggleInstallFields(tr);
-    applyMethodRules();
-    // min-date helper will be handled by the MutationObserver below, but safe to call:
-    tr.querySelectorAll('.js-date').forEach(input => input.setAttribute('min', new Date().toISOString().slice(0,10)));
   });
 
   tbody?.addEventListener('click', (e) => {
@@ -712,51 +723,76 @@
   }
 
   function applyMethodRules() {
-    const rows = document.querySelectorAll('#editTbody tr');
+  const rows = document.querySelectorAll('#editTbody tr');
 
-    let hasCourierSelf = false;
-    let hasDI          = false;
+  let hasCourierSelf = false;
+  let hasDI = false;
 
-    rows.forEach(tr => {
-      const delFlag = tr.querySelector('input[name$="[_delete]"]');
-      if (delFlag && delFlag.value === '1') return; // ignore deleted rows
+  // detect what we already have (ignoring deleted rows)
+  rows.forEach(tr => {
+    const delFlag = tr.querySelector('input[name$="[_delete]"]');
+    if (delFlag && delFlag.value === '1') return;
 
-      const sel = tr.querySelector('.js-method');
-      if (!sel) return;
-      const val = (sel.value || '').toLowerCase();
+    const sel = tr.querySelector('.js-method');
+    if (!sel) return;
 
-      if (val === 'courier' || val === 'self pickup') {
-        hasCourierSelf = true;
-      }
-      if (val === 'delivery_installation') {
-        hasDI = true;
-      }
+    const val = (sel.value || '').toLowerCase();
+
+    if (val === 'courier' || val === 'self pickup') {
+      hasCourierSelf = true;
+    }
+    if (val === 'delivery_installation') {
+      hasDI = true;
+    }
+  });
+
+  // apply rules to every select
+  rows.forEach(tr => {
+    const sel = tr.querySelector('.js-method');
+    if (!sel) return;
+
+    const optDI      = sel.querySelector('option[value="delivery_installation"]');
+    const optCourier = sel.querySelector('option[value="courier"]');
+    const optPickup  = sel.querySelector('option[value="self pickup"]');
+
+    // reset (so we don't permanently lock options when pattern changes)
+    [optDI, optCourier, optPickup].forEach(opt => {
+      if (!opt) return;
+      opt.disabled = false;
+      opt.hidden   = false;
+      opt.title    = '';
     });
 
-    const disableDI = hasCourierSelf && !hasDI;
+    // CASE 1: only Courier/Self-pickup so far -> block DI
+    if (hasCourierSelf && !hasDI) {
+      if (optDI) {
+        optDI.disabled = true;
+        optDI.hidden   = true;
+        optDI.title    = 'Disabled: existing deliveries are Courier / Self Pickup only';
 
-    rows.forEach(tr => {
-      const sel = tr.querySelector('.js-method');
-      if (!sel) return;
-
-      const diOpt = sel.querySelector('option[value="delivery_installation"]');
-      if (!diOpt) return;
-
-      if (disableDI) {
-        diOpt.disabled = true;
-        diOpt.title = 'Disabled: existing deliveries are Courier / Self Pickup only';
-
-        // If currently selected, clear it and fire change so other logic updates
         if (sel.value === 'delivery_installation') {
           sel.value = '';
           sel.dispatchEvent(new Event('change', { bubbles: true }));
         }
-      } else {
-        diOpt.disabled = false;
-        diOpt.title = '';
       }
-    });
-  }
+    }
+    // CASE 2: only Delivery & Installation so far -> block Courier + Self Pickup
+    else if (hasDI && !hasCourierSelf) {
+      [optCourier, optPickup].forEach(opt => {
+        if (!opt) return;
+        opt.disabled = true;
+        opt.hidden   = true;
+        opt.title    = 'Disabled: existing deliveries are Delivery & Installation only';
+
+        if (sel.value === opt.value) {
+          sel.value = '';
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
+    // CASE 3: mix of both -> nothing blocked
+  });
+}
 
   // expose for other script block
   window.applyDeliveryMethodRules = applyMethodRules;
