@@ -123,7 +123,6 @@ input:checked + .slider:before{transform:translateX(20px)}
           <option value="operations-dispatch-control" {{ $role==='operations-dispatch-control'?'selected':'' }}>Operations Dispatch Control</option>
           <option value="operations-delivery-installation" {{ $role==='operations-delivery-installation'?'selected':'' }}>Operations Delivery & Installation</option>
           <option value="data-entry" {{ $role==='data-entry'?'selected':'' }}>Data Entry</option>
-          <option value="installation" {{ $role==='installation'?'selected':'' }}>Installation</option>
         </select>
         @php $st = request('status','all'); @endphp
         <select id="statusSelect" class="control select">
@@ -261,7 +260,6 @@ input:checked + .slider:before{transform:translateX(20px)}
               <option value="operations-dispatch-control" {{ old('role')==='operations-dispatch-control'?'selected':'' }}>Operations – Dispatch Control</option>
               <option value="operations-delivery-installation" {{ old('role')==='operations-delivery-installation'?'selected':'' }}>Operations – Delivery & Installation</option>
               <option value="data-entry" {{ old('role')==='data-entry'?'selected':'' }}>Data Entry</option>
-              <option value="installation" {{ old('role')==='installation'?'selected':'' }}>Installation</option>
             </select>
             @error('role')<div class="invalid-feedback">{{ $message }}</div>@enderror
           </div>
