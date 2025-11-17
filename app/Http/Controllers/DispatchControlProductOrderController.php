@@ -297,6 +297,50 @@ class DispatchControlProductOrderController extends Controller
             }
         }
 
+        $permitAttachments = [];
+        $permitRows = DB::table('product_permit')
+            ->where('product_id', $productId)
+            ->orderByDesc('uploaded_at')
+            ->get();
+
+        foreach ($permitRows as $row) {
+            $raw = trim((string)($row->permit_file ?? ''));
+            if ($raw === '') {
+                continue;
+            }
+
+            // Expect format: "stored-file-name|original-file-name"
+            $stored = $raw;
+            $original = null;
+
+            if (str_contains($raw, '|')) {
+                [$stored, $original] = explode('|', $raw, 2);
+            }
+
+            $stored = ltrim((string) $stored, '/');
+
+            // If no original name part, fall back to basename of stored file
+            if (!$original || $original === '') {
+                $original = basename($stored);
+            }
+
+            if (Str::startsWith($stored, ['http://', 'https://'])) {
+                $url = $stored;
+            } elseif (Storage::disk('public')->exists($stored)) {
+                $url = Storage::url($stored);
+            } elseif (Storage::exists($stored)) {
+                $url = Storage::url($stored);
+            } else {
+                $url = asset($stored);
+            }
+
+            $permitAttachments[] = [
+                'name' => $original, // 👉 only "image.jpg"
+                'size' => '',
+                'url'  => $url,
+            ];
+        }
+
         // ===== 3) Build ALL product blocks for the same order (to show multiple products) =====
         $productIds = DB::table('products')
             ->where('OrderID', $headerRow->OrderID)
@@ -396,6 +440,7 @@ class DispatchControlProductOrderController extends Controller
             'remarksByOp' => $remarksByOp,
             'remarks' => $remarks,
             'job_order_code'   => $displayOrderCode, 
+            'permitAttachments' => $permitAttachments,
         ]);
     }
 
