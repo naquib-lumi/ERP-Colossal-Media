@@ -487,15 +487,29 @@ $inProgressProducts = Product::from('products as p')
                 'p.ProductID','p.OrderID','p.productName','p.taskType','p.status as product_status',
                 'p.redoOf','p.editable',
                 'o.id as order_id','o.redo as order_redo','o.orderTitle','o.companyName',
-                'o.orderDate','o.created_at as order_created_at',
+                'o.orderDate','o.deadline as order_deadline','o.created_at as order_created_at',
                 'd.BreakdownID as breakdown_id','d.date as delivery_date','d.time as delivery_time',
-                'd.location as delivery_location','d.deliver_install_type','d.outsource_cost',
+                'd.location as delivery_location','d.deliver_install_type',
                 'pf.permit_file',
-            ])
-            // rows missing date/location first → then by delivery date/time
-            ->orderByRaw('CASE WHEN d.date IS NULL OR d.location IS NULL THEN 0 ELSE 1 END ASC')
+            ]);
+
+        // priority: how many of [permit, delivery date, delivery location] are empty
+        $missingExpr = '((pf.permit_file IS NULL OR pf.permit_file = "")'
+            .' + (d.date IS NULL)'
+            .' + (d.location IS NULL OR d.location = ""))';
+
+        $query
+            ->orderByRaw("
+                CASE
+                    WHEN $missingExpr = 3 THEN 0
+                    WHEN $missingExpr = 2 THEN 1
+                    WHEN $missingExpr = 1 THEN 2
+                    ELSE 3
+                END ASC
+            ")
+            // then, inside each group, sort by date/time as before
             ->orderByRaw('COALESCE(d.date, o.orderDate, o.created_at) ASC')
-            ->orderByRaw('COALESCE(d.time, "00:00:00") ASC');
+            ->orderByRaw("COALESCE(d.time, '00:00:00') ASC");
 
         // (1) Order box: numeric id or text (job title)
         if ($orderId !== '') {
@@ -615,6 +629,15 @@ $inProgressProducts = Product::from('products as p')
                     default               => '—',
                 };
 
+                $deadline = null;
+                if (!empty($r->order_deadline)) {
+                    try {
+                        $deadline = \Carbon\Carbon::parse($r->order_deadline)->format('Y-m-d');
+                    } catch (\Throwable $e) {
+                        $deadline = $r->order_deadline; // fallback raw
+                    }
+                }
+
                 // permit_url from either "path" or "path|OriginalName"
                 $permitUrl = null;
                 if (!empty($r->permit_file)) {
@@ -633,9 +656,10 @@ $inProgressProducts = Product::from('products as p')
                     'task_label'     => $taskLabel,
                     'status'         => (string)($r->product_status ?? ''),
                     'delivery_dt'    => $dt,
+                    'deadline'     => $deadline,
                     'delivery_loc'   => (string)($r->delivery_location ?? ''),
                     'install_type'   => $installLabel,
-                    'outsource_cost' => is_null($r->outsource_cost) ? null : (float)$r->outsource_cost,
+                    // 'outsource_cost' => is_null($r->outsource_cost) ? null : (float)$r->outsource_cost,
                     'permit_url'     => $permitUrl,
                 ];
             })

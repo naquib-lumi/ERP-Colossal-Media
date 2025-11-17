@@ -134,11 +134,14 @@ class Product extends Model
         $currentStatus   = strtolower((string) $this->getAttribute('status'));
         $currentAccepted = $this->getAttribute('accepted'); // 0 / 1 / null
 
-        if ($existsInDb && ($currentStatus === '' || $currentStatus === null)) {
+        // 🔹 also track editable
+        $editable = $this->getAttribute('editable');
+
+        if ($existsInDb && ($currentStatus === '' || $currentStatus === null || $editable === null)) {
             // reload minimal columns from DB
             $fresh = DB::table('products')
                 ->where('ProductID', $pid)
-                ->select('status', 'accepted', 'taskType')
+                ->select('status', 'accepted', 'taskType', 'editable')
                 ->first();
 
             if ($fresh) {
@@ -148,8 +151,17 @@ class Product extends Model
                 if ($this->getAttribute('taskType') === null && !empty($fresh->taskType)) {
                     $this->setAttribute('taskType', $fresh->taskType);
                 }
+
+                // 🔹 sync editable from DB if model doesn't have it
+                if ($editable === null && isset($fresh->editable)) {
+                    $editable = (int) $fresh->editable;
+                    $this->setAttribute('editable', $editable);
+                }
             }
         }
+
+        // normalise editable (default 1 if still null)
+        $editable = (int)($editable ?? 1);
 
         /**
          * ==============================
@@ -213,10 +225,11 @@ class Product extends Model
             $newType        = $hasRealPrinter ? 'printing' : 'furnishing';
         }
 
-        // write taskType only if changed
-        if ($this->getAttribute('taskType') !== $newType) {
+        // 🔹 write taskType only if changed AND editable != 0
+        if ($editable !== 0 && $this->getAttribute('taskType') !== $newType) {
             $changes['taskType'] = $newType;
         }
+
 
         /**
          * For existing rows (non-rejected case):

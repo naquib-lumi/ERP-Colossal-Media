@@ -298,13 +298,39 @@
   @endphp
   <div class="card mb-4">
   <div class="card-body">
-    <div class="d-flex align-items-center justify-content-between mb-2">
-      <div class="fw-semibold">Deliveries</div>
-      <div class="d-flex gap-2">
+    <div class="d-flex align-items-center mb-2">
+      {{-- Left: title --}}
+      <div class="fw-semibold me-auto">Deliveries</div>
+
+      {{-- Right: qty summary + Edit button --}}
+      <div class="d-flex align-items-center text-muted small">
+        {{-- Qty summary --}}
+        <div>
+          <strong>Total:</strong>
+          <span id="qtyTotal">{{ (int)($product->totalQuantity ?? 0) }}</span>
+        </div>
+        <div class="ms-3">
+          <strong>Delivery Plan:</strong>
+          <span id="qtyPlanned">0</span>
+        </div>
+        <div class="ms-3">
+          <strong>Remaining:</strong>
+          <span id="qtyRemaining">{{ (int)($product->totalQuantity ?? 0) }}</span>
+        </div>
+      </div>
+
+      {{-- Edit + Add Row buttons --}}
+      <div class="ms-3 d-flex align-items-center gap-2">
         <button type="button" class="btn btn-sm btn-primary" id="btnEdit">
           <i class="bi bi-pencil-square me-1"></i> Edit
         </button>
+
+        {{-- Shown only in edit mode via JS --}}
+        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnAddRow">
+          <i class="bi bi-plus-circle me-1"></i> Add Delivery
+        </button>
       </div>
+
     </div>
 
     <form action="{{ route('admin.fulfillment.deliveries.update', $product->ProductID ?? $productId ?? $order->id) }}"
@@ -332,8 +358,9 @@
           @foreach($deliveries as $d)
           <tr>
             <td>
-              <input type="date" name="rows[{{ $d->BreakdownID }}][date]"
-                    class="form-control form-control-sm"
+              <input type="date"
+                    name="rows[{{ $d->BreakdownID }}][date]"
+                    class="form-control form-control-sm js-date"
                     value="{{ $d->date ? \Carbon\Carbon::parse($d->date)->format('Y-m-d') : '' }}">
               <input type="hidden" name="rows[{{ $d->BreakdownID }}][id]" value="{{ $d->BreakdownID }}">
             </td>
@@ -364,8 +391,14 @@
             </td>
 
             <td style="max-width:100px;">
-              <input type="number" min="0" name="rows[{{ $d->BreakdownID }}][quantity]"
-                    class="form-control form-control-sm" value="{{ (int)($d->quantity ?? 0) }}">
+              <input type="number"
+                    name="rows[{{ $d->BreakdownID }}][quantity]"
+                    class="form-control form-control-sm qty-input"
+                    value="{{ (int)($d->quantity ?? 0) }}"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    onkeydown="return !['e','E','+','-','.'].includes(event.key)">
             </td>
 
             {{-- Install fields (will be disabled unless method == delivery_installation) --}}
@@ -404,6 +437,12 @@
           @endforeach
           </tbody>
         </table>
+
+        {{-- client-side total qty error --}}
+        <div id="qtyError" class="text-danger small d-none mb-2" style="margin-top: 10px;">
+          Delivery Plan cannot exceed product total quantity.
+        </div>
+
         {{-- server-side error from controller --}}
         @error('rows')
           <div class="alert alert-danger py-2 px-3 mb-2">{{ $message }}</div>
@@ -565,18 +604,76 @@
     const key = 'new_' + (++newIndex);
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input type="date" class="form-control form-control-sm" name="rows[${key}][date]"></td>
-      <td><input type="time" class="form-control form-control-sm" name="rows[${key}][time]"></td>
-      <td><input type="text" class="form-control form-control-sm" name="rows[${key}][location]"></td>
-      <td><input type="number" min="0" class="form-control form-control-sm" name="rows[${key}][quantity]"></td>
-      <td><input type="text" class="form-control form-control-sm" name="rows[${key}][deliver_install_type]"></td>
-      <td><input type="number" min="0" step="0.01" class="form-control form-control-sm" name="rows[${key}][outsource_cost]"></td>
+      <td>
+        <input type="date"
+               class="form-control form-control-sm js-date"
+               name="rows[${key}][date]">
+      </td>
+      <td>
+        <input type="time"
+               class="form-control form-control-sm"
+               name="rows[${key}][time]">
+      </td>
+      <td>
+        <input type="text"
+               class="form-control form-control-sm"
+               name="rows[${key}][location]">
+      </td>
+
+      <td>
+        <select name="rows[${key}][method]"
+                class="form-select form-select-sm js-method">
+          <option value="">—</option>
+          <option value="delivery_installation">Delivery &amp; Installation</option>
+          <option value="courier">Courier</option>
+          <option value="self pickup">Self Pickup</option>
+        </select>
+      </td>
+
+      <td style="max-width:100px;">
+        <input type="number"
+               class="form-control form-control-sm qty-input"
+               name="rows[${key}][quantity]"
+               min="1"
+               step="1"
+               inputmode="numeric"
+               onkeydown="return !['e','E','+','-','.'].includes(event.key)">
+      </td>
+
+      <td>
+        <select name="rows[${key}][deliver_install_type]"
+                class="form-select form-select-sm js-install-type">
+          <option value="">—</option>
+          <option value="in-house">In House</option>
+          <option value="outsource">Outsource</option>
+          <option value="both">Both</option>
+        </select>
+      </td>
+
+      <td>
+        <input type="number"
+               min="0"
+               step="0.01"
+               class="form-control form-control-sm js-install-cost"
+               name="rows[${key}][outsource_cost]">
+      </td>
+
       <td class="text-center">
-        <button type="button" class="btn btn-sm btn-link text-danger btnDeleteRow"><i class="bi bi-trash"></i></button>
-        <input type="hidden" name="rows[${key}][_delete]" value="0" />
+        <button type="button"
+                class="btn btn-sm btn-link text-danger btnDeleteRow">
+          <i class="bi bi-trash"></i>
+        </button>
+        <input type="hidden"
+               name="rows[${key}][_delete]"
+               value="0" />
       </td>
     `;
     tbody.appendChild(tr);
+
+    // initialise method / install / cost + date min + qty summary
+    toggleInstallFields(tr);
+    // min-date helper will be handled by the MutationObserver below, but safe to call:
+    tr.querySelectorAll('.js-date').forEach(input => input.setAttribute('min', new Date().toISOString().slice(0,10)));
   });
 
   tbody?.addEventListener('click', (e) => {
@@ -630,11 +727,16 @@
 
 (function(){
   const tbody   = document.getElementById('editTbody');
-  const form    = document.getElementById('deliveriesEditForm'); // your edit form
+  const form    = document.getElementById('deliveriesForm'); // your edit form
   const maxQty  = {{ (int)($product->totalQuantity ?? 0) }};
   const errBox  = document.getElementById('qtyError');
-  const curSpan = document.querySelector('#qtyError .js-qty-cur');
+  // const curSpan = document.querySelector('#qtyError .js-qty-cur');
+  const totalSpan  = document.getElementById('qtyTotal');
+  const planSpan   = document.getElementById('qtyPlanned');
+  const remSpan    = document.getElementById('qtyRemaining');
   const saveBtn = document.getElementById('btnSaveDeliveries');
+
+  let hadInvalid = false;
 
   function recalcTotal() {
     let total = 0;
@@ -648,25 +750,96 @@
       if (!isNaN(v)) total += v;
     });
 
-    curSpan.textContent = total;
+    // curSpan.textContent = total;
+
+    // const invalid = total > maxQty;
+    // errBox.classList.toggle('d-none', !invalid);
+    // if (saveBtn) saveBtn.disabled = invalid;
+
+    // Update summary
+    if (planSpan) planSpan.textContent = total;
+    if (remSpan)  remSpan.textContent  = Math.max(maxQty - total, 0);
+    if (totalSpan) totalSpan.textContent = maxQty; // static, but safe
 
     const invalid = total > maxQty;
-    errBox.classList.toggle('d-none', !invalid);
+
+    if (errBox) errBox.classList.toggle('d-none', !invalid);
     if (saveBtn) saveBtn.disabled = invalid;
+
+    // Pop SweetAlert the first time it becomes invalid
+    if (invalid && !hadInvalid) {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Quantity exceeded',
+          text: `Delivery Plan (${total}) cannot exceed product total quantity (${maxQty}).`
+        });
+      } else {
+        alert(`Delivery Plan (${total}) cannot exceed product total quantity (${maxQty}).`);
+      }
+    }
+    hadInvalid = invalid;
 
     return total;
   }
 
-  // Recalc when qty changes / row deleted / row added
+  // Install-type / cost helpers (kept from your original code)
+  function isDeliveryInstall(tr){
+    const m = tr.querySelector('.js-method')?.value || '';
+    return m === 'delivery_installation';
+  }
+  function costAllowed(tr){
+    const type = (tr.querySelector('.js-install-type')?.value || '').toLowerCase();
+    return isDeliveryInstall(tr) && (type === 'outsource' || type === 'both');
+  }
+  function syncInstallControls(tr){
+    const costInput = tr.querySelector('.js-install-cost');
+    const typeSel   = tr.querySelector('.js-install-type');
+    if (!costInput || !typeSel) return;
+
+    const enableCost = costAllowed(tr);
+    costInput.disabled = !enableCost;
+    if (!enableCost) costInput.value = '';
+  }
+
+  // Initialize all rows
+  document.querySelectorAll('#editTbody tr').forEach(tr => {
+    syncInstallControls(tr);
+  });
+
+  // Qty changes & delete flag changes recalc total
   tbody?.addEventListener('input', (e) => {
     if (e.target.name?.endsWith('[quantity]')) recalcTotal();
   });
   tbody?.addEventListener('change', (e) => {
-    if (e.target.name?.endsWith('[_delete]')) recalcTotal();
+    if (e.target.name?.endsWith('[_delete]')) {
+      recalcTotal();
+    }
+    if (e.target.classList.contains('js-method') ||
+        e.target.classList.contains('js-install-type')){
+      syncInstallControls(e.target.closest('tr'));
+    }
   });
 
   // Initial run
   recalcTotal();
+
+  // Submit guard – block submit if still exceeded
+  form?.addEventListener('submit', function(e){
+    const total = recalcTotal();
+    if (total > maxQty) {
+      e.preventDefault();
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Quantity exceeded',
+          text: `Delivery Plan (${total}) cannot exceed product total quantity (${maxQty}).`
+        });
+      } else {
+        alert(`Delivery Plan (${total}) cannot exceed product total quantity (${maxQty}).`);
+      }
+    }
+  });
 
   function isDeliveryInstall(tr){
     const m = tr.querySelector('.js-method')?.value || '';
@@ -717,6 +890,48 @@
       alert(`Total delivery quantity (${total}) cannot exceed product quantity (${maxQty}).`);
     }
   });
+})();
+
+$(document).on('input', '.qty-input', function () {
+  // keep only digits
+  let v = this.value.replace(/\D+/g, '');
+
+  // if it starts with zero and has more than one digit, remove leading zeros
+  if (v.length > 1) v = v.replace(/^0+/, '');
+
+  this.value = v;
+});
+
+(function () {
+  // Get today's date in YYYY-MM-DD
+  const today = new Date();
+  const yyyyMmDd = today.toISOString().slice(0, 10);
+
+  function applyDateLimit(input) {
+    if (!input) return;
+
+    // Set min for the UI (calendar will disable past days)
+    input.setAttribute('min', yyyyMmDd);
+
+    // If user somehow types an earlier date, snap it back to today
+    input.addEventListener('change', function () {
+      if (this.value && this.value < yyyyMmDd) {
+        this.value = yyyyMmDd;
+      }
+    });
+  }
+
+  // apply to existing date inputs
+  document.querySelectorAll('.js-date').forEach(applyDateLimit);
+
+  // when new rows are added, re-apply
+  const tbody = document.getElementById('editTbody');
+  const observer = new MutationObserver(() => {
+    document.querySelectorAll('.js-date').forEach(applyDateLimit);
+  });
+  if (tbody) {
+    observer.observe(tbody, { childList: true, subtree: true });
+  }
 })();
 </script>
 @endpush
