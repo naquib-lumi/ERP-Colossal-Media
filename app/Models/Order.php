@@ -12,7 +12,7 @@ class Order extends Model
     protected $fillable = [
         'user_id', 'order_number', 'artist_id','lead_id','leadName','leadPhone','companyName','salesperson_id',
         'orderDate','deadline','leadEmail','orderTitle','orderDetail',
-        'orderStatus','orderAttachment','approval','taskType','draft','pending', 'submit'
+        'orderStatus','orderAttachment','approval','taskType','draft','pending', 'submit', 'status'
     ];
 
     protected $casts = [

@@ -129,7 +129,6 @@ body{background:var(--bg);}
               <span class="icon-pill"><i class="bi bi-magnet"></i></span>
             </div>
             <div class="num" id="total-leads">0</div>
-            <span class="delta" id="leads-delta"></span>
           </div>
         </div>
         <div class="col-md-3">
@@ -139,7 +138,7 @@ body{background:var(--bg);}
               <span class="icon-pill"><i class="bi bi-calendar3"></i></span>
             </div>
             <div class="num" id="total-meetings">0</div>
-            <span class="delta" id="meetings-delta"></span>
+
           </div>
         </div>
         <div class="col-md-3">
@@ -284,16 +283,15 @@ function resetSales() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  document.getElementById('sales-start-date').value = start.toISOString().split('T')[0];
-  document.getElementById('sales-end-date').value = end.toISOString().split('T')[0];
+  const formatDate = (date) => {
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+  };
+  document.getElementById('sales-start-date').value = formatDate(start);
+  document.getElementById('sales-end-date').value = formatDate(end);
 
   // Reset KPIs
   document.getElementById('total-leads').textContent = '0';
-  document.getElementById('leads-delta').textContent = '';
-  document.getElementById('leads-delta').className = 'delta';
   document.getElementById('total-meetings').textContent = '0';
-  document.getElementById('meetings-delta').textContent = '';
-  document.getElementById('meetings-delta').className = 'delta';
   document.getElementById('accepted-meetings').textContent = '0';
   document.getElementById('rejected-meetings').textContent = '0';
 
@@ -304,13 +302,15 @@ function resetSales() {
   pieOutcome.update();
 }
 
-// Function to reset order section
 function resetOrder() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  document.getElementById('order-start-date').value = start.toISOString().split('T')[0];
-  document.getElementById('order-end-date').value = end.toISOString().split('T')[0];
+  const formatDate = (date) => {
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+  };
+  document.getElementById('order-start-date').value = formatDate(start);
+  document.getElementById('order-end-date').value = formatDate(end);
 
   // Reset chart
   orderFulfill.data.datasets[0].data = [0, 0, 0, 0];
@@ -343,11 +343,7 @@ document.getElementById('sales-generate').addEventListener('click', () => {
     .then(res => res.json())
     .then(data => {
       document.getElementById('total-leads').textContent = data.total_leads;
-      document.getElementById('leads-delta').className = data.leads_delta >= 0 ? 'delta text-success' : 'delta text-danger';
-      document.getElementById('leads-delta').textContent = data.leads_delta >= 0 ? `+${data.leads_delta}%` : `${data.leads_delta}%`;
       document.getElementById('total-meetings').textContent = data.total_meetings;
-      document.getElementById('meetings-delta').className = data.meetings_delta >= 0 ? 'delta text-success' : 'delta text-danger';
-      document.getElementById('meetings-delta').textContent = data.meetings_delta >= 0 ? `+${data.meetings_delta}%` : `${data.meetings_delta}%`;
       document.getElementById('accepted-meetings').textContent = data.accepted;
       document.getElementById('rejected-meetings').textContent = data.rejected;
     })
@@ -393,8 +389,6 @@ document.getElementById('order-generate').addEventListener('click', () => {
     .catch(err => console.error('Error fetching order fulfillment:', err));
 });
 
-document.getElementById('salesperson').addEventListener('change', () => {
-  document.getElementById('sales-generate').click();
-});
+
 </script>
 @endsection
