@@ -12,12 +12,6 @@ class MaterialSeederLatest extends Seeder
     {
         $now = Carbon::now();
 
-        // Seed units (insert or ignore)
-        DB::table('units')->insertOrIgnore([
-            ['name' => 'perSqInch', 'label' => 'Per sq inch', 'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'perSqFt', 'label' => 'Per sq ft', 'created_at' => $now, 'updated_at' => $now],
-        ]);
-
         // Seed material types (insert or ignore)
         $typeNames = [
             'Stickers / Films', 'Backlit Materials', 'Paper Materials', 'Boards / Sheets',
