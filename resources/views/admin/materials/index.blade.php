@@ -370,71 +370,71 @@
       }).catch(() => Swal.fire({ icon: 'error', title: 'Error' }));
       return;
     }
-    if (t.closest('#saveTypeBtn')){
-      const name = ($('#typeName')?.value || '').trim();
-      if(!name) return Swal.fire({ icon: 'warning', title: 'Please enter a material type name' });
-      const id = $('#saveTypeBtn').dataset.id;
-      const url = id ? `/admin/material-types/${id}` : '{{ route("admin.material-types.store") }}';
-      const method = id ? 'POST' : 'POST';
-      const postBody = id ? {typeName: name, _method: 'PUT'} : {typeName: name};
-      fetch(url, {
-        method,
-        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
-        body: JSON.stringify(postBody)
-      }).then(res => res.json()).then(data => {
-        if(data.success){
-          const selIds = ['typeFilter', 'matType', 'qeType'];
-          selIds.forEach(selId => {
-            const sel = $(`#${selId}`);
-            if(sel){
-              if (id) {
-                [...sel.options].forEach(o => {
-                  if (o.value === id) o.textContent = data.type.name;
-                });
-              } else {
-                const o = document.createElement('option');
-                o.value = data.type.id;
-                o.textContent = data.type.name;
-                sel.appendChild(o);
-              }
-            }
-          });
-          const tblTypes = $('#tblTypes tbody');
-          if(tblTypes){
-            if (id) {
-              const tr = $$('#tblTypes tbody tr').find(tr => tr.querySelector('.btnEditType').dataset.id === id);
-              if(tr) tr.children[0].textContent = data.type.name;
-            } else {
-              const tr = document.createElement('tr');
-              tr.innerHTML = `
-                <td>${data.type.name}</td>
-                <td>Active</td>
-                <td style="text-align:right; position:relative">
-                  <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
-                    <i class="bi bi-three-dots-vertical"></i>
-                  </button>
-                  <div class="dropdown-menu">
-                    <button class="dropdown-item btnEditType" data-id="${data.type.id}" data-name="${data.type.name}">
-                      <i class="bi bi-pencil me-2"></i> Edit
-                    </button>
-                    <button class="dropdown-item btnToggleType" data-id="${data.type.id}" data-active="true">
-                      <i class="bi bi-toggleon me-2"></i> Deactivate
-                    </button>
-                  </div>
-                </td>
-              `;
-              tblTypes.appendChild(tr);
-            }
+ if (t.closest('#saveTypeBtn')){
+  const name = ($('#typeName')?.value || '').trim();
+  if(!name) return Swal.fire({ icon: 'warning', title: 'Please enter a material type name' });
+  const id = $('#saveTypeBtn').dataset.id;
+  const url = id ? `/admin/material-types/${id}` : '{{ route("admin.material-types.store") }}';
+  const method = id ? 'POST' : 'POST';
+  const postBody = id ? {typeName: name, _method: 'PUT'} : {typeName: name};
+  fetch(url, {
+    method,
+    headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
+    body: JSON.stringify(postBody)
+  }).then(res => res.json()).then(data => {
+    if(data.success){
+      const selIds = ['typeFilter', 'matType', 'qeType'];
+      selIds.forEach(selId => {
+        const sel = $(`#${selId}`);
+        if(sel){
+          if (id) {
+            [...sel.options].forEach(o => {
+              if (o.value === id) o.textContent = data.type.name;
+            });
+          } else {
+            const o = document.createElement('option');
+            o.value = data.type.id;
+            o.textContent = data.type.name;
+            sel.appendChild(o);
           }
-          closeMask('mdlType');
-          Swal.fire({ icon: 'success', title: 'Success', text: 'Material type saved successfully.', timer: 1500, showConfirmButton: false });
-          applyFilter();
-        } else {
-          Swal.fire({ icon: 'error', title: 'Error saving type' });
         }
-      }).catch(() => Swal.fire({ icon: 'error', title: 'Error' }));
-      return;
+      });
+      const tblTypes = $('#tblTypes tbody');
+      if(tblTypes){
+        if (id) {
+          const tr = $$('#tblTypes tbody tr').find(tr => tr.querySelector('.btnEditType').dataset.id === id);
+          if(tr) tr.children[0].textContent = data.type.name;
+        } else {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${data.type.name}</td>
+            <td>Active</td>
+            <td style="text-align:right; position:relative">
+              <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
+              <div class="dropdown-menu">
+                <button class="dropdown-item btnEditType" data-id="${data.type.id}" data-name="${data.type.name}">
+                  <i class="bi bi-pencil me-2"></i> Edit
+                </button>
+                <button class="dropdown-item btnToggleType" data-id="${data.type.id}" data-active="true">
+                  <i class="bi bi-toggleon me-2"></i> Deactivate
+                </button>
+              </div>
+            </td>
+          `;
+          tblTypes.appendChild(tr);
+        }
+      }
+      closeMask('mdlType');
+      Swal.fire({ icon: 'success', title: 'Success', text: 'Material type saved successfully.', timer: 1500, showConfirmButton: false });
+      applyFilter();
+    } else {
+      Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'Error saving type' });
     }
+  }).catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Network error' }));
+  return;
+}
     if (t.closest('#btnSaveMaterial')) {
       const postData = {
         matName: $('#matName').value.trim(),

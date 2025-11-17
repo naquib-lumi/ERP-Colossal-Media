@@ -33,7 +33,7 @@ class OrderController extends Controller
         return response()->json(['error' => 'Unauthorized'], 403);
     }
 
-    $orders = Order::with('lead', 'salesperson', 'products', 'originalOrder')->orderBy('created_at', 'desc');
+   $orders = Order::with('lead', 'salesperson', 'products', 'originalOrder')->where('status', 0)->orderBy('created_at', 'desc');
 
     if (!$user->hasRole('head-salesperson')) {
         // CHANGED: Filter by lead's salesperson_id instead of order's salesperson_id

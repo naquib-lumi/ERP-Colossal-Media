@@ -308,7 +308,7 @@ function modifyToggler(calendar) {
     };
     const methodBadge = `<span class="badge ${methodColors[info.event.extendedProps.method] || 'bg-secondary'} me-2">${info.event.extendedProps.method ? info.event.extendedProps.method.replace('_', ' ').toUpperCase() : 'Unknown'}</span>`;
     const leadText = info.event.extendedProps.lead_text || 'N/A';
-    const title = `Delivery - ${info.event.extendedProps.order_number || 'N/A'} - ${info.event.extendedProps.product_name || 'Untitled'}`;
+    const title = `Delivery - ${info.event.extendedProps.job_order_name || 'N/A'}`;
     let modalBody = `
       <div class="row mb-3">
         <div class="col-12">

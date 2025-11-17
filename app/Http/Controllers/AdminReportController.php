@@ -72,7 +72,6 @@ class AdminReportController extends Controller
 
         $leadsDelta = $prevLeads > 0 ? round(($totalLeads - $prevLeads) / $prevLeads * 100) : 0;
         $meetingsDelta = $prevMeetings > 0 ? round(($totalMeetings - $prevMeetings) / $prevMeetings * 100) : 0;
-
         return response()->json([
             'total_leads' => $totalLeads,
             'total_meetings' => $totalMeetings,

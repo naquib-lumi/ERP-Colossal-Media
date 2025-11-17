@@ -18,12 +18,18 @@ class MaterialsController extends Controller
         }
         return view('admin.materials.index', compact('materials', 'types'));
     }
-    public function storeType(Request $request)
-    {
-        $request->validate(['typeName' => 'required|string|max:255|unique:material_types,name']);
-        $type = MaterialType::create(['name' => $request->typeName, 'active' => true]);
-        return response()->json(['success' => true, 'type' => $type]);
+ public function storeType(Request $request)
+{
+    $request->validate(['typeName' => 'required|string|max:255']);
+
+    if (MaterialType::where('name', $request->typeName)->exists()) {
+        return response()->json(['success' => false, 'message' => 'Type already exists'], 422);
     }
+
+    $type = MaterialType::create(['name' => $request->typeName, 'active' => true]);
+    return response()->json(['success' => true, 'type' => $type]);
+}
+
     public function updateType(Request $request, $id)
     {
         $type = MaterialType::findOrFail($id);
@@ -44,23 +50,30 @@ class MaterialsController extends Controller
         $type->save();
         return response()->json(['success' => true, 'active' => $type->active]);
     }
-    public function store(Request $request)
-    {
-        $request->validate([
-            'matName' => 'required|string|max:255',
-            'matType' => 'required|exists:material_types,id',
-            'matCost' => 'required|numeric|min:0',
-        ]);
-        $material = Material::create([
-            'UserID' => Auth::id(),
-            'materialName' => $request->matName,
-            'material_type_id' => $request->matType,
-            'unitCost' => $request->matCost,
-            'active' => true,
-        ]);
-        $material->load('materialType');
-        return response()->json(['success' => true, 'material' => $material]);
+public function store(Request $request)
+{
+    $request->validate([
+        'matName' => 'required|string|max:255',
+        'matType' => 'required|exists:material_types,id',
+        'matCost' => 'required|numeric|min:0',
+    ]);
+
+    if (Material::where('materialName', $request->matName)
+                 ->where('material_type_id', $request->matType)
+                 ->exists()) {
+        return response()->json(['success' => false, 'message' => 'Material already exists for this type'], 422);
     }
+
+    $material = Material::create([
+        'UserID' => Auth::id(),
+        'materialName' => $request->matName,
+        'material_type_id' => $request->matType,
+        'unitCost' => $request->matCost,
+        'active' => true,
+    ]);
+    $material->load('materialType');
+    return response()->json(['success' => true, 'material' => $material]);
+}
     public function update(Request $request, $id)
     {
         $material = Material::findOrFail($id);
