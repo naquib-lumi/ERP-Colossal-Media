@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
 
 class InstallationCalendarController extends Controller
@@ -35,6 +36,7 @@ class InstallationCalendarController extends Controller
                 'd.deliver_install_type',
                 'd.location   as delivery_location',
                 'd.quantity   as delivery_qty',
+                'd.outsource_cost as outsource_cost',
             ])
             ->selectRaw(
                 'ROW_NUMBER() OVER (' .
@@ -75,6 +77,17 @@ class InstallationCalendarController extends Controller
                 'd.deliver_install_type',
                 'd.delivery_location',                // ⬅️ from earliest breakdown row
                 'd.delivery_qty',                     // ⬅️ from earliest breakdown row
+                'd.outsource_cost',
+                'o.leadName as lead_name',
+                'o.lead_id   as lead_id',
+
+                DB::raw('(
+                    SELECT pp.permit_file
+                    FROM product_permit pp
+                    WHERE pp.product_id = p.ProductID
+                    ORDER BY pp.uploaded_at DESC
+                    LIMIT 1
+                ) as permit_attachment'),
             ])
             // 🔴 installation only
             ->whereRaw("LOWER(TRIM(p.taskType)) = 'installation'")
@@ -172,10 +185,20 @@ class InstallationCalendarController extends Controller
                     'method'                => $method,
                     'deliver_install_type'  => $r->deliver_install_type,
 
+                    'lead_name'            => $r->lead_name,
+                    'lead_id'              => $r->lead_id,
+                    'lead_text'            => ($r->company_name && $r->lead_name)
+                                                ? ($r->company_name . ' - ' . $r->lead_name)
+                                                : ($r->company_name ?: $r->lead_name),
+
                     // 🔹 NEW for your modal
                     'delivery_location'     => $r->delivery_location,
                     'product_qty'           => $r->delivery_qty,     // this task’s qty
                     'product_qty_total'     => $r->totalQuantity,     // product total
+
+                    // 🔹 permit (frontend will read this)
+                    'permit_attachment'    => $r->permit_attachment,
+                    'outsource_cost'       => $r->outsource_cost,
 
                     // extras
                     'redo_of'               => $r->redoOf,
@@ -185,6 +208,35 @@ class InstallationCalendarController extends Controller
         })->values();
 
         return response()->json($events);
+    }
+
+    public function installationDownloadPermit(int $productId)
+    {
+        // Get the latest permit for this product (or just first if you don't track uploaded_at)
+        $row = DB::table('product_permit')
+            ->where('product_id', $productId)
+            ->orderByDesc('uploaded_at')   // remove this line if you don't have uploaded_at
+            ->first();
+
+        if (!$row || empty($row->permit_file)) {
+            abort(404, 'Permit not found.');
+        }
+
+        // Stored as "path|originalName"
+        [$path, $originalName] = array_pad(
+            explode('|', $row->permit_file, 2),
+            2,
+            null
+        );
+
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            abort(404, 'Permit file missing.');
+        }
+
+        return Storage::disk('public')->download(
+            $path,
+            $originalName ?: basename($path)
+        );
     }
 
 }

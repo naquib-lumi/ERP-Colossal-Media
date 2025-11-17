@@ -133,4 +133,7 @@
 @push('scripts')
 {{-- This will be injected by @stack('scripts') in commonMaster.blade.php --}}
 <script src="{{ asset('assets/js/installation-app-calendar.js') }}"></script>
+<script>
+    window.permitDownloadRoute = "{{ route('installation.permit.downloads', ':id') }}";
+</script>
 @endpush
