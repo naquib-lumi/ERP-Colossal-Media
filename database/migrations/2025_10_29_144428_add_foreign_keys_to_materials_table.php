@@ -17,9 +17,9 @@ return new class extends Migration
             if (!Schema::hasColumn('materials', 'material_type_id')) {
                 $table->foreignId('material_type_id')->constrained('material_types')->onDelete('cascade');
             }
-            if (!Schema::hasColumn('materials', 'unit_id')) {
-                $table->foreignId('unit_id')->constrained('units')->onDelete('cascade');
-            }
+            // if (!Schema::hasColumn('materials', 'unit_id')) {
+            //     $table->foreignId('unit_id')->constrained('units')->onDelete('cascade');
+            // }
         });
     }
 
