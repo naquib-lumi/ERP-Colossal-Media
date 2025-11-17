@@ -672,6 +672,7 @@
 
     // initialise method / install / cost + date min + qty summary
     toggleInstallFields(tr);
+    applyMethodRules();
     // min-date helper will be handled by the MutationObserver below, but safe to call:
     tr.querySelectorAll('.js-date').forEach(input => input.setAttribute('min', new Date().toISOString().slice(0,10)));
   });
@@ -706,13 +707,65 @@
     }
   }
 
+  function applyMethodRules() {
+    const rows = document.querySelectorAll('#editTbody tr');
+
+    let hasCourierSelf = false;
+    let hasDI          = false;
+
+    rows.forEach(tr => {
+      const delFlag = tr.querySelector('input[name$="[_delete]"]');
+      if (delFlag && delFlag.value === '1') return; // ignore deleted rows
+
+      const sel = tr.querySelector('.js-method');
+      if (!sel) return;
+      const val = (sel.value || '').toLowerCase();
+
+      if (val === 'courier' || val === 'self pickup') {
+        hasCourierSelf = true;
+      }
+      if (val === 'delivery_installation') {
+        hasDI = true;
+      }
+    });
+
+    const disableDI = hasCourierSelf && !hasDI;
+
+    rows.forEach(tr => {
+      const sel = tr.querySelector('.js-method');
+      if (!sel) return;
+
+      const diOpt = sel.querySelector('option[value="delivery_installation"]');
+      if (!diOpt) return;
+
+      if (disableDI) {
+        diOpt.disabled = true;
+        diOpt.title = 'Disabled: existing deliveries are Courier / Self Pickup only';
+
+        // If currently selected, clear it and fire change so other logic updates
+        if (sel.value === 'delivery_installation') {
+          sel.value = '';
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } else {
+        diOpt.disabled = false;
+        diOpt.title = '';
+      }
+    });
+  }
+
+  // expose for other script block
+  window.applyDeliveryMethodRules = applyMethodRules;
+
   // initialize states for existing rows
   document.querySelectorAll('#editTbody tr').forEach(toggleInstallFields);
+  applyMethodRules();
 
   // react to method changes
   document.getElementById('editTbody')?.addEventListener('change', (e) => {
     if (e.target.classList.contains('js-method')) {
       toggleInstallFields(e.target.closest('tr'));
+      applyMethodRules();
     }
   });
 
@@ -818,11 +871,19 @@
     if (e.target.classList.contains('js-method') ||
         e.target.classList.contains('js-install-type')){
       syncInstallControls(e.target.closest('tr'));
+
+      // re-apply global method rule if exposed
+      if (window.applyDeliveryMethodRules) {
+        window.applyDeliveryMethodRules();
+      }
     }
   });
 
   // Initial run
   recalcTotal();
+  if (window.applyDeliveryMethodRules) {
+    window.applyDeliveryMethodRules();
+  }
 
   // Submit guard – block submit if still exceeded
   form?.addEventListener('submit', function(e){
