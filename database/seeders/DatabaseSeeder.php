@@ -17,10 +17,10 @@ class DatabaseSeeder extends Seeder
         $this->call(ProductTaskTypeSeeder::class);
         $this->call(OperationSeeder::class);
         $this->call(DataEntrySeeder::class);
-        $this->call(FulfillmentProgressSeeder::class);
+        //$this->call(FulfillmentProgressSeeder::class);
         $this->call(BossSeeder::class);
         $this->call(MaterialSeederLatest::class);
         $this->call(MachineSeeder::class);
-        $this->call(AdminSeeder::class);
+       // $this->call(AdminSeeder::class);
     }
 }
