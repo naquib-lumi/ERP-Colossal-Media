@@ -481,8 +481,23 @@ $inProgressProducts = Product::from('products as p')
             ->leftJoin('delivery_breakdowns as d', 'd.ProductID', '=', 'p.ProductID')
             ->leftJoinSub($latestPermit, 'pp', 'pp.product_id', '=', 'p.ProductID')
             ->leftJoin('product_permit as pf', 'pf.id', '=', 'pp.last_id')
-            ->where(function ($q) { $q->whereNull('o.status')->orWhere('o.status', 0); })
-            ->where('o.orderStatus', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('o.status')->orWhere('o.status', 0);
+            })
+            // 1) not awaiting_keyin
+            ->where(function ($w) {
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
+            })
+            // 2) editable = 0 OR not in_progress
+            ->where(function ($w) {
+                $w->where('p.editable', 0)
+                ->orWhere(function ($w2) {
+                    $w2->whereNull('o.orderStatus')
+                        ->orWhere('o.orderStatus', '!=', 'in_progress');
+                });
+            })
+            ->whereNotNull('p.taskType')
             ->select([
                 'p.ProductID','p.OrderID','p.productName','p.taskType','p.status as product_status',
                 'p.redoOf','p.editable',
