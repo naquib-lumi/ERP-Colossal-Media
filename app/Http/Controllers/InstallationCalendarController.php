@@ -91,7 +91,12 @@ class InstallationCalendarController extends Controller
                 ) as permit_attachment'),
             ])
             // 🔴 installation only
-            ->whereRaw("LOWER(TRIM(p.taskType)) = 'installation'")
+            ->where(function ($q) {
+                $q->whereRaw("LOWER(TRIM(p.taskType)) = 'installation'")
+                ->orWhere(function ($qq) {
+                    $qq->where('p.installation_task_type', 1);
+                });
+            })
 
             // 🔴 skip archived/hidden orders
             ->where(function ($q) {
@@ -100,6 +105,7 @@ class InstallationCalendarController extends Controller
 
             // 🔴 skip empty/null taskType
             ->whereNotNull('p.taskType')
+            ->whereRaw("TRIM(p.taskType) <> ''")
 
             // date range filter
             ->where(function ($q) use ($startDate, $endDate) {
@@ -162,10 +168,12 @@ class InstallationCalendarController extends Controller
                 $startCarbon = \Carbon\Carbon::parse($r->updated_at);
             }
 
+            $startDateStr = $startCarbon->toDateString();
+
             return [
                 'id'              => $r->ProductID, // keep real product id for link
                 'title'           => $productCode,  // what user sees in calendar
-                'start'           => $startCarbon->toIso8601String(),
+                'start'           => $startDateStr,
                 'allDay'          => true,
                 'backgroundColor' => $bg,
                 'borderColor'     => $border,
