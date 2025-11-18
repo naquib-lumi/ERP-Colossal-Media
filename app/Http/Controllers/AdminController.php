@@ -839,6 +839,30 @@ $inProgressProducts = Product::from('products as p')
             }
         }
 
+        // ---------- Installation proof files ----------
+        $installationProofs = DB::table('installation_proofs')
+            ->where('ProductID', $product->ProductID)
+            ->orderBy('created_at')
+            ->get()
+            ->map(function ($row) use ($toPublicUrl) {
+                $path = (string) ($row->file_path ?? '');
+                if ($path === '') {
+                    return null;
+                }
+
+                $url  = $toPublicUrl($path);
+
+                return (object) [
+                    'id'   => $row->id,
+                    'name' => $row->original_name ?: basename($path),
+                    'url'  => $url,
+                    'size' => (int) ($row->size ?? 0),
+                    'mime' => $row->mime,
+                ];
+            })
+            ->filter()
+            ->values();
+
         // ---------- Fulfillment progress (printing, furnishing, delivery, installation) ----------
         $ALL_STAGES = ['printing', 'furnishing', 'delivery', 'installation'];
 
@@ -940,6 +964,7 @@ $inProgressProducts = Product::from('products as p')
 
             'productCode'     => $productCode,
             'displayOrderId'  => $displayOrderId,
+            'installationProofs' => $installationProofs,
         ]);
     }
 

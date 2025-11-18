@@ -474,8 +474,53 @@
       @empty
       <div class="text-muted">No attachments uploaded for this order.</div>
       @endforelse
+      {{-- Installation proof files --}}
+    @if(isset($installationProofs) && $installationProofs->count())
+        <hr class="my-3">
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">Dispatch & Installation Completion Proofs</h6>
+            <span class="text-muted small">
+                {{ $installationProofs->count() }} file{{ $installationProofs->count() > 1 ? 's' : '' }}
+            </span>
+        </div>
+
+        @foreach($installationProofs as $file)
+            <div class="d-flex align-items-center justify-content-between py-2 border-bottom last:border-0">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-muted">
+                        <i class="bi bi-paperclip"></i>
+                    </span>
+                    <div>
+                        <div class="small fw-semibold">
+                            {{ $file->name }}
+                        </div>
+                        <div class="small text-muted">
+                            @if($file->mime)
+                                {{ $file->mime }}
+                            @endif
+                            @if($file->size)
+                                · {{ number_format($file->size / 1024, 1) }} KB
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a href="{{ $file->url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                        Open
+                    </a>
+                    <a href="{{ $file->url }}" download="{{ $file->name }}" class="btn btn-sm btn-dark">
+                        Download
+                    </a>
+                </div>
+            </div>
+        @endforeach
+      @endif
     </div>
   </div>
+
+  
 
   <div class="text-end">
     <a href="{{ url()->previous() }}" class="btn btn-secondary">Close</a>

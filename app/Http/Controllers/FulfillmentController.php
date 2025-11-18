@@ -406,6 +406,30 @@ public function index(Request $request)
             }
         }
 
+        // ---------- Installation proof files ----------
+        $installationProofs = DB::table('installation_proofs')
+            ->where('ProductID', $product->ProductID)
+            ->orderBy('created_at')
+            ->get()
+            ->map(function ($row) use ($toPublicUrl) {
+                $path = (string) ($row->file_path ?? '');
+                if ($path === '') {
+                    return null;
+                }
+
+                $url  = $toPublicUrl($path);
+
+                return (object) [
+                    'id'   => $row->id,
+                    'name' => $row->original_name ?: basename($path),
+                    'url'  => $url,
+                    'size' => (int) ($row->size ?? 0),
+                    'mime' => $row->mime,
+                ];
+            })
+            ->filter()
+            ->values();
+
         // ---------- Fulfillment progress (use fulfillment_progress, fall back to products when in_progress) ----------
         $ALL_STAGES = ['printing', 'furnishing', 'delivery', 'installation'];
 
@@ -521,6 +545,7 @@ public function index(Request $request)
             // NEW (for header / code):
             'productCode'     => $productCode,
             'displayOrderId'  => $displayOrderId,
+            'installationProofs' => $installationProofs,
         ]);
     }
 
