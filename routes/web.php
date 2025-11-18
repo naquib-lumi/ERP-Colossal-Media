@@ -347,6 +347,7 @@ Route::get('/dashboard', function () {
         Route::get('/installation/calendar/events', [\App\Http\Controllers\InstallationCalendarController::class, 'events'])->name('installation.calendar.events');
 
         Route::patch('/installation/jobs/{product}/complete', [InstallationController::class, 'completeWithProof'])->name('installation.jobs.complete');
+        Route::get('/installation/permit/{product}', [\App\Http\Controllers\InstallationCalendarController::class, 'installationDownloadPermit'])->name('installation.permit.downloads');
     });
 
 

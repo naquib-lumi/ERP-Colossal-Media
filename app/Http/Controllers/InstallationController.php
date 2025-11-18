@@ -242,9 +242,19 @@ class InstallationController extends Controller
             ->where(function ($q) {
                 $q->whereNull('o.status')->orWhere('o.status', '!=', 1);   // exclude deleted/cancelled orders
             })
-            ->where('p.taskType', 'installation')
-            ->where('p.status', 'in_progress')
-            ->count();
+            ->where(function ($q) {
+                // old behaviour: taskType = installation + status = in_progress
+                $q->where(function ($w) {
+                    $w->where('p.taskType', 'installation')
+                    ->where('p.status', 'in_progress');
+                })
+                // NEW: also count rows where installation_status = 'in_progress'
+                ->orWhere(function ($w) {
+                    $w->where('p.installation_status', 'in_progress');
+                });
+            })
+            ->distinct('p.ProductID')
+            ->count('p.ProductID');
 
         // Completed = fulfillment_progress says installation completed (distinct products)
         $completed = DB::table('fulfillment_progress as fp')
@@ -378,17 +388,34 @@ class InstallationController extends Controller
         if ($mine) {
             $role = strtolower(Auth::user()->role ?? '');
             $stageForRole = match ($role) {
-                'operations-printing'             => 'printing',
-                'operations-furnishing'           => 'furnishing',
-                'operations-dispatch-control'     => 'delivery',
-                'operations-delivery-installation'=> 'installation',
+                'operations-printing'              => 'printing',
+                'operations-furnishing'            => 'furnishing',
+                'operations-dispatch-control'      => 'delivery',
+                'operations-delivery-installation' => 'installation',
                 default => null,
             };
 
             if ($stageForRole) {
-                $list = array_values(array_filter($list, function ($row) use ($stageForRole) {
-                    return ($row['current_stage'] ?? null) === $stageForRole
-                        || array_key_exists($stageForRole, ($row['stages'] ?? []));
+                $list = array_values(array_filter($list, function ($row) use ($stageForRole, $role) {
+                    $currentStage = $row['current_stage'] ?? null;
+                    $hasStage     = array_key_exists($stageForRole, ($row['stages'] ?? []));
+
+                    // ✅ base rule: same as before
+                    $matchBase = ($currentStage === $stageForRole) || $hasStage;
+
+                    // ✅ extra rule ONLY for installation role:
+                    // if installation_task_type = 1 AND installation_status = 'in_progress'
+                    // then also include this row when "Filter Me" is ON.
+                    if ($role === 'operations-delivery-installation') {
+                        $instTaskType = (int)($row['installation_task_type'] ?? 0);
+                        $instStatus   = $row['installation_status'] ?? null; // already lowercased
+
+                        if ($instTaskType === 1 && $instStatus === 'in_progress') {
+                            return true;
+                        }
+                    }
+
+                    return $matchBase;
                 }));
             }
         }
@@ -623,6 +650,7 @@ class InstallationController extends Controller
             'installation' => DB::table('products as p')
                 ->join('orders as o', 'o.id', '=', 'p.OrderID')
                 ->whereRaw('LOWER(p.taskType) = "installation"')
+                ->orWhere('p.installation_task_type', 1)
                 ->where(function ($w) {
                     $w->whereNull('o.status')->orWhere('o.status', 0);
                 })
@@ -679,6 +707,9 @@ class InstallationController extends Controller
                 DATE_FORMAT(COALESCE(o.deadline, p.updated_at), '%Y-%m-%d') as deadline,
                 DATE_FORMAT(db.date, '%Y-%m-%d')                  as delivery_date,
                 db.location                                       as delivery_location,
+                p.installation_task_type,
+                db.method                                         as delivery_method, 
+                db.deliver_install_type                           as deliver_install_type,
                 o.id                                              as order_id,
                 o.orderTitle,
                 o.companyName,
@@ -739,7 +770,38 @@ class InstallationController extends Controller
             ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', $artist))
 
             // TASK TYPE & STATUS filter
-            ->when($taskType !== '', fn($qb) => $qb->whereRaw('LOWER(p.taskType) = ?', [strtolower($taskType)]))
+            ->when($taskType !== '', function ($qb) use ($taskType) {
+                $t = strtolower($taskType);
+
+                // Treat "installation" / "delivery & installation"
+                if (in_array($t, ['installation', 'delivery_installation'], true)) {
+                    $qb->where(function ($w) {
+                        $w->whereRaw('LOWER(p.taskType) = "installation"')
+                        ->orWhere(function ($q) {
+                            $q->whereRaw('LOWER(p.taskType) = "delivery"')
+                                ->where('p.installation_task_type', 1)
+                                ->whereRaw("LOWER(db.method) = 'delivery_installation'");
+                        });
+                    });
+                    return;
+                }
+
+                // Treat "dispatch control" / pure delivery
+                if (in_array($t, ['delivery', 'dispatch_control'], true)) {
+                    $qb->where(function ($w) {
+                        $w->whereRaw('LOWER(p.taskType) = "delivery"')
+                        ->where(function ($q) {
+                            $q->whereNull('p.installation_task_type')
+                                ->orWhere('p.installation_task_type', '!=', 1)
+                                ->orWhereRaw("LOWER(db.method) <> 'delivery_installation'");
+                        });
+                    });
+                    return;
+                }
+
+                // Default: printing, furnishing, etc.
+                $qb->whereRaw('LOWER(p.taskType) = ?', [$t]);
+            })
             ->when($status   !== '', fn($qb) => $qb->where('p.status', $status));
 
         // SORTING: nearest/furthest by date, or default latest updated

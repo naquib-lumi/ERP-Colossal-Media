@@ -1269,7 +1269,7 @@ class ArtistController extends Controller
                             ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
                             ->delete();
                     }
-                    $productRow->syncTaskTypeFromSpecs();
+                    
 
                     // 2️⃣ Force-restore original accepted flags at the very end
                     if ($originalFlags) {
@@ -1280,6 +1280,8 @@ class ArtistController extends Controller
                                 'installation_accepted'=> $originalFlags->installation_accepted,
                             ]);
                     }
+
+                    $productRow->syncTaskTypeFromSpecs();
                 } 
             });
 
