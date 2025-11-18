@@ -391,7 +391,7 @@ if (window.permitDownloadRoute && xp.product_id) {
   ${
     permitHref
       ? `<a href="${permitHref}" class="text-decoration-underline">
-            ${permitFilename || 'Download Permit'}
+            ${permitFilename || ''}
          </a>`
       : 'No Permit Attached'
   }
@@ -666,7 +666,7 @@ if (window.permitDownloadRoute && xp.product_id) {
   ${
     permitHref
       ? `<a href="${permitHref}" class="text-decoration-underline">
-            ${permitFilename || 'Download Permit'}
+            ${permitFilename || ''}
          </a>`
       : 'No Permit Attached'
   }

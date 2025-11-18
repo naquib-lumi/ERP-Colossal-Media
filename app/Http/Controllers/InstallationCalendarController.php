@@ -30,6 +30,7 @@ class InstallationCalendarController extends Controller
         $deliverySub = DB::table('delivery_breakdowns as d')
             ->select([
                 'd.ProductID',
+                'd.BreakdownID      as breakdown_id',
                 'd.date       as delivery_date',
                 'd.time       as delivery_time',
                 'd.method',
@@ -52,9 +53,9 @@ class InstallationCalendarController extends Controller
             ->leftJoin('orders as oo', 'oo.id', '=', 'op.OrderID')
             ->leftJoin('users as u', 'u.id', '=', 'o.artist_id')
             ->leftJoinSub($deliverySub, 'd', function ($join) {
-                $join->on('d.ProductID', '=', 'p.ProductID')
-                    ->where('d.rn', '=', 1); // ⬅️ keep the LEFT JOIN while filtering the subrow
+                $join->on('d.ProductID', '=', 'p.ProductID');
             })
+
             ->select([
                 'p.ProductID',
                 'p.OrderID',
