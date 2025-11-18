@@ -302,12 +302,16 @@ $totalResults = method_exists($orders, 'total') ? $orders->total() : $orders->co
 $hasResults = $totalResults > 0;
 
 $taskLabel = function (?string $raw) {
-$t = strtolower((string)$raw);
-return match ($t) {
-'delivery' => 'Dispatch Control',
-'installation' => 'Delivery & Installation',
-default => \Illuminate\Support\Str::title($t),
-};
+    $t = strtolower((string)$raw);
+    return match ($t) {
+        'delivery',
+            => 'Dispatch Control',
+        'installation',
+        'delivery_installation'
+            => 'Delivery & Installation',
+        default
+            => \Illuminate\Support\Str::title($t),
+    };
 };
 @endphp
 
@@ -482,6 +486,31 @@ default => \Illuminate\Support\Str::title($t),
           $status = strtolower($o->status ?? '');
           $typeCls = $typeStyles[$type] ?? 'bg-light text-muted';
           $statCls = $statusStyles[$status] ?? 'bg-light text-muted';
+          // 🔹 default label from helper
+          $taskLabelText = $taskLabel($o->task_type);
+
+          // 🔹 override: Delivery + installation_task_type = 1
+          if ($type === 'delivery' && (int)($o->installation_task_type ?? 0) === 1) {
+              $taskLabelText = 'Delivery & Installation';
+          }
+          @endphp
+          @php
+              $baseType       = strtolower($o->task_type ?? '');
+              $deliveryMethod = strtolower($o->delivery_method ?? '');
+              $installFlag    = (int)($o->installation_task_type ?? 0);
+
+              // 🔹 Decide logical type for this row
+              if ($installFlag === 1 && $deliveryMethod === 'delivery_installation') {
+                  // treat as Installation so it uses the blue pill + nice label
+                  $logicalType = 'installation';
+              } else {
+                  $logicalType = $baseType; // printing / furnishing / delivery / ...
+              }
+
+              $type          = $logicalType;
+              $typeCls       = $typeStyles[$type] ?? 'bg-light text-muted';
+              $status        = strtolower($o->status ?? '');
+              $statCls       = $statusStyles[$status] ?? 'bg-light text-muted';
           @endphp
           <tr class="js-row" data-href="{{ $o->details_url }}" style="cursor: pointer;">
             <td class="fw-semibold">{{ $o->product_code ?? $o->product_id ?? '—' }}</td>
@@ -489,7 +518,7 @@ default => \Illuminate\Support\Str::title($t),
 
             <td>
               <span class="pill {{ $typeCls }}">
-                {{ $taskLabel($o->task_type) }}
+                {{ $taskLabel($type) }}
               </span>
             </td>
 
