@@ -165,30 +165,41 @@ class Product extends Model
 
         /**
          * ==============================
-         * CASE 1: revive-only scenario
-         * product exists + was rejected + (accepted = 0 OR accepted is null)
+         * CASE 1: special “revive only” rule
+         * If:
+         *   - product exists in DB
+         *   - status = rejected
+         *   - accepted = 0
+         *
+         * Then:
+         *   - ONLY set status -> in_progress
+         *   - ONLY set accepted -> null
+         *   - SKIP ALL remaining logic
          * ==============================
          */
         if (
             $existsInDb &&
             $currentStatus === 'rejected' &&
-            // sometimes you set 0, sometimes you set null → treat both as “needs revive”
-            ($currentAccepted === 0 || $currentAccepted === '0')
+            (int) $currentAccepted === 0
         ) {
-            // revive only
-            if ($currentStatus !== 'in_progress') {
-                $changes['status'] = 'in_progress';
-            }
-            // always clear accepted
-            if ($currentAccepted !== null) {
-                $changes['accepted'] = null;
-            }
+            // keep whatever taskType it currently has
+            $keepTaskType = $this->getAttribute('taskType');
 
-            if (!empty($changes)) {
-                $this->forceFill($changes)->save();
-            }
+            // update DB directly to avoid triggering extra logic
+            DB::table('products')
+                ->where('ProductID', $pid)
+                ->update([
+                    'status'   => 'in_progress',
+                    'accepted' => null,
+                    'taskType' => $keepTaskType,   // 👈 keep same taskType
+                ]);
 
-            // IMPORTANT: STOP HERE → do NOT touch taskType, do NOT check specs
+            // keep the in-memory model consistent
+            $this->setAttribute('status', 'in_progress');
+            $this->setAttribute('accepted', null);
+            $this->setAttribute('taskType', $keepTaskType); // 👈 mirror it here too
+
+            // 🔴 SUPER IMPORTANT: stop here, don't touch taskType etc.
             return;
         }
 
@@ -219,24 +230,31 @@ class Product extends Model
                 ->exists();
         };
 
-        // only infer when empty
-        if ($newType !== 'rejected') {
-            $hasRealPrinter = $pid ? $detectRealPrinter((int)$pid) : false;
+        // ⚠️ only infer taskType when it's empty AND not rejected
+        if (
+            $currentStatus !== 'rejected' &&
+            ($currentType === '' || $currentType === null)
+        ) {
+            $hasRealPrinter = $pid ? $detectRealPrinter((int) $pid) : false;
             $newType        = $hasRealPrinter ? 'printing' : 'furnishing';
         }
 
-        // 🔹 write taskType only if changed AND editable != 0
-        if ($editable !== 0 && $this->getAttribute('taskType') !== $newType) {
+        // 🔹 write taskType only if changed, editable != 0, and not rejected
+        if (
+            $editable !== 0 &&
+            $currentStatus !== 'rejected' &&
+            $newType !== '' &&
+            $newType !== $currentType
+        ) {
             $changes['taskType'] = $newType;
         }
-
 
         /**
          * For existing rows (non-rejected case):
          * - make sure status is in_progress
          * - clear accepted
          */
-        if ($existsInDb) {
+        if ($existsInDb && $currentStatus !== 'in_progress') {
             if ($currentStatus !== 'in_progress') {
                 $changes['status'] = 'in_progress';
             }
