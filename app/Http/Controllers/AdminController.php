@@ -1178,6 +1178,28 @@ $inProgressProducts = Product::from('products as p')
         return back()->with('success', 'Permit uploaded.');
     }
 
+    public function viewPermit($product_id)
+{
+    $permit = DB::table('product_permit')
+                ->where('product_id', $product_id)
+                ->first();
+
+    if (!$permit || !str_contains($permit->permit_file, '|')) {
+        abort(404);
+    }
+
+    [$path, $originalName] = explode('|', $permit->permit_file, 2);
+    $fullPath = storage_path('app/public/' . $path);
+
+    if (!file_exists($fullPath)) {
+        abort(404);
+    }
+
+    return response()->file($fullPath, [
+        'Content-Disposition' => 'inline; filename="' . $originalName . '"'
+    ]);
+}
+
     public function downloadPermit(int $productId)
     {
         $row = DB::table('product_permit')->where('product_id', $productId)->first();

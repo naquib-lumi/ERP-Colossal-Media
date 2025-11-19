@@ -374,19 +374,19 @@ function modifyToggler(calendar) {
       orderLeadCompany = parts[0];
       orderLeadName = parts[1];
     }
-  }
-  $('#orderLeadNameDetail_' + safeId).text(orderLeadName);
-  $('#orderLeadCompanyDetail_' + safeId).text(orderLeadCompany);
-  $('#orderDeadlineDetail_' + safeId).text(info.event.extendedProps.job_order_deadline ? moment(info.event.extendedProps.job_order_deadline).format('MMM DD, YYYY') : 'N/A');
-  let permitText = 'No Permit Attached';
-  if (info.event.extendedProps.permit_attachment) {
-    permitText = `<a href="${info.event.extendedProps.permit_attachment}" target="_blank" class="btn btn-sm btn-outline-primary">View Permit</a>`;
-  }
-  $('#orderPermitDetail_' + safeId).html(permitText);
+        }
+        $('#orderLeadNameDetail_' + safeId).text(orderLeadName);
+        $('#orderLeadCompanyDetail_' + safeId).text(orderLeadCompany);
+        $('#orderDeadlineDetail_' + safeId).text(info.event.extendedProps.job_order_deadline ? moment(info.event.extendedProps.job_order_deadline).format('MMM DD, YYYY') : 'N/A');
+       let permitText = 'No Permit Attached';
+if (info.event.extendedProps.permit_attachment) {
+  permitText = `<a href="/admin/fulfillment/permit/${info.event.extendedProps.product_id}" target="_blank" class="btn btn-sm btn-outline-primary">View Permit</a>`;
+}
+        $('#orderPermitDetail_' + safeId).html(permitText);
 
-  const eventModal = new bootstrap.Modal(document.getElementById(modalId));
-  eventModal.show();
-},
+        const eventModal = new bootstrap.Modal(document.getElementById(modalId));
+        eventModal.show();
+      },
       datesSet: function () {
         modifyToggler(orderCalendar);
       },

@@ -383,6 +383,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/fulfillment/{id}/edit', [AdminController::class, 'fulfillmentEdit'])->name('admin.fulfillment.edit');
     Route::put('/admin/fulfillment/{product}/deliveries', [AdminController::class, 'updateDeliveries'])->name('admin.fulfillment.deliveries.update');
     Route::post('/admin/fulfillment/permit', [AdminController::class, 'storePermit'])->name('admin.fulfillment.permit.store');
+    Route::get('/admin/fulfillment/permit/{product_id}', [AdminController::class, 'viewPermit'])->name('admin.fulfillment.permit.view');
     Route::get('/admin/permits/{product}/download', [AdminController::class, 'downloadPermit'])->name('admin.permits.download');
     Route::get('/admin/manageuser', [AdminManageUserController::class, 'manageUser'])->name('admin.manageuser');
     Route::get('/admin/user', [AdminManageUserController::class, 'user'])->name('admin.user');
