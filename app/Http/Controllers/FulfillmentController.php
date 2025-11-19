@@ -127,16 +127,34 @@ public function index(Request $request)
     // Printing / Furnishing → match taskType directly (your original)
     // Dispatch Control      → DB status 'delivery'
     // Delivery & Installation → DB status 'installation'
-    $taskNorm = preg_replace('/\s+/', ' ', trim($task)); // normalize spaces
+    $taskNorm = strtolower(preg_replace('/\s+/', ' ', trim($task)));
+
     if ($taskNorm !== '') {
-        if (in_array($taskNorm, ['printing','furnishing'], true)) {
+        // Printing / Furnishing → match taskType directly
+        if (in_array($taskNorm, ['printing', 'furnishing'], true)) {
             $query->whereRaw('LOWER(p.taskType) = ?', [$taskNorm]);
-        } elseif (in_array($taskNorm, ['dispatch control','dispatch_control'], true)) {
-            $query->whereRaw('LOWER(p.status) = ?', ['delivery']);
-        } elseif (in_array($taskNorm, ['delivery & installation','delivery_installation'], true)) {
-            $query->whereRaw('LOWER(p.status) = ?', ['installation']);
+
+        // Dispatch Control (dropdown key = "delivery")
+        } elseif (in_array($taskNorm, ['delivery', 'dispatch control', 'dispatch_control'], true)) {
+            // delivery products that do NOT have delivery_installation on this breakdown row
+            $query->whereRaw('LOWER(p.taskType) = ?', ['delivery'])
+                ->where(function ($w) {
+                    $w->whereNull('dd.method')
+                        ->orWhereRaw("LOWER(dd.method) <> 'delivery_installation'");
+                });
+
+        // Delivery & Installation (dropdown key = "installation")
+        } elseif (in_array($taskNorm, ['installation', 'delivery & installation', 'delivery_installation'], true)) {
+            // either pure installation products OR delivery rows whose method is delivery_installation
+            $query->where(function ($w) {
+                $w->whereRaw('LOWER(p.taskType) = ?', ['installation'])
+                ->orWhere(function ($w2) {
+                    $w2->whereRaw('LOWER(p.taskType) = ?', ['delivery'])
+                        ->whereRaw("LOWER(dd.method) = 'delivery_installation'");
+                });
+            });
+
         } else {
-            // fallback to original behaviour
             $query->whereRaw('LOWER(p.taskType) = ?', [$taskNorm]);
         }
     }
@@ -188,6 +206,7 @@ public function index(Request $request)
         DB::raw("DATE_FORMAT(dd.date, '%Y-%m-%d') as deliv_date"),
         DB::raw("DATE_FORMAT(dd.time, '%H:%i')     as deliv_time"),
         'dd.location as deliv_loc',
+        'dd.method as method',   // 👈 NEW: used to decide Delivery & Installation
         DB::raw('COALESCE(oo.order_number, o.order_number) as order_no_display'),
     ]);
 
@@ -210,6 +229,16 @@ public function index(Request $request)
         $isRedo     = !is_null($r->redoOf);
         $isEditable = ((int) $r->editable === 1);
 
+        // 🔹 Decide display task based on delivery method
+        $rawTask = strtolower((string)($r->task ?? ''));
+        $method  = strtolower((string)($r->method ?? ''));
+
+        // If this is a delivery row whose method is delivery_installation,
+        // treat it as "Delivery & Installation" for the UI
+        if ($rawTask === 'delivery' && $method === 'delivery_installation') {
+            $r->task = 'delivery_installation';
+        }
+
         $orderNo = ltrim((string) $r->order_no_display, '#'); // e.g. ORD-2025-0044
         $pidForDisplay = $r->redoOf ?: $r->pid;
         $suffixR       = ($isRedo && $isEditable) ? 'R' : '';
@@ -220,6 +249,7 @@ public function index(Request $request)
         $r->view_url   = route('artist.fulfillment.product.show',        $r->pid);
         $r->edit_url   = route('artist.orders.edit',        $r->order_id_current);
         $r->assign_url = route('artist.orders.redo.create', $r->order_id_current);
+
         return $r;
     });
 
