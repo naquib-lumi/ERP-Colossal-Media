@@ -555,16 +555,41 @@ $inProgressProducts = Product::from('products as p')
             });
         }
 
-        // (4) Task filter
+        // (4) Task filter - follow same logic as installation Job Order
         if ($task !== '') {
-            $taskNorm = str_replace('&', 'and', $task);
-            $taskNorm = preg_replace('/\s+/', '_', $taskNorm);
-            if (in_array($taskNorm, ['printing','furnishing'], true)) {
+            // normalize
+            $taskNorm = strtolower($task);
+
+            if (in_array($taskNorm, ['printing', 'furnishing'], true)) {
+                // simple 1-to-1
                 $query->whereRaw('LOWER(p.taskType) = ?', [$taskNorm]);
-            } elseif (in_array($taskNorm, ['delivery','dispatch_control'], true)) {
-                $query->whereRaw('LOWER(p.taskType) = ?', ['delivery']);
-            } elseif (in_array($taskNorm, ['installation','delivery_installation','delivery_and_installation'], true)) {
-                $query->whereRaw('LOWER(p.taskType) = ?', ['installation']);
+
+            } elseif ($taskNorm === 'delivery') {
+                // Dispatch Control only:
+                //  - base taskType = delivery
+                //  - NOT the "delivery & installation" combo
+                $query->where(function ($w) {
+                    $w->whereRaw('LOWER(p.taskType) = ?', ['delivery'])
+                    ->where(function ($w2) {
+                        $w2->whereNull('p.installation_task_type')
+                            ->orWhere('p.installation_task_type', '!=', 1)
+                            ->orWhereRaw('LOWER(d.method) <> "delivery_installation"');
+                    });
+                });
+
+            } elseif (in_array($taskNorm, ['installation', 'delivery_installation', 'delivery_and_installation'], true)) {
+                // Delivery & Installation only:
+                //  - either real installation task
+                //  - OR delivery rows that are the installation leg:
+                //        installation_task_type = 1 AND d.method = 'delivery_installation'
+                $query->where(function ($w) {
+                    $w->whereRaw('LOWER(p.taskType) = ?', ['installation'])
+                    ->orWhere(function ($w2) {
+                        $w2->whereRaw('LOWER(p.taskType) = ?', ['delivery'])
+                            ->where('p.installation_task_type', 1)
+                            ->whereRaw('LOWER(d.method) = "delivery_installation"');
+                    });
+                });
             }
         }
 
@@ -625,26 +650,24 @@ $inProgressProducts = Product::from('products as p')
 
                 $productCode = sprintf('#ORD-%s-%03d-P%04d%s', $year, (int)$baseOrderId, (int)$baseProductId, $rFlag);
 
-                // --- Task label with delivery-installation logic ---
-                $rawTask   = strtolower((string) $r->taskType);
-                $methodRaw = strtolower(trim((string) ($r->delivery_method ?? '')));
+                // --- Decide logical task type (same idea as installation Job Order) ---
+                $baseTask       = strtolower((string) ($r->taskType ?? ''));          // printing / furnishing / delivery / installation
+                $deliveryMethod = strtolower(trim((string) ($r->delivery_method ?? '')));
+                $installFlag    = (int) ($r->installation_task_type ?? 0);
 
-                // Delivery & Installation when:
-                //  • main taskType = installation
-                //  • OR main taskType = delivery AND delivery_breakdowns.method = 'delivery_installation'
-                if (
-                    $rawTask === 'installation'
-                    || ($rawTask === 'delivery' && $methodRaw === 'delivery_installation')
-                ) {
-                    $taskLabel = 'Delivery & Installation';
-                } elseif ($rawTask === 'delivery') {
-                    // pure delivery / dispatch rows
-                    $taskLabel = 'Dispatch Control';
-                } elseif ($rawTask !== '') {
-                    $taskLabel = ucfirst($rawTask);
+                if ($installFlag === 1 && $deliveryMethod === 'delivery_installation') {
+                    // treat as installation so it shows as Delivery & Installation
+                    $logicalTask = 'installation';
                 } else {
-                    $taskLabel = '-';
+                    $logicalTask = $baseTask;
                 }
+
+                // Final label shown in the pill
+                $taskLabel = match ($logicalTask) {
+                    'delivery'     => 'Dispatch Control',
+                    'installation' => 'Delivery & Installation',
+                    default        => ($logicalTask !== '' ? ucfirst($logicalTask) : '-'),
+                };
 
                 $dt = null;
                 if ($r->delivery_date) {
