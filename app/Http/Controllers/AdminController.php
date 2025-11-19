@@ -1010,6 +1010,26 @@ $inProgressProducts = Product::from('products as p')
 
         DB::beginTransaction();
         try {
+            // 🔒 lock product row so status/accepted updates are consistent
+            $productRow = DB::table('products')
+                ->where('ProductID', $productId)
+                ->select(
+                    'ProductID',
+                    'taskType',
+                    'status',
+                    'accepted',
+                    'editable',
+                    'installation_task_type',
+                    'installation_status',
+                    'installation_accepted'
+                )
+                ->lockForUpdate()
+                ->first();
+
+            if (!$productRow) {
+                throw new \RuntimeException('Product not found.');
+            }
+
             foreach ($data['rows'] as $row) {
                 $id     = $row['id'] ?? null;
                 $method = $canonMethod($row['method'] ?? null);
@@ -1054,6 +1074,66 @@ $inProgressProducts = Product::from('products as p')
                     $payload['ProductID'] = $productId;
                     $payload['created_at'] = now();
                     DB::table('delivery_breakdowns')->insert($payload);
+                }
+            }
+
+            // 🔁 If this product was rejected, push it back to in_progress
+            if ($productRow) {
+                $now = now();
+
+                $taskType = strtolower(trim((string)($productRow->taskType ?? '')));
+                $status   = strtolower(trim((string)($productRow->status ?? '')));
+
+                $accepted       = $productRow->accepted;
+                $editable       = (int)($productRow->editable ?? 0);
+
+                $instTaskType   = (int)($productRow->installation_task_type ?? 0);
+                $instStatus     = strtolower(trim((string)($productRow->installation_status ?? '')));
+                $instAccepted   = $productRow->installation_accepted;
+
+                $acceptedIsZero     = (!is_null($accepted)     && (int)$accepted     === 0);
+                $instAcceptedIsZero = (!is_null($instAccepted) && (int)$instAccepted === 0);
+
+                // Dispatch rejected
+                $dispatchRejected =
+                    ($taskType === 'delivery'
+                    && $status   === 'rejected'
+                    && $acceptedIsZero
+                    && $editable === 1);
+
+                // Installation rejected via main status
+                $installationRejectedByTask =
+                    ($taskType === 'installation'
+                    && $status   === 'rejected'
+                    && $acceptedIsZero
+                    && $editable === 1);
+
+                // Installation rejected via installation_* fields
+                $installationRejectedByFields =
+                    ($instTaskType === 1
+                    && $instStatus   === 'rejected'
+                    && $instAcceptedIsZero);
+
+                $productUpdates = [];
+
+                // For any dispatch / installation rejection → reset main status
+                if ($dispatchRejected || $installationRejectedByTask) {
+                    $productUpdates['status']   = 'in_progress';
+                    $productUpdates['accepted'] = null;
+                }
+
+                // For installation rejection → also reset installation_* flags
+                if ($installationRejectedByFields) {
+                    $productUpdates['installation_status']   = 'in_progress';
+                    $productUpdates['installation_accepted'] = null;
+                }
+
+                if (!empty($productUpdates)) {
+                    $productUpdates['updated_at'] = $now;
+
+                    DB::table('products')
+                        ->where('ProductID', $productId)
+                        ->update($productUpdates);
                 }
             }
 
