@@ -70,6 +70,7 @@ class RedoOrderController extends Controller
 
             $baseId    = $order->redo ? (int) $order->redo : (int) $order->id;
             $baseOrder = $order->redo ? Order::findOrFail($baseId) : $order;
+            $sourceOrder = $order;
 
             // 🔴 Archive ALL existing redos for this base so they’re hidden in lists
             Order::where('redo', $baseId)->update(['status' => 1]);
@@ -93,7 +94,7 @@ class RedoOrderController extends Controller
             $redoOrder->updated_at   = now();
 
             if ($reasonText !== '') {
-                $redoOrder->orderDetail = trim(($baseOrder->orderDetail ? $baseOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
+                $redoOrder->orderDetail = trim(($sourceOrder->orderDetail ? $sourceOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
             }
             $redoOrder->save();
 
@@ -109,17 +110,17 @@ class RedoOrderController extends Controller
 
             // Duplicate products/items/specs/remarks/deliveries/progress from BASE
             $baseProducts = Product::with(['items.spec','remarks','deliveryBreakdowns'])
-                ->where('OrderID', $baseOrder->id)
+                ->where('OrderID', $sourceOrder->id)
                 ->orderBy('ProductID')
                 ->get();
 
-            $selectedOriginIds = collect();
-            if ($selectedCurrentIds->isNotEmpty()) {
-                $selectedOriginIds = Product::whereIn('ProductID', $selectedCurrentIds)
-                    ->pluck(DB::raw('COALESCE(redoOf, ProductID)'))
-                    ->unique()
-                    ->values();
-            }
+            $selectedOriginIds = $selectedCurrentIds;
+            // if ($selectedCurrentIds->isNotEmpty()) {
+            //     $selectedOriginIds = Product::whereIn('ProductID', $selectedCurrentIds)
+            //         ->pluck(DB::raw('COALESCE(redoOf, ProductID)'))
+            //         ->unique()
+            //         ->values();
+            // }
 
             foreach ($baseProducts as $origin) {
                 $originId = $origin->ProductID;
@@ -133,6 +134,8 @@ class RedoOrderController extends Controller
                 $np->updated_at = now();
                 if ($editable) {
                     $np->accepted = null;
+                    $np->installation_accepted = null;
+                    $np->installation_status   = null;
                 }
                 $np->save();
 
