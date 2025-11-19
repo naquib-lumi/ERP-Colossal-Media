@@ -528,20 +528,44 @@ class PrintingProductOrderController extends Controller
             DB::table('products')
                 ->where('ProductID', $product)
                 ->update(['accepted' => 1, 'updated_at' => $now]);
+            
+            // ── 1) Check if there is already an "in_progress" row for this product+stage
+            $existing = DB::table('fulfillment_progress')
+                ->where('ProductID', $product)
+                ->where('stage', $stage)
+                ->where('status', 'rejected')
+                ->lockForUpdate()
+                ->first();
 
             // 2) upsert progress (do not overwrite acceptedAt)
-            DB::table('fulfillment_progress')->upsert(
-                [[
-                    'ProductID'  => (int)$product,
-                    'stage'      => $stage,
-                    'acceptedAt' => $now,          // only used on insert
-                    'status'     => 'in_progress',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]],
-                ['ProductID', 'stage'],
-                ['status', 'updated_at']
-            );
+            if ($existing) {
+                // 👉 Already in progress → mark as completed
+                DB::table('fulfillment_progress')
+                    ->where('ProductID', $product)
+                    ->where('stage', $stage)
+                    ->where('status', 'rejected')
+                    ->update([
+                        // stage + acceptedAt stay unchanged
+                        'status'      => 'in_progress',
+                        'acceptedAt' => $now,
+                        'updated_at'  => $now,
+                    ]);
+
+            } else {
+                // 👉 No in-progress row → behave like original accept: insert/upsert as in_progress
+                DB::table('fulfillment_progress')->upsert(
+                    [[
+                        'ProductID'  => (int) $product,
+                        'stage'      => $stage,
+                        'acceptedAt' => $now,       // only used on insert
+                        'status'     => 'in_progress',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]],
+                    ['ProductID', 'stage'],        // unique-by
+                    ['status', 'updated_at']       // update columns
+                );
+            }
         });
 
         // --- Build message once ---

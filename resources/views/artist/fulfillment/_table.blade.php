@@ -57,26 +57,28 @@
 
         {{-- TASK TYPE (friendly label) --}}
         @php
-        $taskLabel = match (strtolower($r->task)) {
-        'delivery' => 'Dispatch Control',
-        'installation' => 'Delivery & Installation',
-        default => \Illuminate\Support\Str::of($r->task ?? '')->replace('_',' ')->title(),
+        $taskKey = strtolower($r->task ?? '');
+
+        $taskLabel = match ($taskKey) {
+          'delivery', 'dispatch_control'       => 'Dispatch Control',
+          'installation', 'delivery_installation' => 'Delivery & Installation',
+          default => \Illuminate\Support\Str::of($r->task ?? '')->replace('_',' ')->title(),
         };
 
         $taskClass = match (strtolower($taskLabel)) {
-        'printing' => 'bg-secondary',
-        'furnishing' => 'bg-purple',
-        'dispatch control' => 'bg-warning text-dark',
-        'delivery & installation' => 'bg-primary',
-        default => 'bg-light text-dark',
+          'printing'                 => 'bg-secondary',
+          'furnishing'               => 'bg-purple',
+          'dispatch control'         => 'bg-warning text-dark',
+          'delivery & installation'  => 'bg-primary',
+          default                    => 'bg-light text-dark',
         };
 
         $statusLabel = \Illuminate\Support\Str::of($r->status ?? '')->replace('_',' ')->title();
         $statusClass = match (strtolower($r->status)) {
-        'completed' => 'bg-success',
-        'rejected' => 'bg-danger',
-        'in_progress' => 'bg-info',
-        default => 'bg-light text-dark',
+          'completed'   => 'bg-success',
+          'rejected'    => 'bg-danger',
+          'in_progress' => 'bg-info',
+          default       => 'bg-light text-dark',
         };
         @endphp
 
