@@ -629,11 +629,15 @@
 
       {{-- Task types --}}
       <div class="col-6 col-lg-2">
-        <select id="ff-task" name="task" class="form-select">
-          @foreach($tasks as $val => $label)
-            <option value="{{ $val }}" {{ $filters['task']===$val ? 'selected' : '' }}>{{ $label }}</option>
-          @endforeach
-        </select>
+        <select name="task" class="form-select">
+    <option value="">All Task Types</option>
+    <option value="printing" {{ request('task') === 'printing' ? 'selected' : '' }}>Printing</option>
+    <option value="furnishing" {{ request('task') === 'furnishing' ? 'selected' : '' }}>Furnishing</option>
+    <option value="delivery" {{ request('task') === 'delivery' ? 'selected' : '' }}>Dispatch Control</option>
+    <option value="delivery_installation" {{ request('task') === 'delivery_installation' ? 'selected' : '' }}>
+        Delivery &amp; Installation
+    </option>
+</select>
       </div>
 
     </form>
@@ -680,7 +684,16 @@
             default                    => 'bg-light text-dark',
           };
           @endphp
-          
+          @php
+              $taskLower = strtolower($r->task_label);
+              $taskClass = match ($taskLower) {
+                  'printing'                 => 'badge bg-secondary',
+                  'furnishing'               => 'badge bg-purple',
+                  'dispatch control'         => 'badge bg-warning text-dark',
+                  'delivery & installation'  => 'badge bg-primary',
+                  default                    => 'badge bg-light text-dark',
+              };
+          @endphp
           <tr id="job-{{ $r->product_id }}" class="js-row-open" data-code="{{ $r->product_code }}" data-href="{{ route('admin.fulfillment.product.show', $r->product_id) }}" style="cursor:pointer;">
             <td class="fw-semibold">{{ $r->product_code }}</td>
             <td>{{ $r->order_title ?? '-' }}</td>

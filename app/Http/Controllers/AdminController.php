@@ -505,7 +505,9 @@ $inProgressProducts = Product::from('products as p')
                 'o.orderDate','o.deadline as order_deadline','o.created_at as order_created_at',
                 'd.BreakdownID as breakdown_id','d.date as delivery_date','d.time as delivery_time',
                 'd.location as delivery_location','d.deliver_install_type',
-                'pf.permit_file',
+                'pf.permit_file', 
+                'p.installation_task_type','p.installation_status','p.installation_accepted',
+                'd.method as delivery_method',
             ]);
 
         // priority: how many of [permit, delivery date, delivery location] are empty
@@ -623,12 +625,26 @@ $inProgressProducts = Product::from('products as p')
 
                 $productCode = sprintf('#ORD-%s-%03d-P%04d%s', $year, (int)$baseOrderId, (int)$baseProductId, $rFlag);
 
-                $task = strtolower((string)$r->taskType);
-                $taskLabel = match ($task) {
-                    'installation' => 'Delivery & Installation',
-                    'delivery'     => 'Dispatch Control',
-                    default        => $task !== '' ? ucfirst($task) : '-',
-                };
+                // --- Task label with delivery-installation logic ---
+                $rawTask   = strtolower((string) $r->taskType);
+                $methodRaw = strtolower(trim((string) ($r->delivery_method ?? '')));
+
+                // Delivery & Installation when:
+                //  • main taskType = installation
+                //  • OR main taskType = delivery AND delivery_breakdowns.method = 'delivery_installation'
+                if (
+                    $rawTask === 'installation'
+                    || ($rawTask === 'delivery' && $methodRaw === 'delivery_installation')
+                ) {
+                    $taskLabel = 'Delivery & Installation';
+                } elseif ($rawTask === 'delivery') {
+                    // pure delivery / dispatch rows
+                    $taskLabel = 'Dispatch Control';
+                } elseif ($rawTask !== '') {
+                    $taskLabel = ucfirst($rawTask);
+                } else {
+                    $taskLabel = '-';
+                }
 
                 $dt = null;
                 if ($r->delivery_date) {
