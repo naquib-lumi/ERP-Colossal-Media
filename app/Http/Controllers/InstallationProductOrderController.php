@@ -526,15 +526,26 @@ $isHistoryView = $request->query('from') === 'history';
             // Load full product row to check taskType
             $prod = DB::table('products')
                 ->where('ProductID', $product)
-                ->select('taskType', 'installation_task_type')
+                ->select(
+                    'taskType',
+                    'status',
+                    'accepted',
+                    'installation_task_type',
+                    'installation_status',
+                    'installation_accepted'
+                )
                 ->first();
 
             if (!$prod) {
                 throw new \Exception('Product not found.');
             }
 
-            $isInstallationUser = ($stage === 'installation');
-            $isInstallationTaskType = ((int)$prod->installation_task_type === 1);
+            $taskType        = strtolower(trim((string)($prod->taskType ?? '')));
+            $instTaskType    = (int)($prod->installation_task_type ?? 0);
+            $instStatus      = strtolower(trim((string)($prod->installation_status ?? '')));
+            $instAccepted    = $prod->installation_accepted;
+            $isInstallStage  = ($stage === 'installation');
+            $isSplitInstall  = ($instTaskType === 1);
 
             // --------------------------
             // Decide what to update
@@ -543,32 +554,80 @@ $isHistoryView = $request->query('from') === 'history';
                 'updated_at' => $now,
             ];
 
-            // 1️⃣ If this stage IS the main taskType → normal accept
-            if ($stage === strtolower($prod->taskType)) {
-                $updateData['accepted'] = 1;
+            if ($isInstallStage) {
+                //
+                // 🔹 Installation user
+                //
+                if ($taskType === 'installation') {
+                    // Main installation product → normal accept
+                    $updateData['accepted'] = 1;
+
+                } elseif ($isSplitInstall) {
+                    // Dispatch + installation product
+
+                    // Case: previously rejected installation leg
+                    if ($instStatus === 'rejected' && !is_null($instAccepted) && (int)$instAccepted === 0) {
+                        // ✅ Only reset installation_* flags, do not touch other fields
+                        $updateData['installation_status']   = 'in_progress';
+                        $updateData['installation_accepted'] = null;
+
+                    } else {
+                        // Normal accept of installation leg (not previously rejected)
+                        $updateData['installation_accepted'] = 1;
+                    }
+                }
+
+            } else {
+                //
+                // 🔹 Printing / Furnishing / Delivery users
+                //
+                if ($stage === $taskType) {
+                    // Normal accept for that main stage
+                    $updateData['accepted'] = 1;
+                }
             }
 
-            // 2️⃣ Installation override case (taskType != installation but installation_task_type = 1)
-            if ($isInstallationUser && $isInstallationTaskType) {
-                $updateData['installation_accepted'] = 1;
+            // Apply product updates only if we actually changed something
+            if (count($updateData) > 1) { // >1 because we always have updated_at
+                DB::table('products')
+                    ->where('ProductID', $product)
+                    ->update($updateData);
             }
 
-            // 1️⃣ Update product's accepted flag to 1
-            DB::table('products')->where('ProductID', $product)->update($updateData);
+            // ── Fulfillment progress: handle rejection→in_progress or first-time accept
+            $existing = DB::table('fulfillment_progress')
+                ->where('ProductID', $product)
+                ->where('stage', $stage)
+                ->where('status', 'rejected')
+                ->lockForUpdate()
+                ->first();
 
-            // 2️⃣ Upsert fulfillment_progress
-            DB::table('fulfillment_progress')->upsert(
-                [[
-                    'ProductID'  => (int)$product,
-                    'stage'      => $stage,
-                    'acceptedAt' => $now,
-                    'status'     => 'in_progress',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]],
-                ['ProductID', 'stage'],
-                ['status', 'updated_at']
-            );
+            if ($existing) {
+                // Previously rejected → bring it back to in_progress and set acceptedAt
+                DB::table('fulfillment_progress')
+                    ->where('ProductID', $product)
+                    ->where('stage', $stage)
+                    ->where('status', 'rejected')
+                    ->update([
+                        'status'      => 'in_progress',
+                        'acceptedAt'  => $now,
+                        'updated_at'  => $now,
+                    ]);
+            } else {
+                // First-time accept / no rejected row yet
+                DB::table('fulfillment_progress')->upsert(
+                    [[
+                        'ProductID'  => (int)$product,
+                        'stage'      => $stage,
+                        'acceptedAt' => $now,
+                        'status'     => 'in_progress',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]],
+                    ['ProductID', 'stage'],
+                    ['status', 'updated_at']
+                );
+            }
         });
 
         // --- Build message once ---
@@ -661,28 +720,32 @@ $isHistoryView = $request->query('from') === 'history';
             abort(404, 'Order not found for this product.');
         }
 
-        DB::transaction(function () use ($product, $orderId, $stage, $now, $data) {
+        $actorId = (int) auth()->id();
+
+        DB::transaction(function () use ($product, $orderId, $stage, $now, $data, $actorId) {
 
             // 1) Product-level acceptance flag -> rejected
             DB::table('products')
             ->where('ProductID', (int)$product)
             ->update([
-                'accepted' => 0,
-                'status' => 'rejected',
+                // If this is installation product → mark accepted = 0, else keep original
+                'accepted' => DB::raw('CASE WHEN taskType = "installation" THEN 0 ELSE accepted END'),
+                'status' => DB::raw('CASE WHEN taskType = "installation" THEN "rejected" ELSE status END'),
                 'installation_accepted' => DB::raw('CASE WHEN installation_task_type=1 THEN 0 ELSE installation_accepted END'),
                 'installation_status' => DB::raw('CASE WHEN installation_task_type=1 THEN "rejected" ELSE installation_status END'),
                 'updated_at' => $now,
             ]);
 
             // 2) Order-level status -> rejected
-            DB::table('orders')
-                ->where('id', $orderId)
-                ->update(['orderStatus' => 'rejected', 'updated_at' => $now]);
+            // DB::table('orders')
+            //     ->where('id', $orderId)
+            //     ->update(['orderStatus' => 'rejected', 'updated_at' => $now]);
 
             // 3) Optional: store reason (per order)
             DB::table('report_redo')->insert([
                 'OrderID'    => $orderId,
                 'reason'     => $data['reason'],
+                'user_id'    => $actorId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);

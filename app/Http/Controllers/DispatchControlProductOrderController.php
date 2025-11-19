@@ -632,19 +632,42 @@ class DispatchControlProductOrderController extends Controller
                 ->where('ProductID', $product)
                 ->update(['accepted' => 1, 'updated_at' => $now]);
 
-            // 2️⃣ Upsert fulfillment_progress
-            DB::table('fulfillment_progress')->upsert(
-                [[
-                    'ProductID'  => (int)$product,
-                    'stage'      => $stage,
-                    'acceptedAt' => $now,
-                    'status'     => 'in_progress',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]],
-                ['ProductID', 'stage'],
-                ['status', 'updated_at']
-            );
+            // ── 1) Check if there is already an "in_progress" row for this product+stage
+            $existing = DB::table('fulfillment_progress')
+                ->where('ProductID', $product)
+                ->where('stage', $stage)
+                ->where('status', 'rejected')
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                // 👉 Already in progress → mark as completed
+                DB::table('fulfillment_progress')
+                    ->where('ProductID', $product)
+                    ->where('stage', $stage)
+                    ->where('status', 'rejected')
+                    ->update([
+                        // stage + acceptedAt stay unchanged
+                        'status'      => 'in_progress',
+                        'acceptedAt' => $now,
+                        'updated_at'  => $now,
+                    ]);
+
+            } else {
+                // 2️⃣ Upsert fulfillment_progress
+                DB::table('fulfillment_progress')->upsert(
+                    [[
+                        'ProductID'  => (int)$product,
+                        'stage'      => $stage,
+                        'acceptedAt' => $now,
+                        'status'     => 'in_progress',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]],
+                    ['ProductID', 'stage'],
+                    ['status', 'updated_at']
+                );
+            }
         });
 
         // --- Build message once ---
@@ -734,7 +757,9 @@ class DispatchControlProductOrderController extends Controller
             abort(404, 'Order not found for this product.');
         }
 
-        DB::transaction(function () use ($product, $orderId, $stage, $now, $data) {
+        $actorId = (int) auth()->id();
+
+        DB::transaction(function () use ($product, $orderId, $stage, $now, $data, $actorId) {
 
             // 1) Product-level acceptance flag -> rejected
             DB::table('products')
@@ -742,18 +767,20 @@ class DispatchControlProductOrderController extends Controller
                 ->update([
                     'accepted'   => 0,
                     'status'     => 'rejected',
+                    'editable'   => 1,
                     'updated_at' => $now,
                 ]);
 
             // 2) Order-level status -> rejected
-            DB::table('orders')
-                ->where('id', $orderId)
-                ->update(['orderStatus' => 'rejected', 'updated_at' => $now]);
+            // DB::table('orders')
+            //     ->where('id', $orderId)
+            //     ->update(['orderStatus' => 'rejected', 'updated_at' => $now]);
 
             // 3) Optional: store reason (per order)
             DB::table('report_redo')->insert([
                 'OrderID'    => $orderId,
                 'reason'     => $data['reason'],
+                'user_id'    => $actorId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);

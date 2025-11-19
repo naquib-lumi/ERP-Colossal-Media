@@ -6,6 +6,14 @@
 @push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
+  .ff-reject-reason-box {
+      background: #f3f4f6;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      white-space: pre-line;   /* preserve line breaks + wrap long lines */
+  }
   /* Card look in the screenshot */
   .soft-card{border:1px solid #edf0f4;border-radius:14px;background:#fff}
   .soft-card .card-body{padding:20px}
@@ -68,7 +76,83 @@
     };
   };
 @endphp
+@php
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
+$taskType = strtolower(trim((string)($product->taskType ?? '')));
+$status   = strtolower(trim((string)($product->status ?? '')));
+$accepted = $product->accepted;
+$editable = (int)($product->editable ?? 0);
+
+$instTaskType = (int)($product->installation_task_type ?? 0);
+$instStatus   = strtolower(trim((string)($product->installation_status ?? '')));
+$instAccepted = $product->installation_accepted;
+
+$acceptedIsZero     = (!is_null($accepted)     && (int)$accepted === 0);
+$instAcceptedIsZero = (!is_null($instAccepted) && (int)$instAccepted === 0);
+
+// Dispatch rejected
+$dispatchRejected =
+    ($taskType === 'delivery'
+     && $status === 'rejected'
+     && $acceptedIsZero
+     && $editable === 1);
+
+// Installation rejected (by main status)
+$installationRejectedByTask =
+    ($taskType === 'installation'
+     && $status === 'rejected'
+     && $acceptedIsZero
+     && $editable === 1);
+
+// Installation rejected (by installation_* flags)
+$installationRejectedByFields =
+    ($instTaskType === 1
+     && $instStatus === 'rejected'
+     && $instAcceptedIsZero);
+
+$showRejectReason = $dispatchRejected || $installationRejectedByTask || $installationRejectedByFields;
+
+// ---------- Build $rejectionMeta for banner + modal ----------
+$rejectionMeta = null;
+
+if ($showRejectReason && $product->OrderID) {
+    $report = DB::table('report_redo')
+        ->where('OrderID', $product->OrderID)
+        ->orderByDesc('created_at')
+        ->first();
+
+    if ($report && !empty($report->reason)) {
+        // who rejected
+        $userName = null;
+        if (!empty($report->user_id)) {
+            $userRow = DB::table('users')
+                ->select('name')
+                ->where('id', $report->user_id)
+                ->first();
+            $userName = $userRow->name ?? null;
+        }
+
+        // label: dispatch or installation
+        if ($dispatchRejected && !($installationRejectedByTask || $installationRejectedByFields)) {
+            $label = 'Dispatch rejected';
+        } else {
+            $label = 'Installation rejected';
+        }
+
+        $rejectionMeta = (object) [
+            'label'  => $label,
+            'reason' => $report->reason,
+            'user'   => $userName,
+            'date'   => $report->created_at
+                ? Carbon::parse($report->created_at)->format('Y-m-d H:i')
+                : null,
+        ];
+    }
+}
+@endphp
 <div class="container py-4">
   {{-- Header --}}
   <div class="d-flex align-items-center mb-3">
@@ -301,7 +385,23 @@
     <div class="d-flex align-items-center mb-2">
       {{-- Left: title --}}
       <div class="fw-semibold me-auto">Deliveries</div>
+      @if($rejectionMeta)
+          <div class="alert alert-danger d-flex align-items-center gap-2 mb-3 rejection-banner" style="margin-right: 10px;"
+              role="button"
+              data-bs-toggle="modal"
+              data-bs-target="#rejectDetailModal"
+              title="{{ $rejectionMeta->reason }}">
 
+              <span class="fw-semibold me-1">
+                  {{ $rejectionMeta->label }}:
+              </span>
+
+              {{-- Truncated text with max width --}}
+              <span class="text-truncate d-inline-block" style="max-width: 200px;">
+                  {{ $rejectionMeta->reason }}
+              </span>
+          </div>
+      @endif
       {{-- Right: qty summary + Edit button --}}
       <div class="d-flex align-items-center text-muted small">
         {{-- Qty summary --}}
@@ -402,7 +502,7 @@
                     min="1"
                     step="1"
                     inputmode="numeric"
-                    onkeydown="return !['e','E','+','-','.'].includes(event.key)" required>
+                     required>
             </td>
 
             {{-- Install fields (will be disabled unless method == delivery_installation) --}}
@@ -624,6 +724,42 @@
     <a href="{{ route('admin.fulfillment') }}" class="btn btn-secondary">Close</a>
   </div>
 </div>
+
+@if($rejectionMeta)
+<div class="modal fade" id="rejectDetailModal" tabindex="-1" aria-labelledby="rejectDetailLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="rejectDetailLabel" style="color:white; margin-bottom:10px">Rejected Detail</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        @if($rejectionMeta->user || $rejectionMeta->date)
+          <div class="mb-2 small text-muted">
+            @if($rejectionMeta->user)
+              By <strong>{{ $rejectionMeta->user }}</strong>
+            @endif
+            @if($rejectionMeta->user && $rejectionMeta->date)
+              &nbsp;•&nbsp;
+            @endif
+            @if($rejectionMeta->date)
+              {{ $rejectionMeta->date }}
+            @endif
+          </div>
+        @endif
+
+        <div class="mb-1 fw-semibold">
+          {{ $rejectionMeta->label }}
+        </div>
+
+        <div class="border rounded p-3 bg-light">
+          {!! nl2br(e($rejectionMeta->reason ?? '')) !!}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+@endif
 @endsection
 
 @push('scripts')
@@ -676,7 +812,7 @@
               min="1"
               step="1"
               inputmode="numeric"
-              onkeydown="return !['e','E','+','-','.'].includes(event.key)" required>
+               required>
       </td>
       <td>
         <select name="rows[${key}][deliver_install_type]" class="form-select form-select-sm js-install-type">
@@ -739,15 +875,34 @@
   tbody?.addEventListener('click', (e) => {
     const btn = e.target.closest('.btnDeleteRow');
     if (!btn) return;
+
     const tr = btn.closest('tr');
+    if (!tr) return;
+
+    const idInput  = tr.querySelector('input[name$="[id]"]');
     const delInput = tr.querySelector('input[name$="[_delete]"]');
-    // existing row -> mark delete + hide; new row -> just remove
+    const isExisting = idInput && idInput.value !== '';   // has real BreakdownID
+
+    // 🔹 NEW ROW: just remove it completely
+    if (!isExisting) {
+      tr.remove();
+      return;
+    }
+
+    // 🔹 EXISTING ROW: mark as deleted, keep only id + _delete active
     if (delInput) {
       delInput.value = '1';
-      tr.style.display = 'none';
-    } else {
-      tr.remove();
     }
+
+    tr.querySelectorAll('input, select, textarea').forEach(el => {
+      // keep id + _delete so backend knows what to delete
+      if (el === delInput || el === idInput) return;
+
+      el.required = false;
+      el.disabled = true;
+    });
+
+    tr.style.display = 'none';
   });
 
   function toggleInstallFields(tr) {
