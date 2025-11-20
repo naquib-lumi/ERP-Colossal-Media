@@ -396,6 +396,8 @@ class FurnishingProductOrderController extends Controller
             ? DB::table('specifications')->whereIn('ItemID', $itemIds)->pluck('cutter','ItemID') // [ItemID => 'Zund G3']
             : collect();
 
+        $hasRedoBefore = !empty($headerRow->redo_product_of); 
+
         return view('furnishing.job_order_show', [
             'product_code'   => $productCode,
             'header'         => $header,
@@ -419,6 +421,7 @@ class FurnishingProductOrderController extends Controller
             // NEW for Blade:
             'cutters'        => $cutters,
             'specCutters'    => $specCutters,
+            'hasRedoBefore'    => $hasRedoBefore,
         ]);
     }
 

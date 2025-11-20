@@ -468,7 +468,9 @@ class InstallationProductOrderController extends Controller
         $dataEntry = $header->data_entry_name ?: '—';
         $uploader = $assignee;
         $permit   = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
-$isHistoryView = $request->query('from') === 'history';
+        $isHistoryView = $request->query('from') === 'history';
+
+        $hasRedoBefore = !empty($headerRow->redo_product_of); 
 
         return view('installation.job_order_show', [
             // current single-product variables (unchanged)
@@ -493,6 +495,7 @@ $isHistoryView = $request->query('from') === 'history';
             'permitAttachments' => $permitAttachments,
         // 🔹 add this:
         'isHistoryView' => $isHistoryView,
+        'hasRedoBefore'    => $hasRedoBefore,
         ]);
     }
 

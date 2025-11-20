@@ -605,7 +605,18 @@
 
           @if ($canSeeDecision)
             <button type="button" id="btnAccept" class="btn btn-accept"><i class="bi bi-check2"></i> Accept</button>
-            <button type="button" id="btnReject" class="btn btn-reject"><i class="bi bi-x-lg"></i> Reject</button>
+
+            <button type="button"
+                    id="btnReject"
+                    class="btn btn-reject"
+                    @if($hasRedoBefore)
+                        disabled 
+                        style="opacity:0.4; cursor:not-allowed;"
+                        title="Cannot reject a product that has already been redone"
+                    @endif>
+                <i class="bi bi-x-lg"></i> Reject
+            </button>
+
             <a href="{{ route('printing.dashboard') }}" class="btn btn-back">Back</a>
           @endif
 

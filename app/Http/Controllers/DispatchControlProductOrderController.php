@@ -420,6 +420,8 @@ class DispatchControlProductOrderController extends Controller
         $uploader = $assignee;
         $permit   = ['name' => 'Permit.pdf', 'size' => '1.2 MB', 'url' => '#'];
 
+        $hasRedoBefore = !empty($headerRow->redo_product_of); 
+
         return view('dispatchcontrol.job_order_show', [
             // current single-product variables (unchanged)
             'product_code'   => $productCode,
@@ -441,6 +443,7 @@ class DispatchControlProductOrderController extends Controller
             'remarks' => $remarks,
             'job_order_code'   => $displayOrderCode, 
             'permitAttachments' => $permitAttachments,
+            'hasRedoBefore'    => $hasRedoBefore,
         ]);
     }
 

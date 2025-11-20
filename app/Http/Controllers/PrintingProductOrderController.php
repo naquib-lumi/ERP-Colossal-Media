@@ -471,6 +471,8 @@ class PrintingProductOrderController extends Controller
                 ->pluck('printer', 'ItemID');
         }
 
+        $hasRedoBefore = !empty($headerRow->redo_product_of); 
+
         return view('printing.job_order_show', [
             // current single-product variables (unchanged)
             'product_code'   => $productCode,
@@ -493,6 +495,7 @@ class PrintingProductOrderController extends Controller
             'printers'  => $printers,
             'specPrinters'  => $specPrinters,
             'job_order_code'   => $displayOrderCode, 
+            'hasRedoBefore'    => $hasRedoBefore,
         ]);
     }
 
