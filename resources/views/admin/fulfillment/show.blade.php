@@ -183,7 +183,7 @@ if ($showRejectReason && $product->OrderID) {
               <div class="progress-head">
                 <i class="bi {{ $icon }} text-muted fs-5"></i>
                 <div class="progress-title">{{ $title }}</div>
-                <span class="progress-badge {{ strtolower($pill) }}">{{ str_replace('_',' ', $pill) }}</span>
+                <span class="progress-badge {{ strtolower($pill) }}">{{ str_replace('_',' ', $row['status'] ?? 'pending') }}</span>
               </div>
               <div class="progress-rows muted">
                 <div>Accepted: {{ $row['accepted_at'] ? \Carbon\Carbon::parse($row['accepted_at'])->format('Y-m-d') : '—' }}</div>

@@ -928,49 +928,55 @@ $inProgressProducts = Product::from('products as p')
         $currentStage  = strtolower((string)$product->taskType);
         $currentStatus = strtolower((string)$product->status);
 
-        $hasDelivery     = isset($latest['delivery']);
-        $hasInstallation = isset($latest['installation']);
+        // $hasDelivery     = isset($latest['delivery']);
+        // $hasInstallation = isset($latest['installation']);
 
         $isCompleted = fn($k) => ($latest[$k]['status'] ?? null) === 'completed';
 
         $laterCompleted = [
-            'printing'     => ($isCompleted('furnishing') ?? false)
-                            || (($hasDelivery && $isCompleted('delivery')) || ($hasInstallation && $isCompleted('installation'))),
-            'furnishing'   => (($hasDelivery && $isCompleted('delivery')) || ($hasInstallation && $isCompleted('installation'))),
+            'printing'     => $isCompleted('furnishing')
+                            || $isCompleted('delivery')
+                            || $isCompleted('installation'),
+            'furnishing'   => $isCompleted('delivery') || $isCompleted('installation'),
             'delivery'     => false,
             'installation' => false,
         ];
 
         $progress = collect($ALL_STAGES)->mapWithKeys(function ($stage) use (
-            $latest, $currentStage, $currentStatus, $hasDelivery, $hasInstallation, $laterCompleted
+            $latest,
+            $currentStage,
+            $currentStatus,
+            $laterCompleted
         ) {
-            // mutual exclusion fork
-            if ($stage === 'delivery' && $hasInstallation) {
-                return [$stage => ['status' => '', 'accepted_at' => null, 'completed_at' => null, 'duration' => null]];
-            }
-            if ($stage === 'installation' && $hasDelivery) {
-                return [$stage => ['status' => '', 'accepted_at' => null, 'completed_at' => null, 'duration' => null]];
-            }
-
             $row = $latest[$stage] ?? null;
+
             if ($row) {
                 $status      = $row['status'];
                 $acceptedAt  = $row['acceptedAt'];
                 $completedAt = $row['completedAt'];
             } else {
+                // No DB row for this stage
+                // If a later stage is completed → BLANK; otherwise default to "pending"
                 $status      = $laterCompleted[$stage] ? '' : 'pending';
                 $acceptedAt  = null;
                 $completedAt = null;
             }
 
-            if ($currentStage === $stage && $currentStatus === 'in_progress' && !in_array($status, ['completed','rejected'], true)) {
+            // If this is the product's current stage and it's in progress,
+            // show in_progress (unless already completed/rejected)
+            if (
+                $currentStage === $stage &&
+                $currentStatus === 'in_progress' &&
+                !in_array($status, ['completed', 'rejected'], true)
+            ) {
                 $status = 'in_progress';
             }
 
+            // Optional duration when both timestamps exist
             $duration = null;
             if ($acceptedAt && $completedAt) {
-                $start = \Carbon\Carbon::parse($acceptedAt);
-                $end   = \Carbon\Carbon::parse($completedAt);
+                $start    = \Carbon\Carbon::parse($acceptedAt);
+                $end      = \Carbon\Carbon::parse($completedAt);
                 $duration = $start->diffForHumans($end, [
                     'parts'  => 3,
                     'short'  => true,
@@ -978,12 +984,14 @@ $inProgressProducts = Product::from('products as p')
                 ]);
             }
 
-            return [$stage => [
-                'status'       => $status,
-                'accepted_at'  => $acceptedAt,
-                'completed_at' => $completedAt,
-                'duration'     => $duration,
-            ]];
+            return [
+                $stage => [
+                    'status'       => $status,      // '' means: render no pill
+                    'accepted_at'  => $acceptedAt,
+                    'completed_at' => $completedAt,
+                    'duration'     => $duration,
+                ],
+            ];
         });
 
         // Deliveries list (nulls last)

@@ -108,6 +108,7 @@
       'completed' => 'badge-completed',
       'in_progress' => 'badge-progress',
       'rejected' => 'badge-rejected',
+      ''            => 'd-none', 
       default => 'badge-pending',
       };
       };
