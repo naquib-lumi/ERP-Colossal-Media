@@ -133,86 +133,87 @@ class Product extends Model
         // 2) Make sure we have the real status/accepted from DB (sometimes model is “half-filled”)
         $currentStatus   = strtolower((string) $this->getAttribute('status'));
         $currentAccepted = $this->getAttribute('accepted'); // 0 / 1 / null
-
-        // 🔹 also track editable
-        $editable = $this->getAttribute('editable');
+        $editable        = $this->getAttribute('editable');   // 0 / 1 / null
+        $redoOf          = $this->getAttribute('redoOf');
 
         if ($existsInDb && ($currentStatus === '' || $currentStatus === null || $editable === null)) {
             // reload minimal columns from DB
             $fresh = DB::table('products')
                 ->where('ProductID', $pid)
-                ->select('status', 'accepted', 'taskType', 'editable')
+                ->select('status', 'accepted', 'taskType', 'editable', 'redoOf')
                 ->first();
 
             if ($fresh) {
-                $currentStatus   = strtolower((string) $fresh->status);
+                $currentStatus   = strtolower(trim((string) $fresh->status));
                 $currentAccepted = $fresh->accepted;
-                // also sync taskType from db if model doesn't have it
+                $redoOf          = (int) ($fresh->redoOf ?? 0);
                 if ($this->getAttribute('taskType') === null && !empty($fresh->taskType)) {
                     $this->setAttribute('taskType', $fresh->taskType);
                 }
 
-                // 🔹 sync editable from DB if model doesn't have it
                 if ($editable === null && isset($fresh->editable)) {
                     $editable = (int) $fresh->editable;
                     $this->setAttribute('editable', $editable);
+                }
+
+                if ($redoOf === null && isset($fresh->redoOf)) {
+                    $redoOf = $fresh->redoOf;
+                    $this->setAttribute('redoOf', $redoOf);
                 }
             }
         }
 
         // normalise editable (default 1 if still null)
         $editable = (int)($editable ?? 1);
+        $redoOf   = $redoOf === null ? null : (int) $redoOf;
 
         /**
          * ==============================
          * CASE 1: special “revive only” rule
-         * If:
-         *   - product exists in DB
+         * Only for:
+         *   - row already exists
          *   - status = rejected
          *   - accepted = 0
-         *
-         * Then:
-         *   - ONLY set status -> in_progress
-         *   - ONLY set accepted -> null
-         *   - SKIP ALL remaining logic
+         *   - editable = 0   (non-editable original)
+         *   - redoOf = 0     (original, NOT a redo copy)
          * ==============================
          */
-        if (
+        $isReviveCase =
             $existsInDb &&
             $currentStatus === 'rejected' &&
-            (int) $currentAccepted === 0
-        ) {
-            // keep whatever taskType it currently has
+            (int) $currentAccepted === 0 &&
+            $editable === 1 && ($redoOf === null || $redoOf === 0);
+
+        if ($isReviveCase) {
             $keepTaskType = $this->getAttribute('taskType');
 
-            // update DB directly to avoid triggering extra logic
             DB::table('products')
                 ->where('ProductID', $pid)
                 ->update([
                     'status'   => 'in_progress',
                     'accepted' => null,
-                    'taskType' => $keepTaskType,   // 👈 keep same taskType
+                    'taskType' => $keepTaskType,
                 ]);
 
-            // keep the in-memory model consistent
             $this->setAttribute('status', 'in_progress');
             $this->setAttribute('accepted', null);
-            $this->setAttribute('taskType', $keepTaskType); // 👈 mirror it here too
+            $this->setAttribute('taskType', $keepTaskType);
 
-            // 🔴 SUPER IMPORTANT: stop here, don't touch taskType etc.
+            // 🔴 IMPORTANT: stop here for revive case
             return;
         }
 
         /**
          * ==============================
          * CASE 2: normal path
-         * - new product
-         * - OR existing product but not the "rejected+needs-revive" case
-         * → we can (re)derive taskType from specs, BUT only if taskType is empty
+         * Infer taskType ONLY when:
+         *   - NOT rejected
+         *   - editable = 1
+         *   - redoOf > 0 (this is a redo copy)
+         *   - taskType is empty
          * ==============================
          */
 
-        // current task type on model (might be empty)
         $currentType = strtolower((string) $this->getAttribute('taskType'));
         $newType     = $currentType;
 
@@ -223,38 +224,38 @@ class Product extends Model
                 ->where('pi.ProductID', $pid)
                 ->whereNotNull('s.printer')
                 ->whereRaw("TRIM(s.printer) <> ''")
-                // ignore “no”, “none”, “0”, “n”
                 ->whereRaw("LOWER(TRIM(s.printer)) NOT IN ('no','none','n','0')")
-                // ignore literal “null”
                 ->whereRaw("LOWER(TRIM(s.printer)) <> 'null'")
                 ->exists();
         };
 
-        // ⚠️ only infer taskType when it's empty AND not rejected
-        if (
-            $currentStatus !== 'rejected' &&
-            ($currentType === '' || $currentType === null)
-        ) {
-            $hasRealPrinter = $pid ? $detectRealPrinter((int) $pid) : false;
+        // ----- decide when we WANT to infer -----
+        $isRedo        = ($redoOf !== null);          // redo copy when redoOf has value
+        $canChangeType = ($editable === 1 && $currentStatus !== 'rejected');
+
+        // REDO: always re-check from specs
+        $shouldInferForRedo = $canChangeType && $isRedo;
+
+        // NEW: only infer when no taskType yet
+        $shouldInferForNew  = $canChangeType && !$isRedo &&
+            ($currentType === '' || $currentType === null);
+
+        if (($shouldInferForRedo || $shouldInferForNew) && $pid) {
+            $hasRealPrinter = $detectRealPrinter((int) $pid);
             $newType        = $hasRealPrinter ? 'printing' : 'furnishing';
         }
 
-        // 🔹 write taskType only if changed, editable != 0, and not rejected
+        // ----- decide when to SAVE the new taskType -----
         if (
-            $editable !== 0 &&
-            $currentStatus !== 'rejected' &&
+            ($shouldInferForRedo || $shouldInferForNew) &&
             $newType !== '' &&
             $newType !== $currentType
         ) {
             $changes['taskType'] = $newType;
         }
 
-        /**
-         * For existing rows (non-rejected case):
-         * - make sure status is in_progress
-         * - clear accepted
-         */
-        if ($existsInDb && $currentStatus !== 'in_progress') {
+        // For existing rows (non-rejected case): ensure status in_progress & accepted null
+        if ($existsInDb && $currentStatus !== 'rejected' && $editable === 1) {
             if ($currentStatus !== 'in_progress') {
                 $changes['status'] = 'in_progress';
             }
