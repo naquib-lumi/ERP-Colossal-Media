@@ -326,29 +326,49 @@
                                 </a>
                             </div>
 
-                            <div id="attach-box" class="attach-box">
-                                <div class="attach-inner">
-                                    <div class="attach-icon" aria-hidden="true">
-                                        <i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i>
-                                    </div>
-                                    <div class="attach-title">Drop CSV file here or click to upload</div>
-                                    <div class="attach-hint">(CSV)</div>
-                                </div>
-                                <input id="fileInput" type="file" accept=".csv" class="file-overlay">
+                            <div id="attach-box" class="attach-box mt-4">
+                            <div class="attach-inner">
+                                <div class="attach-icon"><i class="bx bx-upload display-6"></i></div>
+                                <div class="attach-title">Drop CSV file here or click</div>
+                                <div class="attach-hint">Only .csv files allowed</div>
                             </div>
-                            <div id="attach-msg" class="mt-2 text-sm"></div>
-                            <ul id="preview" class="mt-3 space-y-2"></ul>
+                            <input id="fileInput" type="file" accept=".csv" class="file-overlay">
+                        </div>
+                                                    <div id="attach-msg" class="mt-2 text-sm"></div>
+                                                    <ul id="preview" class="mt-3 space-y-2"></ul>
 
+                                        <div class="mt-4">
+                            <label class="form-label">Order Attachments (Optional)</label>
+                            <div id="attachment-dropzone" class="attach-box">
+                                <div class="attach-inner">
+                                    <div class="attach-icon"><i class="bx bx-upload display-6"></i></div>
+                                    <div class="attach-title">Drop files here or click to upload</div>
+                                <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD · Max 50MB each</div>
+                                </div>
+                                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.ai" class="file-overlay">
+                            </div>
+                            <div id="attachment-preview" class="mt-3"></div>
+                        </div>
+                            <div id="attachment-preview" class="mt-3">
+                        @error('attachments')
+                            errors.push("{{ $message }}");
+                        @enderror
+                        @foreach($errors->get('attachments.*') as $msg)
+                            errors.push("{{ $msg[0] }}");
+                        @endforeach
+                        </div>
                             <div class="mt-3">
                                 <label class="form-label">Remarks</label>
                                 <textarea name="orderDetail" rows="3" class="form-control" placeholder="Remarks">{{ old('orderDetail') }}</textarea>
                             </div>
+                      </div>
                         </div>
-                    </div>
 
                 </div>
             </div>
         </div>
+
+  
 
         <div class="col-12">
             <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
@@ -1036,7 +1056,17 @@ var isDirty = false;
                 }
             });
             return errors.length === 0;
+
         }
+        @if($errors->any())
+    Swal.fire({
+        title: 'Please fix the following errors',
+        html: '<div style="text-align:left"><ul><li>' + @json($errors->all()).join('</li><li>') + '</li></ul></div>',
+        icon: 'error',
+        allowOutsideClick: false,
+        allowEscapeKey: false
+    });
+@endif
 
         $('#order-form').on('submit', function(e) {
             clearValidationErrors();
@@ -1110,6 +1140,9 @@ var isDirty = false;
                 });
             }
 
+
+
+
             if (errors.length > 0) {
                 e.preventDefault();
                 Swal.fire({
@@ -1143,6 +1176,65 @@ var isDirty = false;
             }
         });
     }
+</script>
+<script>// Attachments - multiple files, no replace
+const attZone = document.getElementById('attachment-dropzone');
+const attInput = attZone.querySelector('input');
+const attPreview = document.getElementById('attachment-preview');
+
+// Keep track of selected files
+let selectedFiles = [];
+
+// Create a DataTransfer to hold files
+const dt = new DataTransfer();
+
+attZone.addEventListener('click', (e) => {
+    if (e.target === attZone || e.target.closest('.attach-inner')) {
+        e.stopPropagation();  // prevents double trigger
+        attInput.click();
+    }
+});
+['dragover', 'dragenter'].forEach(e => attZone.addEventListener(e, ev => { ev.preventDefault(); attZone.classList.add('drag-over'); }));
+['dragleave', 'drop'].forEach(e => attZone.addEventListener(e, ev => { ev.preventDefault(); attZone.classList.remove('drag-over'); }));
+
+attZone.ondrop = e => handleNewFiles(e.dataTransfer.files);
+attInput.onchange = () => handleNewFiles(attInput.files);
+
+function handleNewFiles(newFiles) {
+    [...newFiles].forEach(file => {
+        const ext = file.name.split('.').pop().toLowerCase();
+       const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'eps', 'svg', 'tiff', 'indd'];
+        const maxSize = 50 * 1024 * 1024; // 50MB
+
+        if (file.size > maxSize) {
+            Swal.fire('Error', `${file.name} exceeds 50MB`, 'error');
+            return;
+        }
+        if (!allowed.includes(ext)) {
+            Swal.fire('Error', `${file.name} not allowed. Only PDF, JPG, PNG, AI`, 'error');
+            return;
+        }
+
+        dt.items.add(file);
+        selectedFiles.push(file);
+
+        const div = document.createElement('div');
+        div.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light';
+        div.innerHTML = `<span><i class="bx bx-paperclip"></i> ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)</span>
+                         <button type="button" class="btn btn-sm text-danger">&times;</button>`;
+        div.querySelector('button').onclick = () => removeFile(file, div);
+        attPreview.appendChild(div);
+    });
+
+    attInput.files = dt.files;
+}
+function removeFile(fileToRemove, element) {
+    selectedFiles = selectedFiles.filter(f => f !== fileToRemove);
+    dt.items.clear();
+    selectedFiles.forEach(f => dt.items.add(f));
+    attInput.files = dt.files;
+    element.remove();
+}
 </script>
 @endpush
 

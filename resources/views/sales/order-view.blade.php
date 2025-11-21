@@ -50,27 +50,6 @@
                         </div>
                     </div>
 
-                    <div class="col-md-6 col-lg-6">
-                        <small class="text-muted d-block mb-1">Attachments from Lead</small>
-                        @if ($leadAttachments->isEmpty())
-                            <div class="fw-medium">-</div>
-                        @else
-                            <ul class="list-group list-group-flush">
-                                @foreach ($leadAttachments as $att)
-                                    <li class="list-group-item d-flex align-items-center gap-2">
-                                        <i class="bx bx-paperclip"></i>
-                                        <span title="{{ $att['name'] }}">{{ Str::limit($att['name'], 20, '...') }}</span>
-                                        @if ($att['size'])
-                                            <small class="text-muted fs-6">{{ number_format($att['size'] / 1024, 0) }} KB</small>
-                                        @endif
-                                        <a class="btn btn-icon btn-sm btn-outline-secondary" href="{{ $att['url'] }}" download title="Download">
-                                            <i class="bx bx-download"></i>
-                                        </a>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @endif
-                    </div>
                 </div>
             </div>
         </div>
@@ -300,36 +279,36 @@
     @endif
 
     {{-- Attachments --}}
-    <div class="card mt-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Attachments</span>
-        </div>
-
-        <div class="card-body">
-            @if ($attachments->isEmpty())
-                <p class="text-muted mb-0">No attachments.</p>
-            @else
-                <ul class="list-group list-group-flush">
-                    @foreach ($attachments as $f)
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bx bx-paperclip"></i>
-                                <span>{{ $f['name'] }}</span>
-                                @if (!empty($f['size']))
-                                    <small class="text-muted">
-                                        {{ number_format($f['size'] / 1024, 0) }} KB
-                                    </small>
-                                @endif
-                            </div>
-                            <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
-                                Download
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
-            @endif
-        </div>
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Attachments</span>
     </div>
+
+    <div class="card-body">
+        @if ($attachments->isEmpty())
+            <p class="text-muted mb-0">No attachments.</p>
+        @else
+            <ul class="list-group list-group-flush">
+                @foreach ($attachments as $f)
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bx bx-paperclip"></i>
+                            <span>{{ $f['name'] }}</span>
+                            @if (!empty($f['size']))
+                                <small class="text-muted">
+                                    {{ number_format($f['size'] / 1024, 0) }} KB
+                                </small>
+                            @endif
+                        </div>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
+                            Download
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </div>
+</div>
 
     <div class="text-end">
     <a href="{{ url()->previous() }}" class="btn btn-secondary mt-6">Close</a>
