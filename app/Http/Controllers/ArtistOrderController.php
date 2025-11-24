@@ -177,7 +177,7 @@ class ArtistOrderController extends Controller
                 'products.*.remarks.*.remark'    => ['required_with:products.*.remarks.*.operation','string'],
 
                 'csv_file'    => 'nullable|file|mimes:csv,txt',
-                'attachments' => 'nullable|array',
+                'attachments' => 'required|array',
                 'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps|max:20480',
             ]);
 

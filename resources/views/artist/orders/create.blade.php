@@ -372,7 +372,8 @@
                     {{-- Attachments (bottom) --}}
                     <div class="card mt-4">
                         <div class="card-header" style="display: flex; align-items: center;">
-                        <span class="text-muted">Order Attachments (Optional)</span>
+                        <span class="text-muted">Order Attachments</span>
+                        <span style="color: red; font-size: 12px; margin-left: 6px;">*required</span>
                         </div>
 
                         <div class="card-body">
@@ -1135,6 +1136,15 @@ $(function () {
     });
 });
 
+// Global counter of valid order attachments (create page)
+let orderAttachmentCount = 0;
+
+document.addEventListener('attachments:updated', function (e) {
+  const detail = e.detail || {};
+  const c = typeof detail.count === 'number' ? detail.count : 0;
+  orderAttachmentCount = c;
+});
+
 document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('order-form');
   if (!form) return;
@@ -1329,6 +1339,14 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }
       }
+    }
+
+    // Require at least one order attachment on CREATE
+    // (orderAttachmentCount is updated via `attachments:updated` event)
+    if (orderAttachmentCount < 1) {
+      err('Please upload at least one order attachment before saving this order.');
+      const fileInput = document.getElementById('fileInput'); // your attachments input
+      firstBad = firstBad || fileInput;
     }
 
     if (errors.length) {
