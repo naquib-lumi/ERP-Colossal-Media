@@ -423,7 +423,8 @@ class ArtistController extends Controller
         };
 
         // 1) Try order_attachments table first
-        $attachmentRows = OrderAttachment::where('order_id', $order->id)
+        $attachmentRows = OrderAttachment::with('uploader:id,name')
+            ->where('order_id', $order->id)
             ->orderBy('id')
             ->get();
 
@@ -433,10 +434,12 @@ class ArtistController extends Controller
                 $web = Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
 
                 return [
-                    'name' => $att->original_name ?: basename($p),
-                    'url'  => $toPublicUrl($web),
-                    'size' => (int) $att->size,
-                    'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+                    'name'        => $att->original_name ?: basename($p),
+                    'url'         => $toPublicUrl($web),
+                    'size'        => (int) $att->size,
+                    'ext'         => pathinfo($p, PATHINFO_EXTENSION),
+                    'uploaded_by' => optional($att->uploader)->name,
+                    'uploaded_at' => optional($att->created_at)->format('d M Y'),
                 ];
             });
         } else {
@@ -451,10 +454,12 @@ class ArtistController extends Controller
                     $web = 'storage/' . $p;
 
                     return [
-                        'name' => basename($p),
-                        'url'  => $toPublicUrl($web),
-                        'size' => (int) $a->file_size,
-                        'ext'  => $a->file_extension,
+                        'name'        => basename($p),
+                        'url'         => $toPublicUrl($web),
+                        'size'        => (int) $a->file_size,
+                        'ext'         => $a->file_extension,
+                        'uploaded_by' => null,
+                        'uploaded_at' => null,
                     ];
                 });
         }
@@ -538,6 +543,7 @@ class ArtistController extends Controller
             'products.items' => fn ($q) => $q->orderBy('ItemID'),
             'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
             'artist:id,name',
+            'attachments.user:id,name',
         ]);
 
         $orderCode = sprintf('ORD-%04d', $order->id);
@@ -616,24 +622,25 @@ class ArtistController extends Controller
             return Storage::disk('public')->url($p);
         };
 
-        $attachmentRows = OrderAttachment::where('order_id', $order->id)
+        $attachmentRows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
             ->orderBy('id')
             ->get();
 
         $orderFiles = $attachmentRows->map(function (OrderAttachment $att) use ($toPublicUrl) {
             $p = ltrim((string) $att->file_path, '/');
-
-            // what’s stored in DB is like "orders/1/attachments/xxx.pdf"
-            // for the browser we prefer "storage/..."
             $webPath = Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
 
             return [
-                'id'   => $att->id,
-                'name' => $att->original_name ?: basename($p),
-                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
-                'url'  => $toPublicUrl($webPath),
-                'path' => $webPath,
-                'size' => $att->size,
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'url'           => $toPublicUrl($webPath),
+                'path'          => $webPath,
+                'size'          => $att->size,
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+                'uploader_role' => optional($att->uploader)->role,   // 👈 new
             ];
         });
 
@@ -647,7 +654,7 @@ class ArtistController extends Controller
                 $p = preg_replace('#^storage/#', '', $p);
                 $web = 'storage/'.$p;
 
-                return (object)[
+                return (object) [
                     'name' => basename($p),
                     'size' => (int) $row->file_size,
                     'ext'  => $row->file_extension,
@@ -655,20 +662,49 @@ class ArtistController extends Controller
                 ];
             });
 
-        // 2) Order attachments (the ones artist uploads)
-        $rawPaths = method_exists($this, 'getOrderAttachments')
-            ? (array) $this->getOrderAttachments($order)
-            : (array) json_decode((string) $order->orderAttachment, true);
+        // 2) Order attachments from order_attachments table
+        $attachmentRows = \App\Models\OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
 
-        $orderFiles = collect($rawPaths)->filter()->map(function ($p) use ($toPublicUrl) {
-            $p = ltrim((string)$p, '/');
+        // treat these as "artist side" uploads
+        $artistRoles = ['artist', 'head-artist'];
+
+        $mapAttachment = function ($att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $webPath = \Illuminate\Support\Str::startsWith($p, 'storage/')
+                ? $p
+                : 'storage/'.$p;
+
             return [
-                'name' => basename($p),
-                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
-                'url'  => $toPublicUrl($p),
-                'path' => Str::startsWith($p, 'storage/') ? $p : 'storage/'.$p, // keep the path we delete by
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'url'           => $toPublicUrl($webPath),
+                'path'          => $webPath,               // used when deleting
+                'size'          => $att->size,
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+                'uploader_role' => optional($att->uploader)->role,
             ];
-        });
+        };
+
+        // files uploaded by artist / head-artist → bottom section
+        $orderFiles = $attachmentRows
+            ->filter(function ($att) use ($artistRoles) {
+                return in_array(optional($att->uploader)->role, $artistRoles, true);
+            })
+            ->map($mapAttachment)
+            ->values();
+
+        // files uploaded by NON-artist (eg. salesperson) → top section
+        $orderFilesSales = $attachmentRows
+            ->reject(function ($att) use ($artistRoles) {
+                return in_array(optional($att->uploader)->role, $artistRoles, true);
+            })
+            ->map($mapAttachment)
+            ->values();
 
         $sourceOrderId = (int) ($order->redo ?: $order->id);
 
@@ -696,7 +732,7 @@ class ArtistController extends Controller
 
         return view('artist.orders.edit', compact(
             'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
-            'orderFiles', 'redoReason', 'artists', 'printerMachines', 'cutterMachines', 'laminationMachines'
+            'orderFiles','orderFilesSales', 'redoReason', 'artists', 'printerMachines', 'cutterMachines', 'laminationMachines'
         ));
 
         return view('artist.orders.edit', [

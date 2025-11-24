@@ -20,4 +20,9 @@ class OrderAttachment extends Model
     {
         return Storage::url($this->file_path);
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }
