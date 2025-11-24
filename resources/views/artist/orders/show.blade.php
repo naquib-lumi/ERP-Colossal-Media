@@ -188,7 +188,7 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
                 </div>
 
-                <div class="col-md-6 col-lg-6">
+                <!-- <div class="col-md-6 col-lg-6">
                     <small class="text-muted d-block mb-1">Attachment from Lead</small>
 
                     @php
@@ -211,7 +211,7 @@ $isRedoOrder = (bool) $order->redo;
                         -
                         @endif
                     </div>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>

@@ -438,7 +438,7 @@
                   <input type="hidden" name="created_by" value="{{ $order->salesperson_id ?? $order->created_by_id }}">
                 </div>
 
-                <div class="col-12">
+                <!-- <div class="col-12">
                   <label class="form-label d-flex align-items-center gap-2">
                     <span>Lead Attachments</span>
                     <span class="text-body-secondary small">(read-only — uploaded by salesperson)</span>
@@ -460,7 +460,7 @@
                   @else
                   <div class="text-body-secondary">No attachments</div>
                   @endif
-                </div>
+                </div> -->
               </div>
             </div>
           </div>

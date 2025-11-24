@@ -1312,7 +1312,7 @@ class ArtistController extends Controller
                  *     (order-level message, no dupes)
                  * ======================
                  */
-                $orderMsg = "Order #{$orderNo} has been **submitted** by {$actorName} ({$actorRole}). "
+                $orderMsg = "Order {$orderNo} has been **submitted** by {$actorName} ({$actorRole}). "
                         . "{$productCount} Product(s). Deadline: {$deadline}. "
                         . "Initial task(s): {$initialTasksStr}.";
 
