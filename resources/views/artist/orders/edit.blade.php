@@ -1510,24 +1510,24 @@
                 @if(isset($orderFiles) && count($orderFiles))
                 <div class="d-flex flex-column gap-2">
                   @foreach($orderFiles as $f)
-                  <div class="d-flex align-items-center justify-content-between border rounded p-2"
-                    data-file-row data-path="{{ $f['path'] }}">
-                    <div class="d-flex align-items-center gap-2">
-                      <i class="bx bx-file"></i>
-                      <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">{{ $f['name'] }}</a>
-                      <small class="text-muted">.{{ $f['ext'] }}</small>
-                    </div>
+                    <div class="d-flex align-items-center justify-content-between border rounded p-2"
+                      data-file-row data-path="{{ $f['path'] }}">
+                      <div class="d-flex align-items-center gap-2">
+                        <i class="bx bx-file"></i>
+                        <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">{{ $f['name'] }}</a>
+                        <small class="text-muted">.{{ $f['ext'] }}</small>
+                      </div>
 
-                    @if($canDeleteOrderFiles)
-                    <button type="button"
-                      class="btn btn-sm btn-outline-danger delete-order-file"
-                      title="Delete"
-                      data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
-                      data-path="{{ $f['path'] }}">
-                      <i class="bx bx-trash"></i>
-                    </button>
-                    @endif
-                  </div>
+                      @if($canDeleteOrderFiles)
+                        <button type="button"
+                          class="btn btn-sm btn-outline-danger delete-order-file"
+                          title="Delete"
+                          data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
+                          data-path="{{ $f['path'] }}">
+                          <i class="bx bx-trash"></i>
+                        </button>
+                      @endif
+                    </div>
                   @endforeach
                 </div>
                 @else

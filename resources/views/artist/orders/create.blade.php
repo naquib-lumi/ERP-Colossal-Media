@@ -384,9 +384,9 @@
                             </div>
 
                             <!-- This input sits on top, invisible, and owns the click -->
-                            <input id="fileInput" type="file" multiple
-                            accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx,.ai,.ps"
-                            class="file-overlay">
+                            <input id="fileInput" name="attachments[]" type="file" multiple
+                                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx,.ai,.ps"
+                                class="file-overlay">
                         </div>
 
                         {{-- Existing order files --}}
@@ -466,7 +466,7 @@
         <div class="col-12">
             <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
                 <a type="button" class="btn btn-outline-secondary" href="{{ route('artist.orders') }}">Cancel</a>
-                <button type="submit" class="btn btn-primary">Save Order</button>
+                <button type="submit" id="save-order-btn" class="btn btn-primary">Save Order</button>
             </div>
         </div>
     </div>
@@ -1066,25 +1066,30 @@ $(function () {
 
         // drag & drop for CSV box
         if (csvBox && csvInput) {
-        ['dragenter', 'dragover'].forEach(evt =>
+          ['dragenter', 'dragover'].forEach(evt =>
             csvBox.addEventListener(evt, e => {
-            e.preventDefault();
-            csvBox.classList.add('ring');
+              e.preventDefault();
+              csvBox.classList.add('ring');
             })
-        );
-        ['dragleave', 'drop'].forEach(evt =>
+          );
+          ['dragleave', 'drop'].forEach(evt =>
             csvBox.addEventListener(evt, e => {
-            e.preventDefault();
-            csvBox.classList.remove('ring');
+              e.preventDefault();
+              csvBox.classList.remove('ring');
             })
-        );
+          );
 
-        csvBox.addEventListener('click', () => csvInput.click());
+          // Avoid double-OPEN: if the click is on the input itself,
+          // let the browser handle it once.
+          csvBox.addEventListener('click', (e) => {
+            if (e.target === csvInput) return;
+            csvInput.click();
+          });
 
-        csvBox.addEventListener('drop', e => {
+          csvBox.addEventListener('drop', e => {
             csvInput.files = e.dataTransfer.files;
             handleCsvUpload();
-        });
+          });
         }
 
     // head artist search artist to assign 
@@ -1604,19 +1609,32 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function updateButtonsState() {
-    // disable only if there is ANY invalid chip in the preview list
-    const hasInvalid = document.querySelector('#preview .err') !== null;
+    // any invalid attachment chip? (created in addRow with <span class="err">)
+    const hasInvalidAttachment = document.querySelector('#preview .err') !== null;
 
-    const btnSubmit = document.getElementById('btn-submit');
-    const btnDraft  = document.getElementById('btn-draft');
+    const btnSubmit    = document.getElementById('btn-submit');
+    const btnDraft     = document.getElementById('btn-draft');
+    const btnSaveOrder = document.getElementById('save-order-btn');
 
-    if (hasInvalid) {
-      btnSubmit?.setAttribute('disabled', '');
-      btnDraft ?.setAttribute('disabled', '');
+    const allButtons = [btnSubmit, btnDraft, btnSaveOrder];
+
+    if (hasInvalidAttachment) {
+      // hard-disable all save buttons if there is any invalid file
+      allButtons.forEach(btn => {
+        if (!btn) return;
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+      });
     } else {
-      const anyInvalid = document.querySelector('.is-invalid,[aria-invalid="true"]') !== null;
-      btnSubmit?.toggleAttribute('disabled', anyInvalid);
-      btnDraft ?.toggleAttribute('disabled', anyInvalid);
+      // otherwise, follow existing “other validation errors” rule
+      const anyInvalidField = document.querySelector('.is-invalid,[aria-invalid="true"]') !== null;
+
+      allButtons.forEach(btn => {
+        if (!btn) return;
+        btn.disabled = !!anyInvalidField;
+        btn.classList.toggle('opacity-50', !!anyInvalidField);
+        btn.classList.toggle('cursor-not-allowed', !!anyInvalidField);
+      });
     }
   }
 
@@ -1658,8 +1676,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // expose for your AJAX submit if needed
   window.getSelectedFiles = () => Array.from(selected.values());
+
+  const form = document.getElementById('order-form');
+  if (form) {
+    form.addEventListener('submit', () => {
+      if (!input) return;
+      const dt = new DataTransfer();
+      selected.forEach(file => dt.items.add(file));
+      input.files = dt.files;   // now Laravel sees all selected files
+    });
+  }
 });
 
+// ===========================
+// Disable Save Order if invalid files exist
+// ===========================
+
+// Call this after every file add/remove
+function checkInvalidFiles() {
+    const invalids = document.querySelectorAll('[data-invalid-file="yes"]');
+    const saveBtn = document.querySelector('#save-order-btn');
+
+    if (!saveBtn) return;
+
+    if (invalids.length > 0) {
+        saveBtn.disabled = true;
+        saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+        saveBtn.disabled = false;
+        saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
 </script>
 
 @endpush

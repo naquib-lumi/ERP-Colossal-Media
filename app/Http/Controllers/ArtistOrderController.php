@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use App\Helpers\Helpers;
 use Illuminate\Validation\Rule;
+use App\Models\OrderAttachment;
+use Illuminate\Support\Str;
 
 class ArtistOrderController extends Controller
 {
@@ -176,18 +178,18 @@ class ArtistOrderController extends Controller
 
                 'csv_file'    => 'nullable|file|mimes:csv,txt',
                 'attachments' => 'nullable|array',
-                'attachments.*'=> 'file|mimes:pdf,jpg,png,ai|max:2048',
+                'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps|max:20480',
             ]);
 
             $lead = $request->filled('lead_id') ? Lead::find($request->lead_id) : null;
 
-            $attachments = [];
+            $attachmentFiles = [];
             if ($request->hasFile('attachments')) {
-                foreach ($request->file('attachments') as $file) {
-                    $attachments[] = $file->store('order_attachments', 'public');
+                $attachmentFiles = $request->file('attachments');
+                if (!is_array($attachmentFiles)) {
+                    $attachmentFiles = [$attachmentFiles];
                 }
             }
-            $attachmentString = implode(',', $attachments) ?: null;
 
             // Create Order (as Artist)
             $order                    = new Order();
@@ -205,7 +207,6 @@ class ArtistOrderController extends Controller
             $order->deadline          = $request->deadline;
             $order->approval          = (int) $request->approval;
             $order->orderDate         = now();
-            $order->orderAttachment   = $attachmentString ?? null;
 
             // Default statuses for a new artist order
             $order->orderStatus = 'in_progress';
@@ -234,6 +235,54 @@ class ArtistOrderController extends Controller
 
             $order->save();
 
+            // ----- Save attachments into order_attachments table -----
+            $attachmentPaths = [];
+            $attachmentFiles = $request->file('attachments', []);
+
+            if ($attachmentFiles && !is_array($attachmentFiles)) {
+                $attachmentFiles = [$attachmentFiles];
+            }
+
+            if (!empty($attachmentFiles)) {
+                $dir = "orders/{$order->id}/attachments";
+
+                foreach ($attachmentFiles as $file) {
+                    if (!$file || !$file->isValid()) {
+                        continue;
+                    }
+
+                    $orig = $file->getClientOriginalName();
+                    $base = pathinfo($orig, PATHINFO_FILENAME);
+                    $ext  = strtolower($file->getClientOriginalExtension());
+
+                    $baseSlug = Str::slug($base) ?: 'file';
+
+                    // Avoid name clashes within this order
+                    $candidate = "{$baseSlug}.{$ext}";
+                    $i = 1;
+                    while (Storage::disk('public')->exists("$dir/$candidate")) {
+                        $candidate = "{$baseSlug} ({$i}).{$ext}";
+                        $i++;
+                    }
+
+                    // Store file
+                    $path = $file->storeAs($dir, $candidate, 'public');
+
+                    // For backward compatibility (comma-separated path list)
+                    $attachmentPaths[] = $path;
+
+                    // Insert into order_attachments
+                    OrderAttachment::create([
+                        'order_id'      => $order->id,
+                        'user_id'       => $user->id,
+                        'file_path'     => $path,
+                        'original_name' => $orig,
+                        'mime_type'     => $file->getClientMimeType(),
+                        'size'          => $file->getSize(),
+                    ]);
+                }
+            }
+            
             // Collect products from form
             $productsData = $request->products;
 

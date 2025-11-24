@@ -26,6 +26,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use App\Helpers\Helpers;
 use App\Notifications\GenericNotification;
+use App\Models\OrderAttachment;
 
 class ArtistController extends Controller
 {
@@ -406,22 +407,57 @@ class ArtistController extends Controller
             'products'        => fn ($q) => $q->orderBy('ProductID'),
             'products.items'  => fn ($q) => $q->orderBy('ItemID'),
             'products.items.spec',
-            'leadAttachments',
+            // 'leadAttachments',
             'deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
         ]);
 
-        // Attachments: prefer orderAttachment CSV; otherwise fallback to lead_attachments
-        $attachments = $order->attachment_paths->isNotEmpty()
-            ? $order->attachment_paths->map(fn ($path) => $this->fileInfoFromPath($path))
-            : LeadAttachment::where('lead_id', $order->lead_id)
+        // helper to turn a storage path into a public URL
+        $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
+
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+
+            return Storage::disk('public')->url($p);
+        };
+
+        // 1) Try order_attachments table first
+        $attachmentRows = OrderAttachment::where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        if ($attachmentRows->isNotEmpty()) {
+            $attachments = $attachmentRows->map(function (OrderAttachment $att) use ($toPublicUrl) {
+                $p = ltrim((string) $att->file_path, '/');
+                $web = Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+                return [
+                    'name' => $att->original_name ?: basename($p),
+                    'url'  => $toPublicUrl($web),
+                    'size' => (int) $att->size,
+                    'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+                ];
+            });
+        } else {
+            // 2) Fallback to lead_attachments (same shape as before)
+            $attachments = LeadAttachment::where('lead_id', $order->lead_id)
                 ->latest()
                 ->get()
-                ->map(fn ($a) => [
-                    'name' => basename($a->file_location),
-                    'url'  => Storage::disk('public')->url($a->file_location),
-                    'size' => (int) $a->file_size,
-                    'ext'  => $a->file_extension,
-                ]);
+                ->map(function ($a) use ($toPublicUrl) {
+                    $p = ltrim((string) $a->file_location, '/');
+                    $p = preg_replace('#^public/#', '', $p);
+                    $p = preg_replace('#^storage/#', '', $p);
+                    $web = 'storage/' . $p;
+
+                    return [
+                        'name' => basename($p),
+                        'url'  => $toPublicUrl($web),
+                        'size' => (int) $a->file_size,
+                        'ext'  => $a->file_extension,
+                    ];
+                });
+        }
 
         return view('artist.orders.show', compact('order', 'attachments'));
     }
@@ -579,6 +615,27 @@ class ArtistController extends Controller
             }
             return Storage::disk('public')->url($p);
         };
+
+        $attachmentRows = OrderAttachment::where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $orderFiles = $attachmentRows->map(function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+
+            // what’s stored in DB is like "orders/1/attachments/xxx.pdf"
+            // for the browser we prefer "storage/..."
+            $webPath = Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+            return [
+                'id'   => $att->id,
+                'name' => $att->original_name ?: basename($p),
+                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+                'url'  => $toPublicUrl($webPath),
+                'path' => $webPath,
+                'size' => $att->size,
+            ];
+        });
 
         // 1) Lead attachments (read-only)
         $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
@@ -940,30 +997,46 @@ class ArtistController extends Controller
 
                 // ----- 2) Attachments -----
                 $existing = collect($this->getOrderAttachments($order));
-                $toDelete = collect($request->input('delete_attachments', []));
+                $toDelete = collect($request->input('delete_attachments', []))->filter();
+
                 if ($toDelete->isNotEmpty()) {
-                    $toDelete->each(fn($p) => Storage::disk('public')->delete($p));
-                    $existing = $existing->reject(fn($p) => $toDelete->contains($p));
+                    foreach ($toDelete as $path) {
+                        $path = ltrim((string) $path, '/');
+                        $storagePath = preg_replace('#^storage/#', '', $path);
+
+                        // delete file from disk
+                        if (Storage::disk('public')->exists($storagePath)) {
+                            Storage::disk('public')->delete($storagePath);
+                        }
+
+                        // delete DB row(s)
+                        OrderAttachment::where('order_id', $order->id)
+                            ->where('file_path', $storagePath)
+                            ->delete();
+                    }
                 }
+
+                // New uploads
                 if ($request->hasFile('attachments')) {
                     $files = $request->file('attachments');
-                    if (!is_array($files)) $files = [$files]; // handle single upload case
+                    if (!is_array($files)) {
+                        $files = [$files];
+                    }
 
                     $dir = "orders/{$order->id}/attachments";
 
                     foreach ($files as $file) {
-                        if (!$file || !$file->isValid()) continue;
+                        if (!$file || !$file->isValid()) {
+                            continue;
+                        }
 
-                        // 1) Get and sanitize the original filename
-                        $orig     = $file->getClientOriginalName();
-                        $base     = pathinfo($orig, PATHINFO_FILENAME);
-                        $ext      = strtolower($file->getClientOriginalExtension());
+                        $orig = $file->getClientOriginalName();
+                        $base = pathinfo($orig, PATHINFO_FILENAME);
+                        $ext  = strtolower($file->getClientOriginalExtension());
 
-                        // slug the base (keep readable) – e.g. "My Draft v2" -> "my-draft-v2"
-                        $baseSlug = Str::slug($base);
-                        if ($baseSlug === '') $baseSlug = 'file';
+                        $baseSlug = Str::slug($base) ?: 'file';
 
-                        // 2) Ensure uniqueness: my-draft-v2.pdf, my-draft-v2 (1).pdf, my-draft-v2 (2).pdf, ...
+                        // Avoid name clashes within this order
                         $candidate = "{$baseSlug}.{$ext}";
                         $i = 1;
                         while (Storage::disk('public')->exists("$dir/$candidate")) {
@@ -971,14 +1044,18 @@ class ArtistController extends Controller
                             $i++;
                         }
 
-                        // 3) Save using the original-looking name
                         $path = $file->storeAs($dir, $candidate, 'public');
 
-                        // 4) Track in DB list
-                        $existing->push($path);
+                        OrderAttachment::create([
+                            'order_id'      => $order->id,
+                            'user_id'       => auth()->id(),
+                            'file_path'     => $path,                     // e.g. "orders/1/attachments/xx.pdf"
+                            'original_name' => $orig,
+                            'mime_type'     => $file->getClientMimeType(),
+                            'size'          => $file->getSize(),
+                        ]);
                     }
                 }
-                $this->putOrderAttachments($order, $existing->values()->all());
 
                 // ----- 3) “Header” product (the one shown at the top) -----
                 $postedProducts = collect($request->input('products', []))->values();
@@ -1487,19 +1564,40 @@ class ArtistController extends Controller
 
     private function getOrderAttachments(Order $order): array
     {
-        $raw = $order->orderAttachment ?? '';
-        if ($raw === '') return [];
-        if (str_starts_with(trim($raw), '[')) {
-            return array_values(array_filter((array) json_decode($raw, true)));
-        }
-        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+        return OrderAttachment::where('order_id', $order->id)
+            ->orderBy('id')
+            ->pluck('file_path')
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function putOrderAttachments(Order $order, array $paths): void
     {
-        // keep as comma separated (or switch to json_encode($paths))
-        $order->orderAttachment = implode(',', $paths);
-        $order->save();
+        $paths = array_values(array_filter($paths));
+
+        $existing = OrderAttachment::where('order_id', $order->id)->get();
+        $existingPaths = $existing->pluck('file_path')->all();
+
+        // delete rows that are no longer in the list
+        foreach ($existing as $att) {
+            if (!in_array($att->file_path, $paths, true)) {
+                $att->delete();
+            }
+        }
+
+        // insert minimal rows for new paths (if any)
+        $userId = Auth::id();
+        foreach ($paths as $p) {
+            if (!in_array($p, $existingPaths, true)) {
+                OrderAttachment::create([
+                    'order_id'      => $order->id,
+                    'user_id'       => $userId,
+                    'file_path'     => $p,
+                    'original_name' => basename($p),
+                ]);
+            }
+        }
     }
 
     // Upload endpoint (Dropzone)
@@ -1511,18 +1609,40 @@ class ArtistController extends Controller
         }
 
         $request->validate([
-            'file' => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ps,ai'
+            'file' => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ps,ai',
         ]);
 
-        // store file
-        $path = $request->file('file')->store("orders/{$order->id}/attachments", 'public');
+        $file = $request->file('file');
+        $dir  = "orders/{$order->id}/attachments";
 
-        // append to DB (comma-separated list)
-        $list = $this->getOrderAttachments($order);
-        $list[] = $path;
-        $this->putOrderAttachments($order, $list);
+        $orig = $file->getClientOriginalName();
+        $base = pathinfo($orig, PATHINFO_FILENAME);
+        $ext  = strtolower($file->getClientOriginalExtension());
+        $baseSlug = Str::slug($base) ?: 'file';
 
-        return response()->json(['path' => $path, 'url' => Storage::disk('public')->url($path)], 201);
+        $candidate = "{$baseSlug}.{$ext}";
+        $i = 1;
+        while (Storage::disk('public')->exists("$dir/$candidate")) {
+            $candidate = "{$baseSlug} ({$i}).{$ext}";
+            $i++;
+        }
+
+        $path = $file->storeAs($dir, $candidate, 'public');
+
+        $attachment = OrderAttachment::create([
+            'order_id'      => $order->id,
+            'user_id'       => $user->id,
+            'file_path'     => $path,
+            'original_name' => $orig,
+            'mime_type'     => $file->getClientMimeType(),
+            'size'          => $file->getSize(),
+        ]);
+
+        return response()->json([
+            'id'   => $attachment->id,
+            'path' => $path,
+            'url'  => Storage::disk('public')->url($path),
+        ], 201);
     }
 
     // Remove from order + delete file (optional)
@@ -1534,18 +1654,18 @@ class ArtistController extends Controller
         }
 
         $data = $request->validate(['path' => 'required|string']);
-        $path = trim($data['path']);
+        $path = ltrim($data['path'], '/');
+        $storagePath = preg_replace('#^storage/#', '', $path);
 
-        // delete physical file (ignore if missing)
-        if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
+        // delete file from storage
+        if (Storage::disk('public')->exists($storagePath)) {
+            Storage::disk('public')->delete($storagePath);
         }
 
-        // remove from DB list
-        $list = collect($this->getOrderAttachments($order))
-            ->reject(fn($p) => trim($p) === $path)
-            ->values()->all();
-        $this->putOrderAttachments($order, $list);
+        // delete DB record(s)
+        OrderAttachment::where('order_id', $order->id)
+            ->where('file_path', $storagePath)
+            ->delete();
 
         return response()->json(['ok' => true]);
     }
