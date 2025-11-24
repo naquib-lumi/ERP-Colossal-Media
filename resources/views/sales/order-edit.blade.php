@@ -3,6 +3,7 @@
 @section('content')
 @push('styles')
 <style>
+
     .remove-item {
         display: flex;
         align-items: center;
@@ -395,7 +396,7 @@
         <!-- Existing attachments (rendered on page load) -->
         @foreach($order->attachments as $att)
             <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light existing-attachment" 
-                 data-attachment-id="{{ $att->id }}">
+                 data-attachment-id="{{ $att->id }}" data-url="{{ route('orders.attachment.delete', [$order->id, $att->id]) }}">
                 <span>
                     <i class="bx bx-paperclip"></i>
                     <a href="{{ Storage::url($att->file_path) }}" target="_blank">
@@ -403,10 +404,7 @@
                     </a>
                     <span class="text-muted ms-2">({{ number_format($att->size/1024/1024, 2) }} MB)</span>
                 </span>
-                <form action="{{ route('orders.attachment.delete', [$order->id, $att->id]) }}" method="POST" class="d-inline">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="btn btn-sm text-danger">&times;</button>
-                </form>
+                <button type="button" class="btn btn-sm text-danger">&times;</button>
             </div>
         @endforeach
     </div>
@@ -604,6 +602,21 @@ var isDirty = false;
             $(this).closest('.remark-row').remove();
             validateRemarks();
         });
+
+        $(document).on('click', '.existing-attachment button', function(e) {
+    const attachment = $(this).closest('.existing-attachment');
+    $.ajax({
+        url: attachment.data('url'),
+        method: 'DELETE',
+        data: { _token: '{{ csrf_token() }}' },
+        success: function() {
+            attachment.remove();
+        },
+        error: function() {
+            alert('Delete failed');
+        }
+    });
+});
 
         $(document).on('change', '.remark-row select', function() {
             const current = $(this);
@@ -1066,22 +1079,29 @@ var isDirty = false;
             const errors = [];
 
             const orderTitle = $('input[name="orderTitle"]').val().trim();
-            if (!orderTitle) {
-                showValidationError('input[name="orderTitle"]', 'Job title is required');
-                errors.push('Job title is required');
-            }
 
-            const deadline = $('input[name="deadline"]').val();
-            if (!deadline) {
-                showValidationError('input[name="deadline"]', 'Deadline is required');
-                errors.push('Deadline is required');
-            }
+            const deadline = $('input[name="deadline"]').val().trim();
+const approval = $('input[name="approval"]:checked').val()
+           // For orderTitle
+if (!orderTitle) {
+    $('input[name="orderTitle"]').addClass('is-invalid');
+    $('#orderTitle-error').text('Job title is required');
+    errors.push('Job title is required');
+}
 
-            const approval = $('input[name="approval"]:checked').length;
-            if (!approval) {
-                showValidationError('input[name="approval"]', 'Approval selection is required');
-                errors.push('Approval selection is required');
-            }
+// For deadline
+if (!deadline) {
+    $('input[name="deadline"]').addClass('is-invalid');
+    $('#deadline-error').text('Deadline is required');
+    errors.push('Deadline is required');
+}
+
+// For approval
+if (!approval) {
+    $('input[name="approval"]').addClass('is-invalid');
+    $('#approval-error').text('Approval selection is required');
+    errors.push('Approval selection is required');
+}
 
             const products = $('#product-table tbody tr');
             if (products.length === 0) {
