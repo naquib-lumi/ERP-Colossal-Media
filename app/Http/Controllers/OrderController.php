@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductRemark;
 use App\Models\Lead;
 use App\Models\User;
+use App\Models\OrderAttachment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
@@ -287,7 +288,7 @@ public function exportCsv(Request $request)
     }
 
     try {
-        $request->validate([
+      $request->validate([
             'lead_id' => 'required|exists:leads,id',
             'orderTitle' => 'required|string|max:255',
             'deadline' => 'required|date|after_or_equal:today',
@@ -302,39 +303,49 @@ public function exportCsv(Request $request)
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
             'attachments' => 'nullable|array',
-            'attachments.*' => 'file|mimes:pdf,jpg,png,ai|max:2048',
+           'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
         ]);
 
         $lead = Lead::findOrFail($request->lead_id);
-        // CHANGED: Check lead's salesperson_id for non-head
+
         if (!$user->hasRole('head-salesperson') && $lead->salesperson_id !== $user->id) {
             return back()->with('error', 'Unauthorized for this lead');
         }
 
-        $attachments = [];
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('order_attachments', 'public');
-                $attachments[] = $path;
-            }
-        }
-        $attachmentString = implode(',', $attachments);
+     $order = Order::create([
+    'lead_id'        => $request->lead_id,
+    'salesperson_id'  => $user->id,
+    'orderTitle'      => $request->orderTitle,
+    'deadline'        => $request->deadline,
+    'approval'        => $request->approval,
+    'orderDetail'     => $request->orderDetail,
+    'orderStatus'     => 'to_assign',
+    'leadName'       => $lead->name,
+    'leadPhone'      => $lead->phone,
+    'companyName'     => $lead->company_name,
+    'leadEmail'      => $lead->email,
+    'orderDate'      => now(),
+]);
 
-        $order = Order::create([
-            'lead_id' => $request->lead_id,
-            'salesperson_id' => $user->id,
-            'orderTitle' => $request->orderTitle,
-            'deadline' => $request->deadline,
-            'approval' => $request->approval,
-            'orderDetail' => $request->orderDetail,
-            'orderStatus' => 'to_assign',
-            'leadName' => $lead->name,
-            'leadPhone' => $lead->phone,
-            'companyName' => $lead->company_name,
-            'leadEmail' => $lead->email,
-            'orderDate' => now(),
-            'orderAttachment' => $attachmentString,
+// Only this block for attachments
+if ($request->hasFile('attachments')) {
+    foreach ($request->file('attachments') as $file) {
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $extension = $file->getClientOriginalExtension();
+        $timestamp = now()->format('Ymd_His');
+        $newName = $originalName . '_' . $timestamp . '.' . $extension;
+        $path = $file->storeAs('orders/' . $order->id, $newName, 'public');
+
+        OrderAttachment::create([
+            'order_id'       => $order->id,
+            'user_id'        => $user->id,
+            'file_path'      => $path,
+            'original_name'  => $file->getClientOriginalName(),
+            'mime_type'      => $file->getMimeType(),
+            'size'           => $file->getSize(),
         ]);
+    }
+}
 
         $productsData = $request->products;
 
@@ -494,7 +505,7 @@ public function update(Request $request, $id)
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
             'attachments' => 'nullable|array',
-            'attachments.*' => 'file|mimes:pdf,jpg,png,ai|max:2048',
+         'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
         ]);
 
         $attachments = explode(',', $order->orderAttachment ?? '');
@@ -504,16 +515,33 @@ public function update(Request $request, $id)
                 $attachments[] = $path;
             }
         }
-        $attachmentString = implode(',', array_filter($attachments));
 
         $order->update([
             'orderTitle' => $request->orderTitle,
             'deadline' => $request->deadline,
             'approval' => $request->approval,
             'orderDetail' => $request->orderDetail,
-            'orderAttachment' => $attachmentString,
         ]);
 
+        // Replace your attachment block in update() with this
+if ($request->hasFile('attachments')) {
+    foreach ($request->file('attachments') as $file) {
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $extension = $file->getClientOriginalExtension();
+        $timestamp = now()->format('Ymd_His');
+        $newName = $originalName . '_' . $timestamp . '.' . $extension;
+        $path = $file->storeAs('orders/' . $order->id, $newName, 'public');
+
+        OrderAttachment::create([
+            'order_id'       => $order->id,
+            'user_id'        => $user->id,
+            'file_path'      => $path,
+            'original_name'  => $file->getClientOriginalName(),
+            'mime_type'      => $file->getMimeType(),
+            'size'           => $file->getSize(),
+        ]);
+    }
+}
         $productsData = $request->products;
 
         if ($request->hasFile('csv_file')) {
@@ -609,27 +637,34 @@ public function update(Request $request, $id)
         dd($e->getMessage());
     }
 }
+public function deleteAttachment(Order $order, OrderAttachment $attachment)
+{
+    // Only allow owner or head-salesperson
+    if (Auth::id() !== $attachment->user_id && !Auth::user()->hasRole('head-salesperson')) {
+        return back()->with('error', 'Unauthorized');
+    }
 
+    Storage::disk('public')->delete($attachment->file_path);
+    $attachment->delete();
+
+    return back()->with('success', 'Attachment deleted successfully');
+}
 public function show($id)
 {
-    $order = Order::with('lead.attachments', 'salesperson', 'products', 'artist')->findOrFail($id);
-    // CHANGED: Check lead's salesperson_id instead of order's salesperson_id
-    if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
-        abort(403, 'Unauthorized');
-    }
-    $attachments = $order->getAttachmentPathsAttribute()->map(function ($path) {
-        return ['url' => Storage::url($path), 'name' => basename($path), 'size' => Storage::size($path)];
-    });
-    $leadAttachments = $order->lead ? $order->lead->attachments->map(function ($attachment) {
-        return [
-            'url' => asset('storage/' . $attachment->file_location),
-            'name' => basename($attachment->file_location),
-            'size' => $attachment->file_size
-        ];
-    }) : collect();
-    return view('sales.order-view', compact('order', 'attachments', 'leadAttachments'));
-}
+    $order = Order::with(['lead', 'salesperson', 'products', 'artist', 'attachments.uploader'])->findOrFail($id);
 
+    if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
+        abort(403);
+    }
+
+    $attachments = $order->attachments->map(fn($att) => [
+        'url'  => $att->url(),
+        'name' => $att->original_name ?? basename($att->file_path),
+        'size' => $att->size,
+    ]);
+
+    return view('sales.order-view', compact('order', 'attachments'));
+}
     public function submit($id)
     {
         $order = Order::findOrFail($id);

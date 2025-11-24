@@ -163,6 +163,7 @@ Route::get('/dashboard', function () {
         Route::get('/orders/create/{lead_id?}', [OrderController::class, 'create'])->name('orders.create');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
         Route::get('/orders/{id}/edit', [OrderController::class, 'edit'])->name('orders.edit');
+        Route::delete('/orders/{order}/attachments/{attachment}', [OrderController::class, 'deleteAttachment'])->name('orders.attachment.delete');
         Route::put('/orders/{id}', [OrderController::class, 'update'])->name('orders.update');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
        Route::get('/sales/orders/export', [OrderController::class, 'exportCsv'])->name('orders.export');
@@ -420,6 +421,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/admin/materials/{id}', [MaterialsController::class, 'destroy'])->name('admin.materials.destroy');
     Route::patch('/admin/materials/{id}/toggle', [MaterialsController::class, 'toggle'])->name('admin.materials.toggle');
 
+    
     // Profile
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');

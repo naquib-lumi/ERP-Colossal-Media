@@ -373,6 +373,45 @@
                             <div id="attach-msg" class="mt-2 text-sm"></div>
                             <ul id="preview" class="mt-3 space-y-2"></ul>
 
+    <!-- Current Attachments -->
+
+
+<!-- Unified Attachment Section -->
+<div class="mt-4">
+    <label class="form-label">Attachments</label>
+    
+   
+
+    <!-- Dropzone for new files -->
+    <div id="attachment-dropzone" class="attach-box mt-3">
+        <div class="attach-inner">
+            <div class="attach-icon"><i class="bx bx-upload display-6"></i></div>
+            <div class="attach-title">Drop files here or click to upload</div>
+            <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD · Max 50MB each</div>
+        </div>
+        <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.eps,.svg,.tiff,.indd" class="file-overlay">
+    </div>
+     <div id="attachment-preview" class="mt-3">
+        <!-- Existing attachments (rendered on page load) -->
+        @foreach($order->attachments as $att)
+            <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light existing-attachment" 
+                 data-attachment-id="{{ $att->id }}">
+                <span>
+                    <i class="bx bx-paperclip"></i>
+                    <a href="{{ Storage::url($att->file_path) }}" target="_blank">
+                        {{ $att->original_name }}
+                    </a>
+                    <span class="text-muted ms-2">({{ number_format($att->size/1024/1024, 2) }} MB)</span>
+                </span>
+                <form action="{{ route('orders.attachment.delete', [$order->id, $att->id]) }}" method="POST" class="d-inline">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="btn btn-sm text-danger">&times;</button>
+                </form>
+            </div>
+        @endforeach
+    </div>
+</div>
+</div>
                             <div class="mt-3">
                                 <label class="form-label">Remarks</label>
                                 <textarea name="orderDetail" rows="3" class="form-control" placeholder="Remarks">{{ old('orderDetail', $order->orderDetail) }}</textarea>
@@ -1122,6 +1161,64 @@ var isDirty = false;
             }
         });
     }
+</script>
+<script>
+// New attachments dropzone
+const attZone = document.getElementById('attachment-dropzone');
+const attInput = attZone.querySelector('input');
+const attPreview = document.getElementById('attachment-preview');
+
+let selectedFiles = [];
+const dt = new DataTransfer();
+
+attZone.addEventListener('click', e => {
+    if (e.target === attZone || e.target.closest('.attach-inner')) {
+        e.stopPropagation();
+        attInput.click();
+    }
+});
+
+['dragover', 'dragenter'].forEach(ev => attZone.addEventListener(ev, e => {
+    e.preventDefault(); attZone.classList.add('drag-over');
+}));
+['dragleave', 'drop'].forEach(ev => attZone.addEventListener(ev, e => {
+    e.preventDefault(); attZone.classList.remove('drag-over');
+}));
+
+attZone.ondrop = e => handleNewFiles(e.dataTransfer.files);
+attInput.onchange = () => handleNewFiles(attInput.files);
+
+function handleNewFiles(files) {
+    [...files].forEach(file => {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const allowed = ['pdf','jpg','jpeg','png','ai','psd','eps','svg','tiff','indd'];
+        if (file.size > 50*1024*1024) {
+            Swal.fire('Too Large', `${file.name} exceeds 50MB`, 'error');
+            return;
+        }
+        if (!allowed.includes(ext)) {
+            Swal.fire('Invalid File', `${file.name} not allowed`, 'error');
+            return;
+        }
+
+        dt.items.add(file);
+        selectedFiles.push(file);
+
+        const div = document.createElement('div');
+        div.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light';
+        div.innerHTML = `<span><i class="bx bx-paperclip"></i> ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)</span>
+                         <button type="button" class="btn btn-sm text-danger">&times;</button>`;
+        div.querySelector('button').onclick = () => {
+            selectedFiles = selectedFiles.filter(f => f !== file);
+            dt.items.clear();
+            selectedFiles.forEach(f => dt.items.add(f));
+            attInput.files = dt.files;
+            div.remove();
+        };
+        attPreview.appendChild(div);
+    });
+    attInput.files = dt.files;
+}
 </script>
 @endpush
 
