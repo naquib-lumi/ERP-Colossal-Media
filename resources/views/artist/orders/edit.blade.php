@@ -354,7 +354,10 @@
       $isRedo = true;
   }
   @endphp
-
+@php
+    $user = auth()->user();
+    $isArtist = $user->role === 'artist' || $user->role === 'head-artist';
+@endphp
   <div class="row g-4">
     <div class="col-12">
       <div class="card">
@@ -438,7 +441,7 @@
                   <input type="hidden" name="created_by" value="{{ $order->salesperson_id ?? $order->created_by_id }}">
                 </div>
 
-                <div class="col-12">
+                <!-- <div class="col-12">
                   <label class="form-label d-flex align-items-center gap-2">
                     <span>Lead Attachments</span>
                     <span class="text-body-secondary small">(read-only — uploaded by salesperson)</span>
@@ -460,7 +463,40 @@
                   @else
                   <div class="text-body-secondary">No attachments</div>
                   @endif
-                </div>
+                </div> -->
+
+
+{{-- MOVE HERE if not artist --}}
+<div class="mt-3">
+    @if(isset($orderFilesSales) && count($orderFilesSales))
+          <div class="row mt-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Existing Files (from Sales)</label>
+
+              <div class="d-flex flex-column gap-2">
+                @foreach($orderFilesSales as $f)
+                  <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                      <i class="bx bx-file"></i>
+                      <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">
+                        {{ $f['name'] }}
+                      </a>
+                      <small class="text-muted">.{{ $f['ext'] }}</small>
+
+                      @if(!empty($f['uploaded_by']))
+                        <small class="text-muted">
+                          · Uploaded by {{ $f['uploaded_by'] }}
+                          @if(!empty($f['uploaded_at'])) · {{ $f['uploaded_at'] }} @endif
+                        </small>
+                      @endif
+                    </div>
+                  </div>
+                @endforeach
+              </div>
+            </div>
+          </div>
+        @endif
+</div>
               </div>
             </div>
           </div>
@@ -1498,42 +1534,49 @@
                   class="file-overlay" {{ $readonly }}>
               </div>
 
-              {{-- Existing order files --}}
-              <div class="mt-3">
-                @php
-                // show trash only when order is still a draft (not submitted)
-                $canDeleteOrderFiles = ((int)($order->draft ?? 0) === 1) && (int)($order->submit ?? 0) === 0;
-                @endphp
+              {{-- Existing Files inside Attachments section (artists only) --}}
+<div class="mt-3">
+  @php
+    $canDeleteOrderFiles = ((int)($order->draft ?? 0) === 1) && (int)($order->submit ?? 0) === 0;
+  @endphp
 
-                <label class="form-label">Existing files</label>
+  <label class="form-label">Existing files</label>
 
-                @if(isset($orderFiles) && count($orderFiles))
-                <div class="d-flex flex-column gap-2">
-                  @foreach($orderFiles as $f)
-                  <div class="d-flex align-items-center justify-content-between border rounded p-2"
-                    data-file-row data-path="{{ $f['path'] }}">
-                    <div class="d-flex align-items-center gap-2">
-                      <i class="bx bx-file"></i>
-                      <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">{{ $f['name'] }}</a>
-                      <small class="text-muted">.{{ $f['ext'] }}</small>
-                    </div>
+  @if(isset($orderFiles) && count($orderFiles))
+    <div class="d-flex flex-column gap-2">
+      @foreach($orderFiles as $f)
+        <div class="d-flex align-items-center justify-content-between border rounded p-2"
+             data-file-row data-path="{{ $f['path'] }}">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <i class="bx bx-file"></i>
+            <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">
+              {{ $f['name'] }}
+            </a>
+            <small class="text-muted">.{{ $f['ext'] }}</small>
+            @if(!empty($f['uploaded_by']))
+              <small class="text-muted">
+                · Uploaded by {{ $f['uploaded_by'] }}
+                @if(!empty($f['uploaded_at'])) · {{ $f['uploaded_at'] }} @endif
+              </small>
+            @endif
+          </div>
 
-                    @if($canDeleteOrderFiles)
-                    <button type="button"
-                      class="btn btn-sm btn-outline-danger delete-order-file"
-                      title="Delete"
-                      data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
-                      data-path="{{ $f['path'] }}">
-                      <i class="bx bx-trash"></i>
-                    </button>
-                    @endif
-                  </div>
-                  @endforeach
-                </div>
-                @else
-                <div class="text-body-secondary">No files uploaded yet.</div>
-                @endif
-              </div>
+          @if($canDeleteOrderFiles)
+            <button type="button"
+                    class="btn btn-sm btn-outline-danger delete-order-file"
+                    title="Delete"
+                    data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
+                    data-path="{{ $f['path'] }}">
+              <i class="bx bx-trash"></i>
+            </button>
+          @endif
+        </div>
+      @endforeach
+    </div>
+  @else
+    <div class="text-body-secondary">No files uploaded yet.</div>
+  @endif
+</div>
               <div id="attach-msg" class="mt-2 text-sm"></div>
               <ul id="preview" class="mt-3 space-y-2"></ul>
             </div>

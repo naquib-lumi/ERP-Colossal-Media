@@ -162,7 +162,7 @@
         </div>
         <div class="actions">
           <button id="btnAddType" class="btn"><i class="bi bi-tags"></i> Add Type</button>
-          <button id="btnAddUnit" class="btn btn-primary"><i class="bi bi-rulers"></i> Add Unit</button>
+          <!-- <button id="btnAddUnit" class="btn btn-primary"><i class="bi bi-rulers"></i> Add Unit</button> -->
           <button id="btnAddMaterial" class="btn btn-dark"><i class="bi bi-plus-lg"></i> Add Material</button>
         </div>
       </div>
@@ -177,12 +177,6 @@
             <option value="all">All Material Types</option>
             @foreach($types as $id => $name)
               <option value="{{ $id }}">{{ $name }}</option>
-            @endforeach
-          </select>
-          <select id="qtyFilter">
-            <option value="all">All Units</option>
-            @foreach($units as $id => $label)
-              <option value="{{ $id }}">{{ $label }}</option>
             @endforeach
           </select>
         </div>
@@ -205,7 +199,7 @@
               <tr data-type="{{ $m->material_type_id }}" data-uom="{{ $m->unit_id }}">
                 <td>{{ $m->materialName }}</td>
                 <td>{{ optional($m->materialType)->name }}</td>
-                <td>RM {{ number_format($m->unitCost, 4) }} {{ optional($m->unit)->label }}</td>
+                <td>RM {{ number_format($m->unitCost, 4) }} / SQ INCH</td>
                 <td class="usedQty">
                   {{ number_format((float)($m->used_quantity ?? 0)) }}
                 </td>
@@ -220,7 +214,6 @@
                       data-id="{{ $m->MaterialID }}"
                       data-name="{{ $m->materialName }}"
                       data-cost="{{ $m->unitCost }}"
-                      data-uom="{{ $m->unit_id }}"
                     >
                       <i class="bi bi-pencil me-2"></i> Edit Unit Cost
                     </button>
@@ -390,26 +383,6 @@
   </div>
 </div>
 
-<div class="x-mask" id="mdlUnit">
-  <div class="x">
-    <div class="x-hd"><i class="bi bi-rulers"></i> Add Unit</div>
-    <div class="x-bd">
-      <div class="field">
-        <div class="label">Unit Name *</div>
-        <input id="unitName" type="text" class="control" placeholder="e.g., meter, sqft, pcs">
-      </div>
-      <div class="field">
-        <div class="label">Unit Label *</div>
-        <input id="unitLabel" type="text" class="control" placeholder="e.g., m, sqft, pcs">
-      </div>
-    </div>
-    <div class="x-ft">
-      <button class="btn btn-ghost" data-close="mdlUnit">Cancel</button>
-      <button class="btn btn-primary" id="btnSaveUnit">Save Unit</button>
-    </div>
-  </div>
-</div>
-
 <div class="x-mask" id="mdlMaterial">
   <div class="x">
     <div class="x-hd"><i class="bi bi-plus-square"></i> Add Material</div>
@@ -424,15 +397,6 @@
           <option value="">Select type…</option>
           @foreach($types as $id => $name)
             <option value="{{ $id }}">{{ $name }}</option>
-          @endforeach
-        </select>
-      </div>
-      <div class="field">
-        <div class="label">Unit *</div>
-        <select id="matUnit" class="control">
-          <option value="">Select unit…</option>
-          @foreach($units as $id => $label)
-            <option value="{{ $id }}">{{ $label }}</option>
           @endforeach
         </select>
       </div>
@@ -464,15 +428,6 @@
       <div class="field">
         <div class="label">New Unit Cost *</div>
         <input id="qeNew" type="number" step="0.0001" class="control">
-      </div>
-      <div class="field">
-        <div class="label">Unit</div>
-        <select id="qeUnit" class="control">
-          <option value="">Select unit…</option>
-          @foreach($units as $id => $label)
-            <option value="{{ $id }}">{{ $label }}</option>
-          @endforeach
-        </select>
       </div>
     </div>
     <div class="x-ft">
@@ -563,25 +518,27 @@
   function applyFilter(){
     const q = $('#q').value.toLowerCase().trim();
     const t = $('#typeFilter').value;
-    const u = $('#qtyFilter').value;
     let shown = 0;
-    $$('#tbl tbody tr').forEach(tr=>{
-      const name = tr.children[0].textContent.toLowerCase();
+
+    $$('#tbl tbody tr').forEach(tr => {
+      const name  = tr.children[0].textContent.toLowerCase();
       const passQ = !q || name.includes(q);
-      const passT = (t==='all' || tr.dataset.type===t);
-      const passU = (u==='all' || tr.dataset.uom===u);
-      const ok = passQ && passT && passU;
+      const passT = (t === 'all' || tr.dataset.type === t);
+      const ok    = passQ && passT;
+
       tr.style.display = ok ? '' : 'none';
-      if(ok) shown++;
+      if (ok) shown++;
     });
-    $('#countTotal').textContent = shown;
+
+    const countEl = $('#countTotal');
+    if (countEl) countEl.textContent = shown;
   }
 
   window.applyFilter = applyFilter;
 
-  ['input','change'].forEach(ev=>{
-    document.addEventListener(ev, (e)=>{
-      if (['q','typeFilter','qtyFilter'].includes(e.target.id)) applyFilter();
+  ['input','change'].forEach(ev => {
+    document.addEventListener(ev, (e) => {
+      if (['q','typeFilter'].includes(e.target.id)) applyFilter();
     });
   });
 
@@ -606,73 +563,27 @@
     }).catch(()=>alert('Error'));
   });
 
-  // Add Unit
-  $('#btnAddUnit').addEventListener('click', ()=> openMask('mdlUnit'));
-  $('#btnSaveUnit').addEventListener('click', ()=>{
-    const name = $('#unitName').value.trim();
-    const label = $('#unitLabel').value.trim();
-    if(!name||!label){ alert('Both name and label are required'); return; }
-    fetch("{{ route('boss.units.store') }}", {
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
-      body:JSON.stringify({unitName:name, unitLabel:label})
-    }).then(r=>r.json()).then(data=>{
-      if(data.success){
-        const opt = document.createElement('option');
-        opt.value = data.id; opt.textContent = data.label;
-        $('#qtyFilter').appendChild(opt);
-        const opt2 = opt.cloneNode(true);
-        $('#matUnit').appendChild(opt2);
-        $('#qeUnit').appendChild(opt.cloneNode(true));
-        closeMask('mdlUnit');
-      }else{ alert('Failed to save'); }
-    }).catch(()=>alert('Error'));
-  });
-
   // Add Material
   $('#btnAddMaterial').addEventListener('click', ()=> openMask('mdlMaterial'));
   $('#btnSaveMaterial').addEventListener('click', ()=>{
     const postData = {
       materialName: $('#matName').value.trim(),
       material_type_id: $('#matType').value,
-      unit_id: $('#matUnit').value,
       unitCost: $('#matCost').value
     };
-    if(!postData.materialName || !postData.material_type_id || !postData.unit_id || !postData.unitCost){
-      alert('Please fill in all required fields'); return;
+
+    if (!postData.materialName || !postData.material_type_id || !postData.unitCost) {
+      alert('Please fill in all required fields');
+      return;
     }
+
     fetch("{{ route('boss.materials.store') }}", {
       method:'POST',
       headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
       body:JSON.stringify(postData)
     }).then(r=>r.json()).then(data=>{
       if(data.success){
-        const m = data.material;
-        const tr = document.createElement('tr');
-        tr.setAttribute('data-type', m.material_type_id);
-        tr.setAttribute('data-uom', m.unit_id);
-        tr.innerHTML = `
-          <td>${m.materialName}</td>
-          <td>${m.materialType ? m.materialType.name : ''}</td>
-          <td>RM ${Number(m.unitCost).toFixed(4)} ${m.unit ? m.unit.label : ''}</td>
-          <td class="text-end usedQty">-</td>      <!-- NEW -->
-          <td class="text-end totalCost">-</td>    <!-- NEW -->
-          <td style="text-align:right;position:relative">
-            <button class="kebab" title="Actions" data-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
-            <div class="dropdown-menu" style="position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:10px;min-width:180px;padding:6px">
-              <button class="dropdown-item btnEdit"
-                data-id="${m.MaterialID}"
-                data-name="${m.materialName}"
-                data-cost="${m.unitCost}"
-                data-uom="${m.unit_id}">
-                <i class="bi bi-pencil me-2"></i> Edit Unit Cost
-              </button>
-              <button class="dropdown-item text-danger btnDelete" data-id="${m.MaterialID}"><i class="bi bi-trash me-2"></i> Delete</button>
-            </div>
-          </td>`;
-        $('#tbl tbody').appendChild(tr);
-        closeMask('mdlMaterial');
-        applyFilter();
+        location.reload();
       }else{ alert('Failed to save'); }
     }).catch(()=>alert('Error'));
   });
@@ -689,7 +600,6 @@
   document.getElementById('qeName').value = btn.dataset.name || '';
   document.getElementById('qeCurrent').value = btn.dataset.cost ? Number(btn.dataset.cost).toFixed(4) : '';
   document.getElementById('qeNew').value = btn.dataset.cost || '';
-  document.getElementById('qeUnit').value = btn.dataset.uom || '';
 
   // open modal
   openMask('mdlQuickEdit');
@@ -701,7 +611,6 @@
     const postData = {
       qeName: $('#qeName').value,
       qeNew: $('#qeNew').value,
-      qeUnit: $('#qeUnit').value
     };
     fetch("{{ route('boss.materials.update', ['id' => '___ID___']) }}".replace('___ID___', id), {
       method:'PUT',
@@ -728,21 +637,20 @@
 
       const newName   = document.getElementById('qeName').value || (nameCell ? nameCell.textContent : '');
       const newCost   = Number(document.getElementById('qeNew').value || 0).toFixed(4);
-      const unitLabel = data.unit_label || (data.material && data.material.unit && data.material.unit.label) || '';
+      const unitLabel = '';
 
       if (nameCell) nameCell.textContent = newName;
-      if (costCell) costCell.textContent = `RM ${newCost} ${unitLabel}`;
+      if (costCell) costCell.textContent = `RM ${newCost}`;
 
       // Also refresh row data attributes on the edit button
       const btn = tr.querySelector('.btnEdit');
       if (btn) {
         btn.dataset.name = newName;
         btn.dataset.cost = document.getElementById('qeNew').value;
-        btn.dataset.uom  = document.getElementById('qeUnit').value;
       }
 
       closeMask('mdlQuickEdit');
-      if (typeof window.applyFilter === 'function') window.applyFilter();
+      location.reload(); 
     })
   });
 

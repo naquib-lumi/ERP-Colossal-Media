@@ -35,7 +35,7 @@ class BossDataManagementController extends Controller
 
         // Filters lists
         $types = MaterialType::orderBy('name')->pluck('name', 'id');
-        $units = Unit::orderByRaw('COALESCE(label, name)')->pluck('label', 'id');
+        // $units = Unit::orderByRaw('COALESCE(label, name)')->pluck('label', 'id');
 
         // Pull what we need once
         $rows = DB::table('product_items')
@@ -118,7 +118,7 @@ class BossDataManagementController extends Controller
         }
 
         // page materials and decorate with computed fields
-        $materials = Material::with(['materialType:id,name', 'unit:id,label'])
+        $materials = Material::with(['materialType:id,name'])
             ->orderBy('materialName')
             ->paginate($perPage);
 
@@ -243,7 +243,7 @@ class BossDataManagementController extends Controller
         $orders = new LengthAwarePaginator([], 0, $perPage, $page, [
             'path' => url()->current(), 'pageName' => 'orders_page'
         ]);
-        return view('boss.datamanagement', compact('materials', 'types', 'units', 'orders', 'activeTab'));
+        return view('boss.datamanagement', compact('materials', 'type', 'orders', 'activeTab'));
         }
 
         // 2) Preload aggregates for ALL matching order IDs
@@ -351,7 +351,7 @@ class BossDataManagementController extends Controller
         );
         $orders->appends($request->except('orders_page'));
 
-        return view('boss.datamanagement', compact('materials', 'types', 'units', 'orders', 'activeTab'));
+        return view('boss.datamanagement', compact('materials', 'types', 'orders', 'activeTab'));
     }
 
     public function orderProducts(int $orderId)
@@ -513,16 +513,14 @@ class BossDataManagementController extends Controller
         $request->validate([
             'materialName'     => 'required|string|max:255',
             'material_type_id' => 'required|exists:material_types,id',
-            'unit_id'          => 'required|exists:units,id',
             'unitCost'         => 'required|numeric|min:0',
         ]);
 
         $material = Material::create([
             'materialName'     => $request->materialName,
             'material_type_id' => $request->material_type_id,
-            'unit_id'          => $request->unit_id,
             'unitCost'         => $request->unitCost,
-        ])->load(['materialType:id,name', 'unit:id,label']);
+        ])->load(['materialType:id,name']);
 
         return response()->json(['success' => true, 'material' => $material]);
     }
@@ -533,20 +531,16 @@ class BossDataManagementController extends Controller
         $request->validate([
             'qeName' => 'nullable|string|max:255',
             'qeNew'  => 'required|numeric|min:0',
-            'qeUnit' => 'required|exists:units,id',
         ]);
 
         $material->update([
             'materialName' => $request->qeName ?: $material->materialName,
             'unitCost'     => $request->qeNew,
-            'unit_id'      => $request->qeUnit,
         ]);
 
-        $material->load(['unit:id,label']);
         return response()->json([
             'success'    => true,
             'material'   => $material,
-            'unit_label' => optional($material->unit)->label,
         ]);
     }
 

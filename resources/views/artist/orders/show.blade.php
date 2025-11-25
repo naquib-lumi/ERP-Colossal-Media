@@ -188,7 +188,7 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
                 </div>
 
-                <div class="col-md-6 col-lg-6">
+                <!-- <div class="col-md-6 col-lg-6">
                     <small class="text-muted d-block mb-1">Attachment from Lead</small>
 
                     @php
@@ -211,7 +211,7 @@ $isRedoOrder = (bool) $order->redo;
                         -
                         @endif
                     </div>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
@@ -771,13 +771,26 @@ $isRedoOrder = (bool) $order->redo;
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <div class="d-flex align-items-center gap-2">
                             <i class="bx bx-paperclip"></i>
-                            <span>{{ $f['name'] }}</span>
-                            @if(!empty($f['size']))
-                            <small class="text-muted">
-                                {{ number_format($f['size'] / 1024, 0) }} KB
-                            </small>
-                            @endif
+                            <div class="d-flex flex-column">
+                                <span>{{ $f['name'] }}</span>
+
+                                <small class="text-muted" style="color: #6c757d; font-size:12px">
+                                    @if(!empty($f['size']))
+                                        {{ number_format($f['size'] / 1024, 0) }} KB
+                                        @if(!empty($f['uploaded_by']) || !empty($f['uploaded_at'])) · @endif
+                                    @endif
+
+                                    @if(!empty($f['uploaded_by']))
+                                        Uploaded by {{ $f['uploaded_by'] }}
+                                    @endif
+                                    @if(!empty($f['uploaded_at']))
+                                        @if(!empty($f['uploaded_by'])) • @endif
+                                        {{ $f['uploaded_at'] }}
+                                    @endif
+                                </small>
+                            </div>
                         </div>
+
                         <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
                             Download
                         </a>

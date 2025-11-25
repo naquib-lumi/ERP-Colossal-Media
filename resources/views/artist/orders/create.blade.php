@@ -331,7 +331,7 @@
                             </div>
 
                             <!-- Drop area -->
-                            <div id="attach-box" class="attach-box">
+                            <div id="attach-box-csv" class="attach-box">
                                 <div class="attach-inner">
                                     <div class="attach-icon" aria-hidden="true">
                                         <i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i>
@@ -341,7 +341,7 @@
                                 </div>
 
                                 <!-- This input sits on top, invisible, and owns the click -->
-                                <input id="fileInput" type="file"
+                                <input id="fileInputCsv" type="file"
                                     accept=".csv"
                                     class="file-overlay">
                             </div>
@@ -349,8 +349,8 @@
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
 
-                            <div id="attach-msg" class="mt-2 text-sm"></div>
-                            <ul id="preview" class="mt-3 space-y-2"></ul>
+                            <div id="csv-msg" class="mt-2 text-sm"></div>
+                            <ul id="csv-preview" class="mt-3 space-y-2"></ul>
                         </div>
                     </div>
 
@@ -368,6 +368,68 @@
                         </ul>
                     </div>
                     @endif
+
+                    {{-- Attachments (bottom) --}}
+                    <div class="card mt-4">
+                        <div class="card-header" style="display: flex; align-items: center;">
+                        <span class="text-muted">Order Attachments</span>
+                        <span style="color: red; font-size: 12px; margin-left: 6px;">*required</span>
+                        </div>
+
+                        <div class="card-body">
+                        <div id="attach-box" class="attach-box">
+                            <div class="attach-inner">
+                            <div class="attach-icon" aria-hidden="true"><i class="bx bx-upload display-6 mb-2 d-block justify-content-between align-items-center" style="pointer-events:none"></i></div>
+                            <div class="attach-title">Drop files here or click to upload</div>
+                            <div class="attach-hint">(PDF, images, docs, xlsx, ppt., ai, ps)</div>
+                            </div>
+
+                            <!-- This input sits on top, invisible, and owns the click -->
+                            <input id="fileInput" name="attachments[]" type="file" multiple
+                                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xlsx,.xls,.ppt,.pptx,.ai,.ps"
+                                class="file-overlay">
+                        </div>
+
+                        {{-- Existing order files --}}
+                        <div class="mt-3">
+                            @php
+                            // show trash only when order is still a draft (not submitted)
+                            $canDeleteOrderFiles = ((int)($order->draft ?? 0) === 1) && (int)($order->submit ?? 0) === 0;
+                            @endphp
+
+                            <label class="form-label">Existing files</label>
+
+                            @if(isset($orderFiles) && count($orderFiles))
+                            <div class="d-flex flex-column gap-2">
+                            @foreach($orderFiles as $f)
+                            <div class="d-flex align-items-center justify-content-between border rounded p-2"
+                                data-file-row data-path="{{ $f['path'] }}">
+                                <div class="d-flex align-items-center gap-2">
+                                <i class="bx bx-file"></i>
+                                <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">{{ $f['name'] }}</a>
+                                <small class="text-muted">.{{ $f['ext'] }}</small>
+                                </div>
+
+                                @if($canDeleteOrderFiles)
+                                <button type="button"
+                                class="btn btn-sm btn-outline-danger delete-order-file"
+                                title="Delete"
+                                data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
+                                data-path="{{ $f['path'] }}">
+                                <i class="bx bx-trash"></i>
+                                </button>
+                                @endif
+                            </div>
+                            @endforeach
+                            </div>
+                            @else
+                            <div class="text-body-secondary">No files uploaded yet.</div>
+                            @endif
+                        </div>
+                        <div id="attach-msg" class="mt-2 text-sm"></div>
+                        <ul id="preview" class="mt-3 space-y-2"></ul>
+                        </div>
+                    </div>
 
                     @if(auth()->check() && auth()->user()->role === 'head-artist')
                       <hr class="my-4">
@@ -393,7 +455,7 @@
                           @error('assignee_artist_id')
                             <div class="text-danger small mt-1">{{ $message }}</div>
                           @enderror
-                          <div class="form-text">Search by artist name or email.</div>
+                          <div class="form-text">Search by artist name.</div>
                         </div>
                       </div>
                     @endif
@@ -405,7 +467,7 @@
         <div class="col-12">
             <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
                 <a type="button" class="btn btn-outline-secondary" href="{{ route('artist.orders') }}">Cancel</a>
-                <button type="submit" class="btn btn-primary">Save Order</button>
+                <button type="submit" id="save-order-btn" class="btn btn-primary">Save Order</button>
             </div>
         </div>
     </div>
@@ -826,195 +888,210 @@ $(function () {
             $(this).closest('.remark-row').remove();
         });
 
-        const input = document.getElementById('fileInput');
-        const listEl = document.getElementById('preview');
-        const msgEl = document.getElementById('attach-msg');
+        // ===== CSV upload (Product Details) =====
+        const csvInput  = document.getElementById('fileInputCsv');
+        const csvListEl = document.getElementById('csv-preview');
+        const csvMsgEl  = document.getElementById('csv-msg');
+        const csvBox    = document.getElementById('attach-box-csv');
 
-        const ALLOWED = ['csv'];
+        const CSV_ALLOWED = ['csv'];
+        let csvSelectedFile = null;
 
-        let selectedFile = null;
-
-        input.addEventListener('change', handleCsvUpload);
+        if (csvInput) {
+        csvInput.addEventListener('change', handleCsvUpload);
+        }
 
         function handleCsvUpload() {
-            if (!input.files?.length) return;
-            const f = input.files[0];
+        if (!csvInput || !csvInput.files?.length) return;
+        const f = csvInput.files[0];
 
-            const ext = (f.name.split('.').pop() || '').toLowerCase();
+        const ext = (f.name.split('.').pop() || '').toLowerCase();
+        const errors = [];
+        if (!CSV_ALLOWED.includes(ext)) errors.push('Invalid file type');
 
-            const errors = [];
-            if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
+        if (csvListEl) csvListEl.innerHTML = '';
 
-            listEl.innerHTML = '';
-
-            if (errors.length) {
-                addRow(f, { status: 'error', note: errors.join(', ') });
-                selectedFile = null;
-            } else {
-                selectedFile = f;
-                addRow(f, { status: 'ready' });
-                parseCsv(f);
-            }
-
-            updateSummary();
-            input.value = '';
+        if (errors.length) {
+            csvAddRow(f, { status: 'error', note: errors.join(', ') });
+            csvSelectedFile = null;
+        } else {
+            csvSelectedFile = f;
+            csvAddRow(f, { status: 'ready' });
+            parseCsv(f);
         }
 
-        function addRow(file, { status = 'ready', note = '' }) {
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <span>${file.name}${
-                    status === 'error'
-                        ? ` – <span class="err">${note}</span>`
-                        : ` – <span class="ok">ready</span>`
-                }</span>
-                <button class="remove-x" title="Remove">×</button>
-            `;
-
-            li.querySelector('.remove-x').addEventListener('click', () => {
-                li.remove();
-                selectedFile = null;
-                updateSummary();
-                if (!selectedFile) {
-                    $('#product-table tbody').empty();
-                    $('#hidden-products').empty();
-                    productIndex = 0;
-                    isFromCsv = 0;
-                    $('#from_csv').val(0);
-                    $('#addProductBtn').show();
-                }
-            });
-
-            listEl.appendChild(li);
+        csvUpdateSummary();
+        csvInput.value = '';
         }
 
-        function updateSummary() {
-            const count = selectedFile ? 1 : 0;
-            msgEl.innerHTML = count ?
-                `<span class="ok">${count} file selected for upload</span>` :
-                '';
+        function csvAddRow(file, { status = 'ready', note = '' }) {
+        if (!csvListEl) return;
+
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span>${file.name}${
+            status === 'error'
+                ? ` – <span class="err">${note}</span>`
+                : ` – <span class="ok">ready</span>`
+            }</span>
+            <button class="remove-x" title="Remove">×</button>
+        `;
+
+        li.querySelector('.remove-x').addEventListener('click', () => {
+            li.remove();
+            csvSelectedFile = null;
+            csvUpdateSummary();
+
+            // reset product table when CSV removed
+            $('#product-table tbody').empty();
+            $('#hidden-products').empty();
+            productIndex = 0;
+            isFromCsv = 0;
+            $('#from_csv').val(0);
+            $('#addProductBtn').show();
+        });
+
+        csvListEl.appendChild(li);
+        }
+
+        function csvUpdateSummary() {
+        if (!csvMsgEl) return;
+        const count = csvSelectedFile ? 1 : 0;
+        csvMsgEl.innerHTML = count
+            ? `<span class="ok">${count} file selected for upload</span>`
+            : '';
         }
 
         function stripQuotes(str) {
-            return str.replace(/^"(.*)"$/, '$1');
+        return str.replace(/^"(.*)"$/, '$1');
         }
 
         function parseCsv(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                const lines = text.split(/\r?\n/);
-                const headers = lines[0].split(',').map(h => h.trim()); // Preserve exact case
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text    = e.target.result;
+            const lines   = text.split(/\r?\n/);
+            const headers = lines[0].split(',').map(h => h.trim());
 
-                $('#product-table tbody').empty();
-                $('#hidden-products').empty();
-                productIndex = 0;
+            $('#product-table tbody').empty();
+            $('#hidden-products').empty();
+            productIndex = 0;
 
-                for (let i = 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue;
-                    const data = lines[i].split(',').map(d => stripQuotes(d.trim()));
-                    console.log('Headers:', headers); // Debug: Check headers
-                    console.log('Data:', data); // Debug: Check data for each row
-                    const product = {
-                        product_name: data[headers.indexOf('Product_Name')] || '',
-                        quantity: data[headers.indexOf('Quantity')] || '',
-                        material_info: data[headers.indexOf('Material_Info')] || '',
-                        remarks: []
-                    };
+            for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const data = lines[i].split(',').map(d => stripQuotes(d.trim()));
 
-                    // Populate remarks
-                    const remarkColumns = ['Artist_Remark', 'Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
-                    remarkColumns.forEach((col, idx) => {
-                        const remarkIdx = headers.indexOf(col);
-                        if (remarkIdx !== -1 && data[remarkIdx]) {
-                            product.remarks.push({
-                                operation: ['artist', 'printing', 'furnishing', 'installation', 'courier', 'self_pickup'][idx],
-                                remark: data[remarkIdx]
-                            });
-                        }
-                    });
-                    console.log('productname: '+ product.product_name);
-                    const nextNo = $('#product-table tbody tr').length + 1;
-                    const html = `
-                        <tr data-index="${productIndex}">
-                            <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
-                            <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(product.product_name)}"></td>
-                            <td><input type="number" name="products[${productIndex}][quantity]" class="form-control qty-input" min="1" step="1" value="${escapeHtml(product.quantity)}"></td>
-                            <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(product.material_info)}"></td>
-                            <td>
-                                <div id="remarks-container-${productIndex}">
-                                    ${product.remarks.map((r, rindex) => `
-                                        <div class="remark-row">
-                                            <select name="products[${productIndex}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                                <option value="artist" ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                                                <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                                                <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                                                <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                                                <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                                                <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
-                                            </select>
-                                            <input type="text" name="products[${productIndex}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
-                                            <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                                <i class="bx bx-trash fs-5"></i>
-                                            </button>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                                <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">Add Remark</button>
-                            </td>
-                            <td>
-                                <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                    $('#product-table tbody').append(html);
-
-                    let hiddenHtml = `
-                        <div data-index="${productIndex}">
-                            <input type="hidden" name="products[${productIndex}][product_name]" value="${escapeHtml(product.product_name)}">
-                            <input type="hidden" name="products[${productIndex}][quantity]" value="${escapeHtml(product.quantity)}">
-                            <input type="hidden" name="products[${productIndex}][material_info]" value="${escapeHtml(product.material_info)}">
-                    `;
-                    product.remarks.forEach((r, rindex) => {
-                        hiddenHtml += `<input type="hidden" name="products[${productIndex}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`;
-                        hiddenHtml += `<input type="hidden" name="products[${productIndex}][remarks][${rindex}][remark]" value="${escapeHtml(r.remark)}">`;
-                    });
-                    hiddenHtml += '</div>';
-                    $('#hidden-products').append(hiddenHtml);
-
-                    productIndex++;
-                }
-
-                isFromCsv = 1;
-                $('#from_csv').val(1);
-                if (productIndex >= 5) {
-                    $('#addProductBtn').hide();
-                }
-                updateAddButton();
+            const product = {
+                product_name:  data[headers.indexOf('Product_Name')]  || '',
+                quantity:      data[headers.indexOf('Quantity')]      || '',
+                material_info: data[headers.indexOf('Material_Info')] || '',
+                remarks: []
             };
-            reader.readAsText(file);
+
+            const remarkColumns = [
+                'Artist_Remark',
+                'Printing_Remark',
+                'Furnishing_Remark',
+                'Installation_Remark',
+                'Courier_Remark',
+                'Self_Pickup_Remark'
+            ];
+            remarkColumns.forEach((col, idx) => {
+                const remarkIdx = headers.indexOf(col);
+                if (remarkIdx !== -1 && data[remarkIdx]) {
+                product.remarks.push({
+                    operation: ['artist','printing','furnishing','installation','courier','self_pickup'][idx],
+                    remark: data[remarkIdx]
+                });
+                }
+            });
+
+            const nextNo = $('#product-table tbody tr').length + 1;
+            const rowHtml = `
+                <tr data-index="${productIndex}">
+                <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
+                <td><input type="text"  name="products[${productIndex}][product_name]"  class="form-control" value="${escapeHtml(product.product_name)}"></td>
+                <td><input type="number" name="products[${productIndex}][quantity]"      class="form-control qty-input" min="1" step="1" value="${escapeHtml(product.quantity)}"></td>
+                <td><input type="text"  name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(product.material_info)}"></td>
+                <td>
+                    <div id="remarks-container-${productIndex}">
+                    ${product.remarks.map((r, rindex) => `
+                        <div class="remark-row">
+                        <select name="products[${productIndex}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
+                            <option value="artist"      ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
+                            <option value="printing"    ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
+                            <option value="furnishing"  ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
+                            <option value="installation"${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
+                            <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
+                            <option value="courier"     ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
+                        </select>
+                        <input type="text" name="products[${productIndex}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
+                        <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                            <i class="bx bx-trash fs-5"></i>
+                        </button>
+                        </div>
+                    `).join('')}
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">Add Remark</button>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">Delete</button>
+                </td>
+                </tr>
+            `;
+            $('#product-table tbody').append(rowHtml);
+
+            let hiddenHtml = `
+                <div data-index="${productIndex}">
+                <input type="hidden" name="products[${productIndex}][product_name]"  value="${escapeHtml(product.product_name)}">
+                <input type="hidden" name="products[${productIndex}][quantity]"      value="${escapeHtml(product.quantity)}">
+                <input type="hidden" name="products[${productIndex}][material_info]" value="${escapeHtml(product.material_info)}">
+            `;
+            product.remarks.forEach((r, rindex) => {
+                hiddenHtml += `<input type="hidden" name="products[${productIndex}][remarks][${rindex}][operation]" value="${escapeHtml(r.operation)}">`;
+                hiddenHtml += `<input type="hidden" name="products[${productIndex}][remarks][${rindex}][remark]"    value="${escapeHtml(r.remark)}">`;
+            });
+            hiddenHtml += '</div>';
+            $('#hidden-products').append(hiddenHtml);
+
+            productIndex++;
+            }
+
+            isFromCsv = 1;
+            $('#from_csv').val(1);
+            if (productIndex >= 5) $('#addProductBtn').hide();
+            updateAddButton();
+        };
+        reader.readAsText(file);
         }
 
-        const box = document.getElementById('attach-box');
-        if (box) {
-            ['dragenter', 'dragover'].forEach(evt =>
-                box.addEventListener(evt, e => {
-                    e.preventDefault();
-                    box.classList.add('ring');
-                })
-            );
-            ['dragleave', 'drop'].forEach(evt =>
-                box.addEventListener(evt, e => {
-                    e.preventDefault();
-                    box.classList.remove('ring');
-                })
-            );
-            box.addEventListener('drop', e => {
-                input.files = e.dataTransfer.files;
-                handleCsvUpload();
-            });
+        // drag & drop for CSV box
+        if (csvBox && csvInput) {
+          ['dragenter', 'dragover'].forEach(evt =>
+            csvBox.addEventListener(evt, e => {
+              e.preventDefault();
+              csvBox.classList.add('ring');
+            })
+          );
+          ['dragleave', 'drop'].forEach(evt =>
+            csvBox.addEventListener(evt, e => {
+              e.preventDefault();
+              csvBox.classList.remove('ring');
+            })
+          );
+
+          // Avoid double-OPEN: if the click is on the input itself,
+          // let the browser handle it once.
+          csvBox.addEventListener('click', (e) => {
+            if (e.target === csvInput) return;
+            csvInput.click();
+          });
+
+          csvBox.addEventListener('drop', e => {
+            csvInput.files = e.dataTransfer.files;
+            handleCsvUpload();
+          });
         }
-    
 
     // head artist search artist to assign 
     const $assignee = $('#assignee_artist_id');
@@ -1057,6 +1134,15 @@ $(function () {
         input.dispatchEvent(ev);
       }
     });
+});
+
+// Global counter of valid order attachments (create page)
+let orderAttachmentCount = 0;
+
+document.addEventListener('attachments:updated', function (e) {
+  const detail = e.detail || {};
+  const c = typeof detail.count === 'number' ? detail.count : 0;
+  orderAttachmentCount = c;
 });
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1255,6 +1341,14 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
+    // Require at least one order attachment on CREATE
+    // (orderAttachmentCount is updated via `attachments:updated` event)
+    if (orderAttachmentCount < 1) {
+      err('Please upload at least one order attachment before saving this order.');
+      const fileInput = document.getElementById('fileInput'); // your attachments input
+      firstBad = firstBad || fileInput;
+    }
+
     if (errors.length) {
       e.preventDefault();
       const html = [...new Set(errors)].map(m => `<div style="text-align:left">${m}</div>`).join('');
@@ -1422,6 +1516,215 @@ window.addEventListener('beforeunload', function (e) {
   e.preventDefault();
   e.returnValue = '';
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input  = document.getElementById('fileInput');
+  const listEl = document.getElementById('preview');
+  const msgEl  = document.getElementById('attach-msg');
+
+  if (!input || !listEl || !msgEl) return;
+
+  const ALLOWED = [
+    'pdf','png','jpg','jpeg','webp',
+    'doc','docx','xls','xlsx','ppt','pptx',
+    'ai','ps'
+  ];
+
+  const selected = new Map();
+
+  // --------- Seed "Items" & "Delivery" on each product (same as edit) ---------
+  const products = document.querySelectorAll('.accordion-collapse[id^="pCollapse"]');
+
+  const productHasAtLeastOneItem = (root) =>
+    !!root.querySelector(
+      'input[name^="products["][name*="[items]"], ' +
+      'select[name^="products["][name*="[items]"], ' +
+      'textarea[name^="products["][name*="[items]"]'
+    );
+
+  const productHasAtLeastOneDelivery = (root) =>
+    !!root.querySelector(
+      'input[name^="products["][name*="[deliveries]"], ' +
+      'select[name^="products["][name*="[deliveries]"], ' +
+      'textarea[name^="products["][name*="[deliveries]"]'
+    );
+
+  const findBtn = (scope, selector, textRx) => {
+    // Prefer data-attrs if you have them; else fall back to text match
+    let btn = scope.querySelector(selector);
+    if (btn) return btn;
+    return Array.from(scope.querySelectorAll('button,a'))
+      .find(b => textRx.test((b.textContent || '').trim().toLowerCase()));
+  };
+
+  products.forEach((root) => {
+    const scope = root.closest('.accordion-item') || root;
+
+    // Seed 1 Item if none
+    if (!productHasAtLeastOneItem(root)) {
+      const addItemBtn = findBtn(scope,
+        '[data-add-item],[data-action="add-item"]',
+        /\badd\s*item\b/
+      );
+      if (addItemBtn) addItemBtn.click();
+    }
+
+    // Seed 1 Delivery if none
+    if (!productHasAtLeastOneDelivery(root)) {
+      const addDelBtn = findBtn(scope,
+        '[data-add-delivery],[data-action="add-delivery"]',
+        /\badd\s*delivery(\s*breakdown)?\b/
+      );
+      if (addDelBtn) addDelBtn.click();
+    }
+  });
+
+  // --------- Attachments uploader ---------
+  input.addEventListener('change', () => {
+    if (!input.files?.length) return;
+    const incoming = Array.from(input.files);
+    const invalids = [];
+
+    incoming.forEach(f => {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      const key = `${f.name}|${f.size}|${f.lastModified}`;
+
+      const errors = [];
+      if (!ALLOWED.includes(ext)) {
+        errors.push('Invalid file type');
+        invalids.push({ name: f.name, ext });
+      }
+      if (selected.has(key)) errors.push('Duplicate');
+
+      if (errors.length) {
+        addRow(f, { status: 'error', note: errors.join(', ') });
+      } else {
+        selected.set(key, f);
+        addRow(f, { key, status: 'ready' });
+      }
+    });
+
+    if (invalids.length && typeof Swal !== 'undefined') {
+      const uniqAllowed = [...new Set(ALLOWED)].map(e => `.${e}`).join(', ');
+      const list = invalids
+        .map(({ name, ext }) =>
+          `<li><code>${name}</code> <small>(.${ext})</small></li>`
+        ).join('');
+      Swal.fire({
+        icon: 'error',
+        title: 'Unsupported file type',
+        html: `
+          <p>The following file(s) are not allowed:</p>
+          <ul style="text-align:left;margin:0 0 8px 18px;">${list}</ul>
+          <p><small>Allowed types: ${uniqAllowed || '–'}</small></p>
+        `,
+        confirmButtonText: 'OK'
+      });
+    }
+
+    updateSummary();
+    input.value = '';
+  });
+
+  function updateButtonsState() {
+    // any invalid attachment chip? (created in addRow with <span class="err">)
+    const hasInvalidAttachment = document.querySelector('#preview .err') !== null;
+
+    const btnSubmit    = document.getElementById('btn-submit');
+    const btnDraft     = document.getElementById('btn-draft');
+    const btnSaveOrder = document.getElementById('save-order-btn');
+
+    const allButtons = [btnSubmit, btnDraft, btnSaveOrder];
+
+    if (hasInvalidAttachment) {
+      // hard-disable all save buttons if there is any invalid file
+      allButtons.forEach(btn => {
+        if (!btn) return;
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+      });
+    } else {
+      // otherwise, follow existing “other validation errors” rule
+      const anyInvalidField = document.querySelector('.is-invalid,[aria-invalid="true"]') !== null;
+
+      allButtons.forEach(btn => {
+        if (!btn) return;
+        btn.disabled = !!anyInvalidField;
+        btn.classList.toggle('opacity-50', !!anyInvalidField);
+        btn.classList.toggle('cursor-not-allowed', !!anyInvalidField);
+      });
+    }
+  }
+
+  function addRow(file, { key = null, status = 'ready', note = '' }) {
+    const li = document.createElement('li');
+    li.dataset.status = status;      // 'ready' or 'error'
+    if (key) li.dataset.key = key;   // so we can delete from `selected`
+
+    li.innerHTML = `
+      <span>${file.name}${
+        status === 'error'
+          ? ` – <span class="err">${note || 'Invalid file type'}</span>`
+          : ` – <span class="ok">ready</span>`
+      }</span>
+      <button class="remove-x" title="Remove">×</button>
+    `;
+
+    li.querySelector('.remove-x').addEventListener('click', () => {
+      const k = li.dataset.key;
+      if (k && selected.has(k)) selected.delete(k);
+      li.remove();
+      updateButtonsState();
+      updateSummary();
+    });
+
+    listEl.appendChild(li);
+    updateButtonsState();
+  }
+
+  function updateSummary() {
+    const count = selected.size;
+    msgEl.innerHTML = count
+      ? `<span class="ok">${count} file(s) selected for upload</span>`
+      : '';
+    document.dispatchEvent(new CustomEvent('attachments:updated', {
+      detail: { count }
+    }));
+  }
+
+  // expose for your AJAX submit if needed
+  window.getSelectedFiles = () => Array.from(selected.values());
+
+  const form = document.getElementById('order-form');
+  if (form) {
+    form.addEventListener('submit', () => {
+      if (!input) return;
+      const dt = new DataTransfer();
+      selected.forEach(file => dt.items.add(file));
+      input.files = dt.files;   // now Laravel sees all selected files
+    });
+  }
+});
+
+// ===========================
+// Disable Save Order if invalid files exist
+// ===========================
+
+// Call this after every file add/remove
+function checkInvalidFiles() {
+    const invalids = document.querySelectorAll('[data-invalid-file="yes"]');
+    const saveBtn = document.querySelector('#save-order-btn');
+
+    if (!saveBtn) return;
+
+    if (invalids.length > 0) {
+        saveBtn.disabled = true;
+        saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+        saveBtn.disabled = false;
+        saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
 </script>
 
 @endpush
