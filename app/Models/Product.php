@@ -240,9 +240,30 @@ class Product extends Model
         $shouldInferForNew  = $canChangeType && !$isRedo &&
             ($currentType === '' || $currentType === null);
 
+        // helper: does this product have *any* spec filled?
+        $hasAnySpec = function (int $pid): bool {
+            return DB::table('product_items as pi')
+                ->leftJoin('specifications as s', 's.ItemID', '=', 'pi.ItemID')
+                ->where('pi.ProductID', $pid)
+                ->where(function ($q) {
+                    $q->whereNotNull('s.printer')
+                      ->orWhereNotNull('s.cutter')
+                      ->orWhereNotNull('s.lamination');
+                })
+                ->exists();
+        };
+
         if (($shouldInferForRedo || $shouldInferForNew) && $pid) {
-            $hasRealPrinter = $detectRealPrinter((int) $pid);
-            $newType        = $hasRealPrinter ? 'printing' : 'furnishing';
+            $pid = (int) $pid;
+
+            // ⛔ No specs at all → clear taskType
+            if (!$hasAnySpec($pid)) {
+                $newType = null;
+            } else {
+                // ✅ At least one spec → infer like before
+                $hasRealPrinter = $detectRealPrinter($pid);
+                $newType        = $hasRealPrinter ? 'printing' : 'furnishing';
+            }
         }
 
         // ----- decide when to SAVE the new taskType -----
