@@ -123,8 +123,7 @@ $isRedoOrder = (bool) $order->redo;
 
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-
-        <a href="{{ url()->previous() }}"
+        <a href="{{ route('artist.orders') }}"
             class="text-decoration-none text-muted me-3"
             style="display: inline-flex; align-items: center; gap: 8px;">
             <i class="bi bi-arrow-left-circle fw-semibold"
@@ -142,7 +141,12 @@ $isRedoOrder = (bool) $order->redo;
         </h4>
 
         <div class="d-flex align-items-center gap-2">
-
+            <a href="{{ route('artist.orders.edit', $order->id) }}"
+                class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
+                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+                <i class="bx bx-edit-alt fs-5"></i>
+                <span>Edit Order</span>
+            </a>
         </div>
     </div>
 
@@ -209,6 +213,48 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
                 </div> -->
             </div>
+
+            {{-- ===== Non-artist attachments (Sales etc.) at the top ===== --}}
+            @if(isset($headerAttachments) && $headerAttachments->count())
+            <hr class="my-4">
+
+            <h6 class="fw-semibold mb-2">Attachments</h6>
+
+            <div class="d-flex flex-column gap-2">
+                @foreach($headerAttachments as $f)
+                <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                    <div class="d-flex flex-column">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bx bx-file"></i>
+                        <span class="fw-medium">{{ $f['name'] }}</span>
+                    </div>
+
+                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                        @if(!empty($f['ext']))
+                        .{{ $f['ext'] }}
+                        @endif
+
+                        @if(!empty($f['size']))
+                        · {{ number_format($f['size'] / 1024, 0) }} KB
+                        @endif
+
+                        @if(!empty($f['uploaded_by']))
+                        · Uploaded by {{ $f['uploaded_by'] }}
+                        @endif
+
+                        @if(!empty($f['uploaded_at']))
+                        · {{ $f['uploaded_at'] }}
+                        @endif
+                    </div>
+                    </div>
+
+                    <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                    Download
+                    </a>
+                </div>
+                @endforeach
+            </div>
+            @endif
         </div>
     </div>
 
@@ -760,44 +806,52 @@ $isRedoOrder = (bool) $order->redo;
 
             <div class="card-body">
                 @if($attachments->isEmpty())
-                <p class="text-muted mb-0">No attachments.</p>
+                    <p class="text-muted mb-0">No attachments.</p>
                 @else
-                <ul class="list-group list-group-flush">
-                    @foreach($attachments as $f)
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bx bx-paperclip"></i>
-                            <div class="d-flex flex-column">
-                                <span>{{ $f['name'] }}</span>
+                    <ul class="list-group list-group-flush">
+                        @foreach($attachments as $f)
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex flex-column">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bx bx-paperclip"></i>
+                                        <span>{{ $f['name'] }}</span>
+                                    </div>
 
-                                <small class="text-muted" style="color: #6c757d; font-size:12px">
-                                    @if(!empty($f['size']))
-                                        {{ number_format($f['size'] / 1024, 0) }} KB
-                                        @if(!empty($f['uploaded_by']) || !empty($f['uploaded_at'])) · @endif
-                                    @endif
+                                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                                        @if(!empty($f['ext']))
+                                            .{{ $f['ext'] }}
+                                        @endif
 
-                                    @if(!empty($f['uploaded_by']))
-                                        Uploaded by {{ $f['uploaded_by'] }}
-                                    @endif
-                                    @if(!empty($f['uploaded_at']))
-                                        @if(!empty($f['uploaded_by'])) • @endif
-                                        {{ $f['uploaded_at'] }}
-                                    @endif
-                                </small>
-                            </div>
-                        </div>
+                                        @if(!empty($f['size']))
+                                            · {{ number_format($f['size'] / 1024, 0) }} KB
+                                        @endif
 
-                        <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
-                            Download
-                        </a>
-                    </li>
-                    @endforeach
-                </ul>
+                                        @if(!empty($f['uploaded_by']))
+                                            · Uploaded by {{ $f['uploaded_by'] }}
+                                        @endif
+
+                                        @if(!empty($f['uploaded_at']))
+                                            · {{ $f['uploaded_at'] }}
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" target="_blank">
+                                    Download
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
                 @endif
             </div>
         </div>
         <div class="d-flex justify-content-end mt-4">
-          <a href="{{ url()->previous() }}" class="btn btn-secondary mt-6">Close</a>
+            <a href="{{ route('artist.orders.edit', $order->id) }}"
+                class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
+                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+                <i class="bx bx-edit-alt fs-5"></i>
+                <span>Edit Order</span>
+            </a>
         </div>
 </div>
 

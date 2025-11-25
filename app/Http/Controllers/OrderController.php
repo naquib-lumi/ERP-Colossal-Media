@@ -665,14 +665,123 @@ public function show($id)
         abort(403);
     }
 
-    $attachments = $order->attachments->map(fn($att) => [
-        'url'  => $att->url(),
-        'name' => $att->original_name ?? basename($att->file_path),
-        'size' => $att->size,
-    ]);
+     $artistRoles = ['artist', 'head-artist'];
 
-    return view('sales.order-view', compact('order', 'attachments'));
+        // 1) Try order_attachments table first
+        $rows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $mapRow = function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $web = \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+            return [
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'url'           => $toPublicUrl($web),
+                'size'          => (int) $att->size,
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploader_role' => optional($att->uploader)->role,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+            ];
+        };
+
+        if ($rows->isNotEmpty()) {
+            // split by uploader role
+            $headerAttachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return !in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+
+            $attachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+        }
+
+    return view('sales.order-view', compact('order', 'attachments','headerAttachments'));
 }
+
+
+public function showCy(Order $order)
+    {
+        // keep what you already load here (products, items, deliveryBreakdowns, etc.)
+        $order->loadMissing([
+            'salesperson:id,name',
+            'artist:id,name',
+            'products'        => fn ($q) => $q->orderBy('ProductID'),
+            'products.items'  => fn ($q) => $q->orderBy('ItemID'),
+            'products.items.spec',
+            // 'leadAttachments',
+            'deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+        ]);
+
+        // helper to turn a storage path into a public URL
+        $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
+
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+
+            return Storage::disk('public')->url($p);
+        };
+
+        // roles considered "artist-side"
+        $artistRoles = ['artist', 'head-artist'];
+
+        // 1) Try order_attachments table first
+        $rows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $mapRow = function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $web = \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+            return [
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'url'           => $toPublicUrl($web),
+                'size'          => (int) $att->size,
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploader_role' => optional($att->uploader)->role,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+            ];
+        };
+
+        if ($rows->isNotEmpty()) {
+            // split by uploader role
+            $headerAttachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return !in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+
+            $attachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+        }
+
+        return view('artist.orders.show', compact(
+            'order',
+            'attachments',
+            'headerAttachments'
+        ));
+    }
     public function submit($id)
     {
         $order = Order::findOrFail($id);
