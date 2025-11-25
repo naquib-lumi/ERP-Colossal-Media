@@ -218,7 +218,7 @@ $isRedoOrder = (bool) $order->redo;
             @if(isset($headerAttachments) && $headerAttachments->count())
             <hr class="my-4">
 
-            <h6 class="fw-semibold mb-2">Attachments</h6>
+            <h6 class="fw-semibold mb-2">Sales Attachments</h6>
 
             <div class="d-flex flex-column gap-2">
                 @foreach($headerAttachments as $f)
@@ -801,7 +801,7 @@ $isRedoOrder = (bool) $order->redo;
         {{-- Attachments --}}
         <div class="card mt-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Attachments</span>
+                <span>Artist Attachments</span>
             </div>
 
             <div class="card-body">
