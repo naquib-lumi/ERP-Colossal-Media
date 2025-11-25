@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use App\Helpers\Helpers;
 use Carbon\Carbon;
+use App\Models\OrderAttachment;
+use Illuminate\Support\Facades\Storage;
 
 class RedoOrderController extends Controller
 {
@@ -107,6 +109,55 @@ class RedoOrderController extends Controller
                     'updated_at' => now(),
                 ]);
             }
+
+            /**
+             * =========================================
+             *  🔁  DUPLICATE ORDER ATTACHMENTS
+             *  from $sourceOrder -> $redoOrder
+             * =========================================
+             */
+            $oldAttachments = OrderAttachment::where('order_id', $sourceOrder->id)->get();
+
+            foreach ($oldAttachments as $att) {
+                $oldPath = ltrim((string) $att->file_path, '/');     // e.g. orders/274/attachments/file.pdf
+                $disk    = Storage::disk('public');
+
+                if (!$disk->exists($oldPath)) {
+                    // file missing, skip this row
+                    continue;
+                }
+
+                $filename = basename($oldPath);
+                $name     = pathinfo($filename, PATHINFO_FILENAME);
+                $ext      = pathinfo($filename, PATHINFO_EXTENSION);
+
+                $newDir  = "orders/{$redoOrder->id}/attachments";
+                $candidate = $filename;
+                $i = 1;
+
+                // avoid collisions in the new folder
+                while ($disk->exists("$newDir/$candidate")) {
+                    $candidate = "{$name} ({$i}).{$ext}";
+                    $i++;
+                }
+
+                $newPath = "$newDir/$candidate";
+
+                // copy the physical file
+                $disk->makeDirectory($newDir);
+                $disk->copy($oldPath, $newPath);
+
+                // insert new DB row pointing to the new file
+                OrderAttachment::create([
+                    'order_id'      => $redoOrder->id,
+                    'user_id'       => $att->user_id,        // keep original uploader
+                    'file_path'     => $newPath,             // e.g. orders/275/attachments/file.pdf
+                    'original_name' => $att->original_name,
+                    'mime_type'     => $att->mime_type,
+                    'size'          => $att->size,
+                ]);
+            }
+            // ===== END attachments clone =====
 
             // Duplicate products/items/specs/remarks/deliveries/progress from BASE
             $baseProducts = Product::with(['items.spec','remarks','deliveryBreakdowns'])

@@ -1540,7 +1540,7 @@
     $canDeleteOrderFiles = ((int)($order->draft ?? 0) === 1) && (int)($order->submit ?? 0) === 0;
   @endphp
 
-  <label class="form-label">Existing files</label>
+  <label class="form-label">Existing files (From Artist)</label>
 
   @if(isset($orderFiles) && count($orderFiles))
     <div class="d-flex flex-column gap-2">
@@ -3183,9 +3183,6 @@
       const existing = document.querySelectorAll('[data-file-row]').length;
       return newOnes + existing;
     }
-
-    // Intercept Save & Submit
-    document.getElementById('btn-submit')?.addEventListener('click', onSubmitClick);
 
     // Modal 1 → Send to Printing (now it really submits)
     document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
