@@ -13,6 +13,7 @@ use App\Models\Order;
 use App\Helpers\Helpers;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use App\Models\OrderAttachment;
 
 class DispatchControlProductOrderController extends Controller
 {
@@ -267,35 +268,27 @@ class DispatchControlProductOrderController extends Controller
 
         // Attachments (from orders.orderAttachment)
         $attachments = [];
-        $rawAtt = (string)($headerRow->orderAttachment ?? '');
-        if ($rawAtt !== '') {
-            $paths = [];
-            $decoded = json_decode($rawAtt, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $paths = array_values(array_filter($decoded));
-            } else {
-                if (str_contains($rawAtt, ',')) {
-                    $paths = array_map('trim', explode(',', $rawAtt));
-                    $paths = array_filter($paths);
-                } else {
-                    // single file path (may contain spaces)
-                    $paths = [trim($rawAtt)];
-                }
-            }
-            foreach ($paths as $p) {
-                $p = ltrim($p, '/');
-                if (Str::startsWith($p, ['http://', 'https://'])) {
-                    $url = $p;
-                } elseif (Storage::disk('public')->exists($p)) {
-                    $url = Storage::url($p);
-                } elseif (Storage::exists($p)) {
-                    $url = Storage::url($p);
-                } else {
-                    $url = asset($p);
-                }
-                $attachments[] = ['name' => basename($p), 'size' => '', 'url' => $url];
-            }
-        }
+        $attachmentRows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $headerRow->OrderID)
+            ->whereHas('uploader', function ($q) {
+                $q->whereIn('role', ['artist', 'head-artist']);
+            })
+            ->orderBy('id')
+            ->get();
+
+        $attachments = $attachmentRows->map(function (OrderAttachment $att) {
+            $path = ltrim((string) $att->file_path, '/');
+
+            // files are stored on the "public" disk, so Storage::url() gives /storage/...
+            $url = \Illuminate\Support\Facades\Storage::url($path);
+
+            return [
+                'name' => $att->original_name ?: basename($path),
+                // human-readable size (used directly in blade)
+                'size' => $att->size ? number_format($att->size / 1024, 0) . ' KB' : null,
+                'url'  => $url,
+            ];
+        })->values()->all();
 
         $permitAttachments = [];
         $permitRows = DB::table('product_permit')
