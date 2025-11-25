@@ -422,29 +422,49 @@ class ArtistController extends Controller
             return Storage::disk('public')->url($p);
         };
 
+        // roles considered "artist-side"
+        $artistRoles = ['artist', 'head-artist'];
+
         // 1) Try order_attachments table first
-        $attachmentRows = OrderAttachment::with('uploader:id,name')
+        $rows = OrderAttachment::with('uploader:id,name,role')
             ->where('order_id', $order->id)
             ->orderBy('id')
             ->get();
 
-        if ($attachmentRows->isNotEmpty()) {
-            $attachments = $attachmentRows->map(function (OrderAttachment $att) use ($toPublicUrl) {
-                $p = ltrim((string) $att->file_path, '/');
-                $web = Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+        $mapRow = function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $web = \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
 
-                return [
-                    'name'        => $att->original_name ?: basename($p),
-                    'url'         => $toPublicUrl($web),
-                    'size'        => (int) $att->size,
-                    'ext'         => pathinfo($p, PATHINFO_EXTENSION),
-                    'uploaded_by' => optional($att->uploader)->name,
-                    'uploaded_at' => optional($att->created_at)->format('d M Y'),
-                ];
-            });
+            return [
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'url'           => $toPublicUrl($web),
+                'size'          => (int) $att->size,
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploader_role' => optional($att->uploader)->role,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+            ];
+        };
+
+        if ($rows->isNotEmpty()) {
+            // split by uploader role
+            $headerAttachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return !in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+
+            $attachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
         } else {
-            // 2) Fallback to lead_attachments (same shape as before)
-            $attachments = LeadAttachment::where('lead_id', $order->lead_id)
+            // 2) Fallback to lead_attachments for legacy orders
+            $headerAttachments = LeadAttachment::where('lead_id', $order->lead_id)
                 ->latest()
                 ->get()
                 ->map(function ($a) use ($toPublicUrl) {
@@ -454,17 +474,25 @@ class ArtistController extends Controller
                     $web = 'storage/' . $p;
 
                     return [
-                        'name'        => basename($p),
-                        'url'         => $toPublicUrl($web),
-                        'size'        => (int) $a->file_size,
-                        'ext'         => $a->file_extension,
-                        'uploaded_by' => null,
-                        'uploaded_at' => null,
+                        'id'            => null,
+                        'name'          => basename($p),
+                        'url'           => $toPublicUrl($web),
+                        'size'          => (int) $a->file_size,
+                        'ext'           => $a->file_extension,
+                        'uploaded_by'   => null,  // unknown for legacy files
+                        'uploader_role' => null,
+                        'uploaded_at'   => null,
                     ];
                 });
+
+            $attachments = collect(); // none from artist/head-artist in this legacy path
         }
 
-        return view('artist.orders.show', compact('order', 'attachments'));
+        return view('artist.orders.show', compact(
+            'order',
+            'attachments',
+            'headerAttachments'
+        ));
     }
 
     private function fileInfoFromPath(string $relPath): array
@@ -1040,15 +1068,17 @@ class ArtistController extends Controller
                         $path = ltrim((string) $path, '/');
                         $storagePath = preg_replace('#^storage/#', '', $path);
 
-                        // delete file from disk
+                        // remove file from disk if exists
                         if (Storage::disk('public')->exists($storagePath)) {
                             Storage::disk('public')->delete($storagePath);
                         }
 
-                        // delete DB row(s)
-                        OrderAttachment::where('order_id', $order->id)
-                            ->where('file_path', $storagePath)
-                            ->delete();
+                        // drop from our in-memory list (handles both with/without storage/ prefix)
+                        $existing = $existing->reject(function ($p) use ($storagePath) {
+                            $p = ltrim((string) $p, '/');
+                            $p = preg_replace('#^storage/#', '', $p);
+                            return $p === $storagePath;
+                        })->values();
                     }
                 }
 
@@ -1082,16 +1112,13 @@ class ArtistController extends Controller
 
                         $path = $file->storeAs($dir, $candidate, 'public');
 
-                        OrderAttachment::create([
-                            'order_id'      => $order->id,
-                            'user_id'       => auth()->id(),
-                            'file_path'     => $path,                     // e.g. "orders/1/attachments/xx.pdf"
-                            'original_name' => $orig,
-                            'mime_type'     => $file->getClientMimeType(),
-                            'size'          => $file->getSize(),
-                        ]);
+                        $existing->push($path);
                     }
                 }
+
+                // Persist back to orders.orderAttachment (comma-separated)
+                $pathsToKeep = $existing->filter()->unique()->values()->all();
+                $this->putOrderAttachments($order, $pathsToKeep);
 
                 // ----- 3) “Header” product (the one shown at the top) -----
                 $postedProducts = collect($request->input('products', []))->values();
