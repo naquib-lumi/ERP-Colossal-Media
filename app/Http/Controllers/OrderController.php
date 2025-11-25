@@ -504,17 +504,16 @@ public function update(Request $request, $id)
             'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
-      'attachments' => 'required|array|min:1',  // at least 1 file
-    'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+            'attachments' => [
+                function ($attribute, $value, $fail) use ($order) {
+                    if ($order->attachments->isEmpty() && empty($value)) {
+                        $fail('At least one attachment is required.');
+                    }
+                },
+                'array',
+            ],
+            'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
         ]);
-
-        $attachments = explode(',', $order->orderAttachment ?? '');
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('order_attachments', 'public');
-                $attachments[] = $path;
-            }
-        }
 
         $order->update([
             'orderTitle' => $request->orderTitle,
@@ -523,25 +522,25 @@ public function update(Request $request, $id)
             'orderDetail' => $request->orderDetail,
         ]);
 
-        // Replace your attachment block in update() with this
-if ($request->hasFile('attachments')) {
-    foreach ($request->file('attachments') as $file) {
-        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $extension = $file->getClientOriginalExtension();
-        $timestamp = now()->format('Ymd_His');
-        $newName = $originalName . '_' . $timestamp . '.' . $extension;
-        $path = $file->storeAs('orders/' . $order->id, $newName, 'public');
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                $extension = $file->getClientOriginalExtension();
+                $timestamp = now()->format('Ymd_His');
+                $newName = $originalName . '_' . $timestamp . '.' . $extension;
+                $path = $file->storeAs('orders/' . $order->id, $newName, 'public');
 
-        OrderAttachment::create([
-            'order_id'       => $order->id,
-            'user_id'        => $user->id,
-            'file_path'      => $path,
-            'original_name'  => $file->getClientOriginalName(),
-            'mime_type'      => $file->getMimeType(),
-            'size'           => $file->getSize(),
-        ]);
-    }
-}
+                OrderAttachment::create([
+                    'order_id'       => $order->id,
+                    'user_id'        => $user->id,
+                    'file_path'      => $path,
+                    'original_name'  => $file->getClientOriginalName(),
+                    'mime_type'      => $file->getMimeType(),
+                    'size'           => $file->getSize(),
+                ]);
+            }
+        }
+
         $productsData = $request->products;
 
         if ($request->hasFile('csv_file')) {
