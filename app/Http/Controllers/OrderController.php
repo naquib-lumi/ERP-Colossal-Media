@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use App\Helpers\Helpers;
+use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
@@ -664,6 +665,16 @@ public function show($id)
     if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
         abort(403);
     }
+
+         $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
+
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+
+            return Storage::disk('public')->url($p);
+        };
 
      $artistRoles = ['artist', 'head-artist'];
 

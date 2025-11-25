@@ -123,7 +123,7 @@ $isRedoOrder = (bool) $order->redo;
 
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-        <a href="{{ route('artist.orders') }}"
+        <a href="{{ url()->previous() }}"
             class="text-decoration-none text-muted me-3"
             style="display: inline-flex; align-items: center; gap: 8px;">
             <i class="bi bi-arrow-left-circle fw-semibold"
@@ -141,12 +141,7 @@ $isRedoOrder = (bool) $order->redo;
         </h4>
 
         <div class="d-flex align-items-center gap-2">
-            <a href="{{ route('artist.orders.edit', $order->id) }}"
-                class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
-                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
-                <i class="bx bx-edit-alt fs-5"></i>
-                <span>Edit Order</span>
-            </a>
+   
         </div>
     </div>
 
@@ -218,7 +213,7 @@ $isRedoOrder = (bool) $order->redo;
             @if(isset($headerAttachments) && $headerAttachments->count())
             <hr class="my-4">
 
-            <h6 class="fw-semibold mb-2">Attachments</h6>
+            <h6 class="fw-semibold mb-2">Sales Attachments</h6>
 
             <div class="d-flex flex-column gap-2">
                 @foreach($headerAttachments as $f)
@@ -801,7 +796,7 @@ $isRedoOrder = (bool) $order->redo;
         {{-- Attachments --}}
         <div class="card mt-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Attachments</span>
+                <span>Artist Attachments</span>
             </div>
 
             <div class="card-body">
@@ -846,11 +841,7 @@ $isRedoOrder = (bool) $order->redo;
             </div>
         </div>
         <div class="d-flex justify-content-end mt-4">
-            <a href="{{ route('artist.orders.edit', $order->id) }}"
-                class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
-                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
-                <i class="bx bx-edit-alt fs-5"></i>
-                <span>Edit Order</span>
+           <a href="{{ url()->previous() }}" class="btn btn-secondary mt-6">Close</a>
             </a>
         </div>
 </div>
