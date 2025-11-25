@@ -302,8 +302,8 @@ public function exportCsv(Request $request)
             'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
-            'attachments' => 'nullable|array',
-           'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+          'attachments' => 'required|array|min:1',  // at least 1 file
+    'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
         ]);
 
         $lead = Lead::findOrFail($request->lead_id);
@@ -504,8 +504,8 @@ public function update(Request $request, $id)
             'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
-            'attachments' => 'nullable|array',
-         'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+      'attachments' => 'required|array|min:1',  // at least 1 file
+    'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
         ]);
 
         $attachments = explode(',', $order->orderAttachment ?? '');
@@ -639,13 +639,22 @@ if ($request->hasFile('attachments')) {
 }
 public function deleteAttachment(Order $order, OrderAttachment $attachment)
 {
-    // Only allow owner or head-salesperson
+    // Authorization
     if (Auth::id() !== $attachment->user_id && !Auth::user()->hasRole('head-salesperson')) {
+        // For Ajax return JSON error, otherwise normal redirect
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
         return back()->with('error', 'Unauthorized');
     }
 
     Storage::disk('public')->delete($attachment->file_path);
     $attachment->delete();
+
+    // Return JSON for Ajax, normal redirect for browser
+    if (request()->ajax() || request()->wantsJson()) {
+        return response()->json(['success' => true, 'message' => 'Attachment deleted']);
+    }
 
     return back()->with('success', 'Attachment deleted successfully');
 }

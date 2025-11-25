@@ -1148,6 +1148,17 @@ if (!approval) {
                 });
             }
 
+            const hasExistingAttachments = $('.existing-attachment').length > 0;
+const hasNewAttachments = selectedFiles.length > 0;
+
+if (!hasExistingAttachments && !hasNewAttachments) {
+    errors.push('At least one attachment is required');
+    $('.validation-msg').filter(function() {
+        return $(this).text() === 'At least one attachment is required';
+    }).remove();
+    $('#attachment-dropzone').after('<div class="validation-msg text-danger mt-2">At least one attachment is required</div>');
+}
+
             if (errors.length > 0) {
                 e.preventDefault();
                 Swal.fire({
