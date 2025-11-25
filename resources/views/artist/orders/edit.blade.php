@@ -3185,10 +3185,10 @@
     }
 
     // Modal 1 → Send to Printing (now it really submits)
-    document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
-      getModal('#modal-submit-ok').hide();
-      await send(false);   // your existing submit flow
-    });
+    // document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
+    //   getModal('#modal-submit-ok').hide();
+    //   await send(false);   // your existing submit flow
+    // });
 
     // Modal 2 → Pass to Data Entry → open the picker AFTER the modal is fully hidden
     document.getElementById('btn-open-choose-de').addEventListener('click', () => {
