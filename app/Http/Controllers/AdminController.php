@@ -994,6 +994,34 @@ $inProgressProducts = Product::from('products as p')
             ];
         });
 
+        // ---------- Extra business rules to hide unnecessary pending stages ----------
+        $progress = $progress->map(function (array $row, string $stage) use ($product) {
+
+            // hide "pending" for installation if product is not installation 
+            // AND all installation_* fields are null.
+            if (
+                $stage === 'installation' &&
+                strtolower((string) $product->taskType) !== 'installation' &&
+                is_null($product->installation_task_type) &&
+                is_null($product->installation_status) &&
+                is_null($product->installation_accepted) &&
+                ($row['status'] ?? null) === 'pending'
+            ) {
+                $row['status'] = '';   // Blade will hide pill completely
+            }
+
+            // hide "pending" for delivery stage if product is not delivery
+            if (
+                $stage === 'delivery' &&
+                strtolower((string) $product->taskType) !== 'delivery' &&
+                ($row['status'] ?? null) === 'pending'
+            ) {
+                $row['status'] = '';
+            }
+
+            return $row;
+        });
+
         // Deliveries list (nulls last)
         $deliveries = $product->deliveryBreakdowns()
             ->orderByRaw('CASE WHEN `date` IS NULL THEN 1 ELSE 0 END, `date` ASC, `time` ASC')

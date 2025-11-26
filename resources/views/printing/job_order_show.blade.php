@@ -315,6 +315,56 @@
       </div>
     </div>
 
+    {{-- --- SALESPERSON ATTACHMENTS (TOP) --- --}}
+    <div class="card soft mb-4">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="section-hd mb-0">
+            <i class="bi bi-paperclip"></i> Salesperson Attachment
+          </div>
+        </div>
+        @if(!empty($salespersonAttachments))
+
+          @foreach($salespersonAttachments as $f)
+            @php
+              $name = strtolower($f['name'] ?? '');
+              $icon = (str_ends_with($name, '.pdf')
+                  ? 'file-earmark-pdf'
+                  : (preg_match('/\.(png|jpe?g|gif|svg)$/', $name)
+                        ? 'file-earmark-image'
+                        : 'file-earmark'));
+            @endphp
+
+            <div class="file-row">
+              <div class="file-meta">
+                <i class="bi bi-{{ $icon }}"></i>
+                    <div>
+                      <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
+                      <div class="file-size">
+                        {{ $f['size'] ?? '' }}
+                        @if(!empty($f['uploaded_by']) || !empty($f['uploaded_at']))
+                          · Uploaded
+                          @if(!empty($f['uploaded_by']))
+                            by {{ $f['uploaded_by'] }}
+                          @endif
+                          @if(!empty($f['uploaded_at']))
+                            on {{ $f['uploaded_at'] }}
+                          @endif
+                        @endif
+                      </div>
+                    </div>
+              </div>
+              <a class="btn btn-light border btn-sm" href="{{ $f['url'] ?? '#' }}" target="_blank">
+                <i class="bi bi-eye me-1"></i>View
+              </a>
+            </div>
+          @endforeach
+        @else
+            <div class="text-muted small">No attachments uploaded by salesperson yet.</div>
+        @endif
+      </div>
+    </div>
+    
     @foreach($blocks as $block)
     <div class="card soft mb-4">
       <div class="card-body">
@@ -528,37 +578,58 @@
     </div>
     @endif
 
-    {{-- Attachments --}}
+    {{-- Attachments (Artist / Head-Artist) --}}
     <div class="card soft mb-4">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
-          <div class="section-hd mb-0"><i class="bi bi-paperclip"></i> Attachments</div>
-          <span class="uploader-chip ms-auto">{{ $uploader }}</span>
-        </div>
-        @php
-          $files = $attachments ?? [
-            ['name' => 'requirements.pdf', 'size' => '1.2 MB', 'url' => '#'],
-            ['name' => 'logo.png', 'size' => '856 KB', 'url' => '#'],
-            ['name' => 'design-specs.pdf','size' => '2.4 MB', 'url' => '#'],
-          ];
-        @endphp
-        @foreach($files as $f)
-          @php
-            $n = strtolower($f['name'] ?? '');
-            $icon = (str_ends_with($n, '.pdf') ? 'file-earmark-pdf'
-                : (preg_match('/\.(png|jpe?g|gif|svg)$/', $n) ? 'file-earmark-image' : 'file-earmark'));
-          @endphp
-          <div class="file-row">
-            <div class="file-meta">
-              <i class="bi bi-{{ $icon }}"></i>
-              <div>
-                <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
-                <div class="file-size">{{ $f['size'] ?? '' }}</div>
-              </div>
-            </div>
-            <a class="btn btn-light border btn-sm" href="{{ $f['url'] ?? '#' }}"><i class="bi bi-eye me-1"></i>View</a>
+          <div class="section-hd mb-0">
+            <i class="bi bi-paperclip"></i>Artist Attachments
           </div>
-        @endforeach
+        </div>
+
+        @php
+          // now $attachments already contains only artist/head-artist files
+          $files = $attachments ?? [];
+        @endphp
+
+        @if(empty($files))
+          <div class="text-muted small">No attachments uploaded by artist yet.</div>
+        @else
+          @foreach($files as $f)
+            @php
+              $name = strtolower($f['name'] ?? '');
+              $icon = (str_ends_with($name, '.pdf')
+                  ? 'file-earmark-pdf'
+                  : (preg_match('/\.(png|jpe?g|gif|svg)$/', $name)
+                        ? 'file-earmark-image'
+                        : 'file-earmark'));
+            @endphp
+
+            <div class="file-row">
+              <div class="file-meta">
+                <i class="bi bi-{{ $icon }}"></i>
+                <div>
+                  <div class="file-name">{{ $f['name'] ?? 'file' }}</div>
+                  <div class="file-size">
+                    {{ $f['size'] ?? '' }}
+                    @if(!empty($f['uploaded_by']) || !empty($f['uploaded_at']))
+                      · Uploaded
+                      @if(!empty($f['uploaded_by']))
+                        by {{ $f['uploaded_by'] }}
+                      @endif
+                      @if(!empty($f['uploaded_at']))
+                        on {{ $f['uploaded_at'] }}
+                      @endif
+                    @endif
+                  </div>
+                </div>
+              </div>
+              <a class="btn btn-light border btn-sm" href="{{ $f['url'] ?? '#' }}">
+                <i class="bi bi-eye me-1"></i>View
+              </a>
+            </div>
+          @endforeach
+        @endif
       </div>
     </div>
 

@@ -314,29 +314,44 @@ class InstallationProductOrderController extends Controller
             ->get();
         $remarksByOp = $remarks->groupBy('operation');
 
-        // Attachments (from orders.orderAttachment)
-        $attachments = [];
+        /* ========= 🔥 NEW ATTACHMENT LOGIC 🔥 ========= */
+
+        // Load ALL attachments for this order, with uploader + role
         $attachmentRows = OrderAttachment::with('uploader:id,name,role')
             ->where('order_id', $headerRow->OrderID)
-            ->whereHas('uploader', function ($q) {
-                $q->whereIn('role', ['artist', 'head-artist']);
-            })
             ->orderBy('id')
             ->get();
 
-        $attachments = $attachmentRows->map(function (OrderAttachment $att) {
-            $path = ltrim((string) $att->file_path, '/');
+        // Split by role
+        $salespersonRows = $attachmentRows->filter(function ($att) {
+            return in_array(optional($att->uploader)->role, ['sales', 'salesperson', 'sales-person']);
+        });
 
-            // files are stored on the "public" disk, so Storage::url() gives /storage/...
-            $url = \Illuminate\Support\Facades\Storage::url($path);
+        $artistRows = $attachmentRows->filter(function ($att) {
+            return in_array(optional($att->uploader)->role, ['artist', 'head-artist']);
+        });
+
+        // Common mapper
+        $mapAttachment = function (OrderAttachment $att) {
+            $path = ltrim((string) $att->file_path, '/');
+            $url  = \Illuminate\Support\Facades\Storage::url($path);
 
             return [
-                'name' => $att->original_name ?: basename($path),
-                // human-readable size (used directly in blade)
-                'size' => $att->size ? number_format($att->size / 1024, 0) . ' KB' : null,
-                'url'  => $url,
+                'name'        => $att->original_name ?: basename($path),
+                'size'        => $att->size ? number_format($att->size / 1024, 0) . ' KB' : null,
+                'url'         => $url,
+                'uploaded_by' => optional($att->uploader)->name,
+                'uploaded_at' => $att->created_at?->format('d M Y'),
             ];
-        })->values()->all();
+        };
+
+        $salespersonAttachments = $salespersonRows->map($mapAttachment)->values()->all();
+        $artistAttachments      = $artistRows->map($mapAttachment)->values()->all();
+
+        // keep legacy variable for existing blade (artist section)
+        $attachments = $artistAttachments;
+
+        /* ============================================= */
 
         // Permit attachments (from product_permit.permit_file for this product)
         $permitAttachments = [];
@@ -479,6 +494,8 @@ class InstallationProductOrderController extends Controller
             'uploader'       => $uploader,
             'permit'         => $permit,
             'attachments'    => $attachments,
+            'artistAttachments'     => $artistAttachments,      // explicit artist list
+            'salespersonAttachments'=> $salespersonAttachments,
             'product_header' => $productHeader,
             'blocks'         => $blocks,
             'canEdit' => $canEdit,
