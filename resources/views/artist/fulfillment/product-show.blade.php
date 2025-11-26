@@ -187,6 +187,26 @@
           <div class="fw-semibold">{{ optional($ord->deadline)->format('Y-m-d') ?? '-' }}</div>
         </div>
 
+        @if(!empty($ord->orderDetail))
+            <div class="col-md-6 col-lg-3">
+                <small class="text-muted d-block mb-1">Sales Remark</small>
+
+                <!-- Collapsed preview -->
+                <div class="fw-medium text-truncate"
+                    style="max-height: 4.5em; overflow: hidden;"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#remarkCollapse"
+                    aria-expanded="false">
+                    {{ $ord->orderDetail }}
+                </div>
+                <div id="remarkCollapse" class="collapse mt-1">
+                    <div class="fw-medium" style="white-space: pre-line;">
+                        {{ $ord->orderDetail }}
+                    </div>
+                </div>
+            </div>
+            @endif
+
         <!-- <div class="col-md-6">
           <h6 class="mb-3">Attachment from Lead</h6>
 

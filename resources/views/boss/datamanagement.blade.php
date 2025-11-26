@@ -7,6 +7,47 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
+  .x-dialog{
+    width:min(800px,95vw);
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    max-height:90vh;
+  }
+  .x-ttl{
+    flex:1;
+    font-weight:700;
+    color:var(--text);
+  }
+  .dropdown-menu{
+    position:absolute;
+    right:0;
+    top:36px;
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    display:none;
+    min-width:180px;
+    z-index:40;
+  }
+  .dropdown-item{
+    display:block;
+    width:100%;
+    text-align:left;
+    border:0;
+    background:#fff;
+    padding:10px 12px;
+    font-size:14px;
+    color:#111827;
+    cursor:pointer;
+  }
+  .dropdown-item:hover{
+    background:#F3F4F6;
+  }
   .badge-redo {
     display:inline-block;
     padding: .15rem .45rem;
@@ -161,8 +202,7 @@
           <div class="title" style="font-size: 20px !important;">Cost Data</div>
         </div>
         <div class="actions">
-          <button id="btnAddType" class="btn"><i class="bi bi-tags"></i> Add Type</button>
-          <!-- <button id="btnAddUnit" class="btn btn-primary"><i class="bi bi-rulers"></i> Add Unit</button> -->
+          <button id="btnManageTypes" class="btn btn-primary"><i class="bi bi-list"></i> Manage Types</button>
           <button id="btnAddMaterial" class="btn btn-dark"><i class="bi bi-plus-lg"></i> Add Material</button>
         </div>
       </div>
@@ -175,8 +215,8 @@
         <div class="select">
           <select id="typeFilter">
             <option value="all">All Material Types</option>
-            @foreach($types as $id => $name)
-              <option value="{{ $id }}">{{ $name }}</option>
+            @foreach($types as $type)
+              <option value="{{ $type->id }}">{{ $type->name }}</option>
             @endforeach
           </select>
         </div>
@@ -367,7 +407,7 @@
 </div>
 
 <!-- ========== MODALS ========== -->
-<div class="x-mask" id="mdlType">
+<!-- <div class="x-mask" id="mdlType">
   <div class="x">
     <div class="x-hd"><i class="bi bi-tags"></i> Add Material Type</div>
     <div class="x-bd">
@@ -379,6 +419,73 @@
     <div class="x-ft">
       <button class="btn btn-ghost" data-close="mdlType">Cancel</button>
       <button class="btn btn-primary" id="btnSaveType">Save Type</button>
+    </div>
+  </div>
+</div> -->
+
+{{-- Manage Material Types modal --}}
+<div id="mdlTypes" class="x-mask" aria-hidden="true">
+  <div class="x-dialog" style="width:800px; max-width:90vw">
+    <div class="x-hd">
+      <div class="x-ttl">Manage Material Types</div>
+      <button class="kebab" data-close="mdlTypes" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="x-bd" style="padding:0">
+      <div class="toolbar" style="padding:14px 20px;border-bottom:1px solid var(--border);justify-content:flex-end">
+        <button id="btnAddType" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Type</button>
+      </div>
+      <div style="overflow:auto;max-height:400px">
+        <table id="tblTypes" style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="width:70%;padding:10px;text-align:left;">Material Type Name</th>
+              <th style="width:15%;padding:10px;text-align:left;">Status</th>
+              <th style="width:15%;padding:10px;text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($types as $type)
+              <tr class="{{ $type->active ? '' : 'inactive' }}">
+                <td style="padding:10px;">{{ $type->name }}</td>
+                <td style="padding:10px;">{{ $type->active ? 'Active' : 'Inactive' }}</td>
+                <td style="padding:10px; text-align:right; position:relative">
+                  <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
+                    <i class="bi bi-three-dots-vertical"></i>
+                  </button>
+                  <div class="dropdown-menu">
+                    <button class="dropdown-item btnEditType" data-id="{{ $type->id }}" data-name="{{ $type->name }}">
+                      <i class="bi bi-pencil me-2"></i> Edit
+                    </button>
+                    <button class="dropdown-item btnToggleType" data-id="{{ $type->id }}" data-active="{{ $type->active }}">
+                      <i class="bi bi-toggle{{ $type->active ? 'on' : 'off' }} me-2"></i> {{ $type->active ? 'Deactivate' : 'Activate' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- Small Add / Edit Type modal --}}
+<div id="mdlType" class="x-mask" aria-hidden="true">
+  <div class="x-dialog" role="dialog" aria-modal="true">
+    <div class="x-hd">
+      <div class="x-ttl" id="typeTitle">Add Material Type</div>
+      <button class="kebab" data-close="mdlType" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="x-bd">
+      <div class="field">
+        <div class="label">Material Type Name</div>
+        <input id="typeName" type="text" class="control" placeholder="e.g. Backlit Materials">
+      </div>
+    </div>
+    <div class="x-ft">
+      <button class="btn btn-ghost" data-close="mdlType">Cancel</button>
+      <button class="btn btn-dark" id="btnSaveType">Save</button>
     </div>
   </div>
 </div>
@@ -395,8 +502,8 @@
         <div class="label">Material Type *</div>
         <select id="matType" class="control">
           <option value="">Select type…</option>
-          @foreach($types as $id => $name)
-            <option value="{{ $id }}">{{ $name }}</option>
+          @foreach($types as $type)
+            <option value="{{ $type->id }}">{{ $type->name }}</option>
           @endforeach
         </select>
       </div>
@@ -491,21 +598,19 @@
 
   // Dropdown (simple)
   document.addEventListener('click', (e) => {
-  // if the click is on our kebab inside a table cell, toggle just that menu
-  const kebab = e.target.closest('.kebab');
-  if (kebab) {
-    const cell = kebab.closest('td');
-    // close all our menus first
-    document.querySelectorAll('.ad-menu').forEach(m => (m.style.display = 'none'));
-    // then toggle the one in this cell
-    const menu = cell?.querySelector('.ad-menu');
-    if (menu) menu.style.display = (menu.style.display === 'block' ? 'none' : 'block');
-    return; // IMPORTANT: don't run the “close all” below
-  }
-
-  // Clicked anywhere else on the page → just close our menus (not Bootstrap’s)
-  document.querySelectorAll('.ad-menu').forEach(m => (m.style.display = 'none'));
-});
+    const kebab = e.target.closest('.kebab');
+    if (kebab) {
+      const container = kebab.closest('td') || kebab.parentElement;
+      // close all menus first
+      document.querySelectorAll('.ad-menu, .dropdown-menu').forEach(m => (m.style.display = 'none'));
+      // toggle the one in this cell / header
+      const menu = container?.querySelector('.ad-menu, .dropdown-menu');
+      if (menu) menu.style.display = (menu.style.display === 'block' ? 'none' : 'block');
+      return;
+    }
+    // clicked outside → close menus
+    document.querySelectorAll('.ad-menu, .dropdown-menu').forEach(m => (m.style.display = 'none'));
+  });
 
   function openMask(id){ $('#'+id).classList.add('show'); }
   function closeMask(id){ $('#'+id).classList.remove('show'); }
@@ -542,25 +647,53 @@
     });
   });
 
+  // Open Manage Types modal
+  const manageBtn = $('#btnManageTypes');
+  if (manageBtn) {
+    manageBtn.addEventListener('click', () => openMask('mdlTypes'));
+  }
+
   // Add Type
-  $('#btnAddType').addEventListener('click', ()=> openMask('mdlType'));
-  $('#btnSaveType').addEventListener('click', ()=>{
+  $('#btnAddType').addEventListener('click', () => openMask('mdlType'));
+
+  $('#btnSaveType').addEventListener('click', () => {
     const name = $('#typeName').value.trim();
-    if(!name){ alert('Type name is required'); return; }
+    if (!name) {
+      alert('Type name is required');
+      return;
+    }
+
     fetch("{{ route('boss.material-types.store') }}", {
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
-      body:JSON.stringify({typeName:name})
-    }).then(r=>r.json()).then(data=>{
-      if(data.success){
-        const opt = document.createElement('option');
-        opt.value = data.id; opt.textContent = data.type;
-        $('#typeFilter').appendChild(opt);
-        const opt2 = opt.cloneNode(true);
-        $('#matType').appendChild(opt2);
-        closeMask('mdlType');
-      }else{ alert('Failed to save'); }
-    }).catch(()=>alert('Error'));
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrf,
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ typeName: name }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.type) {
+          // data.type is the full MaterialType model (same as admin)
+          const type = data.type;
+
+          const opt = document.createElement('option');
+          opt.value = type.id;
+          opt.textContent = type.name;
+          $('#typeFilter').appendChild(opt);
+
+          const opt2 = opt.cloneNode(true);
+          $('#matType').appendChild(opt2);
+
+          // clear & close modal
+          $('#typeName').value = '';
+          closeMask('mdlType');
+        } else {
+          alert(data.message || 'Failed to save material type');
+        }
+      })
+      .catch(() => alert('Error saving material type'));
   });
 
   // Add Material
