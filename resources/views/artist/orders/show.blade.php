@@ -249,7 +249,7 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
 
                     <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">
-                    Download
+                    View
                     </a>
                 </div>
                 @endforeach
@@ -837,7 +837,7 @@ $isRedoOrder = (bool) $order->redo;
                                 </div>
 
                                 <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" target="_blank">
-                                    Download
+                                    View
                                 </a>
                             </li>
                         @endforeach

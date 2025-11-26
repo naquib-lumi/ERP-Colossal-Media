@@ -187,7 +187,7 @@
           <div class="fw-semibold">{{ optional($ord->deadline)->format('Y-m-d') ?? '-' }}</div>
         </div>
 
-        <div class="col-md-6">
+        <!-- <div class="col-md-6">
           <h6 class="mb-3">Attachment from Lead</h6>
 
           @forelse($leadAttachments as $f)
@@ -205,6 +205,49 @@
           @empty
           <div class="text-muted">No lead attachments.</div>
           @endforelse
+        </div> -->
+
+        <div style="margin-top: 30px;">
+          {{-- ===== Non-artist attachments (Sales etc.) at the top ===== --}}
+            @if(isset($headerAttachments) && $headerAttachments->count())
+
+            <h6 class="fw-semibold mb-2">Sales Attachments</h6>
+
+            <div class="d-flex flex-column gap-2">
+                @foreach($headerAttachments as $f)
+                <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                    <div class="d-flex flex-column">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bx bx-file"></i>
+                        <span class="fw-medium">{{ $f['name'] }}</span>
+                    </div>
+
+                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                        @if(!empty($f['ext']))
+                        .{{ $f['ext'] }}
+                        @endif
+
+                        @if(!empty($f['size']))
+                        · {{ number_format($f['size'] / 1024, 0) }} KB
+                        @endif
+
+                        @if(!empty($f['uploaded_by']))
+                        · Uploaded by {{ $f['uploaded_by'] }}
+                        @endif
+
+                        @if(!empty($f['uploaded_at']))
+                        · {{ $f['uploaded_at'] }}
+                        @endif
+                    </div>
+                    </div>
+
+                    <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                    View
+                    </a>
+                </div>
+                @endforeach
+            </div>
+            @endif
         </div>
       </div>
     </div>
@@ -458,23 +501,46 @@
   {{-- Attachments --}}
   <div class="card mt-4 mb-4">
     <div class="card-body">
-      <h6 class="mb-3">Attachments</h6>
+      <h6 class="mb-3">Artist Attachments</h6>
 
-      @forelse($orderFiles as $f)
-      <div class="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
-        <div>
-          <i class="bx bx-file me-2"></i>
-          <span class="fw-semibold">{{ $f['name'] }}</span>
-          <small class="text-muted ms-2">.{{ $f['ext'] }}</small>
-        </div>
-        <div class="d-flex gap-2">
-          <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">Open</a>
-          <a href="{{ $f['url'] }}" class="btn btn-sm btn-dark" download>Download</a>
-        </div>
-      </div>
-      @empty
-      <div class="text-muted">No attachments uploaded for this order.</div>
-      @endforelse
+                @if($attachments->isEmpty())
+                    <p class="text-muted mb-0">No attachments.</p>
+                @else
+                    <ul class="list-group list-group-flush">
+                        @foreach($attachments as $f)
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex flex-column">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bx bx-paperclip"></i>
+                                        <span>{{ $f['name'] }}</span>
+                                    </div>
+
+                                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                                        @if(!empty($f['ext']))
+                                            .{{ $f['ext'] }}
+                                        @endif
+
+                                        @if(!empty($f['size']))
+                                            · {{ number_format($f['size'] / 1024, 0) }} KB
+                                        @endif
+
+                                        @if(!empty($f['uploaded_by']))
+                                            · Uploaded by {{ $f['uploaded_by'] }}
+                                        @endif
+
+                                        @if(!empty($f['uploaded_at']))
+                                            · {{ $f['uploaded_at'] }}
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" target="_blank">
+                                    View
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
       {{-- Installation proof files --}}
     @if(isset($installationProofs) && $installationProofs->count())
         <hr class="my-3">
@@ -512,7 +578,7 @@
                         Open
                     </a>
                     <a href="{{ $file->url }}" download="{{ $file->name }}" class="btn btn-sm btn-dark">
-                        Download
+                        View
                     </a>
                 </div>
             </div>
