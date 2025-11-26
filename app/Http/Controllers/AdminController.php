@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
+use App\Models\OrderAttachment;
 
 class AdminController extends Controller
 {
@@ -815,6 +816,48 @@ $inProgressProducts = Product::from('products as p')
             return Storage::disk('public')->url($p);
         };
 
+        // roles considered "artist-side"
+        $artistRoles = ['artist', 'head-artist', 'data-entry'];
+
+        // 1) Try order_attachments table first
+        $rows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $mapRow = function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $web = \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+            return [
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'url'           => $toPublicUrl($web),
+                'size'          => (int) $att->size,
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploader_role' => optional($att->uploader)->role,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+            ];
+        };
+
+        if ($rows->isNotEmpty()) {
+            // split by uploader role
+            $headerAttachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return !in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+
+            $attachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+        }
+
         $leadAttachments = collect();
         if ($order?->lead_id) {
             $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
@@ -837,46 +880,46 @@ $inProgressProducts = Product::from('products as p')
         }
 
         // attachments saved on order
-        $raw   = $order->orderAttachment; // string|array|null
-        $paths = [];
-        if (is_array($raw)) {
-            $paths = $raw;
-        } elseif (is_string($raw)) {
-            $rawTrim = trim($raw);
-            if (Str::startsWith($rawTrim, '[')) {
-                $paths = json_decode($rawTrim, true) ?: [];
-            } else {
-                $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
-            }
-        }
+        // $raw   = $order->orderAttachment; // string|array|null
+        // $paths = [];
+        // if (is_array($raw)) {
+        //     $paths = $raw;
+        // } elseif (is_string($raw)) {
+        //     $rawTrim = trim($raw);
+        //     if (Str::startsWith($rawTrim, '[')) {
+        //         $paths = json_decode($rawTrim, true) ?: [];
+        //     } else {
+        //         $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
+        //     }
+        // }
 
-        $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
-            $p   = ltrim($p, '/');
-            $url = $toPublicUrl($p);
-            return [
-                'name' => basename($p),
-                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
-                'url'  => $url,
-            ];
-        });
+        // $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
+        //     $p   = ltrim($p, '/');
+        //     $url = $toPublicUrl($p);
+        //     return [
+        //         'name' => basename($p),
+        //         'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+        //         'url'  => $url,
+        //     ];
+        // });
 
-        // Attachments helper fallback
-        $attachments = [];
-        if (method_exists($this, 'getOrderAttachments')) {
-            $attachments = (array) $this->getOrderAttachments($order);
-        } else {
-            $raw = $order?->orderAttachment;
-            if (is_string($raw) && trim($raw) !== '') {
-                $decoded = json_decode($raw, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $attachments = $decoded;
-                } else {
-                    $attachments = [$raw];
-                }
-            } elseif (is_array($raw)) {
-                $attachments = $raw;
-            }
-        }
+        // // Attachments helper fallback
+        // $attachments = [];
+        // if (method_exists($this, 'getOrderAttachments')) {
+        //     $attachments = (array) $this->getOrderAttachments($order);
+        // } else {
+        //     $raw = $order?->orderAttachment;
+        //     if (is_string($raw) && trim($raw) !== '') {
+        //         $decoded = json_decode($raw, true);
+        //         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        //             $attachments = $decoded;
+        //         } else {
+        //             $attachments = [$raw];
+        //         }
+        //     } elseif (is_array($raw)) {
+        //         $attachments = $raw;
+        //     }
+        // }
 
         // ---------- Installation proof files ----------
         $installationProofs = DB::table('installation_proofs')
@@ -1035,8 +1078,8 @@ $inProgressProducts = Product::from('products as p')
             'progress'        => $progress,
             'deliveries'      => $deliveries,
             'leadAttachments' => $leadAttachments,
-            'orderFiles'      => $orderFiles,
-
+            // 'orderFiles'      => $orderFiles,
+'headerAttachments' => $headerAttachments,
             'productCode'     => $productCode,
             'displayOrderId'  => $displayOrderId,
             'installationProofs' => $installationProofs,
