@@ -558,6 +558,42 @@ public function index(Request $request)
             ];
         });
 
+        /**
+         * EXTRA RULES for hiding "pending" pill
+         * -------------------------------------
+         * 1) Delivery & Installation:
+         *    If product is NOT an installation job and all installation_* fields are NULL,
+         *    then hide the "pending" badge for installation.
+         *
+         * 2) Dispatch Control:
+         *    If product taskType is NOT "delivery", hide the "pending" badge for delivery.
+         */
+        $progress = $progress->map(function (array $row, string $stage) use ($product) {
+
+            // Rule 1: hide pending for installation if this job has no installation info
+            if (
+                $stage === 'installation' &&
+                strtolower((string) $product->taskType) !== 'installation' &&
+                is_null($product->installation_task_type) &&
+                is_null($product->installation_status) &&
+                is_null($product->installation_accepted) &&
+                ($row['status'] ?? null) === 'pending'
+            ) {
+                $row['status'] = ''; // will map to d-none in Blade
+            }
+
+            // Rule 2: hide pending for delivery if this job is not a delivery job
+            if (
+                $stage === 'delivery' &&
+                strtolower((string) $product->taskType) !== 'delivery' &&
+                ($row['status'] ?? null) === 'pending'
+            ) {
+                $row['status'] = '';
+            }
+
+            return $row;
+        });
+
         // ---------- Deliveries for this product (sorted, nulls last) ----------
         $deliveries = $product->deliveryBreakdowns()
             ->orderByRaw('CASE WHEN `date` IS NULL THEN 1 ELSE 0 END, `date` ASC, `time` ASC')

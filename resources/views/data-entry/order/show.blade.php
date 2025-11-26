@@ -49,6 +49,18 @@ $redoReason = $redoRecord->reason ?? null;
 $isRedoOrder = (bool) $order->redo;
 @endphp
 <style>
+    .reason-modal .modal-content{border:0;overflow:hidden}
+    .reason-modal .modal-header{padding:14px 16px;color:#fff}
+    .reason-modal .rm-chip{display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;font-weight:700;letter-spacing:.02em;padding:.25rem .6rem;border-radius:999px;background:#e9ecef;color:#212529}
+    .reason-modal .rm-reason-box{border:1px solid rgba(0,0,0,.06);background:#fff;border-radius:.75rem;padding:14px}
+    .reason-modal .rm-reason-text{white-space:pre-wrap;font-size:.95rem}
+    .reason-modal.is-redo .modal-header{background:linear-gradient(135deg,#b00020 0%,#dc3545 60%,#ff6b6b 100%)}
+    .reason-modal.is-redo .rm-chip{background:#ffe3e3;color:#b00020;border:1px solid #ffb3b3}
+    .reason-modal.is-reject .modal-header{background:linear-gradient(135deg,#e74c3c 0%,#ff6b6b 60%,#ffa8a8 100%)}
+    .reason-modal.is-reject .rm-chip{background:#ffe1e1;color:#8a0018;border:1px solid #ffb3b3}
+    .reason-modal .btn-close-white{filter:brightness(0) invert(1);opacity:.85}
+    .reason-modal .btn-close-white:hover{opacity:1}
+
     .btn-purple:hover {
         background: #5a4cd9 !important;
         transform: translateY(-1px);
@@ -175,7 +187,7 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
                 </div>
 
-                <div class="col-md-6 col-lg-6">
+                <!-- <div class="col-md-6 col-lg-6">
                     <small class="text-muted d-block mb-1">Attachment from Lead</small>
 
                     @php
@@ -198,8 +210,49 @@ $isRedoOrder = (bool) $order->redo;
                             -
                         @endif
                     </div>
-                </div>
+                </div> -->
             </div>
+            {{-- ===== Non-artist attachments (Sales etc.) at the top ===== --}}
+            @if(isset($headerAttachments) && $headerAttachments->count())
+            <hr class="my-4">
+
+            <h6 class="fw-semibold mb-2">Sales Attachments</h6>
+
+            <div class="d-flex flex-column gap-2">
+                @foreach($headerAttachments as $f)
+                <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                    <div class="d-flex flex-column">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bx bx-file"></i>
+                        <span class="fw-medium">{{ $f['name'] }}</span>
+                    </div>
+
+                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                        @if(!empty($f['ext']))
+                        .{{ $f['ext'] }}
+                        @endif
+
+                        @if(!empty($f['size']))
+                        · {{ number_format($f['size'] / 1024, 0) }} KB
+                        @endif
+
+                        @if(!empty($f['uploaded_by']))
+                        · Uploaded by {{ $f['uploaded_by'] }}
+                        @endif
+
+                        @if(!empty($f['uploaded_at']))
+                        · {{ $f['uploaded_at'] }}
+                        @endif
+                    </div>
+                    </div>
+
+                    <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                    Download
+                    </a>
+                </div>
+                @endforeach
+            </div>
+            @endif
         </div>
     </div>
 
@@ -274,18 +327,21 @@ $isRedoOrder = (bool) $order->redo;
                                     $selectedForRedo = $isRedoOrder && (int)($product->editable ?? 0) === 1;
                                     @endphp
 
+                                    {{-- existing REDO banner --}}
                                     @if($selectedForRedo)
-                                    <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                                        <span class="redo-banner redo-offset ms-2 js-reason-banner cursor-pointer"
+                                            data-type="REDO"
+                                            data-reason="{{ $redoRecord->reason ?? '' }}"
+                                            data-by="{{ $redoBy ?? '' }}">
                                         <i class="bi bi-exclamation-octagon-fill icon"></i>
-                                        <span class="tag" style="font-size: 10px;">REDO</span>
+                                        <span class="tag" style="font-size:12px;">REDO</span>
+                                        @if(!empty($redoRecord->reason))
+                                            <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
+                                        @endif
                                         @if($redoBy)
-                                        <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                                            <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
                                         @endif
-                                        @if(!empty($redoReason))
-                                        <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
-                                            title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
-                                        @endif
-                                    </span>
+                                        </span>
                                     @endif
 
                                     @if((int)($product->editable ?? 0) === 1 && strtolower((string)($product->status ?? '')) === 'rejected')
@@ -484,19 +540,21 @@ $isRedoOrder = (bool) $order->redo;
         <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
             Product {{ $pidLabel }} — {{ data_get($product,'productName','-') }}
 
-            {{-- REDO banner (existing) --}}
+            {{-- existing REDO banner --}}
             @if($selectedForRedo)
-            <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                <span class="redo-banner redo-offset ms-2 js-reason-banner cursor-pointer"
+                    data-type="REDO"
+                    data-reason="{{ $redoRecord->reason ?? '' }}"
+                    data-by="{{ $redoBy ?? '' }}">
                 <i class="bi bi-exclamation-octagon-fill icon"></i>
-                <span class="tag" style="font-size: 10px;">REDO</span>
-                @if($redoBy ?? false)
-                <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                <span class="tag" style="font-size:12px;">REDO</span>
+                @if(!empty($redoRecord->reason))
+                    <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
                 @endif
-                @if(!empty($redoReason ?? ''))
-                <span style="font-size: 12px;" class="reason" data-bs-toggle="tooltip" data-bs-placement="top"
-                        title="{{ $redoReason }}">{{ \Illuminate\Support\Str::limit($redoReason, 90) }}</span>
+                @if($redoBy)
+                    <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
                 @endif
-            </span>
+                </span>
             @endif
 
             {{-- ✅ NEW: REJECTED banner (order-level text, product-level flag) --}}
@@ -679,19 +737,17 @@ $isRedoOrder = (bool) $order->redo;
 
             {{-- existing REDO banner --}}
             @if($selectedForRedo)
-                <span class="redo-banner redo-offset" title="{{ $redoReason ?? '' }}">
+                <span class="redo-banner redo-offset ms-2 js-reason-banner cursor-pointer"
+                    data-type="REDO"
+                    data-reason="{{ $redoRecord->reason ?? '' }}"
+                    data-by="{{ $redoBy ?? '' }}">
                 <i class="bi bi-exclamation-octagon-fill icon"></i>
-                <span class="tag" style="font-size: 10px;">REDO</span>
-                @if($redoBy ?? false)
-                    <span class="by" style="font-size: 10px;">by {{ $redoBy }}</span>
+                <span class="tag" style="font-size:12px;">REDO</span>
+                @if(!empty($redoRecord->reason))
+                    <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
                 @endif
-                @if(!empty($redoReason ?? ''))
-                    <span style="font-size: 12px;" class="reason"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="top"
-                        title="{{ $redoReason }}">
-                    {{ \Illuminate\Support\Str::limit($redoReason, 90) }}
-                    </span>
+                @if($redoBy)
+                    <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
                 @endif
                 </span>
             @endif
@@ -750,36 +806,52 @@ $isRedoOrder = (bool) $order->redo;
     </div>
 
     {{-- Attachments --}}
-    <div class="card mt-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Attachments</span>
-        </div>
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Artist Attachments</span>
+            </div>
 
-        <div class="card-body">
-            @if($attachments->isEmpty())
-            <p class="text-muted mb-0">No attachments.</p>
-            @else
-            <ul class="list-group list-group-flush">
-                @foreach($attachments as $f)
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bx bx-paperclip"></i>
-                        <span>{{ $f['name'] }}</span>
-                        @if(!empty($f['size']))
-                        <small class="text-muted">
-                            {{ number_format($f['size'] / 1024, 0) }} KB
-                        </small>
-                        @endif
-                    </div>
-                    <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
-                        Download
-                    </a>
-                </li>
-                @endforeach
-            </ul>
-            @endif
+            <div class="card-body">
+                @if($attachments->isEmpty())
+                    <p class="text-muted mb-0">No attachments.</p>
+                @else
+                    <ul class="list-group list-group-flush">
+                        @foreach($attachments as $f)
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex flex-column">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bx bx-paperclip"></i>
+                                        <span>{{ $f['name'] }}</span>
+                                    </div>
+
+                                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                                        @if(!empty($f['ext']))
+                                            .{{ $f['ext'] }}
+                                        @endif
+
+                                        @if(!empty($f['size']))
+                                            · {{ number_format($f['size'] / 1024, 0) }} KB
+                                        @endif
+
+                                        @if(!empty($f['uploaded_by']))
+                                            · Uploaded by {{ $f['uploaded_by'] }}
+                                        @endif
+
+                                        @if(!empty($f['uploaded_at']))
+                                            · {{ $f['uploaded_at'] }}
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" target="_blank">
+                                    Download
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
         </div>
-    </div>
 
     <div class="d-flex justify-content-end mt-4">
         <a href="{{ route('data-entry.orders.edit', $order->id) }}"
@@ -790,4 +862,89 @@ $isRedoOrder = (bool) $order->redo;
         </a>
     </div>
 </div>
+
+{{-- Reason Modal --}}
+<div class="modal fade reason-modal" id="reasonModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <div class="d-flex align-items-center gap-2">
+          <span class="rm-chip" id="reasonChip">
+            <i class="bi" id="reasonIcon" aria-hidden="true"></i>
+            <span id="reasonTag">REDO</span>
+          </span>
+          <h5 class="modal-title mb-0" id="reasonModalTitle" style="color: white;">Detail</h5>
+        </div>
+      </div>
+
+      <div class="modal-body pt-0">
+        <div id="reasonBy" class="text-muted small mb-2" style="font-weight: bold; margin-top:20px;"></div>
+        <div class="rm-reason-box">
+          <div class="fw-medium text-muted small mb-1" style="font-weight: bold;">Reason</div>
+          <div id="reasonText" class="rm-reason-text"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+@push('scripts')
+<script>
+    // enable Bootstrap tooltips if not already
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+    });
+
+    (function(){
+  document.addEventListener('click', function (e) {
+    const el = e.target.closest('.js-reason-banner');
+    if (!el) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const type   = (el.getAttribute('data-type') || '').toUpperCase(); // REDO | REJECTED
+    const reason = (el.getAttribute('data-reason') || '').trim();
+    const by     = (el.getAttribute('data-by') || '').trim();
+
+    const modal  = document.getElementById('reasonModal');
+    const title  = document.getElementById('reasonModalTitle');
+    const byEl   = document.getElementById('reasonBy');
+    const textEl = document.getElementById('reasonText');
+    const tag    = document.getElementById('reasonTag');
+    const icon   = document.getElementById('reasonIcon');
+
+    // theme classes
+    modal.classList.remove('is-redo','is-reject');
+
+    if (type === 'REDO') {
+      modal.classList.add('is-redo');
+      title.textContent = 'Redo Detail';
+      tag.textContent = 'REDO';
+      icon.className = 'bi bi-exclamation-octagon-fill';
+    } else {
+      modal.classList.add('is-reject');
+      title.textContent = 'Rejected Detail';
+      tag.textContent = 'REJECTED';
+      icon.className = 'bi bi-x-octagon-fill';
+    }
+
+    byEl.textContent = by ? `By ${by}` : '';
+    textEl.textContent = reason || '(No reason provided)';
+
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+  });
+
+  // Optional: keyboard "Enter" on focused banner
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    const a = document.activeElement;
+    if (a && a.classList.contains('js-reason-banner')) a.click();
+  });
+})();
+</script>
+@endpush
 @endsection
