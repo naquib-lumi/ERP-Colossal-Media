@@ -5,6 +5,71 @@
 @section('content')
 @push('styles')
 <style>
+  .reason-modal .modal-content { border: 0; overflow: hidden; }
+  .reason-modal .modal-header { padding: 14px 16px; color: #fff; }
+  .reason-modal .rm-chip{
+    display:inline-flex;align-items:center;gap:.4rem;
+    font-size:.75rem;font-weight:700;letter-spacing:.02em;
+    padding:.25rem .6rem;border-radius:999px;background:#e9ecef;color:#212529
+  }
+  .reason-modal .rm-reason-box{
+    border:1px solid rgba(0,0,0,.06);
+    background:#fff;border-radius:.75rem;padding:14px
+  }
+  .reason-modal .rm-reason-text{white-space:pre-wrap;font-size:.95rem}
+  .reason-modal.is-redo .modal-header{
+    background: linear-gradient(135deg,#b00020 0%, #dc3545 60%, #ff6b6b 100%);
+  }
+  .reason-modal.is-redo .rm-chip{
+    background:#ffe3e3;color:#b00020;border:1px solid #ffb3b3;
+  }
+  .reason-modal.is-reject .modal-header{
+    background: linear-gradient(135deg,#e74c3c 0%, #ff6b6b 60%, #ffa8a8 100%);
+  }
+  .reason-modal.is-reject .rm-chip{
+    background:#ffe1e1;color:#8a0018;border:1px solid #ffb3b3;
+  }
+  .reason-modal .btn-close-white{
+    filter: brightness(0) invert(1); opacity:.85
+  }
+  .reason-modal .btn-close-white:hover{ opacity:1 }
+
+  .redo-banner{
+    display:inline-flex; align-items:center; gap:.5rem;
+    background:#dc3545;           /* Bootstrap danger red */
+    color:#fff;
+    padding:.2rem .35rem;
+    border-radius:12px;
+    box-shadow:0 6px 14px rgba(220,53,69,.25);
+    border:1px solid #b02a37;     /* darker red border */
+  }
+  .redo-banner .icon{ font-size:1.1rem; line-height:1; }
+  .redo-banner .tag{
+    background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);
+    color:#fff;
+    border-radius:999px;
+    padding:.2rem .55rem;
+    font-weight:700;
+    letter-spacing:.02em;
+  }
+  .redo-banner .by{
+    font-weight:700;
+    padding:.15rem .45rem;
+    background:rgba(255,255,255,.12);
+    border-radius:999px;
+  }
+  .redo-banner .reason{
+    max-width:420px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    padding:.15rem .45rem;
+    background:#fff;
+    color:#b02a37;
+    border-radius:999px;
+    border:1px solid #f1aeb5; /* bs-danger-subtle border */
+  }
+  /* small spacing helper so it doesn't crash into the title */
+  .redo-offset { margin-left:.75rem; }
   .ti-disabled { opacity: 0.6; }
   .redo-reason{
     display:inline-flex;
@@ -303,6 +368,10 @@
       $isRedo = true;
   }
   @endphp
+  @php
+    $user = auth()->user();
+    $isArtist = $user->role === 'artist' || $user->role === 'head-artist' || $user->role === 'data-entry';
+@endphp
   <div class="row g-4">
     <div class="col-12">
       <div class="card">
@@ -377,7 +446,7 @@
                   <input type="hidden" name="created_by" value="{{ $order->salesperson_id ?? $order->created_by_id }}">
                 </div>
 
-                <div class="col-12">
+                <!-- <div class="col-12">
                   <label class="form-label d-flex align-items-center gap-2">
                     <span>Lead Attachments</span>
                     <span class="text-body-secondary small">(read-only — uploaded by salesperson)</span>
@@ -399,6 +468,38 @@
                   @else
                   <div class="text-body-secondary">No attachments</div>
                   @endif
+                </div> -->
+
+                {{-- MOVE HERE if not artist --}}
+                <div class="mt-3">
+                    @if(isset($orderFilesSales) && count($orderFilesSales))
+                          <div class="row mt-3">
+                            <div class="col-12">
+                              <label class="form-label fw-semibold">Existing Files (from Sales)</label>
+
+                              <div class="d-flex flex-column gap-2">
+                                @foreach($orderFilesSales as $f)
+                                  <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                      <i class="bx bx-file"></i>
+                                      <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">
+                                        {{ $f['name'] }}
+                                      </a>
+                                      <small class="text-muted">.{{ $f['ext'] }}</small>
+
+                                      @if(!empty($f['uploaded_by']))
+                                        <small class="text-muted">
+                                          · Uploaded by {{ $f['uploaded_by'] }}
+                                          @if(!empty($f['uploaded_at'])) · {{ $f['uploaded_at'] }} @endif
+                                        </small>
+                                      @endif
+                                    </div>
+                                  </div>
+                                @endforeach
+                              </div>
+                            </div>
+                          </div>
+                        @endif
                 </div>
               </div>
             </div>
@@ -421,6 +522,16 @@
             $isRedo = (bool) $order->redo;
             $selectedForRedo = $isRedo && (int) ($product->editable ?? 0) === 1;
             $locked = $isRedo && !$selectedForRedo;
+
+            $redoRecord = DB::table('report_redo')
+                ->where('OrderID', $order->redo ?: $order->id)
+                ->latest('ReportID')
+                ->first();
+
+            $redoBy = null;
+            if ($redoRecord && $redoRecord->user_id) {
+                $redoBy = \App\Models\User::find($redoRecord->user_id)?->name;
+            }
             @endphp
             <input type="hidden" name="products[{{ $pIndex }}][product_id]" value="{{ $product->ProductID }}">
             <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}" data-product-row data-product-id="{{ $product->ProductID }}" data-url="{{ route('artist.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
@@ -434,20 +545,29 @@
                     aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
                     aria-controls="pCollapse{{ $pIndex }}">
                     Product #{{ $product->display_code ?? $loop->iteration }} — {{ $product->productName ?? 'Product' }}
-                    @if ($selectedForRedo)
-                      <span class="badge bg-primary ms-2">REDO</span>
-                      @if (!empty($redoReason))
+                    {{-- REDO banner --}}
+                      @if ($selectedForRedo)
                         <span
-                          class="redo-reason ms-2"
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="top"
-                          title="{{ $redoReason }}"
+                          class="redo-banner redo-offset ms-2 js-reason-banner"
+                          role="button"
+                          tabindex="0"
+                          data-reason="{{ $redoRecord->reason ?? '' }}"
+                          data-by="{{ $redoBy ?? '' }}"
+                          data-type="REDO"
+                          aria-label="View redo reason"
                         >
-                          <i class="bi bi-chat-left-text me-1"></i>
-                          {{ Str::limit($redoReason, 60) }}
+                          <i class="bi bi-exclamation-octagon-fill icon"></i>
+                          <span class="tag" style="font-size:12px;">REDO</span>
+                          @if (!empty($redoRecord->reason))
+                            <span style="font-size:12px;" class="reason">
+                              {{ Str::limit($redoRecord->reason, 90) }}
+                            </span>
+                          @endif
+                          @if ($redoBy)
+                            <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
+                          @endif
                         </span>
                       @endif
-                    @endif
                   </button>
 
                   @if ($submitted)
@@ -1357,35 +1477,43 @@
                 $canDeleteOrderFiles = ((int)($order->draft ?? 0) === 1) && (int)($order->submit ?? 0) === 0;
                 @endphp
 
-                <label class="form-label">Existing files</label>
+                <label class="form-label">Existing files (From Artist)</label>
 
                 @if(isset($orderFiles) && count($orderFiles))
-                <div class="d-flex flex-column gap-2">
-                  @foreach($orderFiles as $f)
-                  <div class="d-flex align-items-center justify-content-between border rounded p-2"
-                    data-file-row data-path="{{ $f['path'] }}">
-                    <div class="d-flex align-items-center gap-2">
-                      <i class="bx bx-file"></i>
-                      <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">{{ $f['name'] }}</a>
-                      <small class="text-muted">.{{ $f['ext'] }}</small>
-                    </div>
+    <div class="d-flex flex-column gap-2">
+      @foreach($orderFiles as $f)
+        <div class="d-flex align-items-center justify-content-between border rounded p-2"
+             data-file-row data-path="{{ $f['path'] }}">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <i class="bx bx-file"></i>
+            <a href="{{ $f['url'] }}" target="_blank" class="text-decoration-none">
+              {{ $f['name'] }}
+            </a>
+            <small class="text-muted">.{{ $f['ext'] }}</small>
+            @if(!empty($f['uploaded_by']))
+              <small class="text-muted">
+                · Uploaded by {{ $f['uploaded_by'] }}
+                @if(!empty($f['uploaded_at'])) · {{ $f['uploaded_at'] }} @endif
+              </small>
+            @endif
+          </div>
 
-                    @if($canDeleteOrderFiles)
-                    <button type="button"
-                      class="btn btn-sm btn-outline-danger delete-order-file"
-                      title="Delete"
-                      data-url="{{ route('data-entry.orders.attachments.destroy', $order) }}"
-                      data-path="{{ $f['path'] }}">
-                      <i class="bx bx-trash"></i>
-                    </button>
-                    @endif
-                  </div>
-                  @endforeach
-                </div>
-                @else
-                <div class="text-body-secondary">No files uploaded yet.</div>
-                @endif
-              </div>
+          @if($canDeleteOrderFiles)
+            <button type="button"
+                    class="btn btn-sm btn-outline-danger delete-order-file"
+                    title="Delete"
+                    data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
+                    data-path="{{ $f['path'] }}">
+              <i class="bx bx-trash"></i>
+            </button>
+          @endif
+        </div>
+      @endforeach
+    </div>
+  @else
+    <div class="text-body-secondary">No files uploaded yet.</div>
+  @endif
+</div>
               <div id="attach-msg" class="mt-2 text-sm"></div>
               <ul id="preview" class="mt-3 space-y-2"></ul>
             </div>
@@ -1689,6 +1817,35 @@
           <button type="submit" class="btn btn-primary">Save</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade reason-modal" id="reasonModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <div class="d-flex align-items-center gap-2">
+          <span class="rm-chip" id="reasonChip">
+            <i class="bi" id="reasonIcon" aria-hidden="true"></i>
+            <span id="reasonTag">REDO</span>
+          </span>
+          <h5 class="modal-title mb-0" id="reasonModalTitle" style="color: white;">Detail</h5>
+        </div>
+      </div>
+
+      <div class="modal-body pt-0">
+        <div id="reasonBy" class="text-muted small mb-2" style="margin-top: 20px; font-weight:bold;"></div>
+
+        <div class="rm-reason-box">
+          <div class="fw-medium text-muted small mb-1" style="font-weight: bold;">Reason</div>
+          <div id="reasonText" class="rm-reason-text"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2934,10 +3091,10 @@
     document.getElementById('btn-submit')?.addEventListener('click', onSubmitClick);
 
     // Modal 1 → Send to Printing (now it really submits)
-    document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
-      getModal('#modal-submit-ok').hide();
-      await send(false);   // your existing submit flow
-    });
+    // document.getElementById('btn-confirm-send-printing').addEventListener('click', async () => {
+    //   getModal('#modal-submit-ok').hide();
+    //   await send(false);   // your existing submit flow
+    // });
 
     // Modal 2 → Pass to Data Entry → open the picker AFTER the modal is fully hidden
     document.getElementById('btn-open-choose-de').addEventListener('click', () => {
@@ -3907,5 +4064,58 @@ $(document).on('input', '.qty-input', function () {
 
   this.value = v;
 });
+
+    // enable Bootstrap tooltips if not already
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+    });
+
+    (function(){
+  document.addEventListener('click', function (e) {
+    const el = e.target.closest('.js-reason-banner');
+    if (!el) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const type   = (el.getAttribute('data-type') || '').toUpperCase(); // REDO | REJECTED
+    const reason = (el.getAttribute('data-reason') || '').trim();
+    const by     = (el.getAttribute('data-by') || '').trim();
+
+    const modal  = document.getElementById('reasonModal');
+    const title  = document.getElementById('reasonModalTitle');
+    const byEl   = document.getElementById('reasonBy');
+    const textEl = document.getElementById('reasonText');
+    const tag    = document.getElementById('reasonTag');
+    const icon   = document.getElementById('reasonIcon');
+
+    // theme classes
+    modal.classList.remove('is-redo','is-reject');
+
+    if (type === 'REDO') {
+      modal.classList.add('is-redo');
+      title.textContent = 'Redo Detail';
+      tag.textContent = 'REDO';
+      icon.className = 'bi bi-exclamation-octagon-fill';
+    } else {
+      modal.classList.add('is-reject');
+      title.textContent = 'Rejected Detail';
+      tag.textContent = 'REJECTED';
+      icon.className = 'bi bi-x-octagon-fill';
+    }
+
+    byEl.textContent = by ? `By ${by}` : '';
+    textEl.textContent = reason || '(No reason provided)';
+
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+  });
+
+  // Optional: keyboard "Enter" on focused banner
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    const a = document.activeElement;
+    if (a && a.classList.contains('js-reason-banner')) a.click();
+  });
+})();
 </script>
 @endpush

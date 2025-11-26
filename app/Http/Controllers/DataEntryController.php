@@ -26,6 +26,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use App\Helpers\Helpers;
 use App\Notifications\GenericNotification;
+use App\Models\OrderAttachment;
 
 class DataEntryController extends Controller
 {
@@ -110,24 +111,88 @@ class DataEntryController extends Controller
             'products'        => fn ($q) => $q->orderBy('ProductID'),
             'products.items'  => fn ($q) => $q->orderBy('ItemID'),
             'products.items.spec',
-            'leadAttachments',
+            // 'leadAttachments',
             'deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
         ]);
 
-        // Attachments: prefer orderAttachment CSV; otherwise fallback to lead_attachments
-        $attachments = $order->attachment_paths->isNotEmpty()
-            ? $order->attachment_paths->map(fn ($path) => $this->fileInfoFromPath($path))
-            : LeadAttachment::where('lead_id', $order->lead_id)
+        // helper to turn a storage path into a public URL
+        $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
+
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+
+            return Storage::disk('public')->url($p);
+        };
+
+        // roles considered "artist-side"
+        $artistRoles = ['artist', 'head-artist'];
+
+        // 1) Try order_attachments table first
+        $rows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $mapRow = function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $web = \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+            return [
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'url'           => $toPublicUrl($web),
+                'size'          => (int) $att->size,
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploader_role' => optional($att->uploader)->role,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+            ];
+        };
+
+        if ($rows->isNotEmpty()) {
+            // split by uploader role
+            $headerAttachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return !in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+
+            $attachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+        } else {
+            // 2) Fallback to lead_attachments for legacy orders
+            $headerAttachments = LeadAttachment::where('lead_id', $order->lead_id)
                 ->latest()
                 ->get()
-                ->map(fn ($a) => [
-                    'name' => basename($a->file_location),
-                    'url'  => Storage::disk('public')->url($a->file_location),
-                    'size' => (int) $a->file_size,
-                    'ext'  => $a->file_extension,
-                ]);
+                ->map(function ($a) use ($toPublicUrl) {
+                    $p = ltrim((string) $a->file_location, '/');
+                    $p = preg_replace('#^public/#', '', $p);
+                    $p = preg_replace('#^storage/#', '', $p);
+                    $web = 'storage/' . $p;
 
-        return view('data-entry.order.show', compact('order', 'attachments'));
+                    return [
+                        'id'            => null,
+                        'name'          => basename($p),
+                        'url'           => $toPublicUrl($web),
+                        'size'          => (int) $a->file_size,
+                        'ext'           => $a->file_extension,
+                        'uploaded_by'   => null,  // unknown for legacy files
+                        'uploader_role' => null,
+                        'uploaded_at'   => null,
+                    ];
+                });
+
+            $attachments = collect(); // none from artist/head-artist in this legacy path
+        }
+
+        return view('data-entry.order.show', compact('order', 'attachments', 'headerAttachments'));
     }
 
     private function fileInfoFromPath(string $relPath): array
@@ -146,37 +211,90 @@ class DataEntryController extends Controller
 
     private function getOrderAttachments(Order $order): array
     {
-        $raw = $order->orderAttachment ?? '';
-        if ($raw === '') return [];
-        if (str_starts_with(trim($raw), '[')) {
-            return array_values(array_filter((array) json_decode($raw, true)));
-        }
-        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+        // $raw = $order->orderAttachment ?? '';
+        // if ($raw === '') return [];
+        // if (str_starts_with(trim($raw), '[')) {
+        //     return array_values(array_filter((array) json_decode($raw, true)));
+        // }
+        // return array_values(array_filter(array_map('trim', explode(',', $raw))));
+
+        return OrderAttachment::where('order_id', $order->id)
+            ->orderBy('id')
+            ->pluck('file_path')
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function putOrderAttachments(Order $order, array $paths): void
     {
         // keep as comma separated (or switch to json_encode($paths))
-        $order->orderAttachment = implode(',', $paths);
-        $order->save();
+        // $order->orderAttachment = implode(',', $paths);
+        // $order->save();
+        $paths = array_values(array_filter($paths));
+
+        $existing = OrderAttachment::where('order_id', $order->id)->get();
+        $existingPaths = $existing->pluck('file_path')->all();
+
+        // delete rows that are no longer in the list
+        foreach ($existing as $att) {
+            if (!in_array($att->file_path, $paths, true)) {
+                $att->delete();
+            }
+        }
+
+        // insert minimal rows for new paths (if any)
+        $userId = Auth::id();
+        foreach ($paths as $p) {
+            if (!in_array($p, $existingPaths, true)) {
+                OrderAttachment::create([
+                    'order_id'      => $order->id,
+                    'user_id'       => $userId,
+                    'file_path'     => $p,
+                    'original_name' => basename($p),
+                ]);
+            }
+        }
     }
 
     public function uploadAttachments(Request $request, Order $order)
     {
-
+        $user = Auth::user();
         $request->validate([
-            'file' => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx'
+            'file' => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ps,ai',
         ]);
 
-        // store file
-        $path = $request->file('file')->store("orders/{$order->id}/attachments", 'public');
+        $file = $request->file('file');
+        $dir  = "orders/{$order->id}/attachments";
 
-        // append to DB (comma-separated list)
-        $list = $this->getOrderAttachments($order);
-        $list[] = $path;
-        $this->putOrderAttachments($order, $list);
+        $orig = $file->getClientOriginalName();
+        $base = pathinfo($orig, PATHINFO_FILENAME);
+        $ext  = strtolower($file->getClientOriginalExtension());
+        $baseSlug = Str::slug($base) ?: 'file';
 
-        return response()->json(['path' => $path, 'url' => Storage::disk('public')->url($path)], 201);
+        $candidate = "{$baseSlug}.{$ext}";
+        $i = 1;
+        while (Storage::disk('public')->exists("$dir/$candidate")) {
+            $candidate = "{$baseSlug} ({$i}).{$ext}";
+            $i++;
+        }
+
+        $path = $file->storeAs($dir, $candidate, 'public');
+
+        $attachment = OrderAttachment::create([
+            'order_id'      => $order->id,
+            'user_id'       => $user->id,
+            'file_path'     => $path,
+            'original_name' => $orig,
+            'mime_type'     => $file->getClientMimeType(),
+            'size'          => $file->getSize(),
+        ]);
+
+        return response()->json([
+            'id'   => $attachment->id,
+            'path' => $path,
+            'url'  => Storage::disk('public')->url($path),
+        ], 201);
     }
 
     public function destroyAttachment(Request $request, Order $order)
@@ -233,9 +351,9 @@ class DataEntryController extends Controller
         // Only move to "in progress" if it's not submitted AND not already draft
         if ((int)$order->submit === 0 && (int)$order->draft !== 1) {
             $update = [
-                'draft'   => 1,
-                'submit'  => 0,
-                'pending' => 0,
+                'draft'       => 1,
+                'submit'      => 0,
+                'pending'     => 0,
                 'orderStatus' => 'in_progress',
             ];
             if (empty($order->data_entry_id)) {
@@ -244,6 +362,15 @@ class DataEntryController extends Controller
             Order::whereKey($order->getKey())->update($update);
             $order->refresh();
         }
+
+        // Load relations AFTER any status/ownership changes
+        $order->loadMissing([
+            'products' => fn ($q) => $q->orderBy('ProductID'),
+            'products.items' => fn ($q) => $q->orderBy('ItemID'),
+            'products.deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+            'artist:id,name',
+            'attachments.user:id,name',
+        ]);
 
         // Header bits
         $orderCode = sprintf('ORD-%04d', $order->id);
@@ -270,15 +397,15 @@ class DataEntryController extends Controller
 
         $deliveries = $product
             ? DeliveryBreakdown::where('ProductID', $product->ProductID)
-            ->orderBy('BreakdownID')
-            ->get([
-                'BreakdownID as id',
-                'method',
-                'location',
-                'quantity',
-                'date',
-                'time',
-            ])
+                ->orderBy('BreakdownID')
+                ->get([
+                    'BreakdownID as id',
+                    'method',
+                    'location',
+                    'quantity',
+                    'date',
+                    'time',
+                ])
             : collect();
 
         // Items (with spec join)
@@ -288,12 +415,12 @@ class DataEntryController extends Controller
             ->where('p.OrderID', $order->id)
             ->orderBy('pi.ItemID')
             ->selectRaw('
-            pi.ItemID, pi.ProductID, pi.itemName, pi.quantity,
-            pi.sizeWidth, pi.sizeHeight, pi.sizeUnit,
-            pi.bleedTop, pi.bleedBottom, pi.bleedLeft, pi.bleedRight,
-            pi.finishing, pi.material, pi.prime_centre,
-            s.lamination, s.printer, s.cutter
-        ')
+                pi.ItemID, pi.ProductID, pi.itemName, pi.quantity,
+                pi.sizeWidth, pi.sizeHeight, pi.sizeUnit,
+                pi.bleedTop, pi.bleedBottom, pi.bleedLeft, pi.bleedRight,
+                pi.finishing, pi.material, pi.prime_centre,
+                s.lamination, s.printer, s.cutter
+            ')
             ->get()
             ->values();
 
@@ -309,9 +436,9 @@ class DataEntryController extends Controller
         });
 
         // Materials lookups
-        $materials     = Material::orderBy('materialName')->get(['materialName']);
-        $allMaterials  = Material::orderBy('materialName')->pluck('materialName')->values()->all();
-
+        $materials    = Material::orderBy('materialName')->get(['materialName']);
+        $allMaterials = Material::orderBy('materialName')->pluck('materialName')->values()->all();
+        $attachments = $this->getOrderAttachments($order);
         // Attachments helpers
         $toPublicUrl = function (string $p): string {
             $p = ltrim($p, '/');
@@ -320,6 +447,31 @@ class DataEntryController extends Controller
             }
             return Storage::disk('public')->url($p);
         };
+
+        // 2) Order attachments (from order_attachments table, with uploader info)
+        $attachmentRows = \App\Models\OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $orderFiles = $attachmentRows->map(function (\App\Models\OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $webPath = \Illuminate\Support\Str::startsWith($p, 'storage/')
+                ? $p
+                : 'storage/' . $p;
+
+            return [
+                'id'          => $att->id,
+                'name'        => $att->original_name ?: basename($p),
+                'ext'         => pathinfo($p, PATHINFO_EXTENSION),
+                'url'         => $toPublicUrl($webPath),
+                'path'        => $webPath,
+                'size'        => $att->size,
+                'uploaded_by' => optional($att->uploader)->name,
+                'uploaded_at' => optional($att->created_at)->format('d M Y'),
+                'uploader_role' => optional($att->uploader)->role, 
+            ];
+        });
 
         // 1) Lead attachments (read-only)
         $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
@@ -339,20 +491,47 @@ class DataEntryController extends Controller
                 ];
             });
 
-        // 2) Order attachments (uploaded for the order)
-        $rawPaths = method_exists($this, 'getOrderAttachments')
-            ? (array) $this->getOrderAttachments($order)
-            : (array) json_decode((string) $order->orderAttachment, true);
+        $attachmentRows = \App\Models\OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
 
-        $orderFiles = collect($rawPaths)->filter()->map(function ($p) use ($toPublicUrl) {
-            $p = ltrim((string) $p, '/');
+        $artistRoles = ['artist', 'head-artist'];
+
+        $mapAttachment = function ($att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $webPath = \Illuminate\Support\Str::startsWith($p, 'storage/')
+                ? $p
+                : 'storage/'.$p;
+
             return [
-                'name' => basename($p),
-                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
-                'url'  => $toPublicUrl($p),
-                'path' => \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p,
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'url'           => $toPublicUrl($webPath),
+                'path'          => $webPath,               // used when deleting
+                'size'          => $att->size,
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+                'uploader_role' => optional($att->uploader)->role,
             ];
-        });
+        };
+
+        // files uploaded by artist / head-artist → bottom section
+        $orderFiles = $attachmentRows
+            ->filter(function ($att) use ($artistRoles) {
+                return in_array(optional($att->uploader)->role, $artistRoles, true);
+            })
+            ->map($mapAttachment)
+            ->values();
+
+        // files uploaded by NON-artist (eg. salesperson) → top section
+        $orderFilesSales = $attachmentRows
+            ->reject(function ($att) use ($artistRoles) {
+                return in_array(optional($att->uploader)->role, $artistRoles, true);
+            })
+            ->map($mapAttachment)
+            ->values();
 
         $sourceOrderId = (int) ($order->redo ?: $order->id);
 
@@ -360,6 +539,10 @@ class DataEntryController extends Controller
             ->where('OrderID', $sourceOrderId)
             ->orderByDesc('created_at')
             ->value('reason');
+
+        $artists = \App\Models\User::whereIn('role', ['artist', 'head-artist'])
+        ->orderBy('name')
+        ->get(['id', 'name', 'role']);
 
         $printerMachines = \App\Models\Machine::where('machine_type', 'printer')
             ->orderBy('machine_name')
@@ -384,8 +567,12 @@ class DataEntryController extends Controller
             'allMaterials',
             'leadAttachments',
             'orderFiles',
+            'orderFilesSales',
             'redoReason',
-            'printerMachines', 'cutterMachines', 'laminationMachines'
+            'printerMachines',
+            'cutterMachines',
+            'artists',
+            'laminationMachines'
         ));
     }
 
@@ -588,30 +775,48 @@ class DataEntryController extends Controller
 
                 // ----- 2) Attachments -----
                 $existing = collect($this->getOrderAttachments($order));
-                $toDelete = collect($request->input('delete_attachments', []));
+                $toDelete = collect($request->input('delete_attachments', []))->filter();
+
                 if ($toDelete->isNotEmpty()) {
-                    $toDelete->each(fn($p) => Storage::disk('public')->delete($p));
-                    $existing = $existing->reject(fn($p) => $toDelete->contains($p));
+                    foreach ($toDelete as $path) {
+                        $path = ltrim((string) $path, '/');
+                        $storagePath = preg_replace('#^storage/#', '', $path);
+
+                        // remove file from disk if exists
+                        if (Storage::disk('public')->exists($storagePath)) {
+                            Storage::disk('public')->delete($storagePath);
+                        }
+
+                        // drop from our in-memory list (handles both with/without storage/ prefix)
+                        $existing = $existing->reject(function ($p) use ($storagePath) {
+                            $p = ltrim((string) $p, '/');
+                            $p = preg_replace('#^storage/#', '', $p);
+                            return $p === $storagePath;
+                        })->values();
+                    }
                 }
+
+                // New uploads
                 if ($request->hasFile('attachments')) {
                     $files = $request->file('attachments');
-                    if (!is_array($files)) $files = [$files]; // handle single upload case
+                    if (!is_array($files)) {
+                        $files = [$files];
+                    }
 
                     $dir = "orders/{$order->id}/attachments";
 
                     foreach ($files as $file) {
-                        if (!$file || !$file->isValid()) continue;
+                        if (!$file || !$file->isValid()) {
+                            continue;
+                        }
 
-                        // 1) Get and sanitize the original filename
-                        $orig     = $file->getClientOriginalName();
-                        $base     = pathinfo($orig, PATHINFO_FILENAME);
-                        $ext      = strtolower($file->getClientOriginalExtension());
+                        $orig = $file->getClientOriginalName();
+                        $base = pathinfo($orig, PATHINFO_FILENAME);
+                        $ext  = strtolower($file->getClientOriginalExtension());
 
-                        // slug the base (keep readable) – e.g. "My Draft v2" -> "my-draft-v2"
-                        $baseSlug = Str::slug($base);
-                        if ($baseSlug === '') $baseSlug = 'file';
+                        $baseSlug = Str::slug($base) ?: 'file';
 
-                        // 2) Ensure uniqueness: my-draft-v2.pdf, my-draft-v2 (1).pdf, my-draft-v2 (2).pdf, ...
+                        // Avoid name clashes within this order
                         $candidate = "{$baseSlug}.{$ext}";
                         $i = 1;
                         while (Storage::disk('public')->exists("$dir/$candidate")) {
@@ -619,14 +824,15 @@ class DataEntryController extends Controller
                             $i++;
                         }
 
-                        // 3) Save using the original-looking name
                         $path = $file->storeAs($dir, $candidate, 'public');
 
-                        // 4) Track in DB list
                         $existing->push($path);
                     }
                 }
-                $this->putOrderAttachments($order, $existing->values()->all());
+
+                // Persist back to orders.orderAttachment (comma-separated)
+                $pathsToKeep = $existing->filter()->unique()->values()->all();
+                $this->putOrderAttachments($order, $pathsToKeep);
 
                 // ----- 3) “Header” product (the one shown at the top) -----
                 $postedProducts = collect($request->input('products', []))->values();
@@ -661,6 +867,12 @@ class DataEntryController extends Controller
                                     ->where('ProductID', $pid)
                                     ->first();
                     if (!$productRow) continue;
+
+                    // 1️⃣ Snapshot original acceptance flags directly from DB
+                    $originalFlags = DB::table('products')
+                        ->where('ProductID', $productRow->ProductID)
+                        ->select('accepted', 'installation_accepted')
+                        ->first();
 
                     // --- NEW: per-product header fields ---
                     if (array_key_exists('name', $group)) {
@@ -908,6 +1120,16 @@ class DataEntryController extends Controller
                     //         ->when(count($keepRemarkIds) > 0, fn($q) => $q->whereNotIn('RemarkID', $keepRemarkIds))
                     //         ->delete();
                     // }
+
+                    // 2️⃣ Force-restore original accepted flags at the very end
+                    if ($originalFlags) {
+                        DB::table('products')
+                            ->where('ProductID', $productRow->ProductID)
+                            ->update([
+                                'accepted'             => $originalFlags->accepted,
+                                'installation_accepted'=> $originalFlags->installation_accepted,
+                            ]);
+                    }
                     $productRow->syncTaskTypeFromSpecs();
                 } 
             });
@@ -1023,21 +1245,37 @@ class DataEntryController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $data = $request->validate(['path' => 'required|string']);
-        $path = trim($data['path']);
+        // $data = $request->validate(['path' => 'required|string']);
+        // $path = trim($data['path']);
 
-        // Delete physical file if exists
-        if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
+        // // Delete physical file if exists
+        // if (Storage::disk('public')->exists($path)) {
+        //     Storage::disk('public')->delete($path);
+        // }
+
+        // // Remove from DB list
+        // $list = collect($this->getOrderAttachments($order))
+        //     ->reject(fn($p) => trim($p) === $path)
+        //     ->values()->all();
+        // $this->putOrderAttachments($order, $list);
+
+        // $this->putOrderAttachments($order, $list);
+
+        // return response()->json(['ok' => true]);
+
+        $data = $request->validate(['path' => 'required|string']);
+        $path = ltrim($data['path'], '/');
+        $storagePath = preg_replace('#^storage/#', '', $path);
+
+        // delete file from storage
+        if (Storage::disk('public')->exists($storagePath)) {
+            Storage::disk('public')->delete($storagePath);
         }
 
-        // Remove from DB list
-        $list = collect($this->getOrderAttachments($order))
-            ->reject(fn($p) => trim($p) === $path)
-            ->values()->all();
-        $this->putOrderAttachments($order, $list);
-
-        $this->putOrderAttachments($order, $list);
+        // delete DB record(s)
+        OrderAttachment::where('order_id', $order->id)
+            ->where('file_path', $storagePath)
+            ->delete();
 
         return response()->json(['ok' => true]);
     }
