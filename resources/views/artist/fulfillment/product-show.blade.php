@@ -242,7 +242,7 @@
                     </div>
 
                     <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">
-                    Download
+                    View
                     </a>
                 </div>
                 @endforeach
@@ -535,7 +535,7 @@
                                 </div>
 
                                 <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" target="_blank">
-                                    Download
+                                    View
                                 </a>
                             </li>
                         @endforeach
@@ -578,7 +578,7 @@
                         Open
                     </a>
                     <a href="{{ $file->url }}" download="{{ $file->name }}" class="btn btn-sm btn-dark">
-                        Download
+                        View
                     </a>
                 </div>
             </div>
