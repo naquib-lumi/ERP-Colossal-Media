@@ -676,7 +676,7 @@ public function show($id)
             return Storage::disk('public')->url($p);
         };
 
-     $artistRoles = ['artist', 'head-artist'];
+     $artistRoles = ['artist', 'head-artist', 'data-entry'];
 
         // 1) Try order_attachments table first
         $rows = OrderAttachment::with('uploader:id,name,role')
