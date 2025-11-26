@@ -188,6 +188,26 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
                 </div>
 
+                @if(!empty($order->orderDetail))
+                <div class="col-md-6 col-lg-3">
+                    <small class="text-muted d-block mb-1">Sales Remark</small>
+
+                    <!-- Collapsed preview -->
+                    <div class="fw-medium text-truncate"
+                        style="max-height: 4.5em; overflow: hidden;"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#remarkCollapse"
+                        aria-expanded="false">
+                        {{ $order->orderDetail }}
+                    </div>
+                    <div id="remarkCollapse" class="collapse mt-1">
+                        <div class="fw-medium" style="white-space: pre-line;">
+                            {{ $order->orderDetail }}
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <!-- <div class="col-md-6 col-lg-6">
                     <small class="text-muted d-block mb-1">Attachment from Lead</small>
 

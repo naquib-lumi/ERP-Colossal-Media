@@ -215,6 +215,26 @@ if ($showRejectReason && $product->OrderID) {
           {{ ($order->created_at ?? null) ? \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') : '—' }}
         </div>
 
+        @if(!empty($ord->orderDetail))
+            <div class="col-md-6 col-lg-3">
+                <small class="text-muted d-block mb-1">Sales Remark</small>
+
+                <!-- Collapsed preview -->
+                <div class="fw-medium text-truncate"
+                    style="max-height: 4.5em; overflow: hidden;"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#remarkCollapse"
+                    aria-expanded="false">
+                    {{ $ord->orderDetail }}
+                </div>
+                <div id="remarkCollapse" class="collapse mt-1">
+                    <div class="fw-medium" style="white-space: pre-line;">
+                        {{ $ord->orderDetail }}
+                    </div>
+                </div>
+            </div>
+            @endif
+
         <!-- <div class="summary-key">Attachment from Lead</div>
         @if(($leadAttachments ?? collect())->isNotEmpty())
           <div class="summary-val">

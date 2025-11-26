@@ -34,7 +34,7 @@ class BossDataManagementController extends Controller
         $dir    = strtolower($request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         // Filters lists
-        $types = MaterialType::orderBy('name')->pluck('name', 'id');
+        $types = MaterialType::orderBy('name')->get();
         // $units = Unit::orderByRaw('COALESCE(label, name)')->pluck('label', 'id');
 
         // Pull what we need once
@@ -454,11 +454,36 @@ class BossDataManagementController extends Controller
     // ---------- Types ----------
     public function storeType(Request $request)
     {
+        // $request->validate([
+        //     'typeName' => 'required|string|max:255|unique:material_types,name'
+        // ]);
+        // $type = MaterialType::create(['name' => $request->typeName]);
+        // return response()->json(['success' => true, 'type' => $type->name, 'id' => $type->id]);
+
+        // Same validation behaviour as admin side
         $request->validate([
-            'typeName' => 'required|string|max:255|unique:material_types,name'
+            'typeName' => 'required|string|max:255',
         ]);
-        $type = MaterialType::create(['name' => $request->typeName]);
-        return response()->json(['success' => true, 'type' => $type->name, 'id' => $type->id]);
+
+        // Manual duplicate check so we can return a clear message
+        if (MaterialType::where('name', $request->typeName)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Type already exists',
+            ], 422);
+        }
+
+        // Explicitly set active = true (same as admin)
+        $type = MaterialType::create([
+            'name'   => $request->typeName,
+            'active' => true,
+        ]);
+
+        // Return same shape as admin: whole type object
+        return response()->json([
+            'success' => true,
+            'type'    => $type,
+        ]);
     }
 
     public function updateType(Request $request, $id)

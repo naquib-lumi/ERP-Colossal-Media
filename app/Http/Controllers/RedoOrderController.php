@@ -95,9 +95,9 @@ class RedoOrderController extends Controller
             $redoOrder->created_at   = now();
             $redoOrder->updated_at   = now();
 
-            if ($reasonText !== '') {
-                $redoOrder->orderDetail = trim(($sourceOrder->orderDetail ? $sourceOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
-            }
+            // if ($reasonText !== '') {
+            //     $redoOrder->orderDetail = trim(($sourceOrder->orderDetail ? $sourceOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
+            // }
             $redoOrder->save();
 
             if ($reasonText !== '') {

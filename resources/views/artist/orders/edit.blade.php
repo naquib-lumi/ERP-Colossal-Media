@@ -441,6 +441,26 @@
                   <input type="hidden" name="created_by" value="{{ $order->salesperson_id ?? $order->created_by_id }}">
                 </div>
 
+                @if(!empty($order->orderDetail))
+                <div class="col-12 col-md-4">
+                    <small class="text-muted d-block mb-1">Sales Remark</small>
+
+                    <!-- Collapsed preview -->
+                    <div class="fw-medium text-truncate"
+                        style="max-height: 4.5em; overflow: hidden;"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#remarkCollapse"
+                        aria-expanded="false">
+                        {{ $order->orderDetail }}
+                    </div>
+                    <div id="remarkCollapse" class="collapse mt-1">
+                        <div class="fw-medium" style="white-space: pre-line;">
+                            {{ $order->orderDetail }}
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <!-- <div class="col-12">
                   <label class="form-label d-flex align-items-center gap-2">
                     <span>Lead Attachments</span>
