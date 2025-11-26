@@ -276,11 +276,11 @@ class DispatchControlProductOrderController extends Controller
 
         // Split by role
         $salespersonRows = $attachmentRows->filter(function ($att) {
-            return in_array(optional($att->uploader)->role, ['sales', 'salesperson', 'sales-person']);
+            return in_array(optional($att->uploader)->role, ['sales', 'salesperson', 'sales-person', 'head-salesperson']);
         });
 
         $artistRows = $attachmentRows->filter(function ($att) {
-            return in_array(optional($att->uploader)->role, ['artist', 'head-artist']);
+            return in_array(optional($att->uploader)->role, ['artist', 'head-artist', 'data-entry']);
         });
 
         // Common mapper
