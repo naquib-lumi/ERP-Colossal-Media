@@ -5,81 +5,81 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
-:root{
-  --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
-  --text:#101828; --muted:#667085;
-  --shadow:0 2px 6px rgba(16,24,40,.05);
-  --success:#16A34A; --danger:#DC2626; --primary:#111827;
-  --accent:#2E3A8C;
-  --blue:#60a5fa; --green:#22c55e; --red:#ef4444; --cyan:#06b6d4; --violet:#a78bfa; --amber:#f59e0b; --teal:#10b981; --pink:#f472b6;
-}
-body{background:var(--bg);}
-.page-wrap{max-width:1240px;margin:0 auto}
-.card.soft{border:0;background:var(--card);box-shadow:var(--shadow);border-radius:16px}
-.form-control,.form-select,.btn{min-height:38px;font-size:14px}
+  :root{
+    --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
+    --text:#101828; --muted:#667085;
+    --shadow:0 2px 6px rgba(16,24,40,.05);
+    --success:#16A34A; --danger:#DC2626; --primary:#111827;
+    --accent:#2E3A8C;
+    --blue:#60a5fa; --green:#22c55e; --red:#ef4444; --cyan:#06b6d4; --violet:#a78bfa; --amber:#f59e0b; --teal:#10b981; --pink:#f472b6;
+  }
+  body{background:var(--bg);}
+  .page-wrap{max-width:1240px;margin:0 auto}
+  .card.soft{border:0;background:var(--card);box-shadow:var(--shadow);border-radius:16px}
+  .form-control,.form-select,.btn{min-height:38px;font-size:14px}
 
-/* Tabs（如果后续要复用） */
-.nav-tabs .nav-link{border:0;color:#475467;padding:14px 18px}
-.nav-tabs .nav-link.active{color:#111827;border-bottom:3px solid var(--accent);border-radius:0}
+  /* Tabs（如果后续要复用） */
+  .nav-tabs .nav-link{border:0;color:#475467;padding:14px 18px}
+  .nav-tabs .nav-link.active{color:#111827;border-bottom:3px solid var(--accent);border-radius:0}
 
-/* KPI */
-.kpi .title{font-size:12px;color:var(--muted)}
-.kpi .num{font-weight:700;font-size:22px;color:var(--text)}
-.kpi .delta{font-size:12px}
-.kpi .icon-pill{background:#F2F4F7;color:#667085;border-radius:10px;padding:6px 8px;line-height:1}
+  /* KPI */
+  .kpi .title{font-size:12px;color:var(--muted)}
+  .kpi .num{font-weight:700;font-size:22px;color:var(--text)}
+  .kpi .delta{font-size:12px}
+  .kpi .icon-pill{background:#F2F4F7;color:#667085;border-radius:10px;padding:6px 8px;line-height:1}
 
-/* 图例/图表 */
-.chart-wrap{height:260px}
-.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
-.legend-row{color:#667085;font-size:13px}
+  /* 图例/图表 */
+  .chart-wrap{height:260px}
+  .legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .legend-row{color:#667085;font-size:13px}
 
-/* 表格 */
-.table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.table thead th{background:#F8FAFC;color:#475467;font-weight:700}
-.table>:not(caption)>*>*{padding:12px 14px;vertical-align:middle}
-.tag{display:inline-block;background:#F2F4F7;color:#344054;border:1px solid #E5E7EB;border-radius:999px;padding:2px 8px;font-size:12px;margin:2px}
-.kebab{border:0;background:transparent}
-.badge-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px}
+  /* 表格 */
+  .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .table thead th{background:#F8FAFC;color:#475467;font-weight:700}
+  .table>:not(caption)>*>*{padding:12px 14px;vertical-align:middle}
+  .tag{display:inline-block;background:#F2F4F7;color:#344054;border:1px solid #E5E7EB;border-radius:999px;padding:2px 8px;font-size:12px;margin:2px}
+  .kebab{border:0;background:transparent}
+  .badge-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px}
 
-/* 工具条（并排） */
-.toolbar{gap:10px}
-.toolbar .form-select,.toolbar .form-control{min-height:34px;font-size:13px;border-radius:8px}
-.short-select{min-width:140px;max-width:180px}
+  /* 工具条（并排） */
+  .toolbar{gap:10px}
+  .toolbar .form-select,.toolbar .form-control{min-height:34px;font-size:13px;border-radius:8px}
+  .short-select{min-width:140px;max-width:180px}
 
-/* 右侧筛选栏（Meeting Outcomes） */
-.outcomes-grid{display:grid;grid-template-columns: 1.7fr 1fr;gap:16px;align-items:start}
-.sidebar{border-left:1px solid var(--border);padding-left:12px}
-.filter-stack .label{font-size:12px;color:#667085;margin-bottom:4px}
-.filter-stack .form-control,.filter-stack .form-select{min-height:36px;font-size:13px;border-radius:8px}
+  /* 右侧筛选栏（Meeting Outcomes） */
+  .outcomes-grid{display:grid;grid-template-columns: 1.7fr 1fr;gap:16px;align-items:start}
+  .sidebar{border-left:1px solid var(--border);padding-left:12px}
+  .filter-stack .label{font-size:12px;color:#667085;margin-bottom:4px}
+  .filter-stack .form-control,.filter-stack .form-select{min-height:36px;font-size:13px;border-radius:8px}
 
-/* 小屏处理 */
-@media (max-width: 992px){
-  .outcomes-grid{grid-template-columns:1fr}
-  .sidebar{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:12px}
-}
+  /* 小屏处理 */
+  @media (max-width: 992px){
+    .outcomes-grid{grid-template-columns:1fr}
+    .sidebar{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:12px}
+  }
 
-/* Redo 卡片 & Costing 卡片 */
-.redo-card .chart-wrap{height:260px}
-.costing-card .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.costing-card .table.table-sm>:not(caption)>*>*{padding:10px 12px}
-.costing-card .table thead th{background:#F8FAFC;color:#475467;font-weight:700}
-.costing-card .table tbody td{vertical-align:middle}
-.costing-card .table td .tag{margin:2px}
-.costing-tools .form-select,.costing-tools .form-control{min-height:34px;font-size:13px;border-radius:8px}
+  /* Redo 卡片 & Costing 卡片 */
+  .redo-card .chart-wrap{height:260px}
+  .costing-card .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .costing-card .table.table-sm>:not(caption)>*>*{padding:10px 12px}
+  .costing-card .table thead th{background:#F8FAFC;color:#475467;font-weight:700}
+  .costing-card .table tbody td{vertical-align:middle}
+  .costing-card .table td .tag{margin:2px}
+  .costing-tools .form-select,.costing-tools .form-control{min-height:34px;font-size:13px;border-radius:8px}
 
-/* 统一紧凑按钮（与你之前页一致） */
-.btn-sm-compact{min-height:36px;font-size:13px;padding:0 14px;border-radius:6px}
-.btn-dark-compact{background:#1E2235;color:#fff;border:0}
-.btn-dark-compact:hover{background:#111827}
-.btn-gray-compact{background:#94A3B8;color:#fff;border:0}
-.btn-gray-compact:hover{background:#64748B}
+  /* 统一紧凑按钮（与你之前页一致） */
+  .btn-sm-compact{min-height:36px;font-size:13px;padding:0 14px;border-radius:6px}
+  .btn-dark-compact{background:#1E2235;color:#fff;border:0}
+  .btn-dark-compact:hover{background:#111827}
+  .btn-gray-compact{background:#94A3B8;color:#fff;border:0}
+  .btn-gray-compact:hover{background:#64748B}
 
-/* 按钮里的图标微距 */
-.btn i{margin-right:.4rem}
+  /* 按钮里的图标微距 */
+  .btn i{margin-right:.4rem}
 
-.w-160{width:180px}
-.w-180{width:180px}
-.w-200{width:550px}
+  .w-160{width:180px}
+  .w-180{width:180px}
+  .w-200{width:550px}
 
 </style>
 

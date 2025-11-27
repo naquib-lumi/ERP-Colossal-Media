@@ -242,6 +242,7 @@ class BossDashboardController extends Controller
         $printerAgg = DB::table('specifications as s')
             ->join('product_items as pi', 'pi.ItemID', '=', 's.ItemID')
             ->whereNotNull('s.printer')->where('s.printer','<>','')
+            ->whereRaw("LOWER(TRIM(s.printer)) NOT IN ('no','none','n','0', 'TBC', 'tbc')")
             ->selectRaw("
                 s.printer as machine_name,
                 'Printer'  as machine_type,
@@ -255,6 +256,7 @@ class BossDashboardController extends Controller
         $cutterAgg = DB::table('specifications as s')
             ->join('product_items as pi', 'pi.ItemID', '=', 's.ItemID')
             ->whereNotNull('s.cutter')->where('s.cutter','<>','')
+            ->whereRaw("LOWER(TRIM(s.cutter)) NOT IN ('no','none','n','0', 'TBC', 'tbc')")
             ->selectRaw("
                 s.cutter as machine_name,
                 'Cutter'  as machine_type,
