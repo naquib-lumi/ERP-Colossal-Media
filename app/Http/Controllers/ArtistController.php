@@ -636,10 +636,16 @@ class ArtistController extends Controller
             return $row;
         });
 
-        $materials = Material::orderBy('materialName')->get(['materialName']);
+        $materials = Material::where('active', 1)
+            ->orderBy('materialName')
+            ->get(['materialName']);
 
-        $allMaterials = Material::orderBy('materialName')->pluck('materialName')->values()->all();
-
+        $allMaterials = Material::where('active', 1)
+            ->orderBy('materialName')
+            ->pluck('materialName')
+            ->values()
+            ->all();
+            
         $attachments = $this->getOrderAttachments($order);
 
         $toPublicUrl = function (string $p): string {

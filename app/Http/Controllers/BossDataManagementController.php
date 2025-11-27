@@ -462,38 +462,56 @@ class BossDataManagementController extends Controller
 
         // Same validation behaviour as admin side
         $request->validate([
-            'typeName' => 'required|string|max:255',
+            'typeName' => 'required|string|max:255|unique:material_types,name',
         ]);
 
-        // Manual duplicate check so we can return a clear message
-        if (MaterialType::where('name', $request->typeName)->exists()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Type already exists',
-            ], 422);
-        }
-
-        // Explicitly set active = true (same as admin)
         $type = MaterialType::create([
             'name'   => $request->typeName,
-            'active' => true,
+            'active' => 1, // new types are active by default
         ]);
 
-        // Return same shape as admin: whole type object
         return response()->json([
             'success' => true,
-            'type'    => $type,
+            'type'    => $type,   // return full model (id, name, active…)
         ]);
     }
 
     public function updateType(Request $request, $id)
     {
         $type = MaterialType::findOrFail($id);
+
         $request->validate([
-            'typeName' => 'required|string|max:255|unique:material_types,name,' . $type->id
+            'typeName' => 'required|string|max:255|unique:material_types,name,' . $type->id,
         ]);
-        $type->update(['name' => $request->typeName]);
-        return response()->json(['success' => true, 'type' => $type->name, 'id' => $type->id]);
+
+        $type->update([
+            'name' => $request->typeName,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'type'    => $type,
+        ]);
+    }
+
+    /**
+     * Toggle Active / Inactive for a material type.
+     * Active  = 1
+     * Inactive = 0
+     */
+    public function toggleType($id)
+    {
+        $type = MaterialType::findOrFail($id);
+
+        // flip 1 → 0, 0 → 1
+        $type->active = $type->active ? 0 : 1;
+        $type->save();
+
+        return response()->json([
+            'success' => true,
+            'active'  => (bool) $type->active,
+            'type'    => $type,
+        ]);
     }
 
     public function destroyType($id)
