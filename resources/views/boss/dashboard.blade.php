@@ -431,25 +431,45 @@
       <table class="table table-sm mb-0" id="costTable">
         <thead>
         <tr>
-          <th>Product ID</th><th>Product Quantity</th><th>Used by Items</th><th>Total Cost</th><th>Past Usage</th><th class="text-end">Actions</th>
+          <th>Order ID</th><th>Product Quantity</th><th>Used by Items</th><th>Total Cost</th><th>Actions</th>
         </tr>
         </thead>
-        <tbody>
-        <tr data-type="Printer">
-          <td>ORD-2025-001</td><td>8 Products</td><td>4000</td><td>RM 400.00</td>
-          <td><span class="tag">#ORD005-P1</span><span class="tag">#ORD006-P1</span></td>
-          <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-        </tr>
-        <tr data-type="Cutter">
-          <td>ORD-2025-002</td><td>4 Products</td><td>2000</td><td>RM 200.00</td>
-          <td><span class="tag">#ORD010-C2</span><span class="tag">#ORD012-C3</span><span class="tag">#ORD013-C3</span></td>
-          <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-        </tr>
-        <tr data-type="Printer">
-          <td>ORD-2025-003</td><td>6 Products</td><td>1650</td><td>RM 315.00</td>
-          <td><span class="tag">#ORD001-P2</span><span class="tag">#ORD004-P2</span><span class="tag">#ORD009-P2</span></td>
-          <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-        </tr>
+          <tbody>
+            @forelse ($costingTopOrders as $row)
+              @php
+                  $baseNo = $row->base_order_number
+                            ?? $row->order_number
+                            ?? ('ORD-' . now()->format('Y') . '-' . str_pad((int)($row->id ?? 0), 4, '0', STR_PAD_LEFT));
+                  $displayNo = '#' . ltrim($baseNo, '#');
+                  if (!empty($row->is_redo)) {
+                      $displayNo .= 'R';
+                  }
+                  $showRedoBadge = ((int)($row->status ?? 0) === 1);
+                @endphp
+                <tr>
+                    <td>
+                      <span class="fw-semibold">{{ $displayNo }}</span>
+                      @if ($showRedoBadge)
+                        <span class="badge-redo ms-2">Rejected for REDO</span>
+                      @endif
+                    </td>
+                    
+                    <td>{{ $row->products_count }} {{ \Illuminate\Support\Str::plural('Product', $row->products_count) }}</td>
+                    <td>{{ number_format($row->used_quantity) }}</td>
+                    <td>RM {{ number_format($row->total_cost, 2) }}</td>
+                    <td class="text-right">
+                        <a href="{{ route('boss.datamanagement', ['tab' => 'another', 'q_id' => $row->order_number]) }}" class="link-btn">
+                            View
+                        </a>
+                    </td>
+                </tr>
+            @empty
+            <tr>
+                <td colspan="5" class="text-center text-muted" style="padding:12px">
+                    No costing data yet.
+                </td>
+            </tr>
+            @endforelse
         </tbody>
       </table>
     </div>
