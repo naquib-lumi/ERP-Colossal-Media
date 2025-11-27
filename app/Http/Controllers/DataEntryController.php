@@ -436,8 +436,14 @@ class DataEntryController extends Controller
         });
 
         // Materials lookups
-        $materials    = Material::orderBy('materialName')->get(['materialName']);
-        $allMaterials = Material::orderBy('materialName')->pluck('materialName')->values()->all();
+        $materials = Material::where('active', 1)
+            ->orderBy('materialName')
+            ->get(['materialName']);
+        $allMaterials = Material::where('active', 1)
+            ->orderBy('materialName')
+            ->pluck('materialName')
+            ->values()
+            ->all();
         $attachments = $this->getOrderAttachments($order);
         // Attachments helpers
         $toPublicUrl = function (string $p): string {
