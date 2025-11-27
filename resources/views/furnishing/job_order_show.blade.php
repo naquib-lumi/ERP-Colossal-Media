@@ -228,6 +228,14 @@
               <dt>Job Order ID</dt><dd>{{ $job_order_code ?? ($header->order_number ?: '—') }}</dd>
               <dt>Job Title</dt><dd>{{ $header->order_title }}</dd>
               <dt>Company Name</dt><dd>{{ $header->companyName ?? '—' }}</dd>
+              @if(!empty($header->orderDetail))
+              <dt>Sales Remark</dt><dd class="fw-medium text-truncate" style="max-height: 4.5em; overflow: hidden;" data-bs-toggle="collapse" data-bs-target="#remarkCollapse" aria-expanded="false">{{ $header->orderDetail ?? '—' }}</dd>
+                <dt></dt><dd id="remarkCollapse" class="collapse mt-1">
+                  <div class="fw-medium" style="white-space: pre-line;">
+                      {{ $header->orderDetail }}
+                  </div>
+                </dd>
+              @endif
             </dl>
           </div>
           <div class="col-12 col-lg-6">
