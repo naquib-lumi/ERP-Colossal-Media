@@ -475,6 +475,7 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::post('/boss/materials', [BossDataManagementController::class, 'store'])->name('boss.materials.store');
         Route::put('/boss/materials/{id}', [BossDataManagementController::class, 'update'])->name('boss.materials.update');
         Route::delete('/boss/materials/{id}', [BossDataManagementController::class, 'destroy'])->name('boss.materials.destroy');
+        Route::patch('/boss/material-types/{id}/toggle', [BossDataManagementController::class, 'toggleType'])->name('boss.material-types.toggle');
 
         // LEAD MANAGEMENT
         Route::get('/boss/leads/search', [BossLeadController::class, 'searchLeads'])->name('boss.leads.search');

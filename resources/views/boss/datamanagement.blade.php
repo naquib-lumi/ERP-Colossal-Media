@@ -440,7 +440,7 @@
             <tr>
               <th style="width:70%;padding:10px;text-align:left;">Material Type Name</th>
               <th style="width:15%;padding:10px;text-align:left;">Status</th>
-              <th style="width:15%;padding:10px;text-align:right;">Actions</th>
+              <th style="width:15%;padding:10px;text-align:left;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -653,48 +653,188 @@
     manageBtn.addEventListener('click', () => openMask('mdlTypes'));
   }
 
-  // Add Type
-  $('#btnAddType').addEventListener('click', () => openMask('mdlType'));
+  // ===== Material Types: Add / Edit / Activate / Deactivate =====
 
-  $('#btnSaveType').addEventListener('click', () => {
-    const name = $('#typeName').value.trim();
-    if (!name) {
-      alert('Type name is required');
-      return;
-    }
+// helper to reopen the add/edit modal
+function openTypeModal({ id = null, name = '' } = {}) {
+  const titleEl = document.getElementById('typeTitle');
+  const inputEl = document.getElementById('typeName');
+  const saveBtn = document.getElementById('btnSaveType');
 
-    fetch("{{ route('boss.material-types.store') }}", {
-      method: 'POST',
+  if (!titleEl || !inputEl || !saveBtn) return;
+
+  saveBtn.dataset.id = id ? String(id) : '';
+  titleEl.textContent = id
+    ? `Edit Material Type - ${name}`
+    : 'Add New Material Type';
+
+  inputEl.value = name || '';
+
+  openMask('mdlType');
+}
+
+// Delegate clicks for Add Type, Edit, Toggle
+document.addEventListener('click', (e) => {
+  const t = e.target;
+
+  // Open "Add Type" modal
+  if (t.closest('#btnAddType')) {
+    openTypeModal({ id: null, name: '' });
+    return;
+  }
+
+  // Edit existing type
+  const editTypeBtn = t.closest('.btnEditType');
+  if (editTypeBtn) {
+    openTypeModal({
+      id:   editTypeBtn.dataset.id,
+      name: editTypeBtn.dataset.name || '',
+    });
+    return;
+  }
+
+  // Toggle Active / Inactive
+  const togTypeBtn = t.closest('.btnToggleType');
+  if (togTypeBtn) {
+    const id = togTypeBtn.dataset.id;
+    if (!id) return;
+
+    const url = "{{ route('boss.material-types.toggle', ['id' => '___ID___']) }}".replace('___ID___', id);
+
+    fetch(url, {
+      method: 'PATCH', // real PATCH now
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-TOKEN': csrf,
         'Accept': 'application/json',
       },
-      body: JSON.stringify({ typeName: name }),
+      body: JSON.stringify({}), // no _method spoofing needed
     })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.type) {
-          // data.type is the full MaterialType model (same as admin)
-          const type = data.type;
-
-          const opt = document.createElement('option');
-          opt.value = type.id;
-          opt.textContent = type.name;
-          $('#typeFilter').appendChild(opt);
-
-          const opt2 = opt.cloneNode(true);
-          $('#matType').appendChild(opt2);
-
-          // clear & close modal
-          $('#typeName').value = '';
-          closeMask('mdlType');
-        } else {
-          alert(data.message || 'Failed to save material type');
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data || !data.success) {
+          alert(data?.message || 'Failed to toggle type status');
+          return;
         }
+
+        const active = data.active ? 1 : 0;
+        const tr = togTypeBtn.closest('tr');
+
+        // update row classes & status text
+        if (tr) {
+          tr.classList.toggle('inactive', !active);
+          const statusTd = tr.children[1];
+          if (statusTd) statusTd.textContent = active ? 'Active' : 'Inactive';
+        }
+
+        // update button text + icon + dataset
+        togTypeBtn.dataset.active = String(active);
+        togTypeBtn.innerHTML = `<i class="bi bi-toggle${active ? 'on' : 'off'} me-2"></i> ${active ? 'Deactivate' : 'Activate'}`;
       })
-      .catch(() => alert('Error saving material type'));
-  });
+      .catch(() => alert('Error toggling type status'));
+
+    return;
+  }
+});
+
+// Save (add or edit) type
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#btnSaveType')) return;
+
+  const name = (document.getElementById('typeName')?.value || '').trim();
+  if (!name) {
+    alert('Type name is required');
+    return;
+  }
+
+  const saveBtn = document.getElementById('btnSaveType');
+  const id = saveBtn?.dataset.id || '';
+  const isEdit = !!id;
+
+  const url = isEdit
+    ? "{{ route('boss.material-types.update', ['id' => '___ID___']) }}".replace('___ID___', id)
+    : "{{ route('boss.material-types.store') }}";
+
+  const body = isEdit
+    ? { typeName: name, _method: 'PUT' }
+    : { typeName: name };
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': csrf,
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      if (!data || !data.success || !data.type) {
+        alert(data?.message || 'Failed to save type');
+        return;
+      }
+
+      const type = data.type;
+
+      // 1) Update dropdowns (filter + add-material)
+      ['typeFilter', 'matType'].forEach((selId) => {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+
+        if (isEdit) {
+          Array.from(sel.options).forEach((o) => {
+            if (o.value === String(type.id)) o.textContent = type.name;
+          });
+        } else {
+          const o = document.createElement('option');
+          o.value = type.id;
+          o.textContent = type.name;
+          sel.appendChild(o);
+        }
+      });
+
+      // 2) Update Manage Types table
+      const tbody = document.querySelector('#tblTypes tbody');
+      if (tbody) {
+        if (isEdit) {
+          const row = Array.from(tbody.querySelectorAll('tr')).find((tr) => {
+            const btn = tr.querySelector('.btnEditType');
+            return btn && btn.dataset.id === String(type.id);
+          });
+          if (row) {
+            row.children[0].textContent = type.name;
+            const editBtn = row.querySelector('.btnEditType');
+            if (editBtn) editBtn.dataset.name = type.name;
+          }
+        } else {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${type.name}</td>
+            <td>Active</td>
+            <td style="text-align:right; position:relative">
+              <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
+              <div class="dropdown-menu">
+                <button class="dropdown-item btnEditType" data-id="${type.id}" data-name="${type.name}">
+                  <i class="bi bi-pencil me-2"></i> Edit
+                </button>
+                <button class="dropdown-item btnToggleType" data-id="${type.id}" data-active="1">
+                  <i class="bi bi-toggleon me-2"></i> Deactivate
+                </button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      closeMask('mdlType');
+    })
+    .catch(() => alert('Error saving type'));
+});
+  
 
   // Add Material
   $('#btnAddMaterial').addEventListener('click', ()=> openMask('mdlMaterial'));
