@@ -425,6 +425,66 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 
+<script>// Attachments - multiple files, no replace
+const attZone = document.getElementById('attachment-dropzone');
+const attInput = attZone.querySelector('input');
+const attPreview = document.getElementById('attachment-preview');
+
+// Keep track of selected files
+let selectedFiles = [];
+
+// Create a DataTransfer to hold files
+const dt = new DataTransfer();
+
+attZone.addEventListener('click', (e) => {
+    if (e.target === attZone || e.target.closest('.attach-inner')) {
+        e.stopPropagation();  // prevents double trigger
+        attInput.click();
+    }
+});
+['dragover', 'dragenter'].forEach(e => attZone.addEventListener(e, ev => { ev.preventDefault(); attZone.classList.add('drag-over'); }));
+['dragleave', 'drop'].forEach(e => attZone.addEventListener(e, ev => { ev.preventDefault(); attZone.classList.remove('drag-over'); }));
+
+attZone.ondrop = e => handleNewFiles(e.dataTransfer.files);
+attInput.onchange = () => handleNewFiles(attInput.files);
+
+function handleNewFiles(newFiles) {
+    [...newFiles].forEach(file => {
+        const ext = file.name.split('.').pop().toLowerCase();
+       const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'eps', 'svg', 'tiff', 'indd'];
+        const maxSize = 50 * 1024 * 1024; // 50MB
+
+        if (file.size > maxSize) {
+            Swal.fire('Error', `${file.name} exceeds 50MB`, 'error');
+            return;
+        }
+        if (!allowed.includes(ext)) {
+            Swal.fire('Error', `${file.name} not allowed. Only PDF, JPG, PNG, AI`, 'error');
+            return;
+        }
+
+        dt.items.add(file);
+        selectedFiles.push(file);
+
+        const div = document.createElement('div');
+        div.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light';
+        div.innerHTML = `<span><i class="bx bx-paperclip"></i> ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)</span>
+                         <button type="button" class="btn btn-sm text-danger">&times;</button>`;
+        div.querySelector('button').onclick = () => removeFile(file, div);
+        attPreview.appendChild(div);
+    });
+
+    attInput.files = dt.files;
+}
+function removeFile(fileToRemove, element) {
+    selectedFiles = selectedFiles.filter(f => f !== fileToRemove);
+    dt.items.clear();
+    selectedFiles.forEach(f => dt.items.add(f));
+    attInput.files = dt.files;
+    element.remove();
+}
+</script>
+
 <script>
 var isDirty = false;
     $(document).ready(function() {
@@ -1138,7 +1198,14 @@ var isDirty = false;
                         errors.push(`Product ${idx + 1}: ${productErrors.join(', ')}`);
                     }
                 });
-            }
+            }   
+            // Attachment validation (for create order form)
+if (selectedFiles.length === 0) {
+    errors.push('At least one attachment is required');
+    $('#attachment-dropzone').addClass('border-danger');
+    // Optional: highlight the dropzone
+    setTimeout(() => $('#attachment-dropzone').removeClass('border-danger'), 5000);
+}
 
 
 
@@ -1177,65 +1244,7 @@ var isDirty = false;
         });
     }
 </script>
-<script>// Attachments - multiple files, no replace
-const attZone = document.getElementById('attachment-dropzone');
-const attInput = attZone.querySelector('input');
-const attPreview = document.getElementById('attachment-preview');
 
-// Keep track of selected files
-let selectedFiles = [];
-
-// Create a DataTransfer to hold files
-const dt = new DataTransfer();
-
-attZone.addEventListener('click', (e) => {
-    if (e.target === attZone || e.target.closest('.attach-inner')) {
-        e.stopPropagation();  // prevents double trigger
-        attInput.click();
-    }
-});
-['dragover', 'dragenter'].forEach(e => attZone.addEventListener(e, ev => { ev.preventDefault(); attZone.classList.add('drag-over'); }));
-['dragleave', 'drop'].forEach(e => attZone.addEventListener(e, ev => { ev.preventDefault(); attZone.classList.remove('drag-over'); }));
-
-attZone.ondrop = e => handleNewFiles(e.dataTransfer.files);
-attInput.onchange = () => handleNewFiles(attInput.files);
-
-function handleNewFiles(newFiles) {
-    [...newFiles].forEach(file => {
-        const ext = file.name.split('.').pop().toLowerCase();
-       const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'eps', 'svg', 'tiff', 'indd'];
-        const maxSize = 50 * 1024 * 1024; // 50MB
-
-        if (file.size > maxSize) {
-            Swal.fire('Error', `${file.name} exceeds 50MB`, 'error');
-            return;
-        }
-        if (!allowed.includes(ext)) {
-            Swal.fire('Error', `${file.name} not allowed. Only PDF, JPG, PNG, AI`, 'error');
-            return;
-        }
-
-        dt.items.add(file);
-        selectedFiles.push(file);
-
-        const div = document.createElement('div');
-        div.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light';
-        div.innerHTML = `<span><i class="bx bx-paperclip"></i> ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)</span>
-                         <button type="button" class="btn btn-sm text-danger">&times;</button>`;
-        div.querySelector('button').onclick = () => removeFile(file, div);
-        attPreview.appendChild(div);
-    });
-
-    attInput.files = dt.files;
-}
-function removeFile(fileToRemove, element) {
-    selectedFiles = selectedFiles.filter(f => f !== fileToRemove);
-    dt.items.clear();
-    selectedFiles.forEach(f => dt.items.add(f));
-    attInput.files = dt.files;
-    element.remove();
-}
-</script>
 @endpush
 
 @endsection

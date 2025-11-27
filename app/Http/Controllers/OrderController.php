@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use App\Helpers\Helpers;
+use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
@@ -302,8 +303,8 @@ public function exportCsv(Request $request)
             'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
-            'attachments' => 'nullable|array',
-           'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+          'attachments' => 'required|array|min:1',  // at least 1 file
+    'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
         ]);
 
         $lead = Lead::findOrFail($request->lead_id);
@@ -504,17 +505,16 @@ public function update(Request $request, $id)
             'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
-            'attachments' => 'nullable|array',
-         'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+            'attachments' => [
+                function ($attribute, $value, $fail) use ($order) {
+                    if ($order->attachments->isEmpty() && empty($value)) {
+                        $fail('At least one attachment is required.');
+                    }
+                },
+                'array',
+            ],
+            'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
         ]);
-
-        $attachments = explode(',', $order->orderAttachment ?? '');
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('order_attachments', 'public');
-                $attachments[] = $path;
-            }
-        }
 
         $order->update([
             'orderTitle' => $request->orderTitle,
@@ -523,25 +523,25 @@ public function update(Request $request, $id)
             'orderDetail' => $request->orderDetail,
         ]);
 
-        // Replace your attachment block in update() with this
-if ($request->hasFile('attachments')) {
-    foreach ($request->file('attachments') as $file) {
-        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $extension = $file->getClientOriginalExtension();
-        $timestamp = now()->format('Ymd_His');
-        $newName = $originalName . '_' . $timestamp . '.' . $extension;
-        $path = $file->storeAs('orders/' . $order->id, $newName, 'public');
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                $extension = $file->getClientOriginalExtension();
+                $timestamp = now()->format('Ymd_His');
+                $newName = $originalName . '_' . $timestamp . '.' . $extension;
+                $path = $file->storeAs('orders/' . $order->id, $newName, 'public');
 
-        OrderAttachment::create([
-            'order_id'       => $order->id,
-            'user_id'        => $user->id,
-            'file_path'      => $path,
-            'original_name'  => $file->getClientOriginalName(),
-            'mime_type'      => $file->getMimeType(),
-            'size'           => $file->getSize(),
-        ]);
-    }
-}
+                OrderAttachment::create([
+                    'order_id'       => $order->id,
+                    'user_id'        => $user->id,
+                    'file_path'      => $path,
+                    'original_name'  => $file->getClientOriginalName(),
+                    'mime_type'      => $file->getMimeType(),
+                    'size'           => $file->getSize(),
+                ]);
+            }
+        }
+
         $productsData = $request->products;
 
         if ($request->hasFile('csv_file')) {
@@ -639,13 +639,22 @@ if ($request->hasFile('attachments')) {
 }
 public function deleteAttachment(Order $order, OrderAttachment $attachment)
 {
-    // Only allow owner or head-salesperson
+    // Authorization
     if (Auth::id() !== $attachment->user_id && !Auth::user()->hasRole('head-salesperson')) {
+        // For Ajax return JSON error, otherwise normal redirect
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
         return back()->with('error', 'Unauthorized');
     }
 
     Storage::disk('public')->delete($attachment->file_path);
     $attachment->delete();
+
+    // Return JSON for Ajax, normal redirect for browser
+    if (request()->ajax() || request()->wantsJson()) {
+        return response()->json(['success' => true, 'message' => 'Attachment deleted']);
+    }
 
     return back()->with('success', 'Attachment deleted successfully');
 }
@@ -657,14 +666,133 @@ public function show($id)
         abort(403);
     }
 
-    $attachments = $order->attachments->map(fn($att) => [
-        'url'  => $att->url(),
-        'name' => $att->original_name ?? basename($att->file_path),
-        'size' => $att->size,
-    ]);
+         $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
 
-    return view('sales.order-view', compact('order', 'attachments'));
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+
+            return Storage::disk('public')->url($p);
+        };
+
+     $artistRoles = ['artist', 'head-artist', 'data-entry'];
+
+        // 1) Try order_attachments table first
+        $rows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $mapRow = function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $web = \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+            return [
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'url'           => $toPublicUrl($web),
+                'size'          => (int) $att->size,
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploader_role' => optional($att->uploader)->role,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+            ];
+        };
+
+        if ($rows->isNotEmpty()) {
+            // split by uploader role
+            $headerAttachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return !in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+
+            $attachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+        }
+
+    return view('sales.order-view', compact('order', 'attachments','headerAttachments'));
 }
+
+
+public function showCy(Order $order)
+    {
+        // keep what you already load here (products, items, deliveryBreakdowns, etc.)
+        $order->loadMissing([
+            'salesperson:id,name',
+            'artist:id,name',
+            'products'        => fn ($q) => $q->orderBy('ProductID'),
+            'products.items'  => fn ($q) => $q->orderBy('ItemID'),
+            'products.items.spec',
+            // 'leadAttachments',
+            'deliveryBreakdowns' => fn ($q) => $q->orderBy('BreakdownID'),
+        ]);
+
+        // helper to turn a storage path into a public URL
+        $toPublicUrl = function (string $p): string {
+            $p = ltrim($p, '/');
+
+            if (Str::startsWith($p, 'storage/')) {
+                return url($p);
+            }
+
+            return Storage::disk('public')->url($p);
+        };
+
+        // roles considered "artist-side"
+        $artistRoles = ['artist', 'head-artist'];
+
+        // 1) Try order_attachments table first
+        $rows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $mapRow = function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $web = \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+            return [
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'url'           => $toPublicUrl($web),
+                'size'          => (int) $att->size,
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploader_role' => optional($att->uploader)->role,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+            ];
+        };
+
+        if ($rows->isNotEmpty()) {
+            // split by uploader role
+            $headerAttachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return !in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+
+            $attachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+        }
+
+        return view('artist.orders.show', compact(
+            'order',
+            'attachments',
+            'headerAttachments'
+        ));
+    }
     public function submit($id)
     {
         $order = Order::findOrFail($id);

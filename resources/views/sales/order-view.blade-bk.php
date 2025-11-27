@@ -123,6 +123,7 @@ $isRedoOrder = (bool) $order->redo;
 
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+
         <a href="{{ url()->previous() }}"
             class="text-decoration-none text-muted me-3"
             style="display: inline-flex; align-items: center; gap: 8px;">
@@ -141,7 +142,7 @@ $isRedoOrder = (bool) $order->redo;
         </h4>
 
         <div class="d-flex align-items-center gap-2">
-   
+
         </div>
     </div>
 
@@ -183,28 +184,6 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
                 </div>
 
-             @if(!empty($order->orderDetail))
-            <div class="col-md-6 col-lg-3">
-                <small class="text-muted d-block mb-1">Sales Remark</small>
-
-                <!-- Collapsed preview -->
-                <div class="fw-medium text-truncate"
-                    style="max-height: 4.5em; overflow: hidden;"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#remarkCollapse"
-                    aria-expanded="false">
-                    {{ $order->orderDetail }}
-                </div>
-                <div id="remarkCollapse" class="collapse mt-1">
-                    <div class="fw-medium" style="white-space: pre-line;">
-                        {{ $order->orderDetail }}
-                    </div>
-                </div>
-            </div>
-            @endif
-
-
-
                 <!-- <div class="col-md-6 col-lg-6">
                     <small class="text-muted d-block mb-1">Attachment from Lead</small>
 
@@ -230,48 +209,6 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
                 </div> -->
             </div>
-
-            {{-- ===== Non-artist attachments (Sales etc.) at the top ===== --}}
-            @if(isset($headerAttachments) && $headerAttachments->count())
-            <hr class="my-4">
-
-            <h6 class="fw-semibold mb-2">Sales Attachments</h6>
-
-            <div class="d-flex flex-column gap-2">
-                @foreach($headerAttachments as $f)
-                <div class="d-flex align-items-center justify-content-between border rounded p-2">
-                    <div class="d-flex flex-column">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bx bx-file"></i>
-                        <span class="fw-medium">{{ $f['name'] }}</span>
-                    </div>
-
-                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
-                        @if(!empty($f['ext']))
-                        .{{ $f['ext'] }}
-                        @endif
-
-                        @if(!empty($f['size']))
-                        · {{ number_format($f['size'] / 1024, 0) }} KB
-                        @endif
-
-                        @if(!empty($f['uploaded_by']))
-                        · Uploaded by {{ $f['uploaded_by'] }}
-                        @endif
-
-                        @if(!empty($f['uploaded_at']))
-                        · {{ $f['uploaded_at'] }}
-                        @endif
-                    </div>
-                    </div>
-
-                    <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">
-                    View
-                    </a>
-                </div>
-                @endforeach
-            </div>
-            @endif
         </div>
     </div>
 
@@ -818,53 +755,49 @@ $isRedoOrder = (bool) $order->redo;
         {{-- Attachments --}}
         <div class="card mt-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Artist Attachments</span>
+                <span>Attachments</span>
             </div>
 
             <div class="card-body">
                 @if($attachments->isEmpty())
-                    <p class="text-muted mb-0">No attachments.</p>
+                <p class="text-muted mb-0">No attachments.</p>
                 @else
-                    <ul class="list-group list-group-flush">
-                        @foreach($attachments as $f)
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div class="d-flex flex-column">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <i class="bx bx-paperclip"></i>
-                                        <span>{{ $f['name'] }}</span>
-                                    </div>
+                <ul class="list-group list-group-flush">
+                    @foreach($attachments as $f)
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bx bx-paperclip"></i>
+                            <div class="d-flex flex-column">
+                                <span>{{ $f['name'] }}</span>
 
-                                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
-                                        @if(!empty($f['ext']))
-                                            .{{ $f['ext'] }}
-                                        @endif
+                                <small class="text-muted" style="color: #6c757d; font-size:12px">
+                                    @if(!empty($f['size']))
+                                        {{ number_format($f['size'] / 1024, 0) }} KB
+                                        @if(!empty($f['uploaded_by']) || !empty($f['uploaded_at'])) · @endif
+                                    @endif
 
-                                        @if(!empty($f['size']))
-                                            · {{ number_format($f['size'] / 1024, 0) }} KB
-                                        @endif
+                                    @if(!empty($f['uploaded_by']))
+                                        Uploaded by {{ $f['uploaded_by'] }}
+                                    @endif
+                                    @if(!empty($f['uploaded_at']))
+                                        @if(!empty($f['uploaded_by'])) • @endif
+                                        {{ $f['uploaded_at'] }}
+                                    @endif
+                                </small>
+                            </div>
+                        </div>
 
-                                        @if(!empty($f['uploaded_by']))
-                                            · Uploaded by {{ $f['uploaded_by'] }}
-                                        @endif
-
-                                        @if(!empty($f['uploaded_at']))
-                                            · {{ $f['uploaded_at'] }}
-                                        @endif
-                                    </div>
-                                </div>
-
-                                <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" target="_blank">
-                                    View
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
+                            Download
+                        </a>
+                    </li>
+                    @endforeach
+                </ul>
                 @endif
             </div>
         </div>
         <div class="d-flex justify-content-end mt-4">
-           <a href="{{ url()->previous() }}" class="btn btn-secondary mt-6">Close</a>
-            </a>
+          <a href="{{ url()->previous() }}" class="btn btn-secondary mt-6">Close</a>
         </div>
 </div>
 

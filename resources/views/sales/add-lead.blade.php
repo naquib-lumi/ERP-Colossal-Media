@@ -203,40 +203,38 @@
         processFiles(fileInput.files);
     });
 
-    function processFiles(files) {
-        let validFiles = [];
-        let invalidFiles = [];
-        let sizeErrors = [];
-        let typeErrors = [];
+   function processFiles(files) {
+    let validFiles = [];
+    let sizeErrors = [];
+    let typeErrors = [];
 
-        Array.from(files).forEach(file => {
-            if (file.size > maxSize) {
-                sizeErrors.push(file.name);
-                return;
-            }
-            if (!allowedTypes.includes(file.type)) {
-                typeErrors.push(file.name);
-                return;
-            }
-            if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
-                validFiles.push(file);
-            }
-        });
-
-        // Add valid files
-        selectedFiles.push(...validFiles);
-
-        // Show consolidated errors with SweetAlert
-        if (sizeErrors.length > 0) {
-            Swal.fire('Warning!', `${sizeErrors.join(', ')} exceed 10MB limit.`, 'warning');
+    Array.from(files).forEach(file => {
+        if (file.size > maxSize) {
+            sizeErrors.push(file.name);
+            return;
         }
-        if (typeErrors.length > 0) {
-            Swal.fire('Warning!', `${typeErrors.join(', ')} not allowed. Only PDF, DOC, DOCX, JPG, PNG permitted.`, 'warning');
+        if (!allowedTypes.includes(file.type)) {
+            typeErrors.push(file.name);
+            return;
         }
+        if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+            validFiles.push(file);
+        }
+    });
 
-        updateFileInput();
-        updateFileList();
+    // Add valid files first
+    selectedFiles.push(...validFiles);
+    updateFileInput();
+    updateFileList();
+
+    // Show errors ONLY after UI is updated
+    if (sizeErrors.length > 0) {
+        Swal.fire('Warning!', `${sizeErrors.join(', ')} exceed 10MB limit.`, 'warning');
     }
+    if (typeErrors.length > 0) {
+        Swal.fire('Warning!', `${typeErrors.join(', ')} not allowed. Only PDF, DOC, DOCX, JPG, PNG permitted.`, 'warning');
+    }
+}
 
     function updateFileInput() {
         const dt = new DataTransfer();

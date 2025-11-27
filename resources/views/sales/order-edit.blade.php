@@ -3,6 +3,7 @@
 @section('content')
 @push('styles')
 <style>
+
     .remove-item {
         display: flex;
         align-items: center;
@@ -395,7 +396,7 @@
         <!-- Existing attachments (rendered on page load) -->
         @foreach($order->attachments as $att)
             <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light existing-attachment" 
-                 data-attachment-id="{{ $att->id }}">
+                 data-attachment-id="{{ $att->id }}" data-url="{{ route('orders.attachment.delete', [$order->id, $att->id]) }}">
                 <span>
                     <i class="bx bx-paperclip"></i>
                     <a href="{{ Storage::url($att->file_path) }}" target="_blank">
@@ -403,10 +404,7 @@
                     </a>
                     <span class="text-muted ms-2">({{ number_format($att->size/1024/1024, 2) }} MB)</span>
                 </span>
-                <form action="{{ route('orders.attachment.delete', [$order->id, $att->id]) }}" method="POST" class="d-inline">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="btn btn-sm text-danger">&times;</button>
-                </form>
+                <button type="button" class="btn btn-sm text-danger">&times;</button>
             </div>
         @endforeach
     </div>
@@ -475,365 +473,321 @@
 </div>
 @push('scripts')
 <script>
-var isDirty = false;
-    $(document).ready(function() {
+    var isDirty = false;
+    let productIndex = $('#product-table tbody tr').length;
+    let selectedFiles = [];
+    const dt = new DataTransfer();
+
+    $(document).ready(function () {
+        // Helper functions
         function escapeHtml(str) {
-            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+        function ltrim(str, char = '0') {
+            return str.replace(new RegExp(`^${char}+`), '') || '0';
         }
 
-        function ltrim(str, char) {
-            return str.replace(new RegExp(`^${char}+`), '');
-        }
-
-        let productIndex = $('#product-table tbody tr').length;
+        // Initial state
+        let initialFormState = $('#order-form').serialize();
         let isFromCsv = {{ old('from_csv', 0) }};
-        if (isFromCsv) {
-            $('#addProductBtn').hide();
-        } else if (productIndex >= 5) {
-            $('#addProductBtn').hide();
-        }
+        if (isFromCsv || productIndex >= 5) $('#addProductBtn').hide();
 
         renumberProducts();
 
-        let initialFormState = $('#order-form').serialize();
-        let isDirty = false;
-
-        $('#order-form').on('change input', function() {
-            if ($('#order-form').serialize() !== initialFormState) {
-                isDirty = true;
-            }
+        // Track changes
+        $('#order-form').on('change input', () => {
+            isDirty = $('#order-form').serialize() !== initialFormState;
         });
 
-        window.addEventListener('beforeunload', function (e) {
+        window.addEventListener('beforeunload', e => {
             if (isDirty) {
                 e.preventDefault();
                 e.returnValue = '';
             }
         });
 
-        let modalData = {}; // Store modal data for validation errors
+        // ——————————————————— CSV Upload ———————————————————
+        const csvInput = document.getElementById('fileInput');
+        const csvPreview = document.getElementById('preview');
+        let csvFile = null;
 
-        $('#productModal').on('show.bs.modal', function(e) {
-            const button = $(e.relatedTarget);
-            const mode = button.data('mode');
-            const index = button.data('index');
+        csvInput.addEventListener('change', function () {
+            if (!this.files.length) return;
+            const file = this.files[0];
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            csvPreview.innerHTML = '';
+            if (ext !== 'csv') {
+                csvPreview.innerHTML = `<li class="text-danger">${file.name} – Invalid file type</li>`;
+                csvFile = null;
+                return;
+            }
+
+            csvFile = file;
+            csvPreview.innerHTML = `<li>${file.name} – <span class="text-success">ready</span>
+                <button type="button" class="remove-x">×</button></li>`;
+            csvPreview.querySelector('.remove-x').onclick = () => {
+                csvFile = null;
+                csvPreview.innerHTML = '';
+                $('#product-table tbody').empty();
+                productIndex = 0;
+                $('#from_csv').val(0);
+                $('#addProductBtn').show();
+                renumberProducts();
+            };
+
+            parseCsv(file);
+            isDirty = true;
+        });
+
+        function parseCsv(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const lines = e.target.result.split(/\r?\n/);
+                const headers = lines[0].split(',').map(h => h.trim());
+                $('#product-table tbody').empty();
+                productIndex = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const row = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+                    const product = {
+                        product_name: row[headers.indexOf('Product_Name')] || '',
+                        quantity: ltrim(row[headers.indexOf('Quantity')] || ''),
+                        material_remark: row[headers.indexOf('Material_Info')] || '',
+                        remarks: []
+                    };
+
+                    const remarkMap = {
+                        'Artist_Remark': 'artist',
+                        'Printing_Remark': 'printing',
+                        'Furnishing_Remark': 'furnishing',
+                        'Installation_Remark': 'installation',
+                        'Courier_Remark': 'courier',
+                        'Self_Pickup_Remark': 'self_pickup'
+                    };
+
+                    Object.keys(remarkMap).forEach((col, idx) => {
+                        const idxCol = headers.indexOf(col);
+                        if (idxCol !== -1 && row[idxCol]) {
+                            product.remarks.push({ operation: remarkMap[col], remark: row[idxCol] });
+                        }
+                    });
+
+                    addProductRow(product, productIndex++);
+                }
+
+                $('#from_csv').val(1);
+                if (productIndex >= 5) $('#addProductBtn').hide();
+                renumberProducts();
+            };
+            reader.readAsText(file);
+        }
+
+        // ——————————————————— Product Modal ———————————————————
+        let modalData = {};
+
+        $('#productModal').on('show.bs.modal', function (e) {
+            const btn = $(e.relatedTarget);
+            const mode = btn.data('mode');
+            const index = btn.data('index');
 
             clearValidationErrors();
             $('#productForm')[0].reset();
             $('#product_index').val('');
             $('#remarks-container').empty();
-            $('#productModalTitle').text('Add Product');
 
             if (mode === 'edit' && index !== undefined) {
-                $('#productModalTitle').text('Edit Product');
-                $('#product_index').val(index);
-
-                const row = $(`#product-table tbody tr[data-index="${index}"]`);
+                const row = $(`tr[data-index="${index}"]`);
                 $('#product_name').val(row.find('input[name$="[product_name]"]').val());
                 $('#quantity').val(row.find('input[name$="[quantity]"]').val());
                 $('#material_remark').val(row.find('input[name$="[material_remark]"]').val());
-
-                row.find('.remark-row').each(function() {
-                    const operation = $(this).find('select').val();
-                    const remark = $(this).find('input').val();
-                    addRemarkRow(operation, remark);
+                row.find('.remark-row').each(function () {
+                    const op = $(this).find('select').val();
+                    const rem = $(this).find('input').val();
+                    addRemarkRow(op, rem);
                 });
-            } else if (Object.keys(modalData).length > 0) {
-                // Restore data after validation error
-                $('#product_name').val(modalData.product_name);
-                $('#quantity').val(modalData.quantity);
-                $('#material_remark').val(modalData.material_remark);
-                modalData.remarks.forEach((r, idx) => {
-                    setTimeout(() => addRemarkRow(r.operation, r.remark), idx * 50);
-                });
+                $('#product_index').val(index);
+                $('#productModalTitle').text('Edit Product');
+            } else if (Object.keys(modalData).length) {
+                $('#product_name').val(modalData.product_name || '');
+                $('#quantity').val(modalData.quantity || '');
+                $('#material_remark').val(modalData.material_remark || '');
+                modalData.remarks.forEach(r => addRemarkRow(r.operation, r.remark));
                 modalData = {};
             }
         });
 
-        $('#addRemarkBtn').on('click', function() {
+        $('#addRemarkBtn').on('click', () => {
             if ($('#remarks-container .remark-row').length >= 6) {
-                modalData = {
-                    product_name: $('#product_name').val() || '',
-                    quantity: $('#quantity').val() || '',
-                    material_remark: $('#material_remark').val() || '',
-                    remarks: []
-                };
-                $('#remarks-container .remark-row').each(function() {
-                    const operation = $(this).find('select').val();
-                    const remark = $(this).find('input').val() || '';
-                    modalData.remarks.push({ operation, remark });
-                });
-                $('#productModal').modal('hide');
-                setTimeout(() => {
-                    Swal.fire({
-                        title: 'Max Remarks Reached',
-                        text: 'Maximum 6 remarks per product.',
-                        icon: 'warning'
-                    }).then(() => {
-                        $('#productModal').modal('show');
-                    });
-                }, 500);
+                Swal.fire('Warning', 'Maximum 6 remarks per product.', 'warning');
                 return;
             }
             addRemarkRow();
         });
 
-        function addRemarkRow(operation = '', remark = '') {
-            const rindex = $('#remarks-container .remark-row').length;
+        function addRemarkRow(op = '', rem = '') {
+            const idx = $('#remarks-container .remark-row').length;
             const html = `
                 <div class="remark-row mb-2">
-                    <select name="remark_operation" class="form-select w-auto" style="min-width:160px;">
+                    <select class="form-select" style="min-width:160px;">
                         <option value="">— Select —</option>
-                        <option value="artist" ${operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                        <option value="printing" ${operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                        <option value="furnishing" ${operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                        <option value="installation" ${operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                        <option value="self_pickup" ${operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                        <option value="courier" ${operation === 'courier' ? 'selected' : ''}>To Courier</option>
+                        <option value="artist" ${op==='artist'?'selected':''}>To Artist</option>
+                        <option value="printing" ${op==='printing'?'selected':''}>To Printing</option>
+                        <option value="furnishing" ${op==='furnishing'?'selected':''}>To Furnishing</option>
+                        <option value="installation" ${op==='installation'?'selected':''}>To Installation</option>
+                        <option value="self_pickup" ${op==='self_pickup'?'selected':''}>To Self Pickup</option>
+                        <option value="courier" ${op==='courier'?'selected':''}>To Courier</option>
                     </select>
-                    <input type="text" name="remark_text" class="form-control" placeholder="Write a note…" value="${escapeHtml(remark)}">
-                    <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                        <i class="bx bx-trash fs-5"></i>
-                    </button>
-                </div>
-            `;
+                    <input type="text" class="form-control" placeholder="Write a note…" value="${escapeHtml(rem)}">
+                    <button type="button" class="btn btn-link text-danger remove-remark"><i class="bx bx-trash"></i></button>
+                </div>`;
             $('#remarks-container').append(html);
         }
 
-        $(document).on('click', '.remove-remark', function() {
+        $(document).on('click', '.remove-remark', function () {
             $(this).closest('.remark-row').remove();
-            validateRemarks();
         });
 
-        $(document).on('change', '.remark-row select', function() {
-            const current = $(this);
-            const val = current.val();
-            if (!val) return;
-            const container = current.closest('#remarks-container') || current.closest('[id^="remarks-container-"]');
-            let duplicate = false;
-            container.find('.remark-row select').not(current).each(function() {
-                if ($(this).val() === val) {
-                    duplicate = true;
-                }
-            });
-            if (duplicate) {
-                modalData = {
-                    product_name: $('#product_name').val() || '',
-                    quantity: $('#quantity').val() || '',
-                    material_remark: $('#material_remark').val() || '',
-                    remarks: []
-                };
-                container.find('.remark-row').each(function() {
-                    const opSelect = $(this).find('select');
-                    const remInput = $(this).find('input');
-                    const operation = opSelect.val();
-                    const remark = remInput.val() || '';
-                    modalData.remarks.push({ operation, remark });
-                });
-                current.val('');
-                if ($('#productModal').hasClass('show')) {
-                    $('#productModal').modal('hide');
-                    setTimeout(() => {
-                        Swal.fire({
-                            title: 'Duplicate Operation',
-                            text: 'This operation is already selected.',
-                            icon: 'error'
-                        }).then(() => {
-                            $('#productModal').modal('show');
-                        });
-                    }, 500);
-                } else {
-                    Swal.fire({
-                        title: 'Duplicate Operation',
-                        text: 'This operation is already selected.',
-                        icon: 'error'
-                    });
-                }
-            }
-        });
-
-        $('#saveProduct').on('click', function() {
+        $('#saveProduct').on('click', function () {
             const errors = validateProductForm();
-            if (errors.length > 0) {
-                // Store current modal data
+            if (errors.length) {
                 modalData = {
-                    product_name: $('#product_name').val() || '',
-                    quantity: $('#quantity').val() || '',
-                    material_remark: $('#material_remark').val() || '',
+                    product_name: $('#product_name').val(),
+                    quantity: $('#quantity').val(),
+                    material_remark: $('#material_remark').val(),
                     remarks: []
                 };
-                $('#remarks-container .remark-row').each(function() {
-                    const operation = $(this).find('select').val();
-                    const remark = $(this).find('input').val() || '';
-                    if (operation && remark.trim()) {
-                        modalData.remarks.push({ operation, remark });
-                    }
+                $('#remarks-container .remark-row').each(function () {
+                    modalData.remarks.push({
+                        operation: $(this).find('select').val(),
+                        remark: $(this).find('input').val()
+                    });
                 });
-
                 $('#productModal').modal('hide');
                 setTimeout(() => {
-                    Swal.fire({
-                        title: 'Please complete the product info',
-                        html: errors.map(m => `<div style="text-align:left">${m}</div>`).join(''),
-                        icon: 'error'
-                    }).then(() => {
-                        $('#productModal').modal('show');
-                    });
-                }, 500);
+                    Swal.fire('Error', errors.map(m => `<div>${m}</div>`).join(''), 'error')
+                        .then(() => $('#productModal').modal('show'));
+                }, 300);
                 return;
             }
 
-            const index = $('#product_index').val();
             const data = {
-                product_name: $('#product_name').val() || '',
-                quantity: ltrim($('#quantity').val() || '', '0') || '',
-                material_remark: $('#material_remark').val() || '',
+                product_name: $('#product_name').val().trim(),
+                quantity: ltrim($('#quantity').val()),
+                material_remark: $('#material_remark').val(),
                 remarks: []
             };
-
-            $('#remarks-container .remark-row').each(function() {
-                const operation = $(this).find('select').val();
-                const remark = $(this).find('input').val() || '';
-                if (operation && remark.trim()) {
-                    data.remarks.push({ operation, remark });
-                }
+            $('#remarks-container .remark-row').each(function () {
+                const op = $(this).find('select').val();
+                const rem = $(this).find('input').val().trim();
+                if (op && rem) data.remarks.push({ operation: op, remark: rem });
             });
 
-            if (data.remarks.length === 0) {
-                data.remarks = [];
-            }
-
-            if (index !== '') {
-                updateProductRow(index, data);
+            const idx = $('#product_index').val();
+            if (idx !== '') {
+                updateProductRow(idx, data);
             } else {
                 if (productIndex >= 5) {
-                    $('#productModal').modal('hide');
-                    setTimeout(() => {
-                        Swal.fire({
-                            title: 'Maximum Products Reached',
-                            text: 'Maximum 5 products allowed. Use CSV for more.',
-                            icon: 'warning'
-                        }).then(() => {
-                            $('#productModal').modal('show');
-                        });
-                    }, 500);
+                    Swal.fire('Warning', 'Maximum 5 products allowed.', 'warning');
                     return;
                 }
-                addProductRow(data, productIndex);
-                productIndex++;
-                if (productIndex >= 5) {
-                    $('#addProductBtn').hide();
-                }
+                addProductRow(data, productIndex++);
+                if (productIndex >= 5) $('#addProductBtn').hide();
             }
             isDirty = true;
             $('#productModal').modal('hide');
         });
 
-        function addProductRow(data, index) {
-            const html = `
-                <tr data-index="${index}">
-                    <td class="product-number">${index + 1}</td>
-                    <td><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
-                    <td><input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1"></td>
-                    <td><input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}"></td>
+        function addProductRow(data, idx) {
+            const row = `
+                <tr data-index="${idx}">
+                    <td class="product-number">${idx + 1}</td>
+                    <td><input type="text" name="products[${idx}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
+                    <td><input type="number" name="products[${idx}][quantity]" class="form-control" value="${data.quantity}" min="1"></td>
+                    <td><input type="text" name="products[${idx}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}"></td>
                     <td>
-                        <div id="remarks-container-${index}">
-                            ${data.remarks.map((r, rindex) => `
+                        <div id="remarks-container-${idx}">
+                            ${data.remarks.map((r, i) => `
                                 <div class="remark-row">
-                                    <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                        <option value="artist" ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                                        <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                                        <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                                        <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                                        <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                                        <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
+                                    <select name="products[${idx}][remarks][${i}][operation]" class="form-select" style="min-width:160px;">
+                                        <option value="artist" ${r.operation==='artist'?'selected':''}>To Artist</option>
+                                        <option value="printing" ${r.operation==='printing'?'selected':''}>To Printing</option>
+                                        <option value="furnishing" ${r.operation==='furnishing'?'selected':''}>To Furnishing</option>
+                                        <option value="installation" ${r.operation==='installation'?'selected':''}>To Installation</option>
+                                        <option value="self_pickup" ${r.operation==='self_pickup'?'selected':''}>To Self Pickup</option>
+                                        <option value="courier" ${r.operation==='courier'?'selected':''}>To Courier</option>
                                     </select>
-                                    <input type="text" name="products[${index}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
-                                    <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                        <i class="bx bx-trash fs-5"></i>
-                                    </button>
+                                    <input type="text" name="products[${idx}][remarks][${i}][remark]" class="form-control" value="${escapeHtml(r.remark)}">
+                                    <button type="button" class="btn btn-link text-danger remove-remark"><i class="bx bx-trash"></i></button>
                                 </div>
                             `).join('')}
                         </div>
-                        <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${index}">Add Remark</button>
+                        <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${idx}">Add Remark</button>
                     </td>
-                    <td>
-                        <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${index}">Delete</button>
-                    </td>
-                </tr>
-            `;
-            $('#product-table tbody').append(html);
+                    <td><button type="button" class="btn btn-sm btn-danger remove-product" data-index="${idx}">Delete</button></td>
+                </tr>`;
+            $('#product-table tbody').append(row);
         }
 
-        function updateProductRow(index, data) {
-            const row = $(`#product-table tbody tr[data-index="${index}"]`);
-            row.find('td:eq(1)').html(`<input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}">`);
-            row.find('td:eq(2)').html(`<input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1">`);
-            row.find('td:eq(3)').html(`<input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}">`);
-            row.find('td:eq(4)').html(`
-                <div id="remarks-container-${index}">
-                    ${data.remarks.map((r, rindex) => `
-                        <div class="remark-row">
-                            <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                <option value="artist" ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                                <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                                <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                                <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                                <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                                <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
-                            </select>
-                            <input type="text" name="products[${index}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
-                            <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                <i class="bx bx-trash fs-5"></i>
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>
-                <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${index}">Add Remark</button>
-            `);
+        function updateProductRow(idx, data) {
+            const row = $(`tr[data-index="${idx}"]`);
+            row.find('input[name$="[product_name]"]').val(data.product_name);
+            row.find('input[name$="[quantity]"]').val(data.quantity);
+            row.find('input[name$="[material_remark]"]').val(data.material_remark);
+            const container = row.find(`#remarks-container-${idx}`).empty();
+            data.remarks.forEach((r, i) => {
+                container.append(`
+                    <div class="remark-row">
+                        <select name="products[${idx}][remarks][${i}][operation]" class="form-select" style="min-width:160px;">
+                            <option value="artist" ${r.operation==='artist'?'selected':''}>To Artist</option>
+                            <option value="printing" ${r.operation==='printing'?'selected':''}>To Printing</option>
+                            <option value="furnishing" ${r.operation==='furnishing'?'selected':''}>To Furnishing</option>
+                            <option value="installation" ${r.operation==='installation'?'selected':''}>To Installation</option>
+                            <option value="self_pickup" ${r.operation==='self_pickup'?'selected':''}>To Self Pickup</option>
+                            <option value="courier" ${r.operation==='courier'?'selected':''}>To Courier</option>
+                        </select>
+                        <input type="text" name="products[${idx}][remarks][${i}][remark]" class="form-control" value="${escapeHtml(r.remark)}">
+                        <button type="button" class="btn btn-link text-danger remove-remark"><i class="bx bx-trash"></i></button>
+                    </div>
+                `);
+            });
             renumberProducts();
         }
 
         function renumberProducts() {
-            $('#product-table tbody tr').each(function(i) {
-                $(this).attr('data-index', i);
-                $(this).find('.product-number').text(i + 1);
-                $(this).find('.remove-product, .add-remark').attr('data-index', i);
-                const remarksId = `remarks-container-${i}`;
-                $(this).find('[id^="remarks-container-"]').attr('id', remarksId);
-                $(this).find('input[name^="products"], select[name^="products"]').each(function() {
-                    let name = $(this).attr('name').replace(/\[\d+\]/, '[' + i + ']');
-                    $(this).attr('name', name);
+            $('#product-table tbody tr').each(function (i) {
+                $(this).attr('data-index', i).find('.product-number').text(i + 1);
+                $(this).find('.add-remark, .remove-product').attr('data-index', i);
+                $(this).find('[id^="remarks-container-"]').attr('id', 'remarks-container-' + i);
+                $(this).find('input[name], select[name]').each(function () {
+                    ['product_name', 'quantity', 'material_remark'].forEach(field => {
+                        this.name = this.name.replace(/\[\d+\]/, '[' + i + ']');
+                    });
                 });
             });
         }
 
-        $(document).on('click', '.remove-product', function() {
-            const index = $(this).data('index');
-            $(`#product-table tbody tr[data-index="${index}"]`).remove();
+        $(document).on('click', '.remove-product', function () {
+            $(this).closest('tr').remove();
             renumberProducts();
             productIndex = $('#product-table tbody tr').length;
-            if (productIndex < 5 && !isFromCsv) {
-                $('#addProductBtn').show();
-            }
+            if (productIndex < 5) $('#addProductBtn').show();
             isDirty = true;
         });
 
-        $(document).on('click', '.add-remark', function() {
-            const index = $(this).data('index');
-            const container = $(`#remarks-container-${index}`);
+        $(document).on('click', '.add-remark', function () {
+            const idx = $(this).data('index');
+            const container = $(`#remarks-container-${idx}`);
             if (container.find('.remark-row').length >= 6) {
-                Swal.fire({
-                    title: 'Max Remarks Reached',
-                    text: 'Maximum 6 remarks per product.',
-                    icon: 'warning'
-                });
+                Swal.fire('Warning', 'Maximum 6 remarks per product.', 'warning');
                 return;
             }
-            const rindex = container.find('.remark-row').length;
-            const html = `
+            const rIdx = container.find('.remark-row').length;
+            container.append(`
                 <div class="remark-row">
-                    <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
+                    <select name="products[${idx}][remarks][${rIdx}][operation]" class="form-select" style="min-width:160px;">
                         <option value="">— Select —</option>
                         <option value="artist">To Artist</option>
                         <option value="printing">To Printing</option>
@@ -842,245 +796,103 @@ var isDirty = false;
                         <option value="self_pickup">To Self Pickup</option>
                         <option value="courier">To Courier</option>
                     </select>
-                    <input type="text" name="products[${index}][remarks][${rindex}][remark]" class="form-control" placeholder="Write a note…">
-                    <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                        <i class="bx bx-trash fs-5"></i>
-                    </button>
+                    <input type="text" name="products[${idx}][remarks][${rIdx}][remark]" class="form-control" placeholder="Write a note…">
+                    <button type="button" class="btn btn-link text-danger remove-remark"><i class="bx bx-trash"></i></button>
                 </div>
-            `;
-            container.append(html);
+            `);
             isDirty = true;
         });
 
-        $(document).on('input', 'input[type="number"]', function() {
-            this.value = ltrim(this.value, '0') || '';
-        });
+        // ——————————————————— Existing Attachment Delete ———————————————————
+        $(document).on('click', '.existing-attachment button', function () {
+            const el = $(this).closest('.existing-attachment');
 
-        const input = document.getElementById('fileInput');
-        const listEl = document.getElementById('preview');
-        const msgEl = document.getElementById('attach-msg');
+            Swal.fire({
+                title: 'Delete attachment?',
+                text: 'This cannot be undone',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Delete',
+                cancelButtonText: 'Cancel'
+            }).then(res => {
+                if (!res.isConfirmed) return;
 
-        const ALLOWED = ['csv'];
-
-        let selectedFile = null;
-
-        input.addEventListener('change', handleCsvUpload);
-
-        function handleCsvUpload() {
-            if (!input.files?.length) return;
-            const f = input.files[0];
-
-            const ext = (f.name.split('.').pop() || '').toLowerCase();
-
-            const errors = [];
-            if (!ALLOWED.includes(ext)) errors.push('Invalid file type');
-
-            listEl.innerHTML = '';
-
-            if (errors.length) {
-                addRow(f, { status: 'error', note: errors.join(', ') });
-                selectedFile = null;
-            } else {
-                selectedFile = f;
-                addRow(f, { status: 'ready' });
-                parseCsv(f);
-            }
-
-            updateSummary();
-            input.value = '';
-            isDirty = true;
-        }
-
-        function addRow(file, { status = 'ready', note = '' }) {
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <span>${file.name}${
-                    status === 'error'
-                        ? ` – <span class="err">${note}</span>`
-                        : ` – <span class="ok">ready</span>`
-                }</span>
-                <button class="remove-x" title="Remove">×</button>
-            `;
-
-            li.querySelector('.remove-x').addEventListener('click', () => {
-                li.remove();
-                selectedFile = null;
-                updateSummary();
-                if (!selectedFile) {
-                    $('#product-table tbody').empty();
-                    productIndex = 0;
-                    isFromCsv = 0;
-                    $('#from_csv').val(0);
-                    $('#addProductBtn').show();
-                    renumberProducts();
-                }
-                isDirty = true;
-            });
-
-            listEl.appendChild(li);
-        }
-
-        function updateSummary() {
-            const count = selectedFile ? 1 : 0;
-            msgEl.innerHTML = count ?
-                `<span class="ok">${count} file selected for upload</span>` :
-                '';
-        }
-
-        function stripQuotes(str) {
-            return str.replace(/^"(.*)"$/, '$1');
-        }
-
-        function parseCsv(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                const lines = text.split(/\r?\n/);
-                const headers = lines[0].split(',').map(h => h.trim());
-
-                $('#product-table tbody').empty();
-                productIndex = 0;
-
-                for (let i = 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue;
-                    const data = lines[i].split(',').map(d => stripQuotes(d.trim()));
-                    const product = {
-                        product_name: data[headers.indexOf('Product_Name')] || '',
-                        quantity: ltrim(data[headers.indexOf('Quantity')] || '', '0'),
-                        material_remark: data[headers.indexOf('Material_Info')] || '',
-                        remarks: []
-                    };
-
-                    const remarkColumns = ['Artist_Remark', 'Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
-                    remarkColumns.forEach((col, idx) => {
-                        const remarkIdx = headers.indexOf(col);
-                        if (remarkIdx !== -1 && data[remarkIdx]) {
-                            product.remarks.push({
-                                operation: ['artist', 'printing', 'furnishing', 'installation', 'courier', 'self_pickup'][idx],
-                                remark: data[remarkIdx]
-                            });
-                        }
-                    });
-
-                    addProductRow(product, productIndex);
-                    productIndex++;
-                }
-
-                isFromCsv = 1;
-                $('#from_csv').val(1);
-                renumberProducts();
-                if (productIndex >= 5) {
-                    $('#addProductBtn').hide();
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        const box = document.getElementById('attach-box');
-        if (box) {
-            ['dragenter', 'dragover'].forEach(evt =>
-                box.addEventListener(evt, e => {
-                    e.preventDefault();
-                    box.classList.add('ring');
-                })
-            );
-            ['dragleave', 'drop'].forEach(evt =>
-                box.addEventListener(evt, e => {
-                    e.preventDefault();
-                    box.classList.remove('ring');
-                })
-            );
-            box.addEventListener('drop', e => {
-                input.files = e.dataTransfer.files;
-                handleCsvUpload();
-            });
-        }
-
-        function clearValidationErrors() {
-            $('.is-invalid').removeClass('is-invalid');
-            $('.validation-msg').empty();
-        }
-
-        function showValidationError(selector, msg) {
-            $(selector).addClass('is-invalid');
-            $(selector + '-error').text(msg);
-        }
-
-        function validateProductForm() {
-            clearValidationErrors();
-            const errors = [];
-
-            const productName = $('#product_name').val().trim();
-            if (!productName) {
-                showValidationError('#product_name', 'Product name is required');
-                errors.push('Product name is required');
-            }
-
-            const quantityStr = $('#quantity').val().trim();
-            const quantity = parseInt(quantityStr, 10);
-            if (!quantityStr || isNaN(quantity) || quantity < 1) {
-                showValidationError('#quantity', 'Quantity must be at least 1');
-                errors.push('Quantity must be at least 1');
-            }
-
-            const remarks = $('#remarks-container .remark-row');
-            const operations = [];
-            remarks.each(function() {
-                const select = $(this).find('select');
-                const input = $(this).find('input');
-                const operation = select.val();
-                const remark = input.val().trim();
-                const opText = select.find('option:selected').text();
-                if (operation && !remark) {
-                    input.addClass('is-invalid');
-                    errors.push(`Remark text required for "${opText}"`);
-                }
-                if (operation) {
-                    if (operations.includes(operation)) {
-                        select.addClass('is-invalid');
-                        errors.push(`Duplicate operation: "${opText}"`);
+                $.ajax({
+                    url: el.data('url'),
+                    method: 'DELETE',
+                    data: { _token: '{{ csrf_token() }}' },
+                    success: () => {
+                        el.remove();
+                        Swal.fire('Deleted!', 'Attachment removed.', 'success');
+                    },
+                    error: xhr => {
+                        Swal.fire('Error', xhr.responseJSON?.message || 'Failed to delete', 'error');
                     }
-                    operations.push(operation);
-                }
+                });
             });
+        });
 
-            return errors;
+        // ——————————————————— New Attachments Dropzone ———————————————————
+        const attZone = document.getElementById('attachment-dropzone');
+        const attInput = attZone.querySelector('input[type=file]');
+        const attPreview = document.getElementById('attachment-preview');
+
+        attZone.addEventListener('click', e => {
+            if (e.target === attZone || e.target.closest('.attach-inner')) attInput.click();
+        });
+
+        ['dragover', 'dragenter'].forEach(ev => attZone.addEventListener(ev, e => {
+            e.preventDefault(); attZone.classList.add('drag-over');
+        }));
+        ['dragleave', 'drop'].forEach(ev => attZone.addEventListener(ev, e => {
+            e.preventDefault(); attZone.classList.remove('drag-over');
+        }));
+
+        attZone.ondrop = e => handleNewFiles(e.dataTransfer.files);
+        attInput.onchange = () => handleNewFiles(attInput.files);
+
+        function handleNewFiles(files) {
+            [...files].forEach(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                const allowed = ['pdf','jpg','jpeg','png','ai','psd','eps','svg','tiff','indd'];
+                if (file.size > 50*1024*1024) return Swal.fire('Error', `${file.name} > 50MB`, 'error');
+                if (!allowed.includes(ext)) return Swal.fire('Error', `${file.name} not allowed`, 'error');
+
+                dt.items.add(file);
+                selectedFiles.push(file);
+
+                const div = document.createElement('div');
+                div.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light';
+                div.innerHTML = `<span><i class="bx bx-paperclip"></i> ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)</span>
+                                 <button type="button" class="btn btn-sm text-danger">×</button>`;
+                div.querySelector('button').onclick = () => {
+                    selectedFiles = selectedFiles.filter(f => f !== file);
+                    dt.items.clear();
+                    selectedFiles.forEach(f => dt.items.add(f));
+                    attInput.files = dt.files;
+                    div.remove();
+                };
+                attPreview.appendChild(div);
+            });
+            attInput.files = dt.files;
         }
 
-        function validateRemarks() {
-            clearValidationErrors();
-            const errors = [];
-            $('#remarks-container .remark-row').each(function() {
-                const operation = $(this).find('select').val();
-                const remark = $(this).find('input').val().trim();
-                if (operation && !remark) {
-                    $(this).find('input').addClass('is-invalid');
-                    errors.push('Remark text required');
-                }
-            });
-            return errors.length === 0;
-        }
-
-        $('#order-form').on('submit', function(e) {
+        // ——————————————————— Form Submit Validation ———————————————————
+        $('#order-form').on('submit', function (e) {
             clearValidationErrors();
             const errors = [];
 
-            const orderTitle = $('input[name="orderTitle"]').val().trim();
-            if (!orderTitle) {
-                showValidationError('input[name="orderTitle"]', 'Job title is required');
+            if (!$('input[name="orderTitle"]').val().trim()) {
                 errors.push('Job title is required');
+                $('input[name="orderTitle"]').addClass('is-invalid');
             }
-
-            const deadline = $('input[name="deadline"]').val();
-            if (!deadline) {
-                showValidationError('input[name="deadline"]', 'Deadline is required');
+            if (!$('input[name="deadline"]').val()) {
                 errors.push('Deadline is required');
+                $('input[name="deadline"]').addClass('is-invalid');
             }
-
-            const approval = $('input[name="approval"]:checked').length;
-            if (!approval) {
-                showValidationError('input[name="approval"]', 'Approval selection is required');
+            if (!$('input[name="approval"]:checked').length) {
                 errors.push('Approval selection is required');
+                $('input[name="approval"]').addClass('is-invalid');
             }
 
             const products = $('#product-table tbody tr');
@@ -1126,99 +938,55 @@ var isDirty = false;
                         errors.push(`Product ${idx + 1}: ${productErrors.join(', ')}`);
                     }
                 });
+            }   
+
+            // Attachment validation
+            const hasExisting = $('.existing-attachment').length > 0;
+
+            if (!hasExisting && selectedFiles.length === 0) {
+       
+                errors.push('At least one attachment is required');
+                attZone.classList.add('border-danger');
+                setTimeout(() => attZone.classList.remove('border-danger'), 3000);
             }
 
-            if (errors.length > 0) {
+            if (errors.length) {
                 e.preventDefault();
                 Swal.fire({
                     title: 'Please fix the following errors',
-                    html: '<div style="text-align:left;"><ul><li>' + errors.join('</li><li>') + '</li></ul></div>',
-                    icon: 'error',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false
+                    html: '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>',
+                    icon: 'error'
                 });
             } else {
-                isDirty = false;
+                isDirty = false; // Allow normal submit
             }
         });
-    });
 
-    function cancelOrder() {
-        if (!isDirty) {
-            history.back();
-            return;
+        function clearValidationErrors() {
+            $('.is-invalid').removeClass('is-invalid');
+            $('.validation-msg').empty();
         }
+
+        function validateProductForm() {
+            clearValidationErrors();
+            const errors = [];
+            if (!$('#product_name').val().trim()) errors.push('Product name is required');
+            if (!$('#quantity').val() || $('#quantity').val() < 1) errors.push('Quantity must be ≥ 1');
+            return errors;
+        }
+    });
+       
+    function cancelOrder() {
+        if (!isDirty) return history.back();
         Swal.fire({
-            title: 'Unsaved Changes',
-            html: 'You have unsaved changes. If you leave now, your changes will be lost.',
+            title: 'Unsaved changes',
+            text: 'Leave without saving?',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Leave',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                history.back();
-            }
-        });
+            cancelButtonText: 'Stay'
+        }).then(r => r.isConfirmed && history.back());
     }
-</script>
-<script>
-// New attachments dropzone
-const attZone = document.getElementById('attachment-dropzone');
-const attInput = attZone.querySelector('input');
-const attPreview = document.getElementById('attachment-preview');
-
-let selectedFiles = [];
-const dt = new DataTransfer();
-
-attZone.addEventListener('click', e => {
-    if (e.target === attZone || e.target.closest('.attach-inner')) {
-        e.stopPropagation();
-        attInput.click();
-    }
-});
-
-['dragover', 'dragenter'].forEach(ev => attZone.addEventListener(ev, e => {
-    e.preventDefault(); attZone.classList.add('drag-over');
-}));
-['dragleave', 'drop'].forEach(ev => attZone.addEventListener(ev, e => {
-    e.preventDefault(); attZone.classList.remove('drag-over');
-}));
-
-attZone.ondrop = e => handleNewFiles(e.dataTransfer.files);
-attInput.onchange = () => handleNewFiles(attInput.files);
-
-function handleNewFiles(files) {
-    [...files].forEach(file => {
-        const ext = file.name.split('.').pop().toLowerCase();
-        const allowed = ['pdf','jpg','jpeg','png','ai','psd','eps','svg','tiff','indd'];
-        if (file.size > 50*1024*1024) {
-            Swal.fire('Too Large', `${file.name} exceeds 50MB`, 'error');
-            return;
-        }
-        if (!allowed.includes(ext)) {
-            Swal.fire('Invalid File', `${file.name} not allowed`, 'error');
-            return;
-        }
-
-        dt.items.add(file);
-        selectedFiles.push(file);
-
-        const div = document.createElement('div');
-        div.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light';
-        div.innerHTML = `<span><i class="bx bx-paperclip"></i> ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)</span>
-                         <button type="button" class="btn btn-sm text-danger">&times;</button>`;
-        div.querySelector('button').onclick = () => {
-            selectedFiles = selectedFiles.filter(f => f !== file);
-            dt.items.clear();
-            selectedFiles.forEach(f => dt.items.add(f));
-            attInput.files = dt.files;
-            div.remove();
-        };
-        attPreview.appendChild(div);
-    });
-    attInput.files = dt.files;
-}
 </script>
 @endpush
 
