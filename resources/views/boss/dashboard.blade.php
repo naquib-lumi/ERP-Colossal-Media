@@ -372,7 +372,7 @@
   </div>
 
   <!-- Cost charts row -->
-  <div class="row g-3 mb-3">
+  <!-- <div class="row g-3 mb-3">
     <div class="col-lg-6">
       <div class="card soft p-3 h-100">
         <h6 class="fw-bold mb-2">Total Cost Distribution</h6>
@@ -384,9 +384,9 @@
           <span class="legend-dot" style="background:var(--violet);margin-left:14px"></span>Other
         </div>
       </div>
-    </div>
+    </div> -->
     {{-- Redo Count by Product & Order --}}
-    <div class="col-lg-6">
+    <div>
       <div class="card soft p-3 h-100 redo-card">
         <h6 class="fw-bold mb-2">Redo Count by Product & Order</h6>
         <div class="chart-wrap"><canvas id="redoChart" height="120"></canvas></div>
@@ -396,42 +396,61 @@
 
   <!-- Costing Data Management -->
   <div class="card soft p-3 mb-3 costing-card" id="costingSection">
-    <h6 class="fw-bold mb-2">Costing Data Management</h6>
-    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-  <!-- Search 在前 -->
-  <input type="text" class="form-control form-control-sm w-200" placeholder="Search product id, product name...">
+    
 
-  <!-- 下拉：Machine Type -->
-  <select class="form-select form-select-sm w-160">
-    <option>All Machine Type</option>
-    <option>Printer</option>
-    <option>Cutter</option>
-  </select>
+    <!-- Filter Row -->
+    <form id="costingFilters" method="GET" action="{{ route('boss.dashboard') }}">
+      <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <h6 class="fw-bold mb-2">Costing Data Management</h6>
+        <!-- <input type="text"
+              class="form-control form-control-sm w-200"
+              name="q_id"
+              id="cfOrderId"
+              placeholder="#ORD-2025"
+              value="{{ request('q_id') }}">
 
-  <!-- 下拉：时间范围 -->
-  <select class="form-select form-select-sm w-160">
-    <option>Last 30 Days</option>
-    <option>Last 90 Days</option>
-    <option>This Year</option>
-  </select>
+        <input type="text"
+              class="form-control form-control-sm w-250"
+              name="q_text"
+              id="cfSearch"
+              placeholder="Title, company, or product name..."
+              value="{{ request('q_text') }}">
 
-  <!-- 右侧按钮 -->
-  <div class="ms-auto d-flex gap-2">
-    <button class="btn btn-dark-compact btn-sm-compact">
-      <i class="bi bi-download"></i> Export
-    </button>
-    <!-- <button class="btn btn-gray-compact btn-sm-compact">
-      <i class="bi bi-plus-lg"></i> Add Machine Type
-    </button> -->
-  </div>
-</div>
+        <select class="form-select form-select-sm w-160"
+                name="status"
+                id="cfStatus">
+          @php $cfStatus = request('status', 'all'); @endphp
+          <option value="all"         {{ $cfStatus === 'all' ? 'selected' : '' }}>All Status</option>
+          <option value="in_progress" {{ $cfStatus === 'in_progress' ? 'selected' : '' }}>In Progress</option>
+          <option value="completed"   {{ $cfStatus === 'completed' ? 'selected' : '' }}>Completed</option>
+          <option value="rejected"    {{ $cfStatus === 'rejected' ? 'selected' : '' }}>Rejected / Redo</option>
+        </select>
 
+        <select class="form-select form-select-sm w-160"
+                name="range"
+                id="cfRange">
+          @php $cfRange = request('range', '30'); @endphp
+          <option value="7"   {{ $cfRange === '7' ? 'selected' : '' }}>Last 7 Days</option>
+          <option value="30"  {{ $cfRange === '30' ? 'selected' : '' }}>Last 30 Days</option>
+          <option value="m"   {{ $cfRange === 'm' ? 'selected' : '' }}>This Month</option>
+          <option value="lm"  {{ $cfRange === 'lm' ? 'selected' : '' }}>Last Month</option>
+          <option value="all" {{ $cfRange === 'all' ? 'selected' : '' }}>All Time</option>
+        </select> -->
+
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-dark-compact btn-sm-compact">
+            <i class="bi bi-download"></i> Export
+          </button>
+        </div>
+
+      </div>
+    </form>
 
     <div class="table-wrap">
       <table class="table table-sm mb-0" id="costTable">
         <thead>
         <tr>
-          <th>Order ID</th><th>Product Quantity</th><th>Used by Items</th><th>Total Cost</th><th>Actions</th>
+          <th>Order ID</th><th>Product Quantity</th><th>Used Quantity</th><th>Total Cost</th><th>Actions</th>
         </tr>
         </thead>
           <tbody>
@@ -776,6 +795,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+(function () {
+    const form     = document.getElementById('costingFilters');
+    if (!form) return;
+
+    const orderInp = document.getElementById('cfOrderId');
+    const textInp  = document.getElementById('cfSearch');
+    const statusEl = document.getElementById('cfStatus');
+    const rangeEl  = document.getElementById('cfRange');
+
+    const submitForm = () => form.submit();
+
+    // Search fields submit on Enter
+    [orderInp, textInp].forEach(el => {
+        if (!el) return;
+        el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitForm();
+            }
+        });
+    });
+
+    // Select filters auto-submit
+    [statusEl, rangeEl].forEach(el => {
+        if (!el) return;
+        el.addEventListener('change', submitForm);
+    });
+})();
 </script>
 
 @endsection
