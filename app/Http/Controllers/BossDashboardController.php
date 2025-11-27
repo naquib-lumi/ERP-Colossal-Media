@@ -242,6 +242,7 @@ class BossDashboardController extends Controller
         $printerAgg = DB::table('specifications as s')
             ->join('product_items as pi', 'pi.ItemID', '=', 's.ItemID')
             ->whereNotNull('s.printer')->where('s.printer','<>','')
+            ->whereRaw("LOWER(TRIM(s.printer)) NOT IN ('no','none','n','0', 'TBC', 'tbc')")
             ->selectRaw("
                 s.printer as machine_name,
                 'Printer'  as machine_type,
@@ -255,6 +256,7 @@ class BossDashboardController extends Controller
         $cutterAgg = DB::table('specifications as s')
             ->join('product_items as pi', 'pi.ItemID', '=', 's.ItemID')
             ->whereNotNull('s.cutter')->where('s.cutter','<>','')
+            ->whereRaw("LOWER(TRIM(s.cutter)) NOT IN ('no','none','n','0', 'TBC', 'tbc')")
             ->selectRaw("
                 s.cutter as machine_name,
                 'Cutter'  as machine_type,
@@ -323,6 +325,134 @@ class BossDashboardController extends Controller
             'counts' => $redoCounts,
         ];
 
+        // ================= Costing Data Management TOP 3 =================
+        $costingTopOrders = (function () {
+
+            // 1) Base orders (last 30 days, same idea as "Another Data" default)
+            $ordersQuery = DB::table('orders as o')
+                ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
+                ->select(
+                    'o.id',
+                    'o.order_number',
+                    'o.created_at',
+                    'o.status',
+                    'o.redo',
+                    DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
+                    'base.order_number as base_order_number'
+                )
+                ->where('o.created_at', '>=', now()->subDays(30));
+
+            $ordersAll = collect($ordersQuery->orderBy('o.created_at', 'desc')->get());
+            if ($ordersAll->isEmpty()) {
+                return collect();
+            }
+
+            $orderIds = $ordersAll->pluck('id')->all();
+
+            // products_count (same as datamanagement)
+            $productsAgg = DB::table('products')
+                ->select('OrderID', DB::raw('COUNT(DISTINCT ProductID) as products_count'))
+                ->whereIn('OrderID', $orderIds)
+                ->groupBy('OrderID')
+                ->get()
+                ->keyBy('OrderID');
+
+            // used_quantity = sum of item qty
+            $usedAgg = DB::table('products as p')
+                ->join('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
+                ->select('p.OrderID', DB::raw('COALESCE(SUM(pi.quantity),0) as used_quantity'))
+                ->whereIn('p.OrderID', $orderIds)
+                ->groupBy('p.OrderID')
+                ->get()
+                ->keyBy('OrderID');
+
+            // products + items for total_cost calc
+            $products = DB::table('products')
+                ->select('ProductID', 'OrderID', 'totalQuantity', 'status', 'created_at')
+                ->whereIn('OrderID', $orderIds)
+                ->get();
+
+            $items = DB::table('product_items')
+                ->select('ItemID','ProductID','quantity','sizeWidth','sizeHeight','sizeUnit','material')
+                ->whereIn('ProductID', $products->pluck('ProductID')->all() ?: [0])
+                ->get();
+
+            $itemsByProduct = $items->groupBy('ProductID');
+
+            // material costs
+            $materialCosts = DB::table('materials')
+                ->select('materialName','unitCost')
+                ->get()
+                ->keyBy(function ($m) {
+                    return trim(mb_strtolower($m->materialName));
+                });
+
+            // helper: unit → inch factor
+            $toInchFactor = function (?string $u): float {
+                $u = strtolower((string)$u);
+                return match ($u) {
+                    'mm' => 1/25.4,
+                    'cm' => 1/2.54,
+                    'ft', 'feet' => 12.0,
+                    'inch','in','"' => 1.0,
+                    default => 1.0,
+                };
+            };
+
+            // compute products_count, used_quantity, total_cost for each order
+            $computed = $ordersAll->map(function ($ord)
+                use ($products, $itemsByProduct, $materialCosts, $productsAgg, $usedAgg, $toInchFactor) {
+
+                $ord->products_count = (int) optional($productsAgg->get($ord->id))->products_count ?? 0;
+                $ord->used_quantity  = (int) optional($usedAgg->get($ord->id))->used_quantity ?? 0;
+                $ord->total_item_quantity = $ord->used_quantity;
+
+                $totalCost = 0.0;
+
+                foreach ($products->where('OrderID', $ord->id) as $p) {
+                    foreach ($itemsByProduct->get($p->ProductID, collect()) as $it) {
+                        $qty = (int) ($it->quantity ?? 0);
+                        if ($qty <= 0) continue;
+
+                        $w = (float) ($it->sizeWidth ?? 0);
+                        $h = (float) ($it->sizeHeight ?? 0);
+                        $f = $toInchFactor($it->sizeUnit);
+                        $areaSqIn = max(0, $w) * max(0, $h) * ($f * $f);
+
+                        $names = [];
+                        if (!empty($it->material)) {
+                            try {
+                                $dec = json_decode($it->material, true, flags: JSON_THROW_ON_ERROR);
+                                if (is_array($dec)) {
+                                    $names = array_filter(array_map('strval', $dec));
+                                }
+                            } catch (\Throwable $e) {
+                                // ignore bad JSON
+                            }
+                        }
+
+                        foreach ($names as $name) {
+                            $key = trim(mb_strtolower($name));
+                            if (isset($materialCosts[$key])) {
+                                $unit = (float) $materialCosts[$key]->unitCost;
+                                $totalCost += $qty * $areaSqIn * $unit;
+                            }
+                        }
+                    }
+                }
+
+                $ord->total_cost = $totalCost;
+
+                return $ord;
+            });
+
+            // same default sort as "Another Data" – latest first
+            $computed = $computed->sortBy('created_at', SORT_REGULAR, true)->values();
+
+            // only top 3 rows for dashboard
+            return $computed->take(3);
+        })();
+
         return view('boss.dashboard', [
             'kpis'               => $kpis,
             'monthlyPerformance' => $monthlyPerformance,
@@ -341,6 +471,7 @@ class BossDashboardController extends Controller
             'machineUsage'   => $machineUsage,
             'machineFilters' => $machineFilters,
             'redoChart' => $redoChart,
+            'costingTopOrders' => $costingTopOrders,
         ]);
     }
 

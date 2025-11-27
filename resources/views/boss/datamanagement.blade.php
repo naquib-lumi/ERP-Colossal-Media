@@ -231,6 +231,7 @@
               <th style="font-weight: bold;">Unit Cost</th>
               <th style="font-weight: bold;">Used Quantity</th>
               <th style="font-weight: bold;">Total Cost</th> 
+              <th style="font-weight: bold;">Status</th>
               <th style="text-align:right; font-weight:bold">Actions</th>
             </tr>
           </thead>
@@ -246,18 +247,37 @@
                 <td class="totalCost">
                   RM {{ number_format((float)($m->total_cost ?? 0), 2) }}
                 </td>
+
+                {{-- NEW: Status column --}}
+                <td class="mat-status">
+                  {{ $m->active ? 'Active' : 'Inactive' }}
+                </td>
+
                 <td class="text-end" style="display:flex;justify-content:end;position:relative">
-                  <button class="kebab" title="Actions" data-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                  <button class="kebab" title="Actions" data-toggle="dropdown">
+                    <i class="bi bi-three-dots-vertical"></i>
+                  </button>
                   <div class="dropdown-menu ad-menu" style="position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:10px;min-width:180px;padding:6px">
                     <button 
                       class="dropdown-item btnEdit"
                       data-id="{{ $m->MaterialID }}"
                       data-name="{{ $m->materialName }}"
                       data-cost="{{ $m->unitCost }}"
+                      data-type-id="{{ $m->material_type_id }}"
+                      data-type-name="{{ optional($m->materialType)->name }}"
                     >
                       <i class="bi bi-pencil me-2"></i> Edit Unit Cost
                     </button>
-                    <button class="dropdown-item text-danger btnDelete" data-id="{{ $m->MaterialID }}"><i class="bi bi-trash me-2"></i> Delete</button>
+
+                    {{-- NEW: Activate / Deactivate instead of Delete --}}
+                    <button
+                      class="dropdown-item btnToggleMaterial"
+                      data-id="{{ $m->MaterialID }}"
+                      data-active="{{ (int) $m->active }}"
+                    >
+                      <i class="bi bi-toggle{{ $m->active ? 'on' : 'off' }} me-2"></i>
+                      {{ $m->active ? 'Deactivate' : 'Activate' }}
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -521,25 +541,45 @@
 
 <div class="x-mask" id="mdlQuickEdit">
   <div class="x">
-    <div class="x-hd"><i class="bi bi-pencil-square"></i> Edit Unit Cost</div>
+    <div class="x-hd">
+      <i class="bi bi-pencil-square"></i>
+      <span id="qeTitle">Edit Material</span>
+    </div>
+
     <div class="x-bd">
       <input type="hidden" id="qeId">
+
       <div class="field">
         <div class="label">Material Name</div>
         <input id="qeName" type="text" class="control">
       </div>
+
+      {{-- NEW: Material Type (only active types) --}}
+      <div class="field">
+        <div class="label">Material Type</div>
+        <select id="qeType" class="control">
+          @foreach($types->where('active', 1) as $t)
+            <option value="{{ $t->id }}">{{ $t->name }}</option>
+          @endforeach
+        </select>
+      </div>
+
       <div class="field">
         <div class="label">Current Unit Cost</div>
         <input id="qeCurrent" class="control" disabled>
       </div>
+
       <div class="field">
         <div class="label">New Unit Cost *</div>
         <input id="qeNew" type="number" step="0.0001" class="control">
       </div>
     </div>
+
     <div class="x-ft">
       <button class="btn btn-ghost" data-close="mdlQuickEdit">Cancel</button>
-      <button class="btn btn-dark" id="btnSaveQuick"><i class="bi bi-floppy2"></i> Save Changes</button>
+      <button class="btn btn-dark" id="btnSaveQuick">
+        <i class="bi bi-floppy2"></i> Save Changes
+      </button>
     </div>
   </div>
 </div>
@@ -579,7 +619,7 @@
     </div>
   </div>
 </div>
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (() => {
   const $ = s => document.querySelector(s);
@@ -741,10 +781,16 @@ document.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#btnSaveType')) return;
 
-  const name = (document.getElementById('typeName')?.value || '').trim();
+  const inputEl = document.getElementById('typeName');
+  const name = (inputEl?.value || '').trim();
+
+  // 🔍 Front-end validation
   if (!name) {
-    alert('Type name is required');
-    return;
+    return Swal.fire({
+      icon: 'warning',
+      title: 'Type name is required',
+      text: 'Please enter a material type name before saving.'
+    });
   }
 
   const saveBtn = document.getElementById('btnSaveType');
@@ -759,6 +805,15 @@ document.addEventListener('click', (e) => {
     ? { typeName: name, _method: 'PUT' }
     : { typeName: name };
 
+  // Optional loading state
+  Swal.fire({
+    title: 'Saving...',
+    didOpen: () => Swal.showLoading(),
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false
+  });
+
   fetch(url, {
     method: 'POST',
     headers: {
@@ -771,14 +826,17 @@ document.addEventListener('click', (e) => {
     .then((r) => r.json())
     .then((data) => {
       if (!data || !data.success || !data.type) {
-        alert(data?.message || 'Failed to save type');
-        return;
+        return Swal.fire({
+          icon: 'error',
+          title: 'Failed to save',
+          text: data?.message || 'Unable to save material type. Please try again.'
+        });
       }
 
       const type = data.type;
 
       // 1) Update dropdowns (filter + add-material)
-      ['typeFilter', 'matType'].forEach((selId) => {
+      ['typeFilter', 'matType', 'qeType'].forEach((selId) => {
         const sel = document.getElementById(selId);
         if (!sel) return;
 
@@ -831,116 +889,289 @@ document.addEventListener('click', (e) => {
       }
 
       closeMask('mdlType');
+
+      Swal.fire({
+        icon: 'success',
+        title: isEdit ? 'Material type updated' : 'Material type added',
+        timer: 1200,
+        showConfirmButton: false
+      });
     })
-    .catch(() => alert('Error saving type'));
+    .catch(() => {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error saving material type. Please try again.'
+      });
+    });
 });
   
-
   // Add Material
-  $('#btnAddMaterial').addEventListener('click', ()=> openMask('mdlMaterial'));
-  $('#btnSaveMaterial').addEventListener('click', ()=>{
-    const postData = {
-      materialName: $('#matName').value.trim(),
-      material_type_id: $('#matType').value,
-      unitCost: $('#matCost').value
-    };
+  $('#btnAddMaterial').addEventListener('click', () => openMask('mdlMaterial'));
 
-    if (!postData.materialName || !postData.material_type_id || !postData.unitCost) {
-      alert('Please fill in all required fields');
-      return;
+  $('#btnSaveMaterial').addEventListener('click', () => {
+    const name   = ($('#matName')?.value || '').trim();
+    const typeId = $('#matType') ? $('#matType').value : '';
+    const cost   = ($('#matCost')?.value || '').trim();
+
+    // 🔍 SweetAlert validation
+    if (!name) {
+      return Swal.fire({
+        icon: 'warning',
+        title: 'Material name is required',
+        text: 'Please enter a material name before saving.'
+      });
     }
 
+    if (!typeId) {
+      return Swal.fire({
+        icon: 'warning',
+        title: 'Material type is required',
+        text: 'Please select a material type.'
+      });
+    }
+
+    if (!cost || isNaN(cost) || Number(cost) < 0) {
+      return Swal.fire({
+        icon: 'warning',
+        title: 'Invalid unit cost',
+        text: 'Please enter a valid non-negative number.'
+      });
+    }
+
+    const postData = {
+      materialName: name,
+      material_type_id: typeId,
+      unitCost: cost
+    };
+
+    // ⏳ loading state
+    Swal.fire({
+      title: 'Saving...',
+      didOpen: () => Swal.showLoading(),
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false
+    });
+
     fetch("{{ route('boss.materials.store') }}", {
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
-      body:JSON.stringify(postData)
-    }).then(r=>r.json()).then(data=>{
-      if(data.success){
-        location.reload();
-      }else{ alert('Failed to save'); }
-    }).catch(()=>alert('Error'));
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrf,
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(postData)
+    })
+      .then(r => r.json())
+      .then((data) => {
+        if (!data || !data.success) {
+          return Swal.fire({
+            icon: 'error',
+            title: 'Failed to save',
+            text: data?.message || 'Unable to create material. Please try again.'
+          });
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Material added!',
+          timer: 1200,
+          showConfirmButton: false
+        }).then(() => {
+          closeMask('mdlMaterial');
+          location.reload();
+        });
+      })
+      .catch(() => {
+        Swal.fire({
+          icon: 'error',
+          title: 'Server error',
+          text: 'Something went wrong while saving the material.'
+        });
+      });
   });
 
   // Edit (open)
   document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.btnEdit');
-  if (!btn) return;
+    const btn = e.target.closest('.btnEdit');
+    if (!btn) return;
 
-  // Remember the row so we don't have to re-find it later
-  window.__editingRow = btn.closest('tr');
+    window.__editingRow = btn.closest('tr');
 
-  document.getElementById('qeId').value = btn.dataset.id;
-  document.getElementById('qeName').value = btn.dataset.name || '';
-  document.getElementById('qeCurrent').value = btn.dataset.cost ? Number(btn.dataset.cost).toFixed(4) : '';
-  document.getElementById('qeNew').value = btn.dataset.cost || '';
+    document.getElementById('qeId').value      = btn.dataset.id;
+    document.getElementById('qeName').value    = btn.dataset.name || '';
+    document.getElementById('qeCurrent').value = btn.dataset.cost
+      ? Number(btn.dataset.cost).toFixed(4)
+      : '';
+    document.getElementById('qeNew').value     = btn.dataset.cost || '';
 
-  // open modal
-  openMask('mdlQuickEdit');
-});
+    // NEW: set current type and modal title
+    const qeType = document.getElementById('qeType');
+    if (qeType) {
+      qeType.value = btn.dataset.typeId || '';
+    }
+
+    const titleEl = document.getElementById('qeTitle');
+    if (titleEl) {
+      titleEl.textContent = `Edit Material - ${btn.dataset.name || ''}`;
+    }
+
+    openMask('mdlQuickEdit');
+  });
 
   // Save Quick Edit
-  $('#btnSaveQuick').addEventListener('click', ()=>{
-    const id = $('#qeId').value;
-    const postData = {
-      qeName: $('#qeName').value,
-      qeNew: $('#qeNew').value,
-    };
-    fetch("{{ route('boss.materials.update', ['id' => '___ID___']) }}".replace('___ID___', id), {
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,'Accept':'application/json'},
-      body:JSON.stringify(postData)
-    }).then(r=>r.json())
-    
+  $('#btnSaveQuick').addEventListener('click', () => {
+  const id     = $('#qeId').value;
+  const name   = ($('#qeName').value || '').trim();
+  const cost   = ($('#qeNew').value || '').trim();
+  const typeId = $('#qeType') ? $('#qeType').value : '';
+
+  // ========== Front-end validation (SweetAlert) ==========
+  if (!name) {
+    return Swal.fire({
+      icon: 'warning',
+      title: 'Material name is required',
+      text: 'Please enter a material name before saving.'
+    });
+  }
+
+  if (!typeId) {
+    return Swal.fire({
+      icon: 'warning',
+      title: 'Material type is required',
+      text: 'Please select a material type.'
+    });
+  }
+
+  if (!cost || isNaN(cost) || Number(cost) < 0) {
+    return Swal.fire({
+      icon: 'warning',
+      title: 'Invalid unit cost',
+      text: 'Please enter a valid non-negative number for the new unit cost.'
+    });
+  }
+
+  const postData = {
+    qeName: name,
+    qeNew:  cost,
+    qeType: typeId
+  };
+
+  // Optional: small loading state
+  Swal.fire({
+    title: 'Saving...',
+    didOpen: () => Swal.showLoading(),
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false
+  });
+
+  fetch("{{ route('boss.materials.update', ['id' => '___ID___']) }}".replace('___ID___', id), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': csrf,
+      'Accept': 'application/json'
+    },
+    body: JSON.stringify(postData)
+  })
+    .then(r => r.json())
     .then((data) => {
       if (!data || !data.success) {
-        alert(data?.message || 'Failed to update');
-        return;
+        return Swal.fire({
+          icon: 'error',
+          title: 'Failed to update',
+          text: data?.message || 'Something went wrong while updating the material.'
+        });
       }
+
+      const mat = data.material || {};
 
       // Use the row we remembered when opening the modal
       const tr = window.__editingRow || null;
-      // Clear the pointer; it's one edit per open
       window.__editingRow = null;
 
-      // If for some reason the row is gone (e.g. re-render), just close and stop
-      if (!tr) { closeMask('mdlQuickEdit'); return; }
+      if (tr) {
+        const nameCell = tr.querySelector('td:nth-child(1)');
+        const typeCell = tr.querySelector('td:nth-child(2)');
+        const costCell = tr.querySelector('td:nth-child(3)');
 
-      const nameCell = tr.querySelector('td:nth-child(1)');
-      const costCell = tr.querySelector('td:nth-child(3)');
+        const newName = name;
+        const newCost = Number(cost).toFixed(4);
 
-      const newName   = document.getElementById('qeName').value || (nameCell ? nameCell.textContent : '');
-      const newCost   = Number(document.getElementById('qeNew').value || 0).toFixed(4);
-      const unitLabel = '';
+        if (nameCell) nameCell.textContent = newName;
+        if (costCell) costCell.textContent = `RM ${newCost}`;
+        if (typeCell && mat.type_name) typeCell.textContent = mat.type_name;
 
-      if (nameCell) nameCell.textContent = newName;
-      if (costCell) costCell.textContent = `RM ${newCost}`;
-
-      // Also refresh row data attributes on the edit button
-      const btn = tr.querySelector('.btnEdit');
-      if (btn) {
-        btn.dataset.name = newName;
-        btn.dataset.cost = document.getElementById('qeNew').value;
+        const btn = tr.querySelector('.btnEdit');
+        if (btn) {
+          btn.dataset.name   = newName;
+          btn.dataset.cost   = cost;
+          if (mat.type_id)   btn.dataset.typeId   = mat.type_id;
+          if (mat.type_name) btn.dataset.typeName = mat.type_name;
+        }
       }
 
       closeMask('mdlQuickEdit');
-      location.reload(); 
-    })
-  });
 
-  // Delete
-  document.addEventListener('click', (e)=>{
-    const btn = e.target.closest('.btnDelete');
-    if(!btn) return;
-    if(!confirm('Delete this material?')) return;
-    fetch("{{ route('boss.materials.destroy', ['id' => '___ID___']) }}".replace('___ID___', btn.dataset.id), {
-      method:'DELETE',
-      headers:{'X-CSRF-TOKEN':csrf,'Accept':'application/json'}
-    }).then(r=>r.json()).then(data=>{
-      if(data.success){
-        const tr = btn.closest('tr'); tr?.remove();
-        applyFilter();
-      }else{ alert('Failed to delete'); }
-    }).catch(()=>alert('Error'));
+      // success alert + refresh
+      Swal.fire({
+        icon: 'success',
+        title: 'Material updated',
+        timer: 1200,
+        showConfirmButton: false
+      }).then(() => {
+        location.reload();
+      });
+    })
+    .catch(() => {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error updating material. Please try again.'
+      });
+    });
+});
+
+  // Activate / Deactivate material
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btnToggleMaterial');
+    if (!btn) return;
+
+    const id = btn.dataset.id;
+    if (!id) return;
+
+    const url = "{{ route('boss.materials.toggle', ['id' => '___ID___']) }}".replace('___ID___', id);
+
+    fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrf,
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({}),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data || !data.success) {
+          alert(data?.message || 'Failed to update material status');
+          return;
+        }
+
+        const active = data.active ? 1 : 0;
+        const tr = btn.closest('tr');
+
+        // update Status cell
+        const statusTd = tr?.querySelector('.mat-status');
+        if (statusTd) statusTd.textContent = active ? 'Active' : 'Inactive';
+
+        // update button label + icon + data-active
+        btn.dataset.active = String(active);
+        btn.innerHTML = `<i class="bi bi-toggle${active ? 'on' : 'off'} me-2"></i> ${active ? 'Deactivate' : 'Activate'}`;
+      })
+      .catch(() => alert('Error updating material status'));
   });
 
   // Init

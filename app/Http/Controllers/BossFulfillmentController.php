@@ -10,6 +10,7 @@ use App\Models\Product;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Models\OrderAttachment;
 
 class BossFulfillmentController extends Controller
 {
@@ -51,21 +52,56 @@ class BossFulfillmentController extends Controller
             ->leftJoin('delivery_breakdowns as d', 'd.ProductID', '=', 'p.ProductID')
             ->leftJoinSub($latestPermit, 'pp', 'pp.product_id', '=', 'p.ProductID')
             ->leftJoin('product_permit as pf', 'pf.id', '=', 'pp.last_id')
-            ->where(function ($q) { $q->whereNull('o.status')->orWhere('o.status', 0); })
-            ->where('o.orderStatus', 'completed')
+            ->where(function ($q) { 
+                $q->whereNull('o.status')->orWhere('o.status', 0); 
+            })
+            // 1) not awaiting_keyin
+            ->where(function ($w) {
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
+            })
+            // 2) editable = 0 OR not in_progress
+            ->where(function ($w) {
+                $w->where('p.editable', 0)
+                ->orWhere(function ($w2) {
+                    $w2->whereNull('o.orderStatus')
+                        ->orWhere('o.orderStatus', '!=', 'in_progress');
+                });
+            })
+            ->whereNotNull('p.taskType')
             ->select([
                 'p.ProductID','p.OrderID','p.productName','p.taskType','p.status as product_status',
                 'p.redoOf','p.editable',
                 'o.id as order_id','o.redo as order_redo','o.orderTitle','o.companyName',
-                'o.orderDate','o.created_at as order_created_at',
+                'o.orderDate', 'o.deadline as order_deadline', 'o.created_at as order_created_at',
                 'd.BreakdownID as breakdown_id','d.date as delivery_date','d.time as delivery_time',
-                'd.location as delivery_location','d.deliver_install_type','d.outsource_cost',
+                'd.location as delivery_location','d.deliver_install_type',
                 'pf.permit_file',
-            ])
+                'p.installation_task_type','p.installation_status','p.installation_accepted',
+                'd.method as delivery_method',
+            ]);
             // rows missing date/location first → then by delivery date/time
-            ->orderByRaw('CASE WHEN d.date IS NULL OR d.location IS NULL THEN 0 ELSE 1 END ASC')
+            // ->orderByRaw('CASE WHEN d.date IS NULL OR d.location IS NULL THEN 0 ELSE 1 END ASC')
+            // ->orderByRaw('COALESCE(d.date, o.orderDate, o.created_at) ASC')
+            // ->orderByRaw('COALESCE(d.time, "00:00:00") ASC');
+
+        // priority: how many of [permit, delivery date, delivery location] are empty
+        $missingExpr = '((pf.permit_file IS NULL OR pf.permit_file = "")'
+            .' + (d.date IS NULL)'
+            .' + (d.location IS NULL OR d.location = ""))';
+
+        $query
+            ->orderByRaw("
+                CASE
+                    WHEN $missingExpr = 3 THEN 0
+                    WHEN $missingExpr = 2 THEN 1
+                    WHEN $missingExpr = 1 THEN 2
+                    ELSE 3
+                END ASC
+            ")
+            // then, inside each group, sort by date/time as before
             ->orderByRaw('COALESCE(d.date, o.orderDate, o.created_at) ASC')
-            ->orderByRaw('COALESCE(d.time, "00:00:00") ASC');
+            ->orderByRaw("COALESCE(d.time, '00:00:00') ASC");
 
         // (1) Order box: numeric id or text (job title)
         if ($orderId !== '') {
@@ -96,14 +132,39 @@ class BossFulfillmentController extends Controller
 
         // (4) Task filter
         if ($task !== '') {
-            $taskNorm = str_replace('&', 'and', $task);
-            $taskNorm = preg_replace('/\s+/', '_', $taskNorm);
-            if (in_array($taskNorm, ['printing','furnishing'], true)) {
+            // normalize
+            $taskNorm = strtolower($task);
+
+            if (in_array($taskNorm, ['printing', 'furnishing'], true)) {
+                // simple 1-to-1
                 $query->whereRaw('LOWER(p.taskType) = ?', [$taskNorm]);
-            } elseif (in_array($taskNorm, ['delivery','dispatch_control'], true)) {
-                $query->whereRaw('LOWER(p.taskType) = ?', ['delivery']);
-            } elseif (in_array($taskNorm, ['installation','delivery_installation','delivery_and_installation'], true)) {
-                $query->whereRaw('LOWER(p.taskType) = ?', ['installation']);
+
+            } elseif ($taskNorm === 'delivery') {
+                // Dispatch Control only:
+                //  - base taskType = delivery
+                //  - NOT the "delivery & installation" combo
+                $query->where(function ($w) {
+                    $w->whereRaw('LOWER(p.taskType) = ?', ['delivery'])
+                    ->where(function ($w2) {
+                        $w2->whereNull('p.installation_task_type')
+                            ->orWhere('p.installation_task_type', '!=', 1)
+                            ->orWhereRaw('LOWER(d.method) <> "delivery_installation"');
+                    });
+                });
+
+            } elseif (in_array($taskNorm, ['installation', 'delivery_installation', 'delivery_and_installation'], true)) {
+                // Delivery & Installation only:
+                //  - either real installation task
+                //  - OR delivery rows that are the installation leg:
+                //        installation_task_type = 1 AND d.method = 'delivery_installation'
+                $query->where(function ($w) {
+                    $w->whereRaw('LOWER(p.taskType) = ?', ['installation'])
+                    ->orWhere(function ($w2) {
+                        $w2->whereRaw('LOWER(p.taskType) = ?', ['delivery'])
+                            ->where('p.installation_task_type', 1)
+                            ->whereRaw('LOWER(d.method) = "delivery_installation"');
+                    });
+                });
             }
         }
 
@@ -164,11 +225,23 @@ class BossFulfillmentController extends Controller
 
                 $productCode = sprintf('#ORD-%s-%03d-P%04d%s', $year, (int)$baseOrderId, (int)$baseProductId, $rFlag);
 
-                $task = strtolower((string)$r->taskType);
-                $taskLabel = match ($task) {
-                    'installation' => 'Delivery & Installation',
+                // --- Decide logical task type (same idea as installation Job Order) ---
+                $baseTask       = strtolower((string) ($r->taskType ?? ''));          // printing / furnishing / delivery / installation
+                $deliveryMethod = strtolower(trim((string) ($r->delivery_method ?? '')));
+                $installFlag    = (int) ($r->installation_task_type ?? 0);
+
+                if ($installFlag === 1 && $deliveryMethod === 'delivery_installation') {
+                    // treat as installation so it shows as Delivery & Installation
+                    $logicalTask = 'installation';
+                } else {
+                    $logicalTask = $baseTask;
+                }
+
+                // Final label shown in the pill
+                $taskLabel = match ($logicalTask) {
                     'delivery'     => 'Dispatch Control',
-                    default        => $task !== '' ? ucfirst($task) : '-',
+                    'installation' => 'Delivery & Installation',
+                    default        => ($logicalTask !== '' ? ucfirst($logicalTask) : '-'),
                 };
 
                 $dt = null;
@@ -184,6 +257,15 @@ class BossFulfillmentController extends Controller
                     'both'                => 'Both',
                     default               => '—',
                 };
+
+                $deadline = null;
+                if (!empty($r->order_deadline)) {
+                    try {
+                        $deadline = \Carbon\Carbon::parse($r->order_deadline)->format('Y-m-d');
+                    } catch (\Throwable $e) {
+                        $deadline = $r->order_deadline; // fallback raw
+                    }
+                }
 
                 // permit_url from either "path" or "path|OriginalName"
                 $permitUrl = null;
@@ -205,7 +287,7 @@ class BossFulfillmentController extends Controller
                     'delivery_dt'    => $dt,
                     'delivery_loc'   => (string)($r->delivery_location ?? ''),
                     'install_type'   => $installLabel,
-                    'outsource_cost' => is_null($r->outsource_cost) ? null : (float)$r->outsource_cost,
+                    // 'outsource_cost' => is_null($r->outsource_cost) ? null : (float)$r->outsource_cost,
                     'permit_url'     => $permitUrl,
                 ];
             })
@@ -307,6 +389,48 @@ class BossFulfillmentController extends Controller
             return Storage::disk('public')->url($p);
         };
 
+        // roles considered "artist-side"
+        $artistRoles = ['artist', 'head-artist', 'data-entry'];
+
+        // 1) Try order_attachments table first
+        $rows = OrderAttachment::with('uploader:id,name,role')
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $mapRow = function (OrderAttachment $att) use ($toPublicUrl) {
+            $p = ltrim((string) $att->file_path, '/');
+            $web = \Illuminate\Support\Str::startsWith($p, 'storage/') ? $p : 'storage/' . $p;
+
+            return [
+                'id'            => $att->id,
+                'name'          => $att->original_name ?: basename($p),
+                'url'           => $toPublicUrl($web),
+                'size'          => (int) $att->size,
+                'ext'           => pathinfo($p, PATHINFO_EXTENSION),
+                'uploaded_by'   => optional($att->uploader)->name,
+                'uploader_role' => optional($att->uploader)->role,
+                'uploaded_at'   => optional($att->created_at)->format('d M Y'),
+            ];
+        };
+
+        if ($rows->isNotEmpty()) {
+            // split by uploader role
+            $headerAttachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return !in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+
+            $attachments = $rows
+                ->filter(function ($att) use ($artistRoles) {
+                    return in_array(optional($att->uploader)->role, $artistRoles, true);
+                })
+                ->map($mapRow)
+                ->values();
+        }
+
         $leadAttachments = collect();
         if ($order?->lead_id) {
             $leadAttachments = LeadAttachment::where('lead_id', $order->lead_id)
@@ -329,46 +453,70 @@ class BossFulfillmentController extends Controller
         }
 
         // attachments saved on order
-        $raw   = $order->orderAttachment; // string|array|null
-        $paths = [];
-        if (is_array($raw)) {
-            $paths = $raw;
-        } elseif (is_string($raw)) {
-            $rawTrim = trim($raw);
-            if (Str::startsWith($rawTrim, '[')) {
-                $paths = json_decode($rawTrim, true) ?: [];
-            } else {
-                $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
-            }
-        }
+        // $raw   = $order->orderAttachment; // string|array|null
+        // $paths = [];
+        // if (is_array($raw)) {
+        //     $paths = $raw;
+        // } elseif (is_string($raw)) {
+        //     $rawTrim = trim($raw);
+        //     if (Str::startsWith($rawTrim, '[')) {
+        //         $paths = json_decode($rawTrim, true) ?: [];
+        //     } else {
+        //         $paths = array_filter(array_map('trim', explode(',', $rawTrim)));
+        //     }
+        // }
 
-        $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
-            $p   = ltrim($p, '/');
-            $url = $toPublicUrl($p);
-            return [
-                'name' => basename($p),
-                'ext'  => pathinfo($p, PATHINFO_EXTENSION),
-                'url'  => $url,
-            ];
-        });
+        // $orderFiles = collect($paths)->map(function ($p) use ($toPublicUrl) {
+        //     $p   = ltrim($p, '/');
+        //     $url = $toPublicUrl($p);
+        //     return [
+        //         'name' => basename($p),
+        //         'ext'  => pathinfo($p, PATHINFO_EXTENSION),
+        //         'url'  => $url,
+        //     ];
+        // });
 
-        // Attachments helper fallback
-        $attachments = [];
-        if (method_exists($this, 'getOrderAttachments')) {
-            $attachments = (array) $this->getOrderAttachments($order);
-        } else {
-            $raw = $order?->orderAttachment;
-            if (is_string($raw) && trim($raw) !== '') {
-                $decoded = json_decode($raw, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $attachments = $decoded;
-                } else {
-                    $attachments = [$raw];
+        // // Attachments helper fallback
+        // $attachments = [];
+        // if (method_exists($this, 'getOrderAttachments')) {
+        //     $attachments = (array) $this->getOrderAttachments($order);
+        // } else {
+        //     $raw = $order?->orderAttachment;
+        //     if (is_string($raw) && trim($raw) !== '') {
+        //         $decoded = json_decode($raw, true);
+        //         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        //             $attachments = $decoded;
+        //         } else {
+        //             $attachments = [$raw];
+        //         }
+        //     } elseif (is_array($raw)) {
+        //         $attachments = $raw;
+        //     }
+        // }
+
+        // ---------- Installation proof files ----------
+        $installationProofs = DB::table('installation_proofs')
+            ->where('ProductID', $product->ProductID)
+            ->orderBy('created_at')
+            ->get()
+            ->map(function ($row) use ($toPublicUrl) {
+                $path = (string) ($row->file_path ?? '');
+                if ($path === '') {
+                    return null;
                 }
-            } elseif (is_array($raw)) {
-                $attachments = $raw;
-            }
-        }
+
+                $url  = $toPublicUrl($path);
+
+                return (object) [
+                    'id'   => $row->id,
+                    'name' => $row->original_name ?: basename($path),
+                    'url'  => $url,
+                    'size' => (int) ($row->size ?? 0),
+                    'mime' => $row->mime,
+                ];
+            })
+            ->filter()
+            ->values();
 
         // ---------- Fulfillment progress (printing, furnishing, delivery, installation) ----------
         $ALL_STAGES = ['printing', 'furnishing', 'delivery', 'installation'];
@@ -396,49 +544,56 @@ class BossFulfillmentController extends Controller
         $currentStage  = strtolower((string)$product->taskType);
         $currentStatus = strtolower((string)$product->status);
 
-        $hasDelivery     = isset($latest['delivery']);
-        $hasInstallation = isset($latest['installation']);
+        // $hasDelivery     = isset($latest['delivery']);
+        // $hasInstallation = isset($latest['installation']);
 
+        $st = fn($k) => $latest[$k]['status'] ?? null;
         $isCompleted = fn($k) => ($latest[$k]['status'] ?? null) === 'completed';
 
         $laterCompleted = [
-            'printing'     => ($isCompleted('furnishing') ?? false)
-                            || (($hasDelivery && $isCompleted('delivery')) || ($hasInstallation && $isCompleted('installation'))),
-            'furnishing'   => (($hasDelivery && $isCompleted('delivery')) || ($hasInstallation && $isCompleted('installation'))),
+            'printing'     => $isCompleted('furnishing')
+                            || $isCompleted('delivery')
+                            || $isCompleted('installation'),
+            'furnishing'   => $isCompleted('delivery') || $isCompleted('installation'),
             'delivery'     => false,
             'installation' => false,
         ];
 
         $progress = collect($ALL_STAGES)->mapWithKeys(function ($stage) use (
-            $latest, $currentStage, $currentStatus, $hasDelivery, $hasInstallation, $laterCompleted
+            $latest,
+            $currentStage,
+            $currentStatus,
+            $laterCompleted
         ) {
-            // mutual exclusion fork
-            if ($stage === 'delivery' && $hasInstallation) {
-                return [$stage => ['status' => '', 'accepted_at' => null, 'completed_at' => null, 'duration' => null]];
-            }
-            if ($stage === 'installation' && $hasDelivery) {
-                return [$stage => ['status' => '', 'accepted_at' => null, 'completed_at' => null, 'duration' => null]];
-            }
-
             $row = $latest[$stage] ?? null;
+
             if ($row) {
                 $status      = $row['status'];
                 $acceptedAt  = $row['acceptedAt'];
                 $completedAt = $row['completedAt'];
             } else {
+                // No DB row for this stage
+                // If a later stage is completed → BLANK; otherwise default to "pending"
                 $status      = $laterCompleted[$stage] ? '' : 'pending';
                 $acceptedAt  = null;
                 $completedAt = null;
             }
 
-            if ($currentStage === $stage && $currentStatus === 'in_progress' && !in_array($status, ['completed','rejected'], true)) {
+            // If this is the product's current stage and it's in progress,
+            // show in_progress (unless already completed/rejected)
+            if (
+                $currentStage === $stage &&
+                $currentStatus === 'in_progress' &&
+                !in_array($status, ['completed', 'rejected'], true)
+            ) {
                 $status = 'in_progress';
             }
 
+            // Optional duration when both timestamps exist
             $duration = null;
             if ($acceptedAt && $completedAt) {
-                $start = \Carbon\Carbon::parse($acceptedAt);
-                $end   = \Carbon\Carbon::parse($completedAt);
+                $start    = \Carbon\Carbon::parse($acceptedAt);
+                $end      = \Carbon\Carbon::parse($completedAt);
                 $duration = $start->diffForHumans($end, [
                     'parts'  => 3,
                     'short'  => true,
@@ -446,12 +601,42 @@ class BossFulfillmentController extends Controller
                 ]);
             }
 
-            return [$stage => [
-                'status'       => $status,
-                'accepted_at'  => $acceptedAt,
-                'completed_at' => $completedAt,
-                'duration'     => $duration,
-            ]];
+            return [
+                $stage => [
+                    'status'       => $status,      // '' means: render no pill
+                    'accepted_at'  => $acceptedAt,
+                    'completed_at' => $completedAt,
+                    'duration'     => $duration,
+                ],
+            ];
+        });
+
+        // ---------- Extra business rules to hide unnecessary pending stages ----------
+        $progress = $progress->map(function (array $row, string $stage) use ($product) {
+
+            // hide "pending" for installation if product is not installation 
+            // AND all installation_* fields are null.
+            if (
+                $stage === 'installation' &&
+                strtolower((string) $product->taskType) !== 'installation' &&
+                is_null($product->installation_task_type) &&
+                is_null($product->installation_status) &&
+                is_null($product->installation_accepted) &&
+                ($row['status'] ?? null) === 'pending'
+            ) {
+                $row['status'] = '';   // Blade will hide pill completely
+            }
+
+            // hide "pending" for delivery stage if product is not delivery
+            if (
+                $stage === 'delivery' &&
+                strtolower((string) $product->taskType) !== 'delivery' &&
+                ($row['status'] ?? null) === 'pending'
+            ) {
+                $row['status'] = '';
+            }
+
+            return $row;
         });
 
         // Deliveries list (nulls last)
@@ -467,10 +652,11 @@ class BossFulfillmentController extends Controller
             'progress'        => $progress,
             'deliveries'      => $deliveries,
             'leadAttachments' => $leadAttachments,
-            'orderFiles'      => $orderFiles,
-
+            // 'orderFiles'      => $orderFiles,
+            'headerAttachments' => $headerAttachments,
             'productCode'     => $productCode,
             'displayOrderId'  => $displayOrderId,
+            'installationProofs' => $installationProofs,
         ]);
     }
 

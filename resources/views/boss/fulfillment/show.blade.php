@@ -6,6 +6,14 @@
 @push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
+  .ff-reject-reason-box {
+      background: #f3f4f6;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      white-space: pre-line;   /* preserve line breaks + wrap long lines */
+  }
   /* Card look in the screenshot */
   .soft-card{border:1px solid #edf0f4;border-radius:14px;background:#fff}
   .soft-card .card-body{padding:20px}
@@ -68,7 +76,83 @@
     };
   };
 @endphp
+@php
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
+$taskType = strtolower(trim((string)($product->taskType ?? '')));
+$status   = strtolower(trim((string)($product->status ?? '')));
+$accepted = $product->accepted;
+$editable = (int)($product->editable ?? 0);
+
+$instTaskType = (int)($product->installation_task_type ?? 0);
+$instStatus   = strtolower(trim((string)($product->installation_status ?? '')));
+$instAccepted = $product->installation_accepted;
+
+$acceptedIsZero     = (!is_null($accepted)     && (int)$accepted === 0);
+$instAcceptedIsZero = (!is_null($instAccepted) && (int)$instAccepted === 0);
+
+// Dispatch rejected
+$dispatchRejected =
+    ($taskType === 'delivery'
+     && $status === 'rejected'
+     && $acceptedIsZero
+     && $editable === 1);
+
+// Installation rejected (by main status)
+$installationRejectedByTask =
+    ($taskType === 'installation'
+     && $status === 'rejected'
+     && $acceptedIsZero
+     && $editable === 1);
+
+// Installation rejected (by installation_* flags)
+$installationRejectedByFields =
+    ($instTaskType === 1
+     && $instStatus === 'rejected'
+     && $instAcceptedIsZero);
+
+$showRejectReason = $dispatchRejected || $installationRejectedByTask || $installationRejectedByFields;
+
+// ---------- Build $rejectionMeta for banner + modal ----------
+$rejectionMeta = null;
+
+if ($showRejectReason && $product->OrderID) {
+    $report = DB::table('report_redo')
+        ->where('OrderID', $product->OrderID)
+        ->orderByDesc('created_at')
+        ->first();
+
+    if ($report && !empty($report->reason)) {
+        // who rejected
+        $userName = null;
+        if (!empty($report->user_id)) {
+            $userRow = DB::table('users')
+                ->select('name')
+                ->where('id', $report->user_id)
+                ->first();
+            $userName = $userRow->name ?? null;
+        }
+
+        // label: dispatch or installation
+        if ($dispatchRejected && !($installationRejectedByTask || $installationRejectedByFields)) {
+            $label = 'Dispatch rejected';
+        } else {
+            $label = 'Installation rejected';
+        }
+
+        $rejectionMeta = (object) [
+            'label'  => $label,
+            'reason' => $report->reason,
+            'user'   => $userName,
+            'date'   => $report->created_at
+                ? Carbon::parse($report->created_at)->format('Y-m-d H:i')
+                : null,
+        ];
+    }
+}
+@endphp
 <div class="container py-4">
   {{-- Header --}}
   <div class="d-flex align-items-center mb-3">
@@ -99,7 +183,7 @@
               <div class="progress-head">
                 <i class="bi {{ $icon }} text-muted fs-5"></i>
                 <div class="progress-title">{{ $title }}</div>
-                <span class="progress-badge {{ strtolower($pill) }}">{{ str_replace('_',' ', $pill) }}</span>
+                <span class="progress-badge {{ strtolower($pill) }}">{{ str_replace('_',' ', $row['status'] ?? 'pending') }}</span>
               </div>
               <div class="progress-rows muted">
                 <div>Accepted: {{ $row['accepted_at'] ? \Carbon\Carbon::parse($row['accepted_at'])->format('Y-m-d') : '—' }}</div>
@@ -131,7 +215,27 @@
           {{ ($order->created_at ?? null) ? \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') : '—' }}
         </div>
 
-        <div class="summary-key">Attachment from Lead</div>
+        @if(!empty($order->orderDetail))
+            <div class="col-md-6 col-lg-3">
+                <small class="text-muted d-block mb-1">Sales Remark</small>
+
+                <!-- Collapsed preview -->
+                <div class="fw-medium text-truncate"
+                    style="max-height: 4.5em; overflow: hidden;"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#remarkCollapse"
+                    aria-expanded="false">
+                    {{ $order->orderDetail }}
+                </div>
+                <div id="remarkCollapse" class="collapse mt-1">
+                    <div class="fw-medium" style="white-space: pre-line;">
+                        {{ $order->orderDetail }}
+                    </div>
+                </div>
+            </div>
+            @endif
+
+        <!-- <div class="summary-key">Attachment from Lead</div>
         @if(($leadAttachments ?? collect())->isNotEmpty())
           <div class="summary-val">
             @foreach($leadAttachments as $f)
@@ -140,7 +244,7 @@
           </div>
         @else
           <div class="muted">No lead attachments.</div>
-        @endif
+        @endif -->
       </div>
 
       {{-- RIGHT COLUMN --}}
@@ -156,6 +260,49 @@
           {{ ($order->deadline ?? null) ? \Carbon\Carbon::parse($order->deadline)->format('Y-m-d') : '—' }}
         </div>
       </div>
+
+      <div>
+          {{-- ===== Non-artist attachments (Sales etc.) at the top ===== --}}
+            @if(isset($headerAttachments) && $headerAttachments->count())
+
+            <h6 class="fw-semibold mb-2">Sales Attachments</h6>
+
+            <div class="d-flex flex-column gap-2">
+                @foreach($headerAttachments as $f)
+                <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                    <div class="d-flex flex-column">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bx bx-file"></i>
+                        <span class="fw-medium">{{ $f['name'] }}</span>
+                    </div>
+
+                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                        @if(!empty($f['ext']))
+                        .{{ $f['ext'] }}
+                        @endif
+
+                        @if(!empty($f['size']))
+                        · {{ number_format($f['size'] / 1024, 0) }} KB
+                        @endif
+
+                        @if(!empty($f['uploaded_by']))
+                        · Uploaded by {{ $f['uploaded_by'] }}
+                        @endif
+
+                        @if(!empty($f['uploaded_at']))
+                        · {{ $f['uploaded_at'] }}
+                        @endif
+                    </div>
+                    </div>
+
+                    <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                    View
+                    </a>
+                </div>
+                @endforeach
+            </div>
+            @endif
+        </div>
     </div>
   </div>
 </div>
@@ -298,12 +445,56 @@
   @endphp
   <div class="card mb-4">
   <div class="card-body">
-    <div class="d-flex align-items-center justify-content-between mb-2">
-      <div class="fw-semibold">Deliveries</div>
-      <div class="d-flex gap-2">
+    <div class="d-flex align-items-center mb-2">
+      <div class="fw-semibold me-auto">Deliveries</div>
+      @if($rejectionMeta)
+          <div class="alert alert-danger d-flex align-items-center gap-2 mb-3 rejection-banner" style="margin-right: 10px;"
+              role="button"
+              data-bs-toggle="modal"
+              data-bs-target="#rejectDetailModal"
+              title="{{ $rejectionMeta->reason }}">
+
+              <span class="fw-semibold me-1">
+                  {{ $rejectionMeta->label }}:
+              </span>
+
+              {{-- Truncated text with max width --}}
+              <span class="text-truncate d-inline-block" style="max-width: 200px;">
+                  {{ $rejectionMeta->reason }}
+              </span>
+          </div>
+      @endif
+      {{-- Right: qty summary + Edit button --}}
+      <div class="d-flex align-items-center text-muted small">
+        {{-- Qty summary --}}
+        <div>
+          <strong>Total:</strong>
+          <span id="qtyTotal">{{ (int)($product->totalQuantity ?? 0) }}</span>
+        </div>
+        <div class="ms-3">
+          <strong>Delivery Plan:</strong>
+          <span id="qtyPlanned">0</span>
+        </div>
+        <div class="ms-3">
+          <strong>Remaining:</strong>
+          <span id="qtyRemaining">{{ (int)($product->totalQuantity ?? 0) }}</span>
+        </div>
+      </div>
+      @php
+          $isCompleted = strtolower((string) $product->status) === 'completed';
+      @endphp
+      {{-- Edit + Add Row buttons --}}
+      <div class="ms-3 d-flex align-items-center gap-2">
+        @if(!$isCompleted)
         <button type="button" class="btn btn-sm btn-primary" id="btnEdit">
           <i class="bi bi-pencil-square me-1"></i> Edit
         </button>
+
+        {{-- Shown only in edit mode via JS --}}
+        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnAddRow">
+          <i class="bi bi-plus-circle me-1"></i> Add Delivery
+        </button>
+        @endif
       </div>
     </div>
 
@@ -333,7 +524,7 @@
           <tr>
             <td>
               <input type="date" name="rows[{{ $d->BreakdownID }}][date]"
-                    class="form-control form-control-sm"
+                    class="form-control form-control-sm js-date"
                     value="{{ $d->date ? \Carbon\Carbon::parse($d->date)->format('Y-m-d') : '' }}">
               <input type="hidden" name="rows[{{ $d->BreakdownID }}][id]" value="{{ $d->BreakdownID }}">
             </td>
@@ -355,7 +546,7 @@
             @endphp
             <td>
               <select name="rows[{{ $d->BreakdownID }}][method]"
-                      class="form-select form-select-sm js-method">
+                      class="form-select form-select-sm js-method delivery-method" required>
                 <option value="">—</option>
                 <option value="delivery_installation" {{ $canon==='delivery_installation' ? 'selected' : '' }}>Delivery &amp; Installation</option>
                 <option value="courier" {{ $canon==='courier' ? 'selected' : '' }}>Courier</option>
@@ -364,8 +555,8 @@
             </td>
 
             <td style="max-width:100px;">
-              <input type="number" min="0" name="rows[{{ $d->BreakdownID }}][quantity]"
-                    class="form-control form-control-sm" value="{{ (int)($d->quantity ?? 0) }}">
+              <input type="number" min="1" step="1" name="rows[{{ $d->BreakdownID }}][quantity]" inputmode="numeric" required
+                    class="form-control form-control-sm qty-input delivery-qty" value="{{ (int)($d->quantity ?? 0) }}">
             </td>
 
             {{-- Install fields (will be disabled unless method == delivery_installation) --}}
@@ -404,6 +595,12 @@
           @endforeach
           </tbody>
         </table>
+
+        {{-- client-side total qty error --}}
+        <div id="qtyError" class="text-danger small d-none mb-2" style="margin-top: 10px;">
+          Delivery Plan cannot exceed product total quantity.
+        </div>
+
         {{-- server-side error from controller --}}
         @error('rows')
           <div class="alert alert-danger py-2 px-3 mb-2">{{ $message }}</div>
@@ -517,18 +714,89 @@
     
       <div class="card mb-4">
         <div class="card-body">
-          <div class="fw-semibold mb-2">Order Files</div>
-          @forelse($orderFiles as $f)
-            <div class="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
-              <div>
-                <i class="bi bi-paperclip me-2"></i>
-                <a href="{{ $f['url'] }}" target="_blank">{{ $f['name'] }}</a>
-              </div>
-              <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" download>Download</a>
+          <div class="fw-semibold mb-2">Artist Attachments</div>
+          @if($attachments->isEmpty())
+                    <p class="text-muted mb-0">No attachments.</p>
+                @else
+                    <ul class="list-group list-group-flush">
+                        @foreach($attachments as $f)
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex flex-column">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bx bx-paperclip"></i>
+                                        <span>{{ $f['name'] }}</span>
+                                    </div>
+
+                                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                                        @if(!empty($f['ext']))
+                                            .{{ $f['ext'] }}
+                                        @endif
+
+                                        @if(!empty($f['size']))
+                                            · {{ number_format($f['size'] / 1024, 0) }} KB
+                                        @endif
+
+                                        @if(!empty($f['uploaded_by']))
+                                            · Uploaded by {{ $f['uploaded_by'] }}
+                                        @endif
+
+                                        @if(!empty($f['uploaded_at']))
+                                            · {{ $f['uploaded_at'] }}
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" target="_blank">
+                                    View
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+          {{-- Installation proof files --}}
+    @if(isset($installationProofs) && $installationProofs->count())
+        <hr class="my-3">
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">Dispatch & Installation Completion Proofs</h6>
+            <span class="text-muted small">
+                {{ $installationProofs->count() }} file{{ $installationProofs->count() > 1 ? 's' : '' }}
+            </span>
+        </div>
+
+        @foreach($installationProofs as $file)
+            <div class="d-flex align-items-center justify-content-between py-2 border-bottom last:border-0">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-muted">
+                        <i class="bi bi-paperclip"></i>
+                    </span>
+                    <div>
+                        <div class="small fw-semibold">
+                            {{ $file->name }}
+                        </div>
+                        <div class="small text-muted">
+                            @if($file->mime)
+                                {{ $file->mime }}
+                            @endif
+                            @if($file->size)
+                                · {{ number_format($file->size / 1024, 1) }} KB
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a href="{{ $file->url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                        Open
+                    </a>
+                    <a href="{{ $file->url }}" download="{{ $file->name }}" class="btn btn-sm btn-dark">
+                        View
+                    </a>
+                </div>
             </div>
-          @empty
-            <div class="text-muted">No files.</div>
-          @endforelse
+        @endforeach
+      @endif
         </div>
       </div>
   </div>
@@ -537,6 +805,42 @@
     <a href="{{ route('boss.fulfillment') }}" class="btn btn-secondary">Close</a>
   </div>
 </div>
+
+@if($rejectionMeta)
+<div class="modal fade" id="rejectDetailModal" tabindex="-1" aria-labelledby="rejectDetailLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="rejectDetailLabel" style="color:white; margin-bottom:10px">Rejected Detail</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        @if($rejectionMeta->user || $rejectionMeta->date)
+          <div class="mb-2 small text-muted">
+            @if($rejectionMeta->user)
+              By <strong>{{ $rejectionMeta->user }}</strong>
+            @endif
+            @if($rejectionMeta->user && $rejectionMeta->date)
+              &nbsp;•&nbsp;
+            @endif
+            @if($rejectionMeta->date)
+              {{ $rejectionMeta->date }}
+            @endif
+          </div>
+        @endif
+
+        <div class="mb-1 fw-semibold">
+          {{ $rejectionMeta->label }}
+        </div>
+
+        <div class="border rounded p-3 bg-light">
+          {!! nl2br(e($rejectionMeta->reason ?? '')) !!}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+@endif
 @endsection
 
 @push('scripts')
@@ -565,32 +869,115 @@
     const key = 'new_' + (++newIndex);
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input type="date" class="form-control form-control-sm" name="rows[${key}][date]"></td>
+      <td><input type="date" class="form-control form-control-sm js-date" name="rows[${key}][date]"></td>
       <td><input type="time" class="form-control form-control-sm" name="rows[${key}][time]"></td>
       <td><input type="text" class="form-control form-control-sm" name="rows[${key}][location]"></td>
-      <td><input type="number" min="0" class="form-control form-control-sm" name="rows[${key}][quantity]"></td>
-      <td><input type="text" class="form-control form-control-sm" name="rows[${key}][deliver_install_type]"></td>
-      <td><input type="number" min="0" step="0.01" class="form-control form-control-sm" name="rows[${key}][outsource_cost]"></td>
+      <td>
+        <select name="rows[${key}][method]" class="form-select form-select-sm js-method" required>
+          <option value="">—</option>
+          <option value="delivery_installation">Delivery &amp; Installation</option>
+          <option value="courier">Courier</option>
+          <option value="self pickup">Self Pickup</option>
+        </select>
+      </td>
+      <td style="max-width:100px;">
+        <input type="number"
+              class="form-control form-control-sm qty-input"
+              name="rows[${key}][quantity]"
+              min="1"
+              step="1"
+              inputmode="numeric"
+               required>
+      </td>
+      <td>
+        <select name="rows[${key}][deliver_install_type]" class="form-select form-select-sm js-install-type">
+          <option value="">—</option>
+          <option value="in-house">In House</option>
+          <option value="outsource">Outsource</option>
+          <option value="both">Both</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" min="0" step="0.01"
+              name="rows[${key}][outsource_cost]"
+              class="form-control form-control-sm js-install-cost">
+      </td>
       <td class="text-center">
-        <button type="button" class="btn btn-sm btn-link text-danger btnDeleteRow"><i class="bi bi-trash"></i></button>
+        <button type="button" class="btn btn-sm btn-link text-danger btnDeleteRow">
+          <i class="bi bi-trash"></i>
+        </button>
         <input type="hidden" name="rows[${key}][_delete]" value="0" />
       </td>
     `;
     tbody.appendChild(tr);
+
+    // ====== NEW LOGIC (reuse your existing behaviour, just extended) ======
+    const methodSelect = tr.querySelector('.js-method');
+    if (!methodSelect) return;
+
+    // read current methods from existing rows (excluding this new one if empty)
+    const methods = Array.from(document.querySelectorAll('#editTbody .js-method'))
+      .map(s => s.value)
+      .filter(v => v); // remove empty
+
+    const hasCourierOrPickup = methods.some(v => v === 'courier' || v === 'self pickup');
+    const hasDI              = methods.some(v => v === 'delivery_installation');
+
+    // 1) Only Courier / Self Pickup so far -> block Delivery & Installation
+    if (hasCourierOrPickup && !hasDI) {
+      const optDI = methodSelect.querySelector('option[value="delivery_installation"]');
+      if (optDI) {
+        optDI.disabled = true;
+        optDI.hidden   = true;
+      }
+    }
+    // 2) Only Delivery & Installation so far -> block Courier & Self Pickup
+    else if (!hasCourierOrPickup && hasDI) {
+      ['courier', 'self pickup'].forEach(val => {
+        const opt = methodSelect.querySelector(`option[value="${val}"]`);
+        if (opt) {
+          opt.disabled = true;
+          opt.hidden   = true;
+        }
+      });
+    }
+    // case 3: mix of both -> nothing blocked (do nothing)
+
+    // keep your existing install toggle behaviour
+    toggleInstallFields(tr);
   });
 
   tbody?.addEventListener('click', (e) => {
     const btn = e.target.closest('.btnDeleteRow');
     if (!btn) return;
+
     const tr = btn.closest('tr');
+    if (!tr) return;
+    
+    const idInput  = tr.querySelector('input[name$="[id]"]');
     const delInput = tr.querySelector('input[name$="[_delete]"]');
-    // existing row -> mark delete + hide; new row -> just remove
+    const isExisting = idInput && idInput.value !== '';
+
+    // 🔹 NEW ROW: just remove it completely
+    if (!isExisting) {
+      tr.remove();
+      return;
+    }
+
+    // 🔹 EXISTING ROW: mark as deleted, keep only id + _delete active
     if (delInput) {
       delInput.value = '1';
-      tr.style.display = 'none';
-    } else {
-      tr.remove();
     }
+
+    tr.querySelectorAll('input, select, textarea').forEach(el => {
+      // keep id + _delete so backend knows what to delete
+      if (el === delInput || el === idInput) return;
+
+      el.required = false;
+      el.disabled = true;
+    });
+
+    tr.style.display = 'none';
   });
 
   function toggleInstallFields(tr) {
@@ -609,13 +996,106 @@
     }
   }
 
+  function toggleInstallFields(tr) {
+    const methodSel = tr.querySelector('.js-method');
+    const typeInput = tr.querySelector('.js-install-type');
+    const costInput = tr.querySelector('.js-install-cost');
+    if (!methodSel || !typeInput || !costInput) return;
+
+    const isDI = (methodSel.value === 'delivery_installation');
+    typeInput.disabled = !isDI;
+    costInput.disabled = !isDI;
+
+    if (!isDI) { // clear if not Delivery & Installation
+      typeInput.value = '';
+      costInput.value = '';
+    }
+  }
+
+  function applyMethodRules() {
+  const rows = document.querySelectorAll('#editTbody tr');
+
+  let hasCourierSelf = false;
+  let hasDI = false;
+
+  // detect what we already have (ignoring deleted rows)
+  rows.forEach(tr => {
+    const delFlag = tr.querySelector('input[name$="[_delete]"]');
+    if (delFlag && delFlag.value === '1') return;
+
+    const sel = tr.querySelector('.js-method');
+    if (!sel) return;
+
+    const val = (sel.value || '').toLowerCase();
+
+    if (val === 'courier' || val === 'self pickup') {
+      hasCourierSelf = true;
+    }
+    if (val === 'delivery_installation') {
+      hasDI = true;
+    }
+  });
+
+  // apply rules to every select
+  rows.forEach(tr => {
+    const sel = tr.querySelector('.js-method');
+    if (!sel) return;
+
+    const optDI      = sel.querySelector('option[value="delivery_installation"]');
+    const optCourier = sel.querySelector('option[value="courier"]');
+    const optPickup  = sel.querySelector('option[value="self pickup"]');
+
+    // reset (so we don't permanently lock options when pattern changes)
+    [optDI, optCourier, optPickup].forEach(opt => {
+      if (!opt) return;
+      opt.disabled = false;
+      opt.hidden   = false;
+      opt.title    = '';
+    });
+
+    // CASE 1: only Courier/Self-pickup so far -> block DI
+    if (hasCourierSelf && !hasDI) {
+      if (optDI) {
+        optDI.disabled = true;
+        optDI.hidden   = true;
+        optDI.title    = 'Disabled: existing deliveries are Courier / Self Pickup only';
+
+        if (sel.value === 'delivery_installation') {
+          sel.value = '';
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+    }
+    // CASE 2: only Delivery & Installation so far -> block Courier + Self Pickup
+    else if (hasDI && !hasCourierSelf) {
+      [optCourier, optPickup].forEach(opt => {
+        if (!opt) return;
+        opt.disabled = true;
+        opt.hidden   = true;
+        opt.title    = 'Disabled: existing deliveries are Delivery & Installation only';
+
+        if (sel.value === opt.value) {
+          sel.value = '';
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
+    // CASE 3: mix of both -> nothing blocked
+  });
+}
+
+  // expose for other script block
+  window.applyDeliveryMethodRules = applyMethodRules;
+
   // initialize states for existing rows
   document.querySelectorAll('#editTbody tr').forEach(toggleInstallFields);
+  applyMethodRules();
 
   // react to method changes
   document.getElementById('editTbody')?.addEventListener('change', (e) => {
     if (e.target.classList.contains('js-method')) {
       toggleInstallFields(e.target.closest('tr'));
+      applyMethodRules();
     }
   });
 
@@ -634,7 +1114,12 @@
   const maxQty  = {{ (int)($product->totalQuantity ?? 0) }};
   const errBox  = document.getElementById('qtyError');
   const curSpan = document.querySelector('#qtyError .js-qty-cur');
+  const totalSpan  = document.getElementById('qtyTotal');
+  const planSpan   = document.getElementById('qtyPlanned');
+  const remSpan    = document.getElementById('qtyRemaining');
   const saveBtn = document.getElementById('btnSaveDeliveries');
+
+  let hadInvalid = false;
 
   function recalcTotal() {
     let total = 0;
@@ -648,25 +1133,104 @@
       if (!isNaN(v)) total += v;
     });
 
-    curSpan.textContent = total;
+    // curSpan.textContent = total;
+
+    // const invalid = total > maxQty;
+    // errBox.classList.toggle('d-none', !invalid);
+    // if (saveBtn) saveBtn.disabled = invalid;
+
+    // Update summary
+    if (planSpan) planSpan.textContent = total;
+    if (remSpan)  remSpan.textContent  = Math.max(maxQty - total, 0);
+    if (totalSpan) totalSpan.textContent = maxQty; // static, but safe
 
     const invalid = total > maxQty;
-    errBox.classList.toggle('d-none', !invalid);
+
+    if (errBox) errBox.classList.toggle('d-none', !invalid);
     if (saveBtn) saveBtn.disabled = invalid;
+
+    // Pop SweetAlert the first time it becomes invalid
+    if (invalid && !hadInvalid) {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Quantity exceeded',
+          text: `Delivery Plan (${total}) cannot exceed product total quantity (${maxQty}).`
+        });
+      } else {
+        alert(`Delivery Plan (${total}) cannot exceed product total quantity (${maxQty}).`);
+      }
+    }
+    hadInvalid = invalid;
 
     return total;
   }
 
-  // Recalc when qty changes / row deleted / row added
+  // Install-type / cost helpers (kept from your original code)
+  function isDeliveryInstall(tr){
+    const m = tr.querySelector('.js-method')?.value || '';
+    return m === 'delivery_installation';
+  }
+  function costAllowed(tr){
+    const type = (tr.querySelector('.js-install-type')?.value || '').toLowerCase();
+    return isDeliveryInstall(tr) && (type === 'outsource' || type === 'both');
+  }
+  function syncInstallControls(tr){
+    const costInput = tr.querySelector('.js-install-cost');
+    const typeSel   = tr.querySelector('.js-install-type');
+    if (!costInput || !typeSel) return;
+
+    const enableCost = costAllowed(tr);
+    costInput.disabled = !enableCost;
+    if (!enableCost) costInput.value = '';
+  }
+
+  // Initialize all rows
+  document.querySelectorAll('#editTbody tr').forEach(tr => {
+    syncInstallControls(tr);
+  });
+
+  // Qty changes & delete flag changes recalc total
   tbody?.addEventListener('input', (e) => {
     if (e.target.name?.endsWith('[quantity]')) recalcTotal();
   });
   tbody?.addEventListener('change', (e) => {
-    if (e.target.name?.endsWith('[_delete]')) recalcTotal();
+    if (e.target.name?.endsWith('[_delete]')) {
+      recalcTotal();
+    }
+    if (e.target.classList.contains('js-method') ||
+        e.target.classList.contains('js-install-type')){
+      syncInstallControls(e.target.closest('tr'));
+
+      // re-apply global method rule if exposed
+      if (window.applyDeliveryMethodRules) {
+        window.applyDeliveryMethodRules();
+      }
+    }
   });
 
   // Initial run
   recalcTotal();
+  if (window.applyDeliveryMethodRules) {
+    window.applyDeliveryMethodRules();
+  }
+
+  // Submit guard – block submit if still exceeded
+  form?.addEventListener('submit', function(e){
+    const total = recalcTotal();
+    if (total > maxQty) {
+      e.preventDefault();
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Quantity exceeded',
+          text: `Delivery Plan (${total}) cannot exceed product total quantity (${maxQty}).`
+        });
+      } else {
+        alert(`Delivery Plan (${total}) cannot exceed product total quantity (${maxQty}).`);
+      }
+    }
+  });
 
   function isDeliveryInstall(tr){
     const m = tr.querySelector('.js-method')?.value || '';
@@ -717,6 +1281,48 @@
       alert(`Total delivery quantity (${total}) cannot exceed product quantity (${maxQty}).`);
     }
   });
+})();
+
+$(document).on('input', '.qty-input', function () {
+  // keep only digits
+  let v = this.value.replace(/\D+/g, '');
+
+  // if it starts with zero and has more than one digit, remove leading zeros
+  if (v.length > 1) v = v.replace(/^0+/, '');
+
+  this.value = v;
+});
+
+(function () {
+  // Get today's date in YYYY-MM-DD
+  const today = new Date();
+  const yyyyMmDd = today.toISOString().slice(0, 10);
+
+  function applyDateLimit(input) {
+    if (!input) return;
+
+    // Set min for the UI (calendar will disable past days)
+    input.setAttribute('min', yyyyMmDd);
+
+    // If user somehow types an earlier date, snap it back to today
+    input.addEventListener('change', function () {
+      if (this.value && this.value < yyyyMmDd) {
+        this.value = yyyyMmDd;
+      }
+    });
+  }
+
+  // apply to existing date inputs
+  document.querySelectorAll('.js-date').forEach(applyDateLimit);
+
+  // when new rows are added, re-apply
+  const tbody = document.getElementById('editTbody');
+  const observer = new MutationObserver(() => {
+    document.querySelectorAll('.js-date').forEach(applyDateLimit);
+  });
+  if (tbody) {
+    observer.observe(tbody, { childList: true, subtree: true });
+  }
 })();
 </script>
 @endpush

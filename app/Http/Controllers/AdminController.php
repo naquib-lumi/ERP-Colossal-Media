@@ -974,6 +974,7 @@ $inProgressProducts = Product::from('products as p')
         // $hasDelivery     = isset($latest['delivery']);
         // $hasInstallation = isset($latest['installation']);
 
+        $st = fn($k) => $latest[$k]['status'] ?? null;
         $isCompleted = fn($k) => ($latest[$k]['status'] ?? null) === 'completed';
 
         $laterCompleted = [
@@ -1079,7 +1080,7 @@ $inProgressProducts = Product::from('products as p')
             'deliveries'      => $deliveries,
             'leadAttachments' => $leadAttachments,
             // 'orderFiles'      => $orderFiles,
-'headerAttachments' => $headerAttachments,
+            'headerAttachments' => $headerAttachments,
             'productCode'     => $productCode,
             'displayOrderId'  => $displayOrderId,
             'installationProofs' => $installationProofs,

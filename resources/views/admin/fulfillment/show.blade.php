@@ -215,7 +215,7 @@ if ($showRejectReason && $product->OrderID) {
           {{ ($order->created_at ?? null) ? \Carbon\Carbon::parse($order->created_at)->format('Y-m-d') : '—' }}
         </div>
 
-        @if(!empty($ord->orderDetail))
+        @if(!empty($order->orderDetail))
             <div class="col-md-6 col-lg-3">
                 <small class="text-muted d-block mb-1">Sales Remark</small>
 
@@ -225,11 +225,11 @@ if ($showRejectReason && $product->OrderID) {
                     data-bs-toggle="collapse"
                     data-bs-target="#remarkCollapse"
                     aria-expanded="false">
-                    {{ $ord->orderDetail }}
+                    {{ $order->orderDetail }}
                 </div>
                 <div id="remarkCollapse" class="collapse mt-1">
                     <div class="fw-medium" style="white-space: pre-line;">
-                        {{ $ord->orderDetail }}
+                        {{ $order->orderDetail }}
                     </div>
                 </div>
             </div>

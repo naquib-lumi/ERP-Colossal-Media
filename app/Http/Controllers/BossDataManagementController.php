@@ -514,6 +514,19 @@ class BossDataManagementController extends Controller
         ]);
     }
 
+    public function toggleMaterial(int $id)
+    {
+        $material = Material::findOrFail($id);
+
+        $material->active = $material->active ? 0 : 1;
+        $material->save();
+
+        return response()->json([
+            'success' => true,
+            'active'  => (bool) $material->active,
+        ]);
+    }
+
     public function destroyType($id)
     {
         $type = MaterialType::findOrFail($id);
@@ -569,23 +582,33 @@ class BossDataManagementController extends Controller
     }
 
     public function update(Request $request, $id)
-    {
-        $material = Material::findOrFail($id);
-        $request->validate([
-            'qeName' => 'nullable|string|max:255',
-            'qeNew'  => 'required|numeric|min:0',
-        ]);
+{
+    $material = Material::findOrFail($id);
 
-        $material->update([
-            'materialName' => $request->qeName ?: $material->materialName,
-            'unitCost'     => $request->qeNew,
-        ]);
+    $request->validate([
+        'qeName' => 'required|string|max:255',
+        'qeNew'  => 'required|numeric|min:0',
+        'qeType' => 'required|integer|exists:material_types,id',
+    ]);
 
-        return response()->json([
-            'success'    => true,
-            'material'   => $material,
-        ]);
-    }
+    $material->materialName     = $request->qeName;
+    $material->unitCost         = $request->qeNew;
+    $material->material_type_id = (int) $request->qeType;
+
+    $material->save();
+    $material->load('materialType');
+
+    return response()->json([
+        'success'  => true,
+        'material' => [
+            'id'        => $material->MaterialID,
+            'name'      => $material->materialName,
+            'unit_cost' => $material->unitCost,
+            'type_id'   => $material->material_type_id,
+            'type_name' => optional($material->materialType)->name,
+        ],
+    ]);
+}
 
     public function destroy($id)
     {

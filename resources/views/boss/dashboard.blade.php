@@ -5,81 +5,81 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
-:root{
-  --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
-  --text:#101828; --muted:#667085;
-  --shadow:0 2px 6px rgba(16,24,40,.05);
-  --success:#16A34A; --danger:#DC2626; --primary:#111827;
-  --accent:#2E3A8C;
-  --blue:#60a5fa; --green:#22c55e; --red:#ef4444; --cyan:#06b6d4; --violet:#a78bfa; --amber:#f59e0b; --teal:#10b981; --pink:#f472b6;
-}
-body{background:var(--bg);}
-.page-wrap{max-width:1240px;margin:0 auto}
-.card.soft{border:0;background:var(--card);box-shadow:var(--shadow);border-radius:16px}
-.form-control,.form-select,.btn{min-height:38px;font-size:14px}
+  :root{
+    --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
+    --text:#101828; --muted:#667085;
+    --shadow:0 2px 6px rgba(16,24,40,.05);
+    --success:#16A34A; --danger:#DC2626; --primary:#111827;
+    --accent:#2E3A8C;
+    --blue:#60a5fa; --green:#22c55e; --red:#ef4444; --cyan:#06b6d4; --violet:#a78bfa; --amber:#f59e0b; --teal:#10b981; --pink:#f472b6;
+  }
+  body{background:var(--bg);}
+  .page-wrap{max-width:1240px;margin:0 auto}
+  .card.soft{border:0;background:var(--card);box-shadow:var(--shadow);border-radius:16px}
+  .form-control,.form-select,.btn{min-height:38px;font-size:14px}
 
-/* Tabs（如果后续要复用） */
-.nav-tabs .nav-link{border:0;color:#475467;padding:14px 18px}
-.nav-tabs .nav-link.active{color:#111827;border-bottom:3px solid var(--accent);border-radius:0}
+  /* Tabs（如果后续要复用） */
+  .nav-tabs .nav-link{border:0;color:#475467;padding:14px 18px}
+  .nav-tabs .nav-link.active{color:#111827;border-bottom:3px solid var(--accent);border-radius:0}
 
-/* KPI */
-.kpi .title{font-size:12px;color:var(--muted)}
-.kpi .num{font-weight:700;font-size:22px;color:var(--text)}
-.kpi .delta{font-size:12px}
-.kpi .icon-pill{background:#F2F4F7;color:#667085;border-radius:10px;padding:6px 8px;line-height:1}
+  /* KPI */
+  .kpi .title{font-size:12px;color:var(--muted)}
+  .kpi .num{font-weight:700;font-size:22px;color:var(--text)}
+  .kpi .delta{font-size:12px}
+  .kpi .icon-pill{background:#F2F4F7;color:#667085;border-radius:10px;padding:6px 8px;line-height:1}
 
-/* 图例/图表 */
-.chart-wrap{height:260px}
-.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
-.legend-row{color:#667085;font-size:13px}
+  /* 图例/图表 */
+  .chart-wrap{height:260px}
+  .legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .legend-row{color:#667085;font-size:13px}
 
-/* 表格 */
-.table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.table thead th{background:#F8FAFC;color:#475467;font-weight:700}
-.table>:not(caption)>*>*{padding:12px 14px;vertical-align:middle}
-.tag{display:inline-block;background:#F2F4F7;color:#344054;border:1px solid #E5E7EB;border-radius:999px;padding:2px 8px;font-size:12px;margin:2px}
-.kebab{border:0;background:transparent}
-.badge-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px}
+  /* 表格 */
+  .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .table thead th{background:#F8FAFC;color:#475467;font-weight:700}
+  .table>:not(caption)>*>*{padding:12px 14px;vertical-align:middle}
+  .tag{display:inline-block;background:#F2F4F7;color:#344054;border:1px solid #E5E7EB;border-radius:999px;padding:2px 8px;font-size:12px;margin:2px}
+  .kebab{border:0;background:transparent}
+  .badge-dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px}
 
-/* 工具条（并排） */
-.toolbar{gap:10px}
-.toolbar .form-select,.toolbar .form-control{min-height:34px;font-size:13px;border-radius:8px}
-.short-select{min-width:140px;max-width:180px}
+  /* 工具条（并排） */
+  .toolbar{gap:10px}
+  .toolbar .form-select,.toolbar .form-control{min-height:34px;font-size:13px;border-radius:8px}
+  .short-select{min-width:140px;max-width:180px}
 
-/* 右侧筛选栏（Meeting Outcomes） */
-.outcomes-grid{display:grid;grid-template-columns: 1.7fr 1fr;gap:16px;align-items:start}
-.sidebar{border-left:1px solid var(--border);padding-left:12px}
-.filter-stack .label{font-size:12px;color:#667085;margin-bottom:4px}
-.filter-stack .form-control,.filter-stack .form-select{min-height:36px;font-size:13px;border-radius:8px}
+  /* 右侧筛选栏（Meeting Outcomes） */
+  .outcomes-grid{display:grid;grid-template-columns: 1.7fr 1fr;gap:16px;align-items:start}
+  .sidebar{border-left:1px solid var(--border);padding-left:12px}
+  .filter-stack .label{font-size:12px;color:#667085;margin-bottom:4px}
+  .filter-stack .form-control,.filter-stack .form-select{min-height:36px;font-size:13px;border-radius:8px}
 
-/* 小屏处理 */
-@media (max-width: 992px){
-  .outcomes-grid{grid-template-columns:1fr}
-  .sidebar{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:12px}
-}
+  /* 小屏处理 */
+  @media (max-width: 992px){
+    .outcomes-grid{grid-template-columns:1fr}
+    .sidebar{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:12px}
+  }
 
-/* Redo 卡片 & Costing 卡片 */
-.redo-card .chart-wrap{height:260px}
-.costing-card .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.costing-card .table.table-sm>:not(caption)>*>*{padding:10px 12px}
-.costing-card .table thead th{background:#F8FAFC;color:#475467;font-weight:700}
-.costing-card .table tbody td{vertical-align:middle}
-.costing-card .table td .tag{margin:2px}
-.costing-tools .form-select,.costing-tools .form-control{min-height:34px;font-size:13px;border-radius:8px}
+  /* Redo 卡片 & Costing 卡片 */
+  .redo-card .chart-wrap{height:260px}
+  .costing-card .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .costing-card .table.table-sm>:not(caption)>*>*{padding:10px 12px}
+  .costing-card .table thead th{background:#F8FAFC;color:#475467;font-weight:700}
+  .costing-card .table tbody td{vertical-align:middle}
+  .costing-card .table td .tag{margin:2px}
+  .costing-tools .form-select,.costing-tools .form-control{min-height:34px;font-size:13px;border-radius:8px}
 
-/* 统一紧凑按钮（与你之前页一致） */
-.btn-sm-compact{min-height:36px;font-size:13px;padding:0 14px;border-radius:6px}
-.btn-dark-compact{background:#1E2235;color:#fff;border:0}
-.btn-dark-compact:hover{background:#111827}
-.btn-gray-compact{background:#94A3B8;color:#fff;border:0}
-.btn-gray-compact:hover{background:#64748B}
+  /* 统一紧凑按钮（与你之前页一致） */
+  .btn-sm-compact{min-height:36px;font-size:13px;padding:0 14px;border-radius:6px}
+  .btn-dark-compact{background:#1E2235;color:#fff;border:0}
+  .btn-dark-compact:hover{background:#111827}
+  .btn-gray-compact{background:#94A3B8;color:#fff;border:0}
+  .btn-gray-compact:hover{background:#64748B}
 
-/* 按钮里的图标微距 */
-.btn i{margin-right:.4rem}
+  /* 按钮里的图标微距 */
+  .btn i{margin-right:.4rem}
 
-.w-160{width:180px}
-.w-180{width:180px}
-.w-200{width:550px}
+  .w-160{width:180px}
+  .w-180{width:180px}
+  .w-200{width:550px}
 
 </style>
 
@@ -431,25 +431,45 @@ body{background:var(--bg);}
       <table class="table table-sm mb-0" id="costTable">
         <thead>
         <tr>
-          <th>Product ID</th><th>Product Quantity</th><th>Used by Items</th><th>Total Cost</th><th>Past Usage</th><th class="text-end">Actions</th>
+          <th>Order ID</th><th>Product Quantity</th><th>Used by Items</th><th>Total Cost</th><th>Actions</th>
         </tr>
         </thead>
-        <tbody>
-        <tr data-type="Printer">
-          <td>ORD-2025-001</td><td>8 Products</td><td>4000</td><td>RM 400.00</td>
-          <td><span class="tag">#ORD005-P1</span><span class="tag">#ORD006-P1</span></td>
-          <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-        </tr>
-        <tr data-type="Cutter">
-          <td>ORD-2025-002</td><td>4 Products</td><td>2000</td><td>RM 200.00</td>
-          <td><span class="tag">#ORD010-C2</span><span class="tag">#ORD012-C3</span><span class="tag">#ORD013-C3</span></td>
-          <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-        </tr>
-        <tr data-type="Printer">
-          <td>ORD-2025-003</td><td>6 Products</td><td>1650</td><td>RM 315.00</td>
-          <td><span class="tag">#ORD001-P2</span><span class="tag">#ORD004-P2</span><span class="tag">#ORD009-P2</span></td>
-          <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
-        </tr>
+          <tbody>
+            @forelse ($costingTopOrders as $row)
+              @php
+                  $baseNo = $row->base_order_number
+                            ?? $row->order_number
+                            ?? ('ORD-' . now()->format('Y') . '-' . str_pad((int)($row->id ?? 0), 4, '0', STR_PAD_LEFT));
+                  $displayNo = '#' . ltrim($baseNo, '#');
+                  if (!empty($row->is_redo)) {
+                      $displayNo .= 'R';
+                  }
+                  $showRedoBadge = ((int)($row->status ?? 0) === 1);
+                @endphp
+                <tr>
+                    <td>
+                      <span class="fw-semibold">{{ $displayNo }}</span>
+                      @if ($showRedoBadge)
+                        <span class="badge-redo ms-2">Rejected for REDO</span>
+                      @endif
+                    </td>
+                    
+                    <td>{{ $row->products_count }} {{ \Illuminate\Support\Str::plural('Product', $row->products_count) }}</td>
+                    <td>{{ number_format($row->used_quantity) }}</td>
+                    <td>RM {{ number_format($row->total_cost, 2) }}</td>
+                    <td class="text-right">
+                        <a href="{{ route('boss.datamanagement', ['tab' => 'another', 'q_id' => $row->order_number]) }}" class="link-btn">
+                            View
+                        </a>
+                    </td>
+                </tr>
+            @empty
+            <tr>
+                <td colspan="5" class="text-center text-muted" style="padding:12px">
+                    No costing data yet.
+                </td>
+            </tr>
+            @endforelse
         </tbody>
       </table>
     </div>

@@ -629,10 +629,14 @@
 
       {{-- Task types --}}
       <div class="col-6 col-lg-2">
-        <select id="ff-task" name="task" class="form-select">
-          @foreach($tasks as $val => $label)
-            <option value="{{ $val }}" {{ $filters['task']===$val ? 'selected' : '' }}>{{ $label }}</option>
-          @endforeach
+        <select name="task" class="form-select">
+          <option value="">All Task Types</option>
+          <option value="printing" {{ request('task') === 'printing' ? 'selected' : '' }}>Printing</option>
+          <option value="furnishing" {{ request('task') === 'furnishing' ? 'selected' : '' }}>Furnishing</option>
+          <option value="delivery" {{ request('task') === 'delivery' ? 'selected' : '' }}>Dispatch Control</option>
+          <option value="delivery_installation" {{ request('task') === 'delivery_installation' ? 'selected' : '' }}>
+              Delivery &amp; Installation
+          </option>
         </select>
       </div>
 
@@ -653,10 +657,10 @@
             <th>Company</th>
             <th>Task Type</th>
             <th>Status</th>
+            <th>Deadline</th>
             <th>Delivery Date</th>
             <th>Location</th>
             <th>Install Type</th>
-            <th>Outsource Cost</th>
             <th class="text-center">Permit</th>
             <th class="text-end" style="min-width:120px;">Actions</th>
           </tr>
@@ -680,15 +684,35 @@
             default                    => 'bg-light text-dark',
           };
           @endphp
-          
-          <tr>
+          @php
+              $taskLower = strtolower($r->task_label);
+              $taskClass = match ($taskLower) {
+                  'printing'                 => 'badge bg-secondary',
+                  'furnishing'               => 'badge bg-purple',
+                  'dispatch control'         => 'badge bg-warning text-dark',
+                  'delivery & installation'  => 'badge bg-primary',
+                  default                    => 'badge bg-light text-dark',
+              };
+          @endphp
+          <tr id="job-{{ $r->product_id }}" class="js-row-open" data-code="{{ $r->product_code }}" data-href="{{ route('boss.fulfillment.product.show', $r->product_id) }}" style="cursor:pointer;">
             <td class="fw-semibold">{{ $r->product_code }}</td>
             <td>{{ $r->order_title ?? '-' }}</td>
             <td>{{ $r->company ?? '-' }}</td>
             <td><span class="badge {{ $taskClass }}">{{ $taskLabel }}</span></td>
-            <td><span class="badge {{ $statusClass }}">
+            <td>
+              <span class="badge {{ $statusClass }}">
                 {{ \Illuminate\Support\Str::of($r->status)->replace('_', ' ')->title() ?: '-' }}
-              </span></td>
+              </span>
+            </td>
+
+            {{-- Deadline (from orders.deadline) --}}
+            <td>
+              @if(!empty($r->deadline))
+                {{ $r->deadline }}
+              @else
+                —
+              @endif
+            </td>
 
             {{-- Delivery date: show exclamation if missing --}}
             <td>
@@ -718,14 +742,6 @@
             @endphp
             <td>{{ $installLabel }}</td>
 
-            <td>
-              @if(!is_null($r->outsource_cost))
-              RM {{ number_format($r->outsource_cost, 2) }}
-              @else
-              —
-              @endif
-            </td>
-
             {{-- Permit upload trigger (ensure icon visible) --}}
             <td class="text-center">
               @if(!empty($r->permit_url))
@@ -744,13 +760,24 @@
               @endif
             </td>
 
-            {{-- Actions (restore) --}}
+            {{-- Actions --}}
             <td class="text-end">
               <div class="btn-actions">
+                @php
+                  $isCompleted = strtolower((string) $r->status) === 'completed';
+                @endphp
+
                 <a href="{{ route('boss.fulfillment.product.show', $r->product_id) }}"
                   class="btn btn-icon btn-soft btn-soft-secondary"
-                  title="View" data-bs-toggle="tooltip">
-                <i class="bi bi-pencil"></i>
+                  title="{{ $isCompleted ? 'View' : 'Edit' }}"
+                  data-bs-toggle="tooltip">
+                  @if($isCompleted)
+                    {{-- Completed ⇒ view icon --}}
+                    <i class="bi bi-eye"></i>
+                  @else
+                    {{-- Not completed ⇒ edit icon (current behaviour) --}}
+                    <i class="bi bi-pencil"></i>
+                  @endif
                 </a>
               </div>
             </td>
@@ -951,6 +978,15 @@
     }
     fromInput?.addEventListener('change', syncMin);
     syncMin();
+  });
+
+  document.addEventListener('dblclick', function(e) {
+    const tr = e.target.closest('tr.js-row-open');
+    if (!tr) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+    const url = tr.dataset.href;
+    if (url) window.location.href = url;
   });
 </script>
 @endsection
