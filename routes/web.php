@@ -54,7 +54,7 @@ use App\Http\Controllers\BossReportController;
 use App\Http\Controllers\BossManageUserController;
 use App\Http\Controllers\BossDataManagementController;
 use App\Http\Controllers\BossLeadController;
-
+use App\Http\Controllers\BossOrderController;
 
 
 use Illuminate\Support\Facades\Route;
@@ -515,17 +515,50 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::post('/boss/leads/{lead}/meetings', [BossLeadController::class, 'storeFromLead'])->name('boss.meetings.store');
         Route::put('/boss/calendar/meetings/{id}', [BossLeadController::class, 'updateFromCalendar'])->name('boss.calendar.meetings.update');
 
-        Route::get('/boss/orders/{id}', [BossLeadController::class, 'leadshowOrder'])->name('boss.orders.show')->whereNumber('order');;
-
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'fulfillment'])->name('boss.fulfillment');
         Route::get('/boss/fulfillment/show/{id}', [BossFulfillmentController::class, 'fulfillmentShow'])->name('boss.fulfillment.product.show');
         Route::get('/boss/fulfillment/{id}/edit', [BossFulfillmentController::class, 'fulfillmentEdit'])->name('boss.fulfillment.edit');
         Route::put('/boss/fulfillment/{product}/deliveries', [BossFulfillmentController::class, 'updateDeliveries'])->name('boss.fulfillment.deliveries.update');
         Route::post('/boss/fulfillment/permit', [BossFulfillmentController::class, 'storePermit'])->name('boss.fulfillment.permit.store');
         Route::get('/boss/permits/{product}/download', [BossFulfillmentController::class, 'downloadPermit'])->name('boss.permits.download');
+
+        Route::get('/boss/orders', [BossOrderController::class, 'orders'])->name('boss.orders');
+        Route::get('/boss/orders/{order}/edit', [BossOrderController::class, 'edit'])->name('boss.orders.edit');
+        Route::put('/boss/orders/{order}', [BossOrderController::class, 'update'])->name('boss.orders.update');
+        // Data Entry assignment (AJAX)
+        Route::post('/boss/orders/{order}/pass-to-data-entry', [BossOrderController::class, 'passToDataEntry'])->name('boss.orders.passToDataEntry');
+
+        Route::post('/boss/orders/{order}/attachments/upload', [BossOrderController::class, 'uploadAttachment'])->name('boss.orders.attachments.upload');
+        Route::post('/boss/orders/{order}/attachments/delete', [BossOrderController::class, 'deleteAttachment'])->name('boss.orders.attachments.delete');
+        Route::delete('/boss/orders/{order}/items/{item}', [BossOrderController::class, 'destroyItem'])->name('boss.orders.items.destroy');
+        Route::delete('/boss/orders/{order}/delivery/{delivery}', [BossOrderController::class, 'deleteDelivery'])->name('boss.orders.delivery.destroy');
+        Route::get('/boss/orders/{order}/assign', [BossOrderController::class, 'showAssign'])->name('boss.orders.assign.show');
+        Route::post('/boss/orders/{order}/assign', [BossOrderController::class, 'storeAssign'])->middleware('role:boss')->name('boss.orders.assign.store');
+        Route::get('/boss/orders/{order}', [BossOrderController::class, 'show'])->name('boss.orders.show');
+        Route::post('/boss/orders/{order}/products', [BossOrderController::class, 'storeProduct'])->name('boss.orders.products.store');
+        Route::delete('/boss/orders/{order}/products/{product}', [BossOrderController::class, 'destroyProduct'])->name('boss.orders.products.destroy');
+        Route::delete('/boss/orders/{order}/remarks/{remark}', [BossOrderController::class, 'destroyRemark'])->name('boss.orders.remarks.destroy');
+        Route::delete('/boss/orders/{order}/attachments', [BossOrderController::class, 'destroyAttachment'])->name('boss.orders.attachments.destroy');
+        Route::get('/boss/orders/{order}/redo',  [BossOrderController::class, 'redoCreate'])->name('boss.orders.redo.create');
+        Route::post('/boss/orders/{order}/redo', [BossOrderController::class, 'redoStore'])->name('boss.orders.redo.store');
+
+        Route::pattern('id', '\d+');
+        Route::pattern('order', '\d+');
+        Route::get('/boss/orders/leads/search', [BossOrderController::class, 'searchLeads'])->name('boss.orders.leads.search');        
+        Route::get('/boss/orders/leads/{id}', [BossOrderController::class, 'getLead'])->name('boss.orders.leads.get');
+        Route::get('/boss/orders/create/{lead_id?}', [BossOrderController::class, 'create'])->name('boss.orders.create');
+        Route::post('/boss/orders', [BossOrderController::class, 'store'])->name('boss.orders.store');        
+        Route::post('/boss/orders/get', [BossOrderController::class, 'getOrders'])->name('boss.orders.get');
+        
+        Route::get('/boss/orders/csv-template', [BossOrderController::class, 'csvTemplate'])->name('boss.orders.csv_template');
+        // Route::get('/boss/orders/{order}', [BossOrderController::class, 'orderShow'])->name('boss.orders.shows')->whereNumber('order');
+
+        // AJAX search for artists (head-artist assigning)
+        Route::get('/boss/orders/assignees/search', [BossOrderController::class, 'searchOrderArtists'])->name('boss.orders.assignees.search');
+        Route::post('/boss/orders/{order}/edit', [BossOrderController::class, 'assign'])->name('boss.orders.assigns');
+
+        Route::get('/data-entry/users', [ArtistController::class, 'dataEntryUsers'])->name('dataEntry.users');
     });
-
-
  
 });
 

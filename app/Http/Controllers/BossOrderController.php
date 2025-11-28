@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use App\Models\Order;
-use App\Models\Meeting;
 use App\Models\Material;
 use App\Models\ProductRemark;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;  
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,154 +18,16 @@ use App\Models\DeliveryBreakdown;
 use App\Models\Specification;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Str;
-use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use App\Helpers\Helpers;
 use App\Notifications\GenericNotification;
 use App\Models\OrderAttachment;
+use App\Models\Lead;
+use Yajra\DataTables\Facades\DataTables;
 
-class ArtistController extends Controller
+class BossOrderController extends Controller
 {
-    public function dashboard(Request $request)
-    {
-        $user  = Auth::user();
-        $isHead  = $this->isHeadArtist($user);
-        $base  = $this->visibleOrders();
-
-        $raw = strtolower(preg_replace('/[^a-z]/', '', (string) $request->query('status', '')));
-
-        $map = [
-            'toassign'   => 'to_assign',
-            'assigned'   => 'assigned',
-            'inprogress' => 'in_progress',
-            'completed'  => 'completed',
-            'rejected'   => 'rejected',
-        ];
-
-        $query = clone $base;
-
-        if ($raw !== '') {
-            if ($raw === 'pending') {
-                $query->where('orderStatus', 'assigned')
-                    ->where('pending', 1);
-
-                if ($isHead) {
-                    $query->whereRaw('1=0');
-                }
-            } else {
-                $db = $map[$raw] ?? $raw; 
-                $query->where('orderStatus', $db);
-
-                if (!$isHead && $db === 'in_progress') {
-                    $query->where('artist_id', $user->id)
-                        ->where('pending', 0);
-                }
-            }
-        }
-
-        if ($s = trim($request->query('q', ''))) {
-            $query->where(function ($q) use ($s) {
-                $q->where('orderTitle', 'like', "%{$s}%")
-                ->orWhere('companyName', 'like', "%{$s}%")
-                ->orWhere('leadName', 'like', "%{$s}%");
-            });
-        }
-
-        $statsBase = (clone $base)->where(function ($q) {
-            $q->whereNull('status')->orWhere('status', 0);
-        });
-
-        // 4) Metrics from the same base visibility
-        $metrics = [
-            'total'       => (clone $statsBase)->count(),
-            'pending'     => (clone $statsBase)->where('orderStatus', 'assigned')->where('pending', 1)->count(),
-            'in_progress' => (clone $statsBase)->where('orderStatus', 'in_progress')->count(),
-            'completed'   => (clone $statsBase)->where('orderStatus', 'completed')->count(),
-            'rejected'    => (clone $statsBase)->where('orderStatus', 'rejected')->count(),
-        ];
-
-        if ($isHead) {
-            $metrics['to_assign'] = (clone $statsBase)->where('orderStatus', 'to_assign')->count();
-            $metrics['assigned']  = (clone $statsBase)->where('orderStatus', 'assigned')->count();
-        }
-
-        // 5) Rows
-        $ordersForTop5 = $this->visibleOrders()
-            ->where(function ($q) {  
-                $q->whereNull('status')->orWhere('status', 0);
-            })
-            ->with(['artist:id,name', 'salesperson:id,name', 'originalOrder:id,order_number'])
-            ->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END, deadline DESC')
-            ->take(50)
-            ->get();
-
-        // Pass the *raw UI token* back so the dropdown can mark "selected"
-        $statusRaw = $raw;
-
-        if ($request->ajax()) {
-            return view('artist.partials.orders-table', compact('orders', 'isHead'))->render();
-        }
-
-        // Orders list (respect scope)
-        $orders = $this->visibleOrders()
-            ->with(['artist:id,name', 'salesperson:id,name'])
-            ->latest('orderDate')
-            ->paginate(1000);
-
-        // Salesperson filter for the donut chart
-        $salespersons = User::where('role', 'salesperson')
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
-        // Initial donut counts (all salespersons)
-        $initial = Meeting::selectRaw("
-            SUM(CASE WHEN status='scheduled' THEN 1 ELSE 0 END) AS scheduled,
-            SUM(CASE WHEN status='canceled'  THEN 1 ELSE 0 END) AS canceled
-        ")->first();
-
-        $status = $request->query('status');
-        $allowed = ['to_assign','assigned','in_progress','completed','rejected'];
-        if ($status && in_array($status, $allowed, true)) {
-            $query->where('orderStatus', $status);
-        }
-
-        return view('artist.dashboard', [
-            'orders'        => $ordersForTop5,
-            'metrics'       => $metrics,
-            'isHead'        => $isHead,     
-            'statusRaw'     => $statusRaw,  
-            'salespersons'  => $salespersons,
-            'initialCounts' => [
-                'scheduled' => (int) ($initial->scheduled ?? 0),
-                'canceled'  => (int) ($initial->canceled  ?? 0),
-            ],
-        ]);
-
-        return view('artist.dashboard', compact('orders', 'metrics', 'isHead', 'statusRaw'));
-    }
-
-    // AJAX for the donut chart
-    public function meetingStatusCounts(Request $request)
-    {
-        $userId = $request->query('salesperson_id');
-
-        $q = DB::table('meetings');
-        if (!empty($userId)) {
-            $q->where('user_id', $userId);
-        }
-
-        $scheduled = (clone $q)->where('status', 'scheduled')->count();
-        $canceled  = (clone $q)->where('status', 'canceled')->count();
-
-        return response()->json([
-            'scheduled' => $scheduled,
-            'canceled'  => $canceled,
-        ]);
-    }
-
     public function orders(Request $request)
     {
         $user   = Auth::user();
@@ -345,10 +206,10 @@ class ArtistController extends Controller
 
         if ($request->ajax()) {
             // pass isHead in case your row buttons differ for heads
-            return view('artist.partials.orders-table', compact('orders', 'isHead'))->render();
+            return view('boss.partials.orders-table', compact('orders', 'isHead'))->render();
         }
 
-        return view('artist.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
+        return view('boss.orders', compact('orders', 'metrics', 'isHead', 'statusRaw'));
     }
 
     public function showAssign(Order $order)
@@ -367,7 +228,7 @@ class ArtistController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'role']);
 
-        return view('artist.orders.assign', compact('order', 'artists'));
+        return view('boss.orders.assign', compact('order', 'artists'));
     }
 
     public function storeAssign(Request $request, Order $order)
@@ -394,7 +255,7 @@ class ArtistController extends Controller
         $order->save();
 
         return redirect()
-        ->route('artist.dashboard')
+        ->route('boss.dashboard')
         ->with('ok', "Order assigned to {$assignee->name} ({$assignee->role}) successfully.");
     }
 
@@ -488,28 +349,13 @@ class ArtistController extends Controller
             $attachments = collect(); // none from artist/head-artist in this legacy path
         }
 
-        return view('artist.orders.show', compact(
+        return view('boss.orders.show', compact(
             'order',
             'attachments',
             'headerAttachments'
         ));
     }
 
-    private function fileInfoFromPath(string $relPath): array
-    {
-        // adjust disk if needed
-        $url  = Storage::disk('public')->url($relPath);
-        $ext  = pathinfo($relPath, PATHINFO_EXTENSION);
-
-        return [
-            'name' => basename($relPath),
-            'url'  => $url,
-            'size' => null, // unknown for order CSV; can be resolved if you want
-            'ext'  => $ext,
-        ];
-    }
-
-    /** Optional ajax search if you want Select2 remote search */
     public function searchArtists(Request $request)
     {
         $q = trim($request->query('q',''));
@@ -764,12 +610,12 @@ class ArtistController extends Controller
             ->orderBy('machine_name')
             ->get(['id', 'machine_name']);
 
-        return view('artist.orders.edit', compact(
+        return view('boss.orders.edit', compact(
             'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
             'orderFiles','orderFilesSales', 'redoReason', 'artists', 'printerMachines', 'cutterMachines', 'laminationMachines'
         ));
 
-        return view('artist.orders.edit', [
+        return view('boss.orders.edit', [
             'order'       => $order,
             'materials' => $materials,
             'product'     => $product,
@@ -1569,7 +1415,7 @@ class ArtistController extends Controller
                 return response()->json(['ok' => true, 'message' => $message]);
             }
             return redirect()
-                ->route('artist.orders')
+                ->route('boss.orders')
                 ->with('success', $message);
 
         } catch (\Throwable $e) {
@@ -1628,7 +1474,7 @@ class ArtistController extends Controller
 
     private function isHeadArtist($user): bool
     {
-        return $user && $user->role === 'head-artist';
+        return $user && $user->role === 'boss';
     }
 
     private function getOrderAttachments(Order $order): array
@@ -1759,78 +1605,6 @@ class ArtistController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    private function extractDeliveries(Request $request): array
-    {
-        $posted = $request->input('deliveries', []);
-        if (!is_array($posted)) return [];
-
-        $rows = [];
-        foreach ($posted as $row) {
-            if (!is_array($row)) continue;
-
-            // normalize keys
-            $row = array_change_key_case($row, CASE_LOWER);
-
-            $method   = trim((string)($row['method']   ?? ''));
-            $location = trim((string)($row['location'] ?? ''));
-            $qty      = $row['quantity'] ?? null;
-            $date     = $row['date']     ?? null;
-            $time     = $row['time']     ?? null;
-            $id       = isset($row['id']) ? (int)$row['id'] : null;
-
-            // Support a single datetime-local input
-            // e.g. "2025-08-19T13:55"
-            if ((!$date || !$time) && !empty($row['datetime'])) {
-                try {
-                    $dt   = \Carbon\Carbon::parse($row['datetime']);
-                    $date = $date ?: $dt->toDateString();   // "YYYY-MM-DD"
-                    $time = $time ?: $dt->format('H:i');    // "HH:mm"
-                } catch (\Throwable $e) {
-                    // leave as null; optional fields anyway
-                }
-            }
-
-            // empty-card guard (everything blank)
-            $isEmpty = ($method === '' && $location === '' && ($qty === null || $qty === '') && !$date && !$time);
-            if ($isEmpty) continue;
-
-            $rows[] = [
-                'id'       => $id,
-                'method'   => $method ?: null,
-                'location' => $location ?: null,
-                'quantity' => is_numeric($qty) ? (int)$qty : 0,
-                'date'     => $date ?: null,
-                'time'     => $time ?: null,
-            ];
-        }
-
-        return $rows;
-    }
-
-    private function validateDeliveries(array $deliveries, int $maxQty): array
-    {
-        // Per-row validation
-        $v = Validator::make(['deliveries' => $deliveries], [
-            'deliveries'               => ['array'],
-            'deliveries.*.method'      => ['required','string','max:255'],
-            'deliveries.*.location'    => ['nullable','string','max:255'],
-            'deliveries.*.quantity'    => ['required','integer','min:1'],
-            'deliveries.*.date'        => ['nullable','date'],
-            'deliveries.*.time'        => ['nullable'],
-        ]);
-
-        $v->after(function ($v) use ($deliveries, $maxQty) {
-            $sum = collect($deliveries)->sum('quantity');
-            if ($sum > $maxQty) {
-                $v->errors()->add('deliveries', 'Total delivery quantity ('.$sum.') cannot exceed product total ('.$maxQty.').');
-            }
-        });
-
-        $v->validate();
-
-        return [$deliveries, collect($deliveries)->sum('quantity')];
-    }
-
     public function deleteDelivery(Request $request, Order $order, int $delivery)
     {
         $user = Auth::user();
@@ -1903,54 +1677,10 @@ class ArtistController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function ProfileShow(Request $request)
-    {
-        $user = $request->user();
-        return view('artist.profile.show', compact('user'));
-    }
-
-    public function ProfileEdit(Request $request)
-    {
-        $user = $request->user();
-        return view('artist.profile.edit', compact('user'));
-    }
-
-    public function ProfileUpdate(Request $request)
-    {
-        $user = $request->user();
-
-        $validated = $request->validate([
-            'name'           => ['required','string','max:255'],
-            'email'          => ['required','email','max:255'],
-            'contact_number' => ['nullable','string','max:30'],
-
-            // Password section (optional)
-            // If 'password' is present, 'current_password' must match the logged-in user
-            'current_password' => ['nullable','required_with:password','current_password'],
-            'password'         => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
-        ]);
-
-        // Update profile fields
-        $user->fill([
-            'name'           => $validated['name'],
-            'email'          => $validated['email'],
-            'contact_number' => $validated['contact_number'] ?? null,
-        ]);
-
-        // Update password if provided
-        if (!empty($validated['password'])) {
-            $user->password = Hash::make($validated['password']);
-        }
-
-        $user->save();
-
-        return back()->with('success', 'Profile updated.');
-    }
-
     public function destroyProduct(Request $request, Order $order, Product $product)
     {
         $user = Auth::user();
-        if (!$user || !($user->hasRole('artist') || $user->hasRole('head-artist'))) {
+        if (!$user || !($user->hasRole('artist') || $user->hasRole('head-artist') || $user->hasRole('boss'))) {
             return $request->expectsJson()
                 ? response()->json(['ok' => false, 'message' => 'Unauthorized'], 401)
                 : back()->with('error', 'Unauthorized');
@@ -1983,5 +1713,971 @@ class ArtistController extends Controller
         }
 
         return back()->with('success', 'Product deleted.');
+    }
+
+    public function searchLeads(\Illuminate\Http\Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));   
+        if ($q === '' || strlen($q) < 2) {
+            return response()->json(['results' => []]);
+        }
+
+        $leads = \App\Models\Lead::query()
+            ->where(function ($w) use ($q) {
+                $w->where('name', 'like', "%{$q}%")
+                ->orWhere('company_name', 'like', "%{$q}%")
+                ->orWhere('phone', 'like', "%{$q}%")
+                ->orWhere('email', 'like', "%{$q}%");
+            })
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id','name','company_name','phone','email']);
+
+        return response()->json([
+            'results' => $leads->map(fn($l) => [
+                'id'   => $l->id,
+                'text' => $l->name,
+                'meta' => [
+                    'company_name' => $l->company_name,
+                    'phone'        => $l->phone,
+                    'email'        => $l->email,
+                ],
+            ]),
+        ]);
+    }
+
+    public function getLead($id)
+    {
+        $lead = \App\Models\Lead::findOrFail($id);
+        return response()->json([
+            'id'            => $lead->id,
+            'name'          => $lead->name,
+            'company_name'  => $lead->company_name,
+            'phone'         => $lead->phone,
+            'email'         => $lead->email,
+            'company_phone' => $lead->company_phone ?? '',
+        ]);
+    }
+
+    public function create(?int $lead_id = null)
+    {
+        $lead = $lead_id ? \App\Models\Lead::find($lead_id) : null;
+
+        // Try the new name first, fall back to the old file name if present
+        return view()->first([
+            'boss.orders.create',    
+            'boss.orders.add-order',  
+        ], compact('lead'));
+    }
+
+    public function store(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || !($user->hasRole('artist') || $user->hasRole('head-artist') || $user->hasRole('boss'))) {
+            return back()->with('error', 'Unauthorized');
+        }
+
+        try {
+            $request->validate([
+                'lead_id'     => 'nullable|exists:leads,id',
+                'orderTitle'  => 'required|string|max:255',
+                'deadline'    => 'required|date|after_or_equal:today',
+                'approval'    => 'required|boolean',
+                'orderDetail' => 'nullable|string',
+
+                'products'                       => ['required','array','min:1'],
+                'products.*.product_name'        => ['required','string','max:255'],
+                'products.*.quantity'            => ['required','integer','min:1'],
+                'products.*.material_info'       => ['required','string'],
+                'products.*.remarks'             => ['nullable','array'],
+                'products.*.remarks.*.operation' => [
+                'required_with:products.*.remarks.*.remark',
+                Rule::in(['printing','furnishing','installation','courier','self_pickup','artist']),
+                ],
+                'products.*.remarks.*.remark'    => ['required_with:products.*.remarks.*.operation','string'],
+
+                'csv_file'    => 'nullable|file|mimes:csv,txt',
+                'attachments' => 'required|array',
+                'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps|max:20480',
+            ]);
+
+            $lead = $request->filled('lead_id') ? Lead::find($request->lead_id) : null;
+
+            $attachmentFiles = [];
+            if ($request->hasFile('attachments')) {
+                $attachmentFiles = $request->file('attachments');
+                if (!is_array($attachmentFiles)) {
+                    $attachmentFiles = [$attachmentFiles];
+                }
+            }
+
+            // Create Order (as Artist)
+            $order                    = new Order();
+            $order->order_number      = $this->makeOrderNumber();
+            $order->artist_id         = $user->id;                        
+            $order->salesperson_id    = $lead->salesperson_id ?? null;
+            $order->lead_id           = $lead->id           ?? null;
+            $order->leadName          = $lead->name         ?? null;
+            $order->leadPhone         = $lead->phone        ?? null;
+            $order->leadEmail         = $lead->email        ?? null;
+            $order->companyName       = $lead->company_name ?? null;
+
+            $order->orderTitle        = $request->orderTitle;
+            $order->orderDetail       = $request->orderDetail;
+            $order->deadline          = $request->deadline;
+            $order->approval          = (int) $request->approval;
+            $order->orderDate         = now();
+
+            // Default statuses for a new artist order
+            $order->orderStatus = 'in_progress';
+            $order->draft       = 1;
+            $order->submit      = 0;
+            $order->pending     = 0;
+            $order->status      = 0;
+            
+            // Head-artist assigning to a normal artist
+            $assignee = null;
+            if (auth()->user()->hasRole('boss') && $request->filled('assignee_artist_id')) {
+                $assigneeId        = (int) $request->input('assignee_artist_id');
+                $order->artist_id  = $assigneeId;
+                $assignee          = \App\Models\User::find($assigneeId);
+
+                // Selected a normal artist → keep your previous behavior
+                $order->orderStatus = 'assigned';
+                $order->pending     = 1;
+                
+            }
+
+            $order->save();
+
+            // ----- Save attachments into order_attachments table -----
+            $attachmentPaths = [];
+            $attachmentFiles = $request->file('attachments', []);
+
+            if ($attachmentFiles && !is_array($attachmentFiles)) {
+                $attachmentFiles = [$attachmentFiles];
+            }
+
+            if (!empty($attachmentFiles)) {
+                $dir = "orders/{$order->id}/attachments";
+
+                foreach ($attachmentFiles as $file) {
+                    if (!$file || !$file->isValid()) {
+                        continue;
+                    }
+
+                    $orig = $file->getClientOriginalName();
+                    $base = pathinfo($orig, PATHINFO_FILENAME);
+                    $ext  = strtolower($file->getClientOriginalExtension());
+
+                    $baseSlug = Str::slug($base) ?: 'file';
+
+                    // Avoid name clashes within this order
+                    $candidate = "{$baseSlug}.{$ext}";
+                    $i = 1;
+                    while (Storage::disk('public')->exists("$dir/$candidate")) {
+                        $candidate = "{$baseSlug} ({$i}).{$ext}";
+                        $i++;
+                    }
+
+                    // Store file
+                    $path = $file->storeAs($dir, $candidate, 'public');
+
+                    // For backward compatibility (comma-separated path list)
+                    $attachmentPaths[] = $path;
+
+                    // Insert into order_attachments
+                    OrderAttachment::create([
+                        'order_id'      => $order->id,
+                        'user_id'       => $user->id,
+                        'file_path'     => $path,
+                        'original_name' => $orig,
+                        'mime_type'     => $file->getClientMimeType(),
+                        'size'          => $file->getSize(),
+                    ]);
+                }
+            }
+            
+            // Collect products from form
+            $productsData = $request->products;
+
+            // If CSV uploaded, parse & append rows
+            if ($request->hasFile('csv_file')) {
+                $path        = $request->file('csv_file')->getPathname();
+                $reader      = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
+                $spreadsheet = $reader->load($path);
+                $rows        = $spreadsheet->getActiveSheet()->toArray();
+
+                foreach ($rows as $idx => $row) {
+                    if ($idx === 0) continue; 
+                    $productsData[] = [
+                        'product_name'  => $row[0] ?? '',
+                        'quantity'      => (int)($row[1] ?? 0),
+                        'remark'        => $row[2] ?? null,
+                        'material_info' => $row[3] ?? null,
+                        'location'      => $row[4] ?? null,
+                        'date_time'     => $row[5] ?? null,
+                    ];
+                }
+            }
+
+            // Persist products
+            $authorId = (int) auth()->id();
+            foreach ($request->input('products', []) as $p) {
+                if (empty($p['product_name']) || empty($p['quantity'])) {
+                    continue;
+                }
+
+                // Save into products table (columns based on your screenshot)
+                $product = \App\Models\Product::create([
+                    'OrderID'       => $order->id,
+                    'productName'   => $p['product_name'],
+                    'totalQuantity' => (int) $p['quantity'],
+                    'materialRemark'=> $p['material_info'] ?? null,
+                ]);
+
+                // Save remarks into product_remarks (use model if you have one; else DB::table)
+                if (!empty($p['remarks']) && is_array($p['remarks'])) {
+                    $rows = [];
+                    $now  = now();
+                    foreach ($p['remarks'] as $r) {
+                        if (empty($r['operation']) || empty($r['remark'])) continue;
+                        $rows[] = [
+                            'ProductID'   => $product->getKey(), 
+                            'operation'   => $r['operation'],   
+                            'remark'      => $r['remark'],
+                            'user_id'    => $authorId,
+                            'created_at'  => $now,
+                            'updated_at'  => $now,
+                        ];
+                    }
+                    if ($rows) {
+                        DB::table('product_remarks')->insert($rows);
+                    }
+                }
+            }
+
+            /**
+             * =======================
+             *  NOTIFICATIONS (NEW)
+             * =======================
+             */
+            $actor     = $user;
+            $actorName = $actor->name;
+            $actorRole = str_replace('-', ' ', strtolower($actor->role));
+
+            $productCount = DB::table('products')->where('OrderID', $order->id)->count();
+            $deadlineTxt  = $order->deadline
+                ? \Carbon\Carbon::parse($order->deadline)->timezone('Asia/Kuala_Lumpur')->format('Y-m-d')
+                : '-';
+
+            // Base message for everyone
+            $messageCommon = "New order {$order->order_number} created by {$actorName} ({$actorRole}). "
+                        . "{$productCount} Product(s) added. Deadline: {$deadlineTxt}.";
+
+            // Optional special message when head-artist assigns to a normal artist
+            $messageForAssignee = null;
+            if ($actor->hasRole('boss') && isset($assignee) && $assignee && $assignee->hasRole('artist')) {
+                $messageForAssignee = "You have been **assigned** a new order {$order->order_number} by {$actorName} "
+                                    . "(boss). {$productCount} Product(s) added. Deadline: {$deadlineTxt}.";
+            }
+
+            // Role-aware URL builder
+            $urlFor = function (User $u) use ($order) {
+                return match ($u->role) {
+                    'artist'                          => url("/artist/orders/{$order->id}/edit"),
+                    'head-artist'                     => url("/artist/orders/{$order->id}"),
+                    'salesperson', 'head-salesperson' => url("/orders/{$order->id}"),
+                    'admin', 'Admin'                  => url("/admin/orders/{$order->id}"),
+                    'boss',  'Boss'                   => url("/boss/orders/{$order->id}"),
+                    default                           => url("/"),
+                };
+            };
+
+            // ======================
+            // Build recipients list
+            // ======================
+            $recipients = collect();
+
+            // 1) Always include these roles
+            $baseRoles = ['admin', 'boss', 'head-artist', 'head-salesperson']; // head-salesperson is optional in your DB
+            $recipients = $recipients->merge(
+                User::whereIn('role', $baseRoles)->get()
+            );
+
+            // 2) Assigned salesperson (if any)
+            if (!empty($order->salesperson_id)) {
+                $recipients = $recipients->merge(
+                    User::where('id', $order->salesperson_id)->get()
+                );
+            }
+
+            // 3) If creator is a NORMAL artist, make sure head-artists are included (already in baseRoles, but keep this for clarity/safety)
+            // if (strtolower($actor->role) === 'artist') {
+            //     $recipients = $recipients->merge(
+            //         User::where('role', 'head-artist')->get()
+            //     );
+            // }
+
+            // 4) If creator is head-artist and assigned to a normal artist, include that assignee
+            if (strtolower($actor->role) === 'boss' && isset($assignee) && $assignee && (strtolower($assignee->role) === 'artist' || strtolower($assignee->role) === 'head-artist')) {
+                $recipients = $recipients->merge([$assignee]);
+            }
+
+            // De-duplicate on user id
+            $recipients = $recipients->unique('id')->values();
+
+            // Send notifications
+            foreach ($recipients as $u) {
+                $msg = ($messageForAssignee && isset($assignee) && $u->id === $assignee->id)
+                    ? $messageForAssignee
+                    : $messageCommon;
+
+                Helpers::notify($u, $msg, $urlFor($u), ['database', 'mail']);
+            }
+
+            if (auth()->user()->hasRole('boss')) {
+                if ($assignee && $assignee->hasRole('boss')) {
+                    // Assigned to head-artist → go straight to edit
+                    return redirect()
+                        ->route('boss.orders.edit', $order->id)
+                        ->with('success', 'Order created and assigned.');
+                }
+                // Others unchanged → go back to list
+                return redirect()
+                    ->route('boss.orders')
+                    ->with('success', 'Order created and assigned.');
+            }
+
+            return redirect()->route('boss.orders.edit', $order->id)
+                ->with('success', 'Order created successfully.');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->validator)->withInput();
+        } catch (\Throwable $e) {
+            report($e);
+            return back()->with('error', 'Failed to create order.')->withInput();
+        }
+    }
+
+    public function getOrders(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('boss')) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $orders = Order::with('lead', 'salesperson', 'products')->orderBy('created_at', 'desc');
+
+        if (!$user->hasRole('head-salesperson')) {
+            $orders->where('salesperson_id', $user->id);
+        } else {
+            if ($request->has('salesperson') && $request->salesperson) {
+                $orders->where('salesperson_id', $request->salesperson);
+            }
+        }
+
+        if ($request->has('status') && $request->status) {
+            $orders->where('orderStatus', $request->status);
+        }
+
+        if ($request->has('search') && $request->input('search')['value']) {
+            $search = $request->input('search')['value'];
+            $orders->where(function ($query) use ($search) {
+                $query->where('orderTitle', 'like', "%{$search}%")
+                    ->orWhere('order_number', 'like', "%{$search}%")
+                    ->orWhereHas('lead', function ($q) use ($search) {
+                        $q->where('company_name', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        return DataTables::of($orders)
+            ->addColumn('order_id', function ($order) {
+                return $order->order_number ?? $order->id;
+            })
+            ->addColumn('order_name', function ($order) {
+                return $order->orderTitle;
+            })
+            ->addColumn('company_info', function ($order) {
+                $lead = $order->lead;
+                return '<div class="company-info-cell text-secondary">' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-building me-2"></i>' . ($lead->company_name ?? 'N/A') . '</div>' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->company_phone ?? 'N/A') . '</div>' .
+                    '</div>';
+            })
+            ->addColumn('lead_details', function ($order) {
+                $lead = $order->lead;
+                $assignedTo = $order->salesperson?->name ?? 'Unassigned';
+                return '<div class="lead-details-cell text-secondary">' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . ($lead->name ?? 'N/A') . '</div>' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bx-envelope me-2"></i>' . ($lead->email ?? 'N/A') . '</div>' .
+                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-id-card me-2"></i>Assigned To: ' . $assignedTo . '</div>' .
+                    '</div>';
+            })
+            ->addColumn('status', function ($order) {
+                $color = match ($order->orderStatus) {
+                    'to_assign'   => 'danger',
+                    'assigned'    => 'primary',
+                    'pending'     => 'warning',
+                    'in_progress' => 'info',
+                    'completed'   => 'success',
+                    'rejected'    => 'danger',
+                    default       => 'secondary',
+                };
+                return '<span class="btn btn-sm btn-label-' . $color . '" 
+                         style="white-space: nowrap; min-width:120px; text-align:center;">'
+                    . ucwords(str_replace('_', ' ', $order->orderStatus)) .
+                    '</span>';
+            })
+            ->addColumn('products', function ($order) {
+                return '<button class="btn view-products" data-id="' . $order->id . '"  style="white-space: nowrap; min-width:120px; text-align:center;">
+                            <span class="icon-base bx bxs-show me-2"></span>
+                            View Products
+                        </button>';
+            })
+            ->addColumn('actions', function ($order) {
+                $editRoute = route('boss.orders.edit', $order->id);
+                $leadViewRoute = route('boss.orders.show', $order->id);
+                $html = '<div class="actions-cell d-flex gap-2">' .
+                    '<a href="' . $editRoute . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
+                    '<a href="' . $leadViewRoute . '" class="btn" title="View Lead"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>';
+                $html .= '</div>';
+                return $html;
+            })
+            ->rawColumns(['company_info', 'lead_details', 'status', 'products', 'actions'])
+            ->toJson();
+    }
+
+    public function csvTemplate()
+    {
+        header("Content-type: text/csv");
+        header("Content-Disposition: attachment; filename=products_template.csv");
+
+        $output = fopen("php://output", "w");
+
+        // Add column headers
+        $headers = ['Product_Name', 'Quantity', 'Material_Info', 'Printing_Remark', 'Furnishing_Remark', 'Installation_Remark', 'Courier_Remark', 'Self_Pickup_Remark'];
+        fputcsv($output, $headers);
+
+        // Generate example data with material info and up to 5 remarks, some empty
+        $data = [
+            ['Banner Print', 100, 'Vinyl 12oz', 'High resolution', '', '', 'Next day', ''],
+            ['Flyer A5', 5000, 'Art Paper 128gsm', '', 'Glossy finish', '', '', ''],
+            ['T-Shirt', 50, 'Cotton', 'Front print', '', 'Embroidery', '', ''],
+            ['Poster A3', 200, 'Art Card 260gsm', '', '', '', 'Fragile', ''],
+            ['Sticker Roll', 1000, 'PP Synthetic', '', '', '', '', 'Call ahead'],
+            ['Name Card', 300, 'Art Card 310gsm', '', 'Double sided', '', '', ''],
+            ['Booklet A4', 100, '80gsm Simili', 'Color print', '', '', 'Express', ''],
+            ['Backdrop', 5, 'Tarpaulin', '', 'Sturdy frame', '', '', ''],
+            ['Mug Print', 40, 'Ceramic', 'Heat resistant', '', '', '', ''],
+            ['Cap Embroidery', 25, 'Polyester', '', 'Red thread', '', '', ''],
+        ];
+
+        foreach ($data as $row) {
+            fputcsv($output, $row);
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    public function orderShow($id)
+    {
+        $order = Order::with('lead.attachments', 'salesperson', 'products', 'artist')->findOrFail($id);
+        $attachments = $order->getAttachmentPathsAttribute()->map(function ($path) {
+            return ['url' => Storage::url($path), 'name' => basename($path), 'size' => Storage::size($path)];
+        });
+        $leadAttachments = $order->lead ? $order->lead->attachments->map(function ($attachment) {
+            return [
+                'url' => asset('storage/' . $attachment->file_location),
+                'name' => basename($attachment->file_location),
+                'size' => $attachment->file_size
+            ];
+        }) : collect();
+        return view('artist.orders.order-view', compact('order', 'attachments', 'leadAttachments'));
+    }
+
+    public function searchOrderArtists(\Illuminate\Http\Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+
+        $base = \App\Models\User::query()
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->orderBy('name');
+
+        if ($q !== '') {
+            $base->where('name', 'like', "%{$q}%");
+        }
+
+        $users = $base->limit(100)->get(['id','name','role']);
+
+        return response()->json([
+            'results' => $users->map(fn($u) => [
+                'id'   => $u->id,
+                'text' => "{$u->name} ({$u->role})",
+            ]),
+        ]);
+    }
+
+    public function assign(Request $request, \App\Models\Order $order)
+    {
+        try {
+            // Only head-artist can assign
+            if (auth()->user()->role !== 'boss') {
+                return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            // If you want to allow unassign (user_id = null), use nullable
+            $validated = $request->validate([
+                'user_id' => ['nullable','integer','exists:users,id'],
+            ]);
+
+            $assignee = isset($validated['user_id']) ? User::find($validated['user_id']) : null;
+
+            // defaults
+            $newStatus = 'to_assign';
+            $pending   = 0;
+
+            if ($assignee) {
+                if ($assignee->role === 'head-artist') {
+                    // assigning to a head-artist → they can start work immediately
+                    $newStatus = 'in_progress';
+                    $pending   = 0;
+                } else {
+                    // assigning to a normal artist → mark as pending until they pick up
+                    $newStatus = 'assigned';
+                    $pending   = 1;
+                }
+            } // else keep to_assign + pending=0 for unassign
+
+            $order->artist_id   = $assignee?->id;   // allow unassign (null)
+            $order->orderStatus = $newStatus;
+            $order->pending     = $pending;
+            $order->save();
+
+            return response()->json([
+                'ok'           => true,
+                'artist_id'    => $order->artist_id,
+                'orderStatus'  => $order->orderStatus,
+                'pending'      => $order->pending,
+                'assigneeRole' => $assignee?->role,
+            ]);
+        } catch (\Throwable $e) {
+            // For bad input, 422 is more appropriate than 500
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Please select a valid artist or head artist to assign.',
+                ], 422);
+            }
+            return back()->with('error', 'Failed to assign. Please try again.');
+        }
+    }
+
+    public function storeProduct(Request $request, \App\Models\Order $order)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->hasRole('boss') )) {
+            return back()->with('error', 'Unauthorized');
+        }
+
+        $request->validate([
+            'product_name'        => ['nullable','string','max:255'],
+            'quantity'            => ['nullable','integer','min:1'],
+            'material_info'       => ['nullable','string'],
+            'remarks'             => ['nullable','array'],
+            'remarks.*.operation' => ['nullable','in:printing,furnishing,installation,courier,self_pickup,artist'],
+            'remarks.*.remark'    => ['nullable','string'],
+        ]);
+
+        // Create product (columns match your products table)
+        $product = \App\Models\Product::create([
+            'OrderID'        => $order->id,
+            'productName'    => $request->product_name,
+            'totalQuantity'  => (int) $request->quantity,
+            'materialRemark' => $request->material_info,
+            // optional defaults that exist in your schema:
+            'status'      => 'in_progress',
+            'editable'    => 1,
+        ]);
+
+        // Optional: save product remarks if provided (product_remarks table)
+        if ($request->filled('remarks') && is_array($request->remarks)) {
+            $rows = [];
+            $now  = now();
+            $userId = auth()->id();
+            foreach ($request->remarks as $r) {
+                if (empty($r['operation']) || empty($r['remark'])) continue;
+                $rows[] = [
+                    'ProductID'  => $product->getKey(),
+                    'user_id'    => $userId, 
+                    'operation'  => $r['operation'],
+                    'remark'     => $r['remark'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+            if ($rows) {
+                DB::table('product_remarks')->insert($rows);
+            }
+        }
+
+        // Redirect back to edit page so the new accordion block appears
+        return redirect()
+            ->back()
+            ->with('success', 'Product added to order.');
+    }
+
+    public function redoCreate(Order $order)
+    {
+        // 1) Base/original order (even if you came from a redo)
+        $baseOrder = $order->redo ? Order::findOrFail((int) $order->redo) : $order;
+
+        // 2) Products to pick from the CURRENT order (as before)
+        $products = Product::where('OrderID', $order->id)
+            ->orderBy('ProductID')
+            ->get(['ProductID','productName','totalQuantity','taskType']);
+
+        // 3) Latest redo reason (same)
+        $latestRedoReason = DB::table('report_redo')
+            ->where('OrderID', $baseOrder->id)
+            ->orderByDesc('created_at')
+            ->value('reason');
+
+        // 4) How many redo children exist for the BASE
+        $existingCount = Order::where('redo', $baseOrder->id)->count();
+
+        // 5) Build labels
+        $baseNumber = $this->normalizeOrderNumber($baseOrder->order_number); // strip # and any trailing R/R1…
+        $headerOrderNumber = '#' . $baseNumber . ($existingCount > 0 ? 'R' : ''); // show R only if has any redo already
+        $nextRedoNumber    = '#' . $baseNumber . 'R'; // the id that will be created if user submits
+
+        return view('boss.orders.redo', [
+            'order'              => $order,
+            'products'           => $products,
+            'latestRedoReason'   => $latestRedoReason,
+            'headerOrderNumber'  => $headerOrderNumber, // <-- use in page header
+            'nextRedoNumber'     => $nextRedoNumber,    // <-- use in “What happens next?”
+        ]);
+    }
+
+
+    public function redoStore(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'reason'     => ['required', 'string', 'max:255'],
+            'reason_alt' => ['nullable', 'string', 'max:2000', 'required_if:reason,Others'],
+            'products'   => ['nullable', 'array'],
+            'products.*' => ['integer'],
+        ]);
+
+        $selectedCurrentIds = collect($validated['products'] ?? [])->filter()->unique()->values();
+
+        // Build final reason text
+        $reasonRaw = trim((string)($validated['reason'] ?? ''));
+        $reasonAlt = trim((string)($validated['reason_alt'] ?? ''));
+        $isOthers  = strcasecmp($reasonRaw, 'Others') === 0;
+        $reasonText = $isOthers ? $reasonAlt : ($reasonAlt !== '' ? "{$reasonRaw}: {$reasonAlt}" : $reasonRaw);
+
+        $actorId = auth()->id();
+
+        DB::transaction(function () use ($order, $selectedCurrentIds, $reasonText, $actorId) {
+
+            $baseId    = $order->redo ? (int) $order->redo : (int) $order->id;
+            $baseOrder = $order->redo ? Order::findOrFail($baseId) : $order;
+            $sourceOrder = $order;
+
+            // 🔴 Archive ALL existing redos for this base so they’re hidden in lists
+            Order::where('redo', $baseId)->update(['status' => 1]);
+
+            // Count again (after archiving is fine too; count is only for numbering)
+            $existingCount = Order::lockForUpdate()->where('redo', $baseId)->count();
+
+            // Create a brand-new redo order
+            $redoOrder = $baseOrder->replicate([
+                'id','order_number','created_at','updated_at','submit','draft','status','redo','orderStatus'
+            ]);
+            $redoOrder->order_number = $this->normalizeOrderNumber($baseOrder->order_number);
+            $redoOrder->redo         = $baseId;
+            $redoOrder->draft        = 1;
+            $redoOrder->submit       = 0;
+            $redoOrder->orderStatus  = 'in_progress';
+            $redoOrder->status       = 0;          // 🔵 keep the latest redo visible
+            $redoOrder->data_entry_id       = null;          // 🔵 keep the latest redo visible
+            $redoOrder->pending       = 0;          
+            $redoOrder->created_at   = now();
+            $redoOrder->updated_at   = now();
+
+            // if ($reasonText !== '') {
+            //     $redoOrder->orderDetail = trim(($sourceOrder->orderDetail ? $sourceOrder->orderDetail . "\n\n" : '') . "REDO Reason: " . $reasonText);
+            // }
+            $redoOrder->save();
+
+            if ($reasonText !== '') {
+                DB::table('report_redo')->insert([
+                    'OrderID'    => $baseId,
+                    'user_id'    => $actorId,
+                    'reason'     => $reasonText,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            /**
+             * =========================================
+             *  🔁  DUPLICATE ORDER ATTACHMENTS
+             *  from $sourceOrder -> $redoOrder
+             * =========================================
+             */
+            $oldAttachments = OrderAttachment::where('order_id', $sourceOrder->id)->get();
+
+            foreach ($oldAttachments as $att) {
+                $oldPath = ltrim((string) $att->file_path, '/');     // e.g. orders/274/attachments/file.pdf
+                $disk    = Storage::disk('public');
+
+                if (!$disk->exists($oldPath)) {
+                    // file missing, skip this row
+                    continue;
+                }
+
+                $filename = basename($oldPath);
+                $name     = pathinfo($filename, PATHINFO_FILENAME);
+                $ext      = pathinfo($filename, PATHINFO_EXTENSION);
+
+                $newDir  = "orders/{$redoOrder->id}/attachments";
+                $candidate = $filename;
+                $i = 1;
+
+                // avoid collisions in the new folder
+                while ($disk->exists("$newDir/$candidate")) {
+                    $candidate = "{$name} ({$i}).{$ext}";
+                    $i++;
+                }
+
+                $newPath = "$newDir/$candidate";
+
+                // copy the physical file
+                $disk->makeDirectory($newDir);
+                $disk->copy($oldPath, $newPath);
+
+                // insert new DB row pointing to the new file
+                OrderAttachment::create([
+                    'order_id'      => $redoOrder->id,
+                    'user_id'       => $att->user_id,        // keep original uploader
+                    'file_path'     => $newPath,             // e.g. orders/275/attachments/file.pdf
+                    'original_name' => $att->original_name,
+                    'mime_type'     => $att->mime_type,
+                    'size'          => $att->size,
+                ]);
+            }
+            // ===== END attachments clone =====
+
+            // Duplicate products/items/specs/remarks/deliveries/progress from BASE
+            $baseProducts = Product::with(['items.spec','remarks','deliveryBreakdowns'])
+                ->where('OrderID', $sourceOrder->id)
+                ->orderBy('ProductID')
+                ->get();
+
+            $selectedOriginIds = $selectedCurrentIds;
+            // if ($selectedCurrentIds->isNotEmpty()) {
+            //     $selectedOriginIds = Product::whereIn('ProductID', $selectedCurrentIds)
+            //         ->pluck(DB::raw('COALESCE(redoOf, ProductID)'))
+            //         ->unique()
+            //         ->values();
+            // }
+
+            foreach ($baseProducts as $origin) {
+                $originId = $origin->ProductID;
+                $editable = $selectedOriginIds->contains($originId) ? 1 : 0;
+
+                $np = $origin->replicate(['ProductID','OrderID','created_at','updated_at']);
+                $np->OrderID    = $redoOrder->id;
+                $np->redoOf     = $originId;
+                $np->editable   = $editable;
+                $np->created_at = now();
+                $np->updated_at = now();
+                if ($editable) {
+                    $np->accepted = null;
+                    $np->installation_accepted = null;
+                    $np->installation_status   = null;
+                }
+                $np->save();
+
+                foreach ($origin->items as $it) {
+                    $ni = $it->replicate(['ItemID','ProductID','created_at','updated_at']);
+                    $ni->ProductID  = $np->ProductID;
+                    $ni->created_at = now();
+                    $ni->updated_at = now();
+                    $ni->save();
+
+                    if ($it->spec) {
+                        $ns = $it->spec->replicate(['SpecificationID','ItemID','created_at','updated_at']);
+                        $ns->ItemID     = $ni->ItemID;
+                        $ns->created_at = now();
+                        $ns->updated_at = now();
+                        $ns->save();
+                    }
+                }
+                foreach ($origin->remarks as $rm) {
+                    $nr = $rm->replicate(['RemarkID','ProductID','created_at','updated_at']);
+                    $nr->ProductID  = $np->ProductID;
+                    $nr->created_at = now();
+                    $nr->updated_at = now();
+                    $nr->save();
+                }
+                foreach ($origin->deliveryBreakdowns as $db) {
+                    $nd = $db->replicate(['BreakdownID','ProductID','created_at','updated_at']);
+                    $nd->ProductID  = $np->ProductID;
+                    $nd->created_at = now();
+                    $nd->updated_at = now();
+                    $nd->save();
+                }
+                if ((int)$np->editable === 0) {
+                    foreach ($origin->progress as $pg) {
+                        $npgr = $pg->replicate(['ProgressID','ProductID','created_at','updated_at']);
+                        $npgr->ProductID  = $np->ProductID;
+                        $npgr->created_at = now();
+                        $npgr->updated_at = now();
+                        $npgr->save();
+                    }
+                }
+            }
+
+            // First redo on the base order → bump status (optional rule)
+            if ($existingCount === 0 && $order->id === $baseOrder->id) {
+                $order->forceFill(['status' => 1])->save();
+            }
+        });
+
+        $actor      = auth()->user();
+        $actorName  = $actor?->name ?? 'System';
+        $actorRole  = str_replace('-', ' ', strtolower($actor?->role ?? 'user'));
+
+        $baseId     = $order->redo ? (int)$order->redo : (int)$order->id;
+        $baseOrder  = \App\Models\Order::find($baseId);
+        $redoOrder  = \App\Models\Order::where('redo', $baseId)->latest('id')->first();
+
+        $deadline   = $baseOrder?->deadline
+            ? Carbon::parse($baseOrder->deadline)->timezone('Asia/Kuala_Lumpur')->format('Y-m-d')
+            : '-';
+
+        $selectedCurrentIds  = collect($request->input('products', []))->filter()->unique()->values();
+        $baseProductsQuery   = Product::with(['items.spec', 'remarks', 'deliveryBreakdowns', 'progress'])
+            ->where('OrderID', $baseId);
+
+        $allBaseProducts     = $baseProductsQuery->clone()->get(['ProductID', 'productName']);
+        $affectedOriginIds   = $selectedCurrentIds->isNotEmpty()
+            ? Product::whereIn('ProductID', $selectedCurrentIds)->pluck(DB::raw('COALESCE(redoOf, ProductID)'))->unique()
+            : $allBaseProducts->pluck('ProductID');
+
+        $affectedProducts    = $allBaseProducts->whereIn('ProductID', $affectedOriginIds);
+        $productCount        = $affectedProducts->count();
+
+        // ------- Business recipients (head-artist, head-salesperson, admin, boss) -------
+        $businessRecipients = User::whereIn('role', ['head-artist', 'head-salesperson', 'admin', 'boss'])->get();
+
+        // Role-aware order URL (point them to the redo order container)
+        $orderUrlFor = function (User $u) use ($redoOrder, $baseOrder) {
+            $orderId = $redoOrder?->id ?? $baseOrder?->id ?? 0;
+            return match (strtolower($u->role)) {
+                'artist', 'head-artist'            => url("/artist/orders/{$orderId}"),
+                'salesperson', 'head-salesperson'  => url("/orders/{$orderId}"),
+                'admin'                           => url("/admin/orders/{$orderId}"),
+                'boss'                            => url("/boss/orders/{$orderId}"),
+                default                           => url('/'),
+            };
+        };
+
+        // One concise message for business roles
+        // $reasonText   = trim((string)$request->input('reason','') . ' ' . (string)$request->input('reason_alt',''));
+        $idsPreview   = $affectedProducts->pluck('ProductID')->take(5)->implode(', ');
+        $orderNoBase  = (string)($baseOrder?->order_number ?? '');
+        $orderNoRedo  = (string)($redoOrder?->order_number ?? '');
+
+        $businessMsg = "Redo for Order {$orderNoBase} by {$actorName} ({$actorRole}). "
+            . "{$productCount} product(s)"
+            
+            . ". Deadline: {$deadline}"
+            . ($reasonText ? ". Reason: {$reasonText}" : ".");
+
+        // Send to business recipients (deduped by id)
+        $businessRecipients->unique('id')->each(function (User $u) use ($businessMsg, $orderUrlFor) {
+            Helpers::notify($u, $businessMsg, $orderUrlFor($u), ['database']);
+        });
+
+        // ------- Assigned operations users (per affected product) -------
+        $opsUsersById = collect();
+        foreach ($affectedProducts as $p) {
+            $candidateUserId = null;
+
+            // Try common direct columns (adjust if your schema names differ)
+            foreach (['assigned_user_id', 'operator_user_id', 'printing_user_id', 'furnishing_user_id'] as $col) {
+                if (isset($p->{$col}) && $p->{$col}) {
+                    $candidateUserId = (int)$p->{$col};
+                    break;
+                }
+            }
+
+            // Fallback: latest progress row with any of these columns
+            if (!$candidateUserId && $p->relationLoaded('progress')) {
+                $latest = $p->progress->sortByDesc('created_at')->first();
+                if ($latest) {
+                    foreach (['user_id', 'operator_id', 'assigned_to'] as $col) {
+                        if (isset($latest->{$col}) && $latest->{$col}) {
+                            $candidateUserId = (int)$latest->{$col};
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if ($candidateUserId) {
+                $opsUsersById[$candidateUserId] = array_values(array_unique(
+                    array_merge($opsUsersById[$candidateUserId] ?? [], [(int)$p->ProductID])
+                ));
+            }
+        }
+
+        // Notify each assigned ops user exactly once, with the list of their product IDs.
+        // URL is product-focused (first product for that user), mapped by the user's role.
+        $mapOpsUrl = function (User $u, int $productId) {
+            return match (strtolower($u->role)) {
+                'operations-printing'               => url("/printing/jobs/{$productId}"),
+                'operations-furnishing'             => url("/furnishing/jobs/{$productId}"),
+                'operations-dispatch-control'       => url("/dispatchcontrol/job/{$productId}"),
+                'operations-delivery-installation'  => url("/installation/job/{$productId}"),
+                default                             => url("/"),
+            };
+        };
+
+        foreach ($opsUsersById as $uid => $pids) {
+            $opsUser = User::find($uid);
+            if (!$opsUser) continue;
+
+            sort($pids);
+            $firstPid   = (int)($pids[0] ?? 0);
+            $prodList   = implode(', ', array_slice($pids, 0, 5));
+            $msgOps = "Redo requested in Order {$orderNoBase} by {$actorName} ({$actorRole}). "
+                . "Your assigned product"
+                . (count($pids) > 1 ? "s (IDs: {$prodList}) have" : " (ID: {$prodList}) has")
+                . " been sent for redo. Deadline: {$deadline}.";
+
+            Helpers::notify($opsUser, $msgOps, $mapOpsUrl($opsUser, $firstPid), ['database']);
+        }
+
+        return redirect()->route('boss.orders')->with('success', 'Redo updated.');
+    }
+
+    /**
+     * Generate a redo order number:
+     *  Try "<old>R"; if taken, "<old>R2", "<old>R3", ...
+     */
+    protected function normalizeOrderNumber(string $orderNo): string
+    {
+        $n = ltrim($orderNo, '#');
+        return preg_replace('/R\d*$/i', '', $n);
     }
 }
