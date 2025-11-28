@@ -423,7 +423,7 @@ class ArtistController extends Controller
         };
 
         // roles considered "artist-side"
-        $artistRoles = ['artist', 'head-artist', 'data-entry', 'boss'];
+        $artistRoles = ['artist', 'head-artist', 'data-entry', 'boss', 'admin'];
 
         // 1) Try order_attachments table first
         $rows = OrderAttachment::with('uploader:id,name,role')
@@ -703,7 +703,7 @@ class ArtistController extends Controller
             ->get();
 
         // treat these as "artist side" uploads
-        $artistRoles = ['artist', 'head-artist', 'data-entry', 'boss'];
+        $artistRoles = ['artist', 'head-artist', 'data-entry', 'boss', 'admin'];
 
         $mapAttachment = function ($att) use ($toPublicUrl) {
             $p = ltrim((string) $att->file_path, '/');

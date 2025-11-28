@@ -301,7 +301,7 @@ class FurnishingProductOrderController extends Controller
         });
 
         $artistRows = $attachmentRows->filter(function ($att) {
-            return in_array(optional($att->uploader)->role, ['artist', 'head-artist', 'data-entry']);
+            return in_array(optional($att->uploader)->role, ['artist', 'head-artist', 'data-entry', 'boss', 'admin']);
         });
 
         // Common mapper

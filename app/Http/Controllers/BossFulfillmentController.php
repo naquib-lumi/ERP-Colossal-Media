@@ -390,7 +390,7 @@ class BossFulfillmentController extends Controller
         };
 
         // roles considered "artist-side"
-        $artistRoles = ['artist', 'head-artist', 'data-entry'];
+        $artistRoles = ['artist', 'head-artist', 'data-entry', 'boss', 'admin'];
 
         // 1) Try order_attachments table first
         $rows = OrderAttachment::with('uploader:id,name,role')
