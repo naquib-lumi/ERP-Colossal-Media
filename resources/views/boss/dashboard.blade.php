@@ -253,11 +253,11 @@
           <option {{ $st==='To Assign'   ? 'selected' : '' }}>To Assign</option>
         </select>
 
-        <div class="ms-auto d-flex gap-2">
+        <!-- <div class="ms-auto d-flex gap-2">
           <button class="btn btn-dark-compact btn-sm-compact" type="submit">
             <i class="bi bi-download"></i> Export
           </button>
-        </div>
+        </div> -->
       </form>
     </div>
 
@@ -327,14 +327,14 @@
           <option value="year"   {{ $mr==='year'   ? 'selected' : '' }}>This Year</option>
         </select>
 
-        <div class="ms-auto d-flex gap-2">
+        <!-- <div class="ms-auto d-flex gap-2">
           <button class="btn btn-dark-compact btn-sm-compact" type="submit">
             <i class="bi bi-download"></i> Export
           </button>
           <button class="btn btn-gray-compact btn-sm-compact" type="button" data-bs-toggle="modal" data-bs-target="#addMachineModal">
             <i class="bi bi-plus-lg"></i> Add Machine Type
           </button>
-        </div>
+        </div> -->
       </form>
     </div>
 
@@ -347,7 +347,7 @@
             <th>MACHINE TYPE</th>
             <th>USED BY ITEMS</th>
             <th>TOTAL QUANTITY</th>
-            <th class="text-end">ACTIONS</th>
+            <th class="text-right">ACTIONS</th>
           </tr>
         </thead>
         <tbody>
@@ -357,8 +357,10 @@
               <td>{{ $m->machine_type }}</td>
               <td>{{ number_format($m->used_items) }} items</td>
               <td>{{ number_format($m->total_qty) }}</td>
-              <td class="text-end">
-                <button class="kebab"><i class="bi bi-three-dots-vertical"></i></button>
+              <td class="text-right">
+                <a href="{{ route('boss.reports') }}#machineSec" class="link-btn">
+                    View
+                </a>
               </td>
             </tr>
           @empty
@@ -437,11 +439,11 @@
           <option value="all" {{ $cfRange === 'all' ? 'selected' : '' }}>All Time</option>
         </select> -->
 
-        <div class="ms-auto d-flex gap-2">
+        <!-- <div class="ms-auto d-flex gap-2">
           <button class="btn btn-dark-compact btn-sm-compact">
             <i class="bi bi-download"></i> Export
           </button>
-        </div>
+        </div> -->
 
       </div>
     </form>
