@@ -1770,12 +1770,19 @@ class BossOrderController extends Controller
         ], compact('lead'));
     }
 
+    protected function makeOrderNumber(): string
+    {
+        $date = now()->format('Ymd');
+        $count = Order::whereDate('created_at', now()->toDateString())->count() + 1;
+        return sprintf('JO-%s-%04d', $date, $count);
+    }
+
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !($user->hasRole('artist') || $user->hasRole('head-artist') || $user->hasRole('boss'))) {
-            return back()->with('error', 'Unauthorized');
-        }
+        // if (!$user || !($user->hasRole('artist') || $user->hasRole('head-artist') || $user->hasRole('boss'))) {
+        //     return back()->with('error', 'Unauthorized');
+        // }
 
         try {
             $request->validate([
@@ -1842,9 +1849,15 @@ class BossOrderController extends Controller
                 $order->artist_id  = $assigneeId;
                 $assignee          = \App\Models\User::find($assigneeId);
 
-                // Selected a normal artist → keep your previous behavior
-                $order->orderStatus = 'assigned';
-                $order->pending     = 1;
+                if ($assignee && $assignee->hasRole('head-artist')) {
+                    // Selected a head-artist → set to in_progress (your requirement)
+                    $order->orderStatus = 'in_progress';
+                    $order->pending     = 0;
+                } else {
+                    // Selected a normal artist → keep your previous behavior
+                    $order->orderStatus = 'assigned';
+                    $order->pending     = 1;
+                }
                 
             }
 
