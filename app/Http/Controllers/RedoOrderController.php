@@ -281,9 +281,9 @@ class RedoOrderController extends Controller
         $orderNoBase  = (string)($baseOrder?->order_number ?? '');
         $orderNoRedo  = (string)($redoOrder?->order_number ?? '');
 
-        $businessMsg = "Redo for Order {$orderNoBase} → **{$orderNoRedo}** by {$actorName} ({$actorRole}). "
+        $businessMsg = "Redo for Order {$orderNoBase} by {$actorName} ({$actorRole}). "
             . "{$productCount} product(s)"
-            . ($idsPreview ? " (#{$idsPreview})" : '')
+            
             . ". Deadline: {$deadline}"
             . ($reasonText ? ". Reason: {$reasonText}" : ".");
 
@@ -347,7 +347,7 @@ class RedoOrderController extends Controller
             $msgOps = "Redo requested in Order {$orderNoBase} by {$actorName} ({$actorRole}). "
                 . "Your assigned product"
                 . (count($pids) > 1 ? "s (IDs: {$prodList}) have" : " (ID: {$prodList}) has")
-                . " been sent for **redo**. Deadline: {$deadline}.";
+                . " been sent for redo. Deadline: {$deadline}.";
 
             Helpers::notify($opsUser, $msgOps, $mapOpsUrl($opsUser, $firstPid), ['database']);
         }

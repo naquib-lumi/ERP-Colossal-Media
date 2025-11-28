@@ -1458,7 +1458,7 @@ class ArtistController extends Controller
                  *     (order-level message, no dupes)
                  * ======================
                  */
-                $orderMsg = "Order {$orderNo} has been **submitted** by {$actorName} ({$actorRole}). "
+                $orderMsg = "Order {$orderNo} has been submitted by {$actorName} ({$actorRole}). "
                         . "{$productCount} Product(s). Deadline: {$deadline}. "
                         . "Initial task(s): {$initialTasksStr}.";
 
@@ -1538,8 +1538,8 @@ class ArtistController extends Controller
 
                     $idsPreview = $group->pluck('ProductID')->take(5)->implode(', ');
                     $msg = "Order {$orderNo} submitted by {$actorName} ({$actorRole}). "
-                        . "{$count} product(s) for **{$task}**"
-                        . ($idsPreview ? " (#{$idsPreview})" : '')
+                        . "{$count} product(s) for {$task}"
+                        // . ($idsPreview ? " (#{$idsPreview})" : '')
                         . ". Deadline: {$deadline}.";
 
                     // STABLE key per task for this order => prevents duplicates for the same user
