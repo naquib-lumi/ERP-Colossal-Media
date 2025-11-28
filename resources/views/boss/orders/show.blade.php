@@ -118,6 +118,12 @@ $isRedoOrder = (bool) $order->redo;
 
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <a href="{{ route('boss.orders') }}"
+            class="text-decoration-none text-muted me-3"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="bi bi-arrow-left-circle fw-semibold"
+                style="font-size: 1.4rem; font-weight: 600; color: #6c757d;"></i>
+        </a>
         <h4 class="mb-0 flex-grow-1">
             @if($order->redo && $order->relationLoaded('originalOrder') || $order->redo)
             @php
@@ -128,6 +134,15 @@ $isRedoOrder = (bool) $order->redo;
             Job Order Details – {{ $order->order_number }}
             @endif
         </h4>
+
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('boss.orders.edit', $order->id) }}"
+                class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
+                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+                <i class="bx bx-edit-alt fs-5"></i>
+                <span>Edit Order</span>
+            </a>
+        </div>
     </div>
 
     {{-- Job order information --}}
@@ -168,31 +183,67 @@ $isRedoOrder = (bool) $order->redo;
                     </div>
                 </div>
 
-                <div class="col-md-6 col-lg-6">
-                    <small class="text-muted d-block mb-1">Attachment from Lead</small>
+                @if(!empty($order->orderDetail))
+                <div class="col-md-6 col-lg-3">
+                    <small class="text-muted d-block mb-1">Sales Remark</small>
 
-                    @php
-                    $leadFiles = \App\Models\LeadAttachment::where('lead_id', $order->lead_id)
-                    ->latest()->get();
-
-                    @endphp
-
-                    <div class="fw-medium">
-                        @if($leadFiles->isNotEmpty())
-                        @foreach ($leadFiles as $att)
-                        <a href="{{ asset('storage/' . ltrim($att->file_location, '/')) }}"
-                            target="_blank"
-                            class="d-inline-flex align-items-center text-decoration-underline me-3 mb-1">
-                            {{ basename($att->file_location) }}
-                            <i class="bx bx-download ms-1"></i>
-                        </a>
-                        @endforeach
-                        @else
-                        -
-                        @endif
+                    <!-- Collapsed preview -->
+                    <div class="fw-medium text-truncate"
+                        style="max-height: 4.5em; overflow: hidden;"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#remarkCollapse"
+                        aria-expanded="false">
+                        {{ $order->orderDetail }}
+                    </div>
+                    <div id="remarkCollapse" class="collapse mt-1">
+                        <div class="fw-medium" style="white-space: pre-line;">
+                            {{ $order->orderDetail }}
+                        </div>
                     </div>
                 </div>
+                @endif
             </div>
+            {{-- ===== Non-artist attachments (Sales etc.) at the top ===== --}}
+            @if(isset($headerAttachments) && $headerAttachments->count())
+            <hr class="my-4">
+
+            <h6 class="fw-semibold mb-2">Sales Attachments</h6>
+
+            <div class="d-flex flex-column gap-2">
+                @foreach($headerAttachments as $f)
+                <div class="d-flex align-items-center justify-content-between border rounded p-2">
+                    <div class="d-flex flex-column">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bx bx-file"></i>
+                        <span class="fw-medium">{{ $f['name'] }}</span>
+                    </div>
+
+                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                        @if(!empty($f['ext']))
+                        .{{ $f['ext'] }}
+                        @endif
+
+                        @if(!empty($f['size']))
+                        · {{ number_format($f['size'] / 1024, 0) }} KB
+                        @endif
+
+                        @if(!empty($f['uploaded_by']))
+                        · Uploaded by {{ $f['uploaded_by'] }}
+                        @endif
+
+                        @if(!empty($f['uploaded_at']))
+                        · {{ $f['uploaded_at'] }}
+                        @endif
+                    </div>
+                    </div>
+
+                    <a href="{{ $f['url'] }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                    View
+                    </a>
+                </div>
+                @endforeach
+            </div>
+            @endif
         </div>
     </div>
 
@@ -739,33 +790,57 @@ $isRedoOrder = (bool) $order->redo;
         {{-- Attachments --}}
         <div class="card mt-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Attachments</span>
+                <span>Artist Attachments</span>
             </div>
 
             <div class="card-body">
                 @if($attachments->isEmpty())
-                <p class="text-muted mb-0">No attachments.</p>
+                    <p class="text-muted mb-0">No attachments.</p>
                 @else
-                <ul class="list-group list-group-flush">
-                    @foreach($attachments as $f)
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bx bx-paperclip"></i>
-                            <span>{{ $f['name'] }}</span>
-                            @if(!empty($f['size']))
-                            <small class="text-muted">
-                                {{ number_format($f['size'] / 1024, 0) }} KB
-                            </small>
-                            @endif
-                        </div>
-                        <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" download>
-                            Download
-                        </a>
-                    </li>
-                    @endforeach
-                </ul>
+                    <ul class="list-group list-group-flush">
+                        @foreach($attachments as $f)
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex flex-column">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bx bx-paperclip"></i>
+                                        <span>{{ $f['name'] }}</span>
+                                    </div>
+
+                                    <div class="small text-muted mt-1" style="color:#6c757d; font-size:12px">
+                                        @if(!empty($f['ext']))
+                                            .{{ $f['ext'] }}
+                                        @endif
+
+                                        @if(!empty($f['size']))
+                                            · {{ number_format($f['size'] / 1024, 0) }} KB
+                                        @endif
+
+                                        @if(!empty($f['uploaded_by']))
+                                            · Uploaded by {{ $f['uploaded_by'] }}
+                                        @endif
+
+                                        @if(!empty($f['uploaded_at']))
+                                            · {{ $f['uploaded_at'] }}
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ $f['url'] }}" target="_blank">
+                                    View
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
                 @endif
             </div>
+        </div>
+        <div class="d-flex justify-content-end mt-4">
+            <a href="{{ route('boss.orders.edit', $order->id) }}"
+                class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
+                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+                <i class="bx bx-edit-alt fs-5"></i>
+                <span>Edit Order</span>
+            </a>
         </div>
 </div>
 

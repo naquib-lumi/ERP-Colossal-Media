@@ -165,6 +165,18 @@ console.error('Error fetching notification count: ', xhr.responseText);
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
 @endif
 
+@if (Request::is('boss/*'))
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+    <link rel="stylesheet"
+        href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-select-bs5/select.bootstrap5.css') }}" />
+    <link rel="stylesheet"
+        href="{{ asset('assets/vendor/libs/datatables-fixedcolumns-bs5/fixedcolumns.bootstrap5.css') }}" />
+    <link rel="stylesheet"
+        href="{{ asset('assets/vendor/libs/datatables-fixedheader-bs5/fixedheader.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/dropzone/dropzone.css') }}">
+@endif
+
 @if (Request::is('installation/*') || Request::is('installation/calendar') || Request::is('calendar/*'))
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/app-calendar.css') }}" />
@@ -239,6 +251,10 @@ console.error('Error fetching notification count: ', xhr.responseText);
     <script src="{{ asset('assets/js/artist-app-calendar.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/fullcalendar/fullcalendar.js') }}"></script>
     <script src="{{ asset('assets/js/app-calendar-events.js') }}"></script>
+@endif
+
+@if (Request::is('boss/*'))
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
 @endif
 
 @if(Request::is('admin/*'))

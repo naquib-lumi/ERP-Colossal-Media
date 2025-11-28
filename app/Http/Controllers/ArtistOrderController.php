@@ -649,10 +649,12 @@ class ArtistOrderController extends Controller
         if ($request->filled('remarks') && is_array($request->remarks)) {
             $rows = [];
             $now  = now();
+            $userId = auth()->id();
             foreach ($request->remarks as $r) {
                 if (empty($r['operation']) || empty($r['remark'])) continue;
                 $rows[] = [
                     'ProductID'  => $product->getKey(),
+                    'user_id'    => $userId, 
                     'operation'  => $r['operation'],
                     'remark'     => $r['remark'],
                     'created_at' => $now,
