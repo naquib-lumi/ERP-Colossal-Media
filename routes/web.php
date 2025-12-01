@@ -557,7 +557,7 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::get('/boss/orders/assignees/search', [BossOrderController::class, 'searchOrderArtists'])->name('boss.orders.assignees.search');
         Route::post('/boss/orders/{order}/edit', [BossOrderController::class, 'assign'])->name('boss.orders.assigns');
 
-        Route::get('/data-entry/users', [ArtistController::class, 'dataEntryUsers'])->name('dataEntry.users');
+        // Route::get('/data-entry/users', [ArtistController::class, 'dataEntryUsers'])->name('boss.dataEntry.users');
     });
  
 });
