@@ -919,7 +919,6 @@
 
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
-                                      <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($laminationMachines ?? [] as $m)
                                           <option value="{{ $m->machine_name }}"
@@ -1135,7 +1134,6 @@
                                     <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
-                                      <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($laminationMachines ?? [] as $m)
                                           <option value="{{ $m->machine_name }}"
@@ -1883,14 +1881,7 @@
 
           <hr class="my-4">
 
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <label class="form-label m-0">Product Remarks</label>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="addRemarkRow">+ Add Remarks</button>
-          </div>
-
-          <div id="remarkRows" class="vstack gap-2">
-            {{-- rows injected by JS --}}
-          </div>
+         
         </div>
 
         <div class="modal-footer">
@@ -3694,49 +3685,7 @@
   // safety: before opening any modal, clear leftovers (optional)
   function openModalSafe(sel) { forceEnableScroll(); (bootstrap.Modal.getInstance(sel) || new bootstrap.Modal(sel)).show(); }
 
-  (function () {
-    const $rows = document.getElementById('remarkRows');
-    const tpl   = document.getElementById('remarkRowTpl').innerHTML;
-    let rIdx    = 0;
-
-    function addRemarkRow() {
-      const html = tpl.replaceAll('__IDX__', rIdx++);
-      const wrap = document.createElement('div');
-      wrap.innerHTML = html.trim();
-      $rows.appendChild(wrap.firstElementChild);
-    }
-
-    document.getElementById('addRemarkRow').addEventListener('click', addRemarkRow);
-    $rows.addEventListener('click', function (e) {
-      if (e.target.closest('.remove-remark')) {
-        e.target.closest('.remark-row').remove();
-      }
-    });
-
-    // Ensure modal starts with one blank row
-    document.getElementById('addProductModal').addEventListener('shown.bs.modal', function () {
-      if (!$rows.querySelector('.remark-row')) addRemarkRow();
-    });
-
-    // Reset on close (optional)
-    document.getElementById('addProductModal').addEventListener('hidden.bs.modal', function () {
-      $rows.innerHTML = '';
-      rIdx = 0;
-      document.getElementById('p_name').value     = '';
-      document.getElementById('p_qty').value      = '';
-      document.getElementById('p_material').value = '';
-    });
-
-    function toInt(v){ v=String(v??'').trim(); const n=parseInt(v,10); return isNaN(n)?0:n; }
-
-    // Parse pIndex and delivery row index from the input name
-    function parseName(name){
-      const m = name.match(/^products\[(\d+)\]\[deliveries\]\[(\d+)\]\[quantity\]$/);
-      return m ? { pIndex: m[1], dIndex: m[2] } : null;
-    }
-
-
-  })();
+  
 
   document.addEventListener('DOMContentLoaded', () => {
   const sel = document.getElementById('assignee_artist_id');
@@ -4266,8 +4215,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const pName     = document.getElementById('p_name');
   const pQty      = document.getElementById('p_qty');
   const pMaterial = document.getElementById('p_material');
-  const remarksBox= document.getElementById('remarkRows');
-  const addBtn    = document.getElementById('addRemarkRow');
   const modalEl   = document.getElementById('addProductModal');
 
   // disable initially
@@ -4279,19 +4226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                        pQty.value.trim()  !== '' &&
                        pMaterial.value.trim() !== '';
 
-    // remark validation: at least 1 row, each row must have operation + remark
-    const rows = Array.from(remarksBox.querySelectorAll('.remark-row'));
-    const hasRows = rows.length > 0;
-
-    const eachValid = rows.every(row => {
-      const op = row.querySelector('select[name^="remarks"]');
-      const tx = row.querySelector('input[name^="remarks"]');
-      const opOk = !!(op && op.value && op.value.trim() !== '');
-      const txOk = !!(tx && tx.value && tx.value.trim() !== '');
-      return opOk && txOk;
-    });
-
-    saveBtn.disabled = !(baseFilled && hasRows && eachValid);
+    saveBtn.disabled = !(baseFilled);
   }
 
   // base fields listeners
@@ -4299,27 +4234,6 @@ document.addEventListener('DOMContentLoaded', () => {
     el.addEventListener('input', checkAllFilled);
     el.addEventListener('change', checkAllFilled);
   });
-
-  // delegate changes inside remark rows (selects & inputs)
-  remarksBox.addEventListener('input', checkAllFilled);
-  remarksBox.addEventListener('change', checkAllFilled);
-
-  // handle remove buttons via delegation
-  remarksBox.addEventListener('click', (e) => {
-    const btn = e.target.closest('.remove-remark');
-    if (!btn) return;
-    const row = btn.closest('.remark-row');
-    if (row) row.remove();
-    checkAllFilled();
-  });
-
-  // if you create rows via the "+ Add Remarks" button, revalidate after adding
-  if (addBtn) {
-    addBtn.addEventListener('click', () => {
-      // if your own code injects the row, just delay-validate
-      setTimeout(checkAllFilled, 0);
-    });
-  }
 
   // re-check when modal opens (in case fields were cleared)
   modalEl.addEventListener('shown.bs.modal', checkAllFilled);

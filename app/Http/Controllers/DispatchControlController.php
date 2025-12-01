@@ -71,6 +71,14 @@ class DispatchControlController extends Controller
                         ->orWhere('o.orderStatus', '!=', 'in_progress');
                 });
             })
+            // ⬇️ NEW FILTER HERE
+            ->where(function ($w) {
+                // keep everything EXCEPT rows where
+                // p.taskType = 'installation' AND p.status = 'completed'
+                $w->where('p.taskType', '!=', 'installation')
+                ->orWhereNull('p.status')
+                ->orWhere('p.status', '!=', 'completed');
+            })
             ->whereNotExists(function ($q2) {
                 $q2->select(DB::raw(1))
                 ->from('fulfillment_progress as fp')
