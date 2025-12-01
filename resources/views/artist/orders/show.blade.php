@@ -47,6 +47,8 @@ $redoReason = $redoRecord->reason ?? null;
 
 // helper: whether a product is the selected redo copy
 $isRedoOrder = (bool) $order->redo;
+
+$isArchived = (int)($order->status ?? 0) === 1;
 @endphp
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
@@ -139,7 +141,7 @@ $isRedoOrder = (bool) $order->redo;
             Job Order Details – {{ $order->order_number }}
             @endif
         </h4>
-
+        @if(!$isArchived)
         <div class="d-flex align-items-center gap-2">
             <a href="{{ route('artist.orders.edit', $order->id) }}"
                 class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
@@ -148,6 +150,7 @@ $isRedoOrder = (bool) $order->redo;
                 <span>Edit Order</span>
             </a>
         </div>
+        @endif
     </div>
 
     {{-- Job order information --}}
@@ -865,6 +868,7 @@ $isRedoOrder = (bool) $order->redo;
                 @endif
             </div>
         </div>
+        @if(!$isArchived)
         <div class="d-flex justify-content-end mt-4">
             <a href="{{ route('artist.orders.edit', $order->id) }}"
                 class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
@@ -873,6 +877,7 @@ $isRedoOrder = (bool) $order->redo;
                 <span>Edit Order</span>
             </a>
         </div>
+        @endif
 </div>
 
 {{-- Reason Modal --}}

@@ -871,7 +871,6 @@
                                       @endif
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
-                                      <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($laminationMachines ?? [] as $m)
                                           <option value="{{ $m->machine_name }}"
@@ -1085,7 +1084,6 @@
                                     <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }} >
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
-                                      <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($laminationMachines ?? [] as $m)
                                           <option value="{{ $m->machine_name }}"
@@ -1741,7 +1739,7 @@
         <p class="mb-0">All required fields are complete. What do you want to do with this order?</p>
       </div>
       <div class="modal-footer flex-column gap-2 border-0">
-        <button type="button" class="btn btn-dark w-100" id="btn-confirm-send-printing">Send to Printing</button>
+        <button type="button" class="btn btn-dark w-100" id="btn-confirm-send-printing">Confirm to Proceed to Operation</button>
         <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">← Back to Order Page</button>
       </div>
     </div>
