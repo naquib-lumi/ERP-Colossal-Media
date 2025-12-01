@@ -76,6 +76,22 @@ class InstallationController extends Controller
                         ->orWhere('o.orderStatus', '!=', 'in_progress');
                 });
             })
+            // ⬇️ UPDATED FILTER
+            ->where(function ($w) {
+                // Keep everything EXCEPT:
+                //   delivery + completed
+                // BUT keep those again if installation_task_type = 1 AND installation_status = 'in_progress'
+
+                $w->where('p.taskType', '!=', 'delivery')      // not delivery  → keep
+                ->orWhereNull('p.status')                   // no status     → keep
+                ->orWhere('p.status', '!=', 'completed')    // not completed → keep
+                ->orWhere(function ($q) {                   // special exception
+                    $q->where('p.taskType', 'delivery')
+                        ->where('p.status', 'completed')
+                        ->where('p.installation_task_type', 1)
+                        ->where('p.installation_status', 'in_progress');
+                });
+            })
             ->whereNotExists(function ($q2) {
                 $q2->select(DB::raw(1))
                 ->from('fulfillment_progress as fp')

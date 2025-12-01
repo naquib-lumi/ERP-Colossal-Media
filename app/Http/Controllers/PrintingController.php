@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Helpers\Helpers;
 use App\Models\Order;
 use App\Models\Product;
+use Illuminate\Support\Facades\Storage;
+use App\Models\OrderAttachment;
 
 class PrintingController extends Controller
 {
@@ -708,12 +710,14 @@ class PrintingController extends Controller
         // 2) Resolve the product and order
         $product = Product::findOrFail($productId);
         $order   = Order::findOrFail((int)$product->OrderID);
+        $actorId = auth()->id();
 
         // 3) Transaction – archive prior redos of the base, create new redo, clone data
-        DB::transaction(function () use ($order, $productId, $reasonText) {
+        DB::transaction(function () use ($order, $productId, $reasonText, $actorId) {
 
             $baseId    = $order->redo ? (int) $order->redo : (int) $order->id;
             $baseOrder = $order->redo ? Order::findOrFail($baseId) : $order;
+            $sourceOrder = $order;
 
             // 🔴 Hide existing redos (status=1) for the same base so only newest redo shows
             Order::where('redo', $baseId)->update(['status' => 1]);
@@ -733,15 +737,9 @@ class PrintingController extends Controller
             $redo->orderStatus  = 'in_progress';
             $redo->status       = 0;           // keep visible
             $redo->data_entry_id = null;       // detach from DE
+            $redo->pending       = 0;
             $redo->created_at   = now();
             $redo->updated_at   = now();
-
-            if ($reasonText !== '') {
-                $redo->orderDetail = trim(
-                    ($baseOrder->orderDetail ? $baseOrder->orderDetail . "\n\n" : '')
-                    . 'REDO Reason: ' . $reasonText
-                );
-            }
 
             $redo->save();
 
@@ -749,14 +747,64 @@ class PrintingController extends Controller
             if ($reasonText !== '') {
                 DB::table('report_redo')->insert([
                     'OrderID'    => $baseId,
+                    'user_id'    => $actorId,
                     'reason'     => $reasonText,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
             }
 
+            /**
+             * =========================================
+             *  🔁  DUPLICATE ORDER ATTACHMENTS
+             *  from $sourceOrder -> $redoOrder
+             * =========================================
+             */
+            $oldAttachments = OrderAttachment::where('order_id', $sourceOrder->id)->get();
+
+            foreach ($oldAttachments as $att) {
+                $oldPath = ltrim((string) $att->file_path, '/');     // e.g. orders/274/attachments/file.pdf
+                $disk    = Storage::disk('public');
+
+                if (!$disk->exists($oldPath)) {
+                    // file missing, skip this row
+                    continue;
+                }
+
+                $filename = basename($oldPath);
+                $name     = pathinfo($filename, PATHINFO_FILENAME);
+                $ext      = pathinfo($filename, PATHINFO_EXTENSION);
+
+                $newDir  = "orders/{$redo->id}/attachments";
+                $candidate = $filename;
+                $i = 1;
+
+                // avoid collisions in the new folder
+                while ($disk->exists("$newDir/$candidate")) {
+                    $candidate = "{$name} ({$i}).{$ext}";
+                    $i++;
+                }
+
+                $newPath = "$newDir/$candidate";
+
+                // copy the physical file
+                $disk->makeDirectory($newDir);
+                $disk->copy($oldPath, $newPath);
+
+                // insert new DB row pointing to the new file
+                OrderAttachment::create([
+                    'order_id'      => $redo->id,
+                    'user_id'       => $att->user_id,        // keep original uploader
+                    'file_path'     => $newPath,             // e.g. orders/275/attachments/file.pdf
+                    'original_name' => $att->original_name,
+                    'mime_type'     => $att->mime_type,
+                    'size'          => $att->size,
+                ]);
+            }
+            // ===== END attachments clone =====
+
             // 4) Clone ALL products of the BASE order → only the REPORTED product is editable=1
-            $baseProducts = Product::with(['items.spec','remarks','deliveryBreakdowns','progress'])
+            $baseProducts = Product::with(['items.spec','remarks','deliveryBreakdowns'])
                 ->where('OrderID', $baseOrder->id)
                 ->orderBy('ProductID')
                 ->get();
@@ -774,7 +822,11 @@ class PrintingController extends Controller
                 $np->editable   = $editable;
                 $np->created_at = now();
                 $np->updated_at = now();
-                $np->accepted   = null;
+                if ($editable) {
+                    $np->accepted = null;
+                    $np->installation_accepted = null;
+                    $np->installation_status   = null;
+                }
                 $np->save();
 
                 foreach ($origin->items as $it) {
@@ -806,12 +858,14 @@ class PrintingController extends Controller
                     $nd->updated_at = now();
                     $nd->save();
                 }
-                foreach ($origin->progress as $pg) {
-                    $npgr = $pg->replicate(['ProgressID','ProductID','created_at','updated_at']);
-                    $npgr->ProductID  = $np->ProductID;
-                    $npgr->created_at = now();
-                    $npgr->updated_at = now();
-                    $npgr->save();
+                if ((int)$np->editable === 0) {
+                    foreach ($origin->progress as $pg) {
+                        $npgr = $pg->replicate(['ProgressID','ProductID','created_at','updated_at']);
+                        $npgr->ProductID  = $np->ProductID;
+                        $npgr->created_at = now();
+                        $npgr->updated_at = now();
+                        $npgr->save();
+                    }
                 }
             }
 

@@ -438,7 +438,7 @@
           </div>
           <div class="col-12">
             <div class="key">Location:</div>
-            <div class="fw-semibold">{{ $d->location ?: 'Not required for pickup' }}</div>
+            <div class="fw-semibold">{{ $d->location ?: '-' }}</div>
           </div>
         </div>
       </div>
