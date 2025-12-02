@@ -696,7 +696,7 @@
   }
   
   /* ===== Resizable table ===== */
-  .resize-table{ table-layout: fixed; width:100%; border-collapse: separate !important;
+  .resize-table{ table-layout: fixed; width:100%; border-collapse: separate !important; min-width: 900px;
     border-spacing: 0; }
   .resize-table thead th{ position:relative; overflow:visible; background-color: #e9ecef; /* same tone as .table-light */
     border-right: 1px solid #d3d3d3; /* subtle gray divider */
@@ -757,6 +757,13 @@
   .subcard-body .td-cutter .edit-input   { display: none; }
   .subcard-body.is-editing .td-cutter .view-text { display: none; }
   .subcard-body.is-editing .td-cutter .edit-input { display: inline-block; min-width: 180px; }
+
+  @media (max-width: 576px) {
+  .resize-table{
+    table-layout:fixed;   /* or auto if you prefer */
+    min-width: 900px;
+  }
+}
 </style>
 <div class="resize-guide" id="colGuide"></div>
 
