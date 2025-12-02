@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\OrderAttachment;
+use App\Models\User;
+use App\Helpers\Helpers;
+use Illuminate\Support\Facades\Auth;
 
 class BossFulfillmentController extends Controller
 {
@@ -675,8 +678,15 @@ class BossFulfillmentController extends Controller
             'rows.*._delete'              => ['nullable','boolean'],
         ]);
 
+        // Get product & order for notification context
+        $product = Product::with('order:id,order_number,deadline')
+            ->where('ProductID', $productId)
+            ->firstOrFail();
+
         // product quantity for server-side guard
-        $productQty = (int) DB::table('products')->where('ProductID', $productId)->value('totalQuantity');
+        $productQty = (int) DB::table('products')
+            ->where('ProductID', $productId)
+            ->value('totalQuantity');
 
         // normalize method to DB values
         $canonMethod = function (?string $m): ?string {
@@ -699,6 +709,25 @@ class BossFulfillmentController extends Controller
                 'rows' => "Total delivery quantity ({$sum}) cannot exceed product quantity ({$productQty})."
             ]);
         }
+
+        // change logs for notifications
+        $adminChanges    = []; // all changes
+        $dispatchChanges = []; // method courier / self pickup
+        $installChanges  = []; // method delivery_installation
+
+        // helper to see if a method belongs to a group
+        $isDispatchMethod = function (?string $method) {
+            return in_array($method, ['courier','self pickup'], true);
+        };
+        $isInstallMethod = function (?string $method) {
+            return $method === 'delivery_installation';
+        };
+
+        // which fields we actually care about (no updated_at / created_at)
+        $trackedFields = [
+            'method','date','time','location','quantity',
+            'deliver_install_type','outsource_cost',
+        ];
 
         DB::beginTransaction();
         try {
@@ -727,29 +756,237 @@ class BossFulfillmentController extends Controller
                     'updated_at'           => now(),
                 ];
 
+                // ----- DELETE -----
                 if (!empty($row['_delete'])) {
                     if ($id) {
+                        // fetch old row to know its method & context
+                        $old = DB::table('delivery_breakdowns')
+                            ->where('BreakdownID', (int)$id)
+                            ->where('ProductID', $productId)
+                            ->first();
+
                         DB::table('delivery_breakdowns')
                             ->where('BreakdownID', (int)$id)
                             ->where('ProductID', $productId)
                             ->delete();
+
+                        if ($old) {
+                            $oldArr     = (array) $old;
+                            $oldMethod  = $canonMethod($oldArr['method'] ?? null);
+
+                            $entry = [
+                                'action'  => 'deleted',
+                                'id'      => (int)$id,
+                                'summary' => [
+                                    'method'   => $oldMethod,
+                                    'date'     => $oldArr['date'] ?? null,
+                                    'time'     => $oldArr['time'] ?? null,
+                                    'location' => $oldArr['location'] ?? null,
+                                    'quantity' => $oldArr['quantity'] ?? null,
+                                    'deliver_install_type' => $oldArr['deliver_install_type'] ?? null,
+                                    'outsource_cost'       => $oldArr['outsource_cost'] ?? null,
+                                ],
+                            ];
+
+                            $adminChanges[] = $entry;
+
+                            if ($isDispatchMethod($oldMethod)) {
+                                $dispatchChanges[] = $entry;
+                            }
+                            if ($isInstallMethod($oldMethod)) {
+                                $installChanges[] = $entry;
+                            }
+                        }
                     }
                     continue;
                 }
 
+                // ----- UPDATE -----
                 if ($id) {
+                    // Fetch OLD values before updating
+                    $old = DB::table('delivery_breakdowns')
+                        ->where('BreakdownID', (int)$id)
+                        ->where('ProductID', $productId)
+                        ->first();
+
                     DB::table('delivery_breakdowns')
                         ->where('BreakdownID', (int)$id)
                         ->where('ProductID', $productId)
                         ->update($payload);
-                } else {
+
+                    if ($old) {
+                        $oldArr = (array) $old;
+                        $changed = [];
+
+                        foreach ($trackedFields as $field) {
+                            $newVal = $payload[$field] ?? null;
+                            $oldVal = $oldArr[$field] ?? null;
+                            if ((string)$oldVal !== (string)$newVal) {
+                                $changed[$field] = [
+                                    'old' => $oldVal,
+                                    'new' => $newVal,
+                                ];
+                            }
+                        }
+
+                        // If nothing actually changed, no need to log / notify
+                        if (!empty($changed)) {
+                            $entry = [
+                                'action'  => 'updated',
+                                'id'      => (int)$id,
+                                'changes' => $changed,
+                            ];
+
+                            $adminChanges[] = $entry;
+
+                            $oldMethod  = $canonMethod($oldArr['method'] ?? null);
+                            $newMethod  = $method;
+
+                            // method might move between groups – notify where relevant
+                            if ($isDispatchMethod($oldMethod) || $isDispatchMethod($newMethod)) {
+                                $dispatchChanges[] = $entry;
+                            }
+                            if ($isInstallMethod($oldMethod) || $isInstallMethod($newMethod)) {
+                                $installChanges[] = $entry;
+                            }
+                        }
+                    }
+                }
+                // ----- CREATE -----
+                else {
                     $payload['ProductID'] = $productId;
                     $payload['created_at'] = now();
-                    DB::table('delivery_breakdowns')->insert($payload);
+
+                    $newId = DB::table('delivery_breakdowns')->insertGetId($payload);
+
+                    // log only non-null tracked fields
+                    $changes = [];
+                    foreach ($trackedFields as $field) {
+                        if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '') {
+                            $changes[$field] = $payload[$field];
+                        }
+                    }
+
+                    if (!empty($changes)) {
+                        $entry = [
+                            'action'  => 'created',
+                            'id'      => (int)$newId,
+                            'changes' => $changes,
+                        ];
+
+                        $adminChanges[] = $entry;
+
+                        if ($isDispatchMethod($method)) {
+                            $dispatchChanges[] = $entry;
+                        }
+                        if ($isInstallMethod($method)) {
+                            $installChanges[] = $entry;
+                        }
+                    }
                 }
             }
 
             DB::commit();
+
+            /**
+             * ======================
+             *  NOTIFICATIONS
+             * ======================
+             */
+
+            // nothing changed → nothing to notify
+            if (!($adminChanges || $dispatchChanges || $installChanges)) {
+                return back()->with('ok', 'Deliveries updated.');
+            }
+
+            $actor     = Auth::user();
+            $actorName = $actor?->name ?? 'System';
+            $actorRole = str_replace('-', ' ', strtolower($actor?->role ?? 'user'));
+
+            $order     = $product->order;
+            $orderNo   = $order?->order_number ?? ('#'.$order?->id ?? '-');
+            $deadline  = $order && $order->deadline
+                ? \Carbon\Carbon::parse($order->deadline)
+                    ->timezone('Asia/Kuala_Lumpur')
+                    ->format('Y-m-d')
+                : '-';
+
+            $baseHeader = "Deliveries updated by {$actorName} ({$actorRole}) "
+                        . "for Order {$orderNo}, Product {$product->productName}. ";
+
+            // helper: format change lines
+            $formatChanges = function (array $entries): string {
+                return collect($entries)->map(function ($r) {
+                    if ($r['action'] === 'deleted') {
+                        $s = $r['summary'] ?? [];
+                        $method = $s['method'] ?? '-';
+                        $qty    = $s['quantity'] ?? '-';
+                        $date   = $s['date'] ?? '-';
+                        $time   = $s['time'] ?? null;
+                        $dt     = $time ? "{$date} {$time}" : $date;
+                        $loc    = $s['location'] ?? '-';
+                        return "Deleted: {$method}, qty {$qty}, {$dt}, {$loc}";
+                    }
+
+                    if ($r['action'] === 'created') {
+                        $parts = [];
+                        foreach (($r['changes'] ?? []) as $k => $v) {
+                            $parts[] = "{$k}: {$v}";
+                        }
+                        return "Created: " . implode(", ", $parts);
+                    }
+
+                    // updated
+                    $parts = [];
+                    foreach (($r['changes'] ?? []) as $field => $diff) {
+                        $old = $diff['old'] ?? '-';
+                        $new = $diff['new'] ?? '-';
+                        $parts[] = "{$field}: {$old} → {$new}";
+                    }
+                    return "Updated: " . implode(", ", $parts);
+                })->implode(" | ");
+            };
+
+            // unique-ish key per save
+            $stamp   = now()->timestamp;
+            $baseKey = "boss-delivery-update:product={$productId}:{$stamp}";
+
+            // 1) Admin – always, with all changes
+            if (!empty($adminChanges)) {
+                $adminMsg = $baseHeader . $formatChanges($adminChanges) . ". Deadline: {$deadline}.";
+                $adminUrl = $order
+                    ? url("admin/fulfillment/show/{$productId}")
+                    : url("/admin");
+
+                User::where('role', 'admin')->get()->each(function ($u) use ($adminMsg, $adminUrl, $baseKey) {
+                    Helpers::notifyOnce($u, $adminMsg, $adminUrl, ['database'], $baseKey.':admin');
+                });
+            }
+
+            // 2) Dispatch – only if courier/self pickup changes exist
+            if (!empty($dispatchChanges)) {
+                $dispatchMsg = $baseHeader . $formatChanges($dispatchChanges) . ", Deadline: {$deadline}.";
+                $dispatchUrl = url("/dispatchcontrol/job/{$productId}");
+
+                User::whereRaw('LOWER(role) = ?', ['operations-dispatch-control'])
+                    ->get()
+                    ->each(function ($u) use ($dispatchMsg, $dispatchUrl, $baseKey) {
+                        Helpers::notifyOnce($u, $dispatchMsg, $dispatchUrl, ['database'], $baseKey.':dispatch');
+                    });
+            }
+
+            // 3) Delivery & Installation – only if delivery_installation changes exist
+            if (!empty($installChanges)) {
+                $installMsg = $baseHeader . $formatChanges($installChanges) . ". Deadline: {$deadline}.";
+                $installUrl = url("/installation/job/{$productId}");
+
+                User::whereRaw('LOWER(role) = ?', ['operations-delivery-installation'])
+                    ->get()
+                    ->each(function ($u) use ($installMsg, $installUrl, $baseKey) {
+                        Helpers::notifyOnce($u, $installMsg, $installUrl, ['database'], $baseKey.':install');
+                    });
+            }
+
             return back()->with('ok','Deliveries updated.');
         } catch (\Throwable $e) {
             DB::rollBack();

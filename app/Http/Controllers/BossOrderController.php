@@ -624,7 +624,7 @@ class BossOrderController extends Controller
         ]);
     }
 
-    public function dataEntryUsers(\Illuminate\Http\Request $request)
+    public function bossDataEntryUsers(\Illuminate\Http\Request $request)
     {
         try {
             // Adjust role values to match your DB

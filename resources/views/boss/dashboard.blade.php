@@ -5,6 +5,16 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
+  .badge-redo {
+    display:inline-block;
+    padding: .15rem .45rem;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 600;
+    background: #fff7ed;   /* warm amber */
+    color: #b45309;
+    vertical-align: middle;
+  }
   :root{
     --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
     --text:#101828; --muted:#667085;
@@ -265,7 +275,7 @@
       <table class="table mb-0" id="jobTable">
         <thead>
           <tr>
-            <th>Order ID</th><th>Job Title</th><th>Company</th><th>Artist</th><th>Status</th><th>Deadline</th><th class="text-end">Actions</th>
+            <th>Order ID</th><th>Job Title</th><th>Company</th><th>Artist</th><th>Status</th><th>Deadline</th><th class="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -283,7 +293,11 @@
               <td>{{ $o->artist_name ?? '—' }}</td>
               <td><span class="tag">{{ $statusLabel ?: '—' }}</span></td>
               <td>{{ optional(\Carbon\Carbon::parse($o->deadline ?? null))->toDateString() }}</td>
-              <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
+              <td class="text-right">
+                  <a href="{{ route('boss.orders.show', $o->id) }}" class="link-btn">
+                      View
+                  </a>
+              </td>
             </tr>
           @empty
             <tr><td colspan="7" class="text-center text-muted">No orders to display.</td></tr>
