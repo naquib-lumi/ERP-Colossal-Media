@@ -265,7 +265,7 @@
       <table class="table mb-0" id="jobTable">
         <thead>
           <tr>
-            <th>Order ID</th><th>Job Title</th><th>Company</th><th>Artist</th><th>Status</th><th>Deadline</th><th class="text-end">Actions</th>
+            <th>Order ID</th><th>Job Title</th><th>Company</th><th>Artist</th><th>Status</th><th>Deadline</th><th class="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -283,7 +283,11 @@
               <td>{{ $o->artist_name ?? '—' }}</td>
               <td><span class="tag">{{ $statusLabel ?: '—' }}</span></td>
               <td>{{ optional(\Carbon\Carbon::parse($o->deadline ?? null))->toDateString() }}</td>
-              <td class="text-end"><button class="kebab"><i class="bi bi-three-dots-vertical"></i></button></td>
+              <td class="text-right">
+                  <a href="{{ route('boss.orders.show', $o->id) }}" class="link-btn">
+                      View
+                  </a>
+              </td>
             </tr>
           @empty
             <tr><td colspan="7" class="text-center text-muted">No orders to display.</td></tr>
