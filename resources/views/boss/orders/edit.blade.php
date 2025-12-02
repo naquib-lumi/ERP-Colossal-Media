@@ -3222,7 +3222,7 @@
         const sel = document.getElementById('de-user-select');
         sel.innerHTML = `<option value="">Loading…</option>`;
         try {
-          const r = await fetch(@json(route('dataEntry.users')), { headers: { 'X-Requested-With':'XMLHttpRequest' }});
+          const r = await fetch(@json(route('boss.dataEntry.users')), { headers: { 'X-Requested-With':'XMLHttpRequest' }});
           const data = await r.json();
           sel.innerHTML = `<option value="">Please select a user</option>`;
           (data?.users || []).forEach(u => {
@@ -3472,7 +3472,7 @@
         const sel = document.getElementById('de-user-select');
         sel.innerHTML = `<option value="">Loading...</option>`;
         try {
-          const r = await fetch(@json(route('dataEntry.users')), {
+          const r = await fetch(@json(route('boss.dataEntry.users')), {
             headers: {
               'X-Requested-With': 'XMLHttpRequest'
             }
