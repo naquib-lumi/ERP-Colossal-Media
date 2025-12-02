@@ -5,6 +5,16 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
+  .badge-redo {
+    display:inline-block;
+    padding: .15rem .45rem;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 600;
+    background: #fff7ed;   /* warm amber */
+    color: #b45309;
+    vertical-align: middle;
+  }
   :root{
     --bg:#F9FAFB; --card:#FFFFFF; --border:#E5E7EB;
     --text:#101828; --muted:#667085;
