@@ -160,9 +160,9 @@
               <a id="salesResetBtn" href="{{ url()->current() }}#salesSec" class="btn btn-secondary">Reset</a>
 
               {{-- carry current filters when exporting --}}
-              <a href="#" class="btn btn-outline-dark">
+              <!-- <a href="#" class="btn btn-outline-dark">
                 <i class="bi bi-download"></i> Export
-              </a>
+              </a> -->
             </div>
           </div>
 
@@ -314,10 +314,10 @@
               <a id="orderResetBtn" href="{{ url()->current() }}#orderSec" class="btn btn-secondary">Reset</a>
 
               {{-- Carry current filters to export (wire to your route) --}}
-              <a href="#"
+              <!-- <a href="#"
                 class="btn btn-outline-dark">
                 <i class="bi bi-download"></i> Export
-              </a>
+              </a> -->
             </div>
           </div>
         </div>
@@ -354,10 +354,10 @@
         @php $mf = $machineFilters ?? ['machine_q'=>'','machine_type'=>'','machine_range'=>'last30']; @endphp
         <div class="p-3 d-flex justify-content-end gap-2">
           {{-- Export (route optional; keep your current one if different) --}}
-          <a class="btn btn-dark"
+          <!-- <a class="btn btn-dark"
             href="#machineSec">
             <i class="bi bi-download me-1"></i> Export
-          </a>
+          </a> -->
 
           {{-- Add Machine Type (frontend modal) --}}
           <button type="button" class="btn btn-secondary"
