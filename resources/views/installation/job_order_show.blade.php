@@ -763,6 +763,7 @@
     table-layout:fixed;   /* or auto if you prefer */
     min-width: 900px;
   }
+}
 </style>
 <div class="resize-guide" id="colGuide"></div>
 
