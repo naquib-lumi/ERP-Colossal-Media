@@ -116,7 +116,7 @@ class BossLeadController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
+        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson', 'boss'])->get();
         $leads = Lead::with('user', 'attachments', 'reminders', 'notes')->orderBy('created_at', 'desc');
 
         // if ($user->hasRole('boss')) {
@@ -206,20 +206,28 @@ class BossLeadController extends Controller
                 $html .= '</div>';
                 return $html;
             })
-            ->addColumn('assigned_salesperson', function ($lead) use ($user, $salespeople) {
-                    $assignDropdown = '<select class="form-select form-select-sm assign-dropdown" data-id="' . $lead->id . '">';
-                    $assignDropdown .= '<option value="">Select Salesperson</option>';
-                    foreach ($salespeople as $salesperson) {
-                        $selected = $lead->salesperson_id == $salesperson->id ? 'selected' : '';
-                        $assignDropdown .= '<option value="' . $salesperson->id . '" ' . $selected . '>' . $salesperson->name . '</option>';
-                    }
-                    $assignDropdown .= '</select>';
-                    return '<div class="assigned-salesperson-cell">' . ($lead->user->name ?? 'Not Assigned') . '<br>' . $assignDropdown . '</div>';
-                
-                $assignValue = $user->name;
-                $assignInput = '<input type="text" class="form-control form-control-sm" value="' . $assignValue . '" readonly>';
-                return '<div class="assigned-salesperson-cell">' . ($lead->user->name ?? 'Not Assigned') .  '</div>';
-            })
+            ->addColumn('assigned_salesperson', function ($lead) use ($salespeople) {
+                // Build dropdown with all salespeople (including boss)
+                $assignDropdown = '<select class="form-select form-select-sm assign-dropdown" data-id="' . $lead->id . '">';
+                $assignDropdown .= '<option value="">Select Salesperson</option>';
+
+                foreach ($salespeople as $salesperson) {
+                    $selected = $lead->salesperson_id == $salesperson->id ? 'selected' : '';
+                    $assignDropdown .= '<option value="' . $salesperson->id . '" ' . $selected . '>' . $salesperson->name . '</option>';
+                }
+                $assignDropdown .= '</select>';
+
+                // Find the currently assigned user (can be boss, salesperson, head-salesperson)
+                $assignedUser = $salespeople->firstWhere('id', $lead->salesperson_id);
+                $assignedName = $assignedUser ? $assignedUser->name : 'Not Assigned';
+
+                // Show assigned name on top + dropdown below (like your screenshot)
+                return '<div class="assigned-salesperson-cell">'
+                    . $assignedName . '<br>'
+                    . $assignDropdown .
+                    '</div>';
+            })      
+
             ->addColumn('reminder', function ($lead) use ($user) {
                 $reminders = $lead->reminders()
                     ->where('created_by', $user->id)
@@ -324,14 +332,14 @@ class BossLeadController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'required|string|regex:/^[0-9+\-\s()]+$/|max:20',
             'email' => 'nullable|email|max:255',
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
+            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson', 'boss'])->pluck('id')->toArray()),
             'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
             'remark' => 'nullable|string',
             'attachments' => 'nullable|array|max:10',
             'attachments.*' => 'mimes:pdf,doc,jpg,png|max:10240',
         ]);
 
-        $salesperson_id = $user->hasRole('boss') ? $user->id : $validated['salesperson_id'];
+        $salesperson_id = $validated['salesperson_id'];
 
         $lead = Lead::create([
             'salesperson_id' => $salesperson_id,
@@ -718,7 +726,7 @@ class BossLeadController extends Controller
         }
 
         $request->validate([
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
+            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson', 'boss'])->pluck('id')->toArray()),
         ]);
 
         $oldSalespersonId = $lead->salesperson_id;
