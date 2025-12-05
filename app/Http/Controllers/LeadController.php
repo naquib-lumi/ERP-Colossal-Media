@@ -33,7 +33,7 @@ class LeadController extends Controller
         abort(403, 'Unauthorized');
     }
 
-    $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
+    $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson','boss'])->get();
 
     if ($user->hasRole('head-salesperson')) {
         // Head-salesperson can see all leads
@@ -115,7 +115,7 @@ class LeadController extends Controller
         return response()->json(['error' => 'Unauthorized'], 403);
     }
 
-    $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
+    $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson','boss'])->get();
     $leads = Lead::with('user', 'attachments', 'reminders', 'notes')->orderBy('created_at', 'desc');
 
     if ($user->hasRole('salesperson')) {
@@ -299,7 +299,7 @@ class LeadController extends Controller
         if (!$user->hasRole('salesperson') && !$user->hasRole('head-salesperson')) {
             abort(403, 'Unauthorized');
         }
-        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
+        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson','boss'])->get();
         return view('sales.add-lead', compact('salespeople'));
     }
 
@@ -324,7 +324,7 @@ class LeadController extends Controller
         'name' => 'required|string|max:255',
         'phone' => 'required|string|regex:/^[0-9+\-\s()]+$/|max:20',
         'email' => 'nullable|email|max:255',
-        'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
+        'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson','boss'])->pluck('id')->toArray()),
         'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
         'remark' => 'nullable|string',
         'attachments' => 'nullable|array|max:10',
@@ -675,7 +675,7 @@ protected function authorizeLeadAccess(Lead $lead)
     $lead = Lead::with('user', 'attachments')->findOrFail($id);
     $this->authorizeLeadAccess($lead);
 
-    $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
+    $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson','boss'])->get();
     return view('sales.lead-edit', compact('lead', 'salespeople'));
 }
 
@@ -691,7 +691,7 @@ protected function authorizeLeadAccess(Lead $lead)
     }
 
     $request->validate([
-        'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
+        'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson','boss'])->pluck('id')->toArray()),
     ]);
 
     $oldSalespersonId = $lead->salesperson_id;
@@ -794,7 +794,7 @@ public function update(Request $request, $id)
         'name' => 'required|string|max:255',
         'phone' => 'required|string|regex:/^[0-9+\-\s()]+$/|max:20',
         'email' => 'nullable|email|max:255',
-        'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
+        'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson','boss'])->pluck('id')->toArray()),
         'status' => 'required|in:accept,reject,followup,new,meeting',
         'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
         'remark' => 'nullable|string',
