@@ -144,9 +144,9 @@
           <div class="col-md-4">
             <label class="form-label small">Date Range</label>
             <div class="d-flex align-items-center gap-2">
-              <input type="date" class="form-control" name="start_date" value="{{ $sf['start_date'] ?? '' }}">
+              <input type="date" class="form-control" id="start_date" name="start_date" value="{{ $sf['start_date'] ?? '' }}">
               <span class="text-muted small">to</span>
-              <input type="date" class="form-control" name="end_date" value="{{ $sf['end_date'] ?? '' }}">
+              <input type="date" class="form-control" id="end_date" name="end_date" value="{{ $sf['end_date'] ?? '' }}">
             </div>
           </div>
 
@@ -298,9 +298,9 @@
           <div class="col-md-5">
             <label class="form-label small">Date Range</label>
             <div class="d-flex align-items-center gap-2">
-              <input type="date" name="ord_start" class="form-control" value="{{ $of['ord_start'] ?? '' }}">
+              <input type="date" name="ord_start" id="ord_start" class="form-control" value="{{ $of['ord_start'] ?? '' }}">
               <span class="text-muted small">to</span>
-              <input type="date" name="ord_end" class="form-control" value="{{ $of['ord_end'] ?? '' }}">
+              <input type="date" name="ord_end" id="ord_end" class="form-control" value="{{ $of['ord_end'] ?? '' }}">
             </div>
           </div>
 
@@ -715,6 +715,56 @@ document.addEventListener('DOMContentLoaded', () => {
       // Optional: add your toast here
     });
   }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const startInput = document.getElementById('start_date');
+    const endInput   = document.getElementById('end_date');
+
+    if (!startInput || !endInput) return;
+
+    // Set initial min for end date when page loads
+    if (startInput.value) {
+        endInput.min = startInput.value;
+        if (endInput.value && endInput.value < startInput.value) {
+            endInput.value = startInput.value;
+        }
+    }
+
+    // Update min whenever start date changes
+    startInput.addEventListener('change', function () {
+        endInput.min = this.value || '';
+
+        // If current end date is now before start date, snap it to start date
+        if (endInput.value && endInput.value < this.value) {
+            endInput.value = this.value;
+        }
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const startInput = document.getElementById('ord_start');
+    const endInput   = document.getElementById('ord_end');
+
+    if (!startInput || !endInput) return;
+
+    // Set initial min for end date when page loads
+    if (startInput.value) {
+        endInput.min = startInput.value;
+        if (endInput.value && endInput.value < startInput.value) {
+            endInput.value = startInput.value;
+        }
+    }
+
+    // Update min whenever start date changes
+    startInput.addEventListener('change', function () {
+        endInput.min = this.value || '';
+
+        // If current end date is now before start date, snap it to start date
+        if (endInput.value && endInput.value < this.value) {
+            endInput.value = this.value;
+        }
+    });
 });
 </script>
 @endsection

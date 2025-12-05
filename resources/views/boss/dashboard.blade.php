@@ -174,57 +174,64 @@
 
       <!-- Meeting Outcomes（左图右筛） -->
       <div class="col-lg-5">
-        <div class="card soft p-3 h-100">
-          <h6 class="fw-bold mb-2">Meeting Outcomes</h6>
-          <div class="outcomes-grid">
-            <div>
-              <div class="chart-wrap"><canvas id="pieOutcome"></canvas></div>
-              <div class="mt-2 small">
-                <span class="legend-dot" style="background:var(--green)"></span>Accepted
-                <span class="legend-dot" style="background:var(--red);margin-left:14px"></span>Rejected
-              </div>
-            </div>
-            <aside class="sidebar">
-              <form id="outcomeFilter" method="GET" class="filter-stack d-flex flex-column gap-3">
-                <div>
-                  <div class="label">Start date</div>
-                  <input type="date" class="form-control" name="start_date"
-                        value="{{ $meetingOutcomes['filters']['start_date'] }}">
-                </div>
-                <div>
-                  <div class="label">End date</div>
-                  <input type="date" class="form-control" name="end_date"
-                        value="{{ $meetingOutcomes['filters']['end_date'] }}">
-                </div>
-                <div>
-                <div class="label">Salesperson</div>
-                  <select class="form-select" name="salesperson">
-                    <option value="all" {{ $meetingOutcomes['filters']['salesperson']==='all' ? 'selected' : '' }}>
-                      All Salesperson
-                    </option>
-                    @foreach($salespeople as $sp)
-                      <option value="{{ $sp->id }}" {{ (string)$sp->id === (string)$meetingOutcomes['filters']['salesperson'] ? 'selected' : '' }}>
-                        {{ $sp->name }}
-                      </option>
-                    @endforeach
-                  </select>
-                </div>
-                <div>
-                <div class="label">Period</div>
-                  <select class="form-select" name="period" id="piePeriod">
-                    @php $p = $meetingOutcomes['filters']['period'] ?? 'monthly'; @endphp
-                    <option value="monthly"  {{ $p==='monthly'  ? 'selected' : '' }}>Monthly</option>
-                    <option value="quarterly"{{ $p==='quarterly'? 'selected' : '' }}>Quarterly</option>
-                    <option value="yearly"   {{ $p==='yearly'   ? 'selected' : '' }}>Yearly</option>
-                    <option value="custom"   {{ $p==='custom'   ? 'selected' : '' }}>Custom</option>
-                  </select>
-                </div>
-                {{-- No submit button needed; we auto-submit on change --}}
-              </form>
-            </aside>
-          </div>
+  <div class="card soft p-3 h-100">
+    <h6 class="fw-bold mb-2">Meeting Outcomes</h6>
+    <div class="outcomes-grid">
+      <div>
+        <div class="chart-wrap"><canvas id="pieOutcome"></canvas></div>
+        <div class="mt-2 small">
+          <span class="legend-dot" style="background:var(--green)"></span>Accepted
+          <span class="legend-dot" style="background:var(--red);margin-left:14px"></span>Rejected
         </div>
       </div>
+      <aside class="sidebar">
+        <form id="outcomeFilter" method="GET" class="filter-stack d-flex flex-column gap-3">
+          <div>
+            <div class="label">Start date</div>
+            <input type="date"
+                   class="form-control"
+                   id="start_date"
+                   name="start_date"
+                   value="{{ $meetingOutcomes['filters']['start_date'] }}">
+          </div>
+          <div>
+            <div class="label">End date</div>
+            <input type="date"
+                   class="form-control"
+                   id="end_date"
+                   name="end_date"
+                   value="{{ $meetingOutcomes['filters']['end_date'] }}">
+          </div>
+          <div>
+            <div class="label">Salesperson</div>
+            <select class="form-select" name="salesperson">
+              <option value="all" {{ $meetingOutcomes['filters']['salesperson']==='all' ? 'selected' : '' }}>
+                All Salesperson
+              </option>
+              @foreach($salespeople as $sp)
+                <option value="{{ $sp->id }}" {{ (string)$sp->id === (string)$meetingOutcomes['filters']['salesperson'] ? 'selected' : '' }}>
+                  {{ $sp->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+          <div>
+            <div class="label">Period</div>
+            <select class="form-select" name="period" id="piePeriod">
+              @php $p = $meetingOutcomes['filters']['period'] ?? 'monthly'; @endphp
+              <option value="monthly"   {{ $p==='monthly'  ? 'selected' : '' }}>Monthly</option>
+              <option value="quarterly" {{ $p==='quarterly'? 'selected' : '' }}>Quarterly</option>
+              <option value="yearly"    {{ $p==='yearly'   ? 'selected' : '' }}>Yearly</option>
+              <option value="custom"    {{ $p==='custom'   ? 'selected' : '' }}>Custom</option>
+            </select>
+          </div>
+          {{-- No submit button needed; we auto-submit on change --}}
+        </form>
+      </aside>
+    </div>
+  </div>
+</div>
+
     </div>
   </div><!-- /top card -->
 
@@ -840,6 +847,31 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('change', submitForm);
     });
 })();
+
+document.addEventListener('DOMContentLoaded', function () {
+    const startInput = document.getElementById('start_date');
+    const endInput   = document.getElementById('end_date');
+
+    if (!startInput || !endInput) return;
+
+    // Set initial min for end date when page loads
+    if (startInput.value) {
+        endInput.min = startInput.value;
+        if (endInput.value && endInput.value < startInput.value) {
+            endInput.value = startInput.value;
+        }
+    }
+
+    // Update min whenever start date changes
+    startInput.addEventListener('change', function () {
+        endInput.min = this.value || '';
+
+        // If current end date is now before start date, snap it to start date
+        if (endInput.value && endInput.value < this.value) {
+            endInput.value = this.value;
+        }
+    });
+});
 </script>
 
 @endsection
