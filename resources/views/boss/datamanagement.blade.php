@@ -187,11 +187,11 @@
   <div class="tabs">
     <a href="{{ route('boss.datamanagement', ['tab' => 'cost']) }}"
       class="tab-btn {{ $activeTab === 'cost' ? 'active' : '' }}"
-      data-target="#costData">Cost Data</a>
+      data-target="#costData">Material Cost</a>
 
     <a href="{{ route('boss.datamanagement', ['tab' => 'another']) }}"
       class="tab-btn {{ $activeTab === 'another' ? 'active' : '' }}"
-      data-target="#anotherData">Another Data</a>
+      data-target="#anotherData">Order Costing</a>
   </div>
   <div class="tabs-border"></div>
 
@@ -199,7 +199,7 @@
     <div class="card">
       <div class="card-hd">
         <div>
-          <div class="title" style="font-size: 20px !important;">Cost Data</div>
+          <div class="title" style="font-size: 20px !important;">Material Cost</div>
         </div>
         <div class="actions">
           <button id="btnManageTypes" class="btn btn-primary"><i class="bi bi-list"></i> Manage Types</button>
@@ -228,7 +228,7 @@
             <tr>
               <th style="font-weight: bold;">Material Name</th>
               <th style="font-weight: bold;">Material Type</th>
-              <th style="font-weight: bold;">Unit Cost</th>
+              <th style="font-weight: bold;">Unit Cost / sq inch (RM)</th>
               <th style="font-weight: bold;">Used Quantity</th>
               <th style="font-weight: bold;">Total Cost</th> 
               <th style="font-weight: bold;">Status</th>
