@@ -351,27 +351,30 @@
     <div class="p-3 border-bottom">
       
       <form method="GET" id="machineFilterForm" action="{{ url()->current() }}#machineSec">
-        @php $mf = $machineFilters ?? ['machine_q'=>'','machine_type'=>'','machine_range'=>'last30']; @endphp
-        <div class="p-3 d-flex justify-content-end gap-2">
-          {{-- Export (route optional; keep your current one if different) --}}
-          <!-- <a class="btn btn-dark"
-            href="#machineSec">
-            <i class="bi bi-download me-1"></i> Export
-          </a> -->
+        @php
+          $mf = $machineFilters ?? [
+            'machine_q'     => '',
+            'machine_type'  => '',
+            'machine_range' => 'last30',
+            'machine_from'  => '',
+            'machine_to'    => '',
+          ];
+        @endphp
 
-          {{-- Add Machine Type (frontend modal) --}}
-          <button type="button" class="btn btn-secondary"
-                  data-bs-toggle="modal" data-bs-target="#addMachineModal">
-            Add Machine Type
-          </button>
-        </div>
+        
         <div class="row g-2 align-items-end">
-          <div class="col-lg-5 col-md-6">
-            <input type="text" name="machine_q" class="form-control"
-                  placeholder="Search machine..." value="{{ $mf['machine_q'] ?? '' }}">
+
+          {{-- Search machine --}}
+          <div class="col-lg-3 col-md-6">
+            <input type="text"
+                  name="machine_q"
+                  class="form-control"
+                  placeholder="Search machine..."
+                  value="{{ $mf['machine_q'] ?? '' }}">
           </div>
 
-          <div class="col-lg-2 col-md-3">
+          {{-- Machine type --}}
+          <div class="col-lg-2 col-md-6">
             <select name="machine_type" class="form-select">
               <option value="" {{ ($mf['machine_type'] ?? '')==='' ? 'selected' : '' }}>All Machine Types</option>
               <option value="Printer" {{ ($mf['machine_type'] ?? '')==='Printer' ? 'selected' : '' }}>Printer</option>
@@ -379,25 +382,55 @@
             </select>
           </div>
 
-          <div class="col-lg-2 col-md-3">
+          {{-- Preset range --}}
+          <!-- <div class="col-lg-2 col-md-4">
             @php $mr = $mf['machine_range'] ?? 'last30'; @endphp
             <select name="machine_range" class="form-select">
               <option value="last30" {{ $mr==='last30' ? 'selected' : '' }}>Last 30 Days</option>
               <option value="last90" {{ $mr==='last90' ? 'selected' : '' }}>Last 90 Days</option>
               <option value="year"   {{ $mr==='year'   ? 'selected' : '' }}>This Year</option>
+              {{-- add "custom" here if you want --}}
+              {{-- <option value="custom" {{ $mr==='custom' ? 'selected' : '' }}>Custom Range</option> --}}
             </select>
+          </div> -->
+
+          {{-- Date range --}}
+          <div class="col-lg-3 col-md-8">
+            <div class="input-group">
+              <input type="date"
+                    id="machine_from"
+                    name="machine_from"
+                    class="form-control"
+                    value="{{ $mf['machine_from'] ?? '' }}">
+              <span class="input-group-text">~</span>
+              <input type="date"
+                    id="machine_to"
+                    name="machine_to"
+                    class="form-control"
+                    value="{{ $mf['machine_to'] ?? '' }}">
+            </div>
           </div>
 
-          <div class="col-lg-3 col-md-12 d-flex justify-content-lg-end gap-2">
+          {{-- Buttons --}}
+          <div class="col-lg-4 col-md-12 d-flex justify-content-lg-end gap-2">
             <button class="btn btn-dark" type="submit">
               <i class="bi bi-funnel"></i> Filter
             </button>
-            <a class="btn btn-secondary" href="{{ url()->current() }}#machineSec" id="machineResetBtn">
+            <a class="btn btn-secondary"
+              href="{{ url()->current() }}#machineSec"
+              id="machineResetBtn">
               Reset
             </a>
-            
+
+            {{-- Add Machine Type (frontend modal) --}}
+            <button type="button" class="btn btn-secondary"
+                    data-bs-toggle="modal" data-bs-target="#addMachineModal">
+              Add Machine Type
+            </button>
           </div>
+
         </div>
+
       </form>
     </div>
 
@@ -765,6 +798,33 @@ document.addEventListener('DOMContentLoaded', function () {
             endInput.value = this.value;
         }
     });
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const startInput  = document.getElementById('machine_from');
+    const endInput    = document.getElementById('machine_to');
+    const rangeSelect = document.querySelector('select[name="machine_range"]');
+
+    if (!startInput || !endInput) return;
+
+    // initial min
+    endInput.min = startInput.value || '';
+
+    function snapAndCustom() {
+        if (endInput.value && startInput.value && endInput.value < startInput.value) {
+            endInput.value = startInput.value;
+        }
+        if (rangeSelect && (startInput.value || endInput.value)) {
+            rangeSelect.value = 'custom';
+        }
+    }
+
+    startInput.addEventListener('change', function () {
+        endInput.min = this.value || '';
+        snapAndCustom();
+    });
+
+    endInput.addEventListener('change', snapAndCustom);
 });
 </script>
 @endsection

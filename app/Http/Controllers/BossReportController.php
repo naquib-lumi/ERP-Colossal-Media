@@ -209,13 +209,33 @@ class BossReportController extends Controller
         $mtype  = $request->input('machine_type', '');          // '', 'Printer', 'Cutter'
         $mrange = $request->input('machine_range', 'last30');   // last30, last90, year
 
+        // Custom date range (optional)
+        $mfrom  = $request->input('machine_from');             // YYYY-MM-DD or null
+        $mto    = $request->input('machine_to');               
+
         // Date range
-        $end   = now()->toDateString();
-        $start = match ($mrange) {
-            'last90' => now()->subDays(90)->toDateString(),
-            'year'   => now()->startOfYear()->toDateString(),
-            default  => now()->subDays(30)->toDateString(), // last30
-        };
+        if ($mfrom || $mto) {
+            // When user gives a custom range, use it and mark as "custom"
+            $from = $mfrom ? \Carbon\Carbon::parse($mfrom) : now()->subDays(30);
+            $to   = $mto   ? \Carbon\Carbon::parse($mto)   : now();
+
+            // Ensure start <= end
+            if ($from->gt($to)) {
+                [$from, $to] = [$to, $from];
+            }
+
+            $start  = $from->toDateString();
+            $end    = $to->toDateString();
+            $mrange = 'custom';
+        } else {
+            // Preset ranges
+            $end   = now()->toDateString();
+            $start = match ($mrange) {
+                'last90' => now()->subDays(90)->toDateString(),
+                'year'   => now()->startOfYear()->toDateString(),
+                default  => now()->subDays(30)->toDateString(), // last30
+            };
+        }       
 
         // common where for names
         $badNames = ['no','No','NO','tbc','TBC',''];   // exclude these
@@ -272,9 +292,11 @@ class BossReportController extends Controller
             ->fragment('machineSec');
 
         $machineFilters = [
-            'machine_q'    => $mq,
-            'machine_type' => $mtype,
-            'machine_range'=> $mrange,
+            'machine_q'     => $mq,
+            'machine_type'  => $mtype,
+            'machine_range' => $mrange,
+            'machine_from'  => $mfrom,
+            'machine_to'    => $mto,
         ];
 
         // Top 6 base orders by # of redone products (newest redo kept visible; archived redos ignored)
