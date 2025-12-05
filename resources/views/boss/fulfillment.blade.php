@@ -779,6 +779,10 @@
                     <i class="bi bi-pencil"></i>
                   @endif
                 </a>
+
+                <a href="{{ route('boss.orders.redo.create', $r->order_id) }}" class="btn btn-icon btn-soft btn-soft-secondary" title="Report" data-bs-toggle="tooltip">
+                  <i class="bx bx-error-alt fs-5"></i>
+                </a>
               </div>
             </td>
           </tr>

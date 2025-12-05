@@ -282,8 +282,10 @@ class BossFulfillmentController extends Controller
                 return (object)[
                     'product_code'   => $productCode,
                     'product_id'     => (int)$r->ProductID,
+                    'order_id'     => (int)$r->order_id,
                     'breakdown_id'   => (int)($r->breakdown_id ?? 0),
                     'order_title'    => $r->orderTitle,
+                    'deadline'       => $r->order_deadline,
                     'company'        => $r->companyName,
                     'task_label'     => $taskLabel,
                     'status'         => (string)($r->product_status ?? ''),
