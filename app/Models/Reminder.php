@@ -23,14 +23,29 @@ class Reminder extends Model
         'last_notify_time',
         'created_by',
     ];
+
     protected static function booted()
-{
-    static::retrieved(function ($reminder) {
-        if ($reminder->remind_at->isPast() && $reminder->status !== 'completed') {
-            $reminder->update(['status' => 'overdue']);
-        }
-    });
-}
+    {
+        static::retrieved(function ($reminder) {
+            if ($reminder->remind_at->isPast() && $reminder->status !== 'completed') {
+                $reminder->update(['status' => 'overdue']);
+            }
+        });
+
+        static::updating(function ($reminder) {
+            $now = now();
+            if ($reminder->isDirty('remind_at')) {
+                if ($reminder->remind_at > $now) {
+                    if ($reminder->getOriginal('last_notify_time') !== null) {
+                        $reminder->last_notify_time = null;
+                    }
+                    $reminder->status = 'upcoming';
+                } elseif ($reminder->remind_at <= $now && $reminder->status !== 'completed') {
+                    $reminder->status = 'overdue';
+                }
+            }
+        });
+    }
 
     protected $casts = [
         'remind_at' => 'datetime',
