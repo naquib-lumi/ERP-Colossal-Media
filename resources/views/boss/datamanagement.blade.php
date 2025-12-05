@@ -374,7 +374,14 @@
       </tr>
       </thead>
       <tbody id="adBody">
-        @forelse($orders as $ord)
+        @php
+          // Only show orders that still have at least 1 non-printing product
+          $visibleOrders = $orders->getCollection()->filter(function ($ord) {
+              return (int)($ord->products_count ?? 0) > 0;
+          });
+        @endphp
+
+        @forelse($visibleOrders as $ord)
           @php
             $baseNo = $ord->base_order_number
                       ?? $ord->order_number

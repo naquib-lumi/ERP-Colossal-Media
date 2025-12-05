@@ -137,13 +137,17 @@ class BossDataManagementController extends Controller
         // ===== Another Data: Orders + quantities =====
 
         $orders = DB::table('orders as o')
-            // If this is a redo, o.redo points to the original order
+            // base order for redo
             ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
 
-            // Aggregate product & item quantities under this order
-            ->leftJoin('products as p', 'p.OrderID', '=', 'o.id')                  // products.OrderID → orders.id
-            ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')  // product_items.ProductID → products.ProductID
+            // only join non-printing products
+            ->leftJoin('products as p', function ($join) {
+                $join->on('p.OrderID', '=', 'o.id')
+                    ->where('p.taskType', '!=', 'printing')
+                    ->orWhereNull('p.taskType');   // keep products with NULL taskType if you want
+            })
 
+            ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
             ->groupBy(
                 'o.id',
                 'o.order_number',
@@ -154,17 +158,11 @@ class BossDataManagementController extends Controller
             )
             ->select([
                 'o.id',
-                'o.order_number',                // the current order’s number
+                'o.order_number',
                 'o.created_at',
-                'o.status',                      // keep orders with status=1; blade can show REDO badge
-
-                // For redo display logic in blade:
+                'o.status',
                 'base.order_number as base_order_number',
-
-                // simple indicator you can also use, though blade can test o.redo directly
                 DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
-
-                // aggregates
                 DB::raw('COUNT(DISTINCT p.ProductID) AS products_count'),
                 DB::raw('COALESCE(SUM(pi.quantity), 0) AS total_item_quantity'),
             ])
@@ -172,13 +170,21 @@ class BossDataManagementController extends Controller
             ->paginate(10, ['*'], 'orders_page')
             ->withQueryString();
 
+
         // ================== ANOTHER DATA: ORDERS ==================
         // 1) Build query WITH filters first
         $ordersQuery = DB::table('orders as o')
             ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
-            ->select('o.id', 'o.order_number', 'o.created_at', 'o.status', 'o.redo',
-                    DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
-                    'base.order_number as base_order_number');
+            ->select(
+                'o.id',
+                'o.order_number',
+                'o.created_at',
+                'o.status',
+                'o.orderStatus',        // <-- ADD THIS
+                'o.redo',
+                DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
+                'base.order_number as base_order_number'
+            );
 
         // search by order id / number
         if ($q_id !== '') {
@@ -253,6 +259,7 @@ class BossDataManagementController extends Controller
         $productsAgg = DB::table('products')
         ->select('OrderID', DB::raw('COUNT(DISTINCT ProductID) as products_count'))
         ->whereIn('OrderID', $orderIds)
+        ->where('taskType', '!=', 'printing')    
         ->groupBy('OrderID')
         ->get()
         ->keyBy('OrderID');
@@ -262,6 +269,7 @@ class BossDataManagementController extends Controller
         ->join('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
         ->select('p.OrderID', DB::raw('COALESCE(SUM(pi.quantity),0) as used_quantity'))
         ->whereIn('p.OrderID', $orderIds)
+        ->where('p.taskType', '!=', 'printing') 
         ->groupBy('p.OrderID')
         ->get()
         ->keyBy('OrderID');
@@ -269,10 +277,14 @@ class BossDataManagementController extends Controller
         // Items + materials for total_cost (we still do cost in PHP)
         $products = DB::table('products')
         ->select('ProductID', 'OrderID', 'totalQuantity', 'status', 'created_at')
-        ->whereIn('OrderID', $orderIds)->get();
+        ->whereIn('OrderID', $orderIds)
+        ->where('taskType', '!=', 'printing') 
+        ->get();
+        
         $items = DB::table('product_items')
         ->select('ItemID','ProductID','quantity','sizeWidth','sizeHeight','sizeUnit','material')
         ->whereIn('ProductID', $products->pluck('ProductID')->all() ?: [0])->get();
+        
         $itemsByProduct = $items->groupBy('ProductID');
 
         // material unit costs
@@ -293,54 +305,63 @@ class BossDataManagementController extends Controller
             };
         };
 
-        // 3) Compute totals for ALL, then sort
+        // 3) Compute totals for ALL, then filter & sort
         $computed = $ordersAll->map(function ($ord) use ($products, $itemsByProduct, $materialCosts, $productsAgg, $usedAgg, $toInchFactor) {
-        $ord->products_count = (int) optional($productsAgg->get($ord->id))->products_count ?? 0;
-        $ord->used_quantity  = (int) optional($usedAgg->get($ord->id))->used_quantity ?? 0;
-        $ord->total_item_quantity = $ord->used_quantity;
+            $ord->products_count = (int) optional($productsAgg->get($ord->id))->products_count ?? 0;
+            $ord->used_quantity  = (int) optional($usedAgg->get($ord->id))->used_quantity ?? 0;
+            $ord->total_item_quantity = $ord->used_quantity;
 
-        $totalCost = 0.0;
-        foreach ($products->where('OrderID', $ord->id) as $p) {
-            foreach ($itemsByProduct->get($p->ProductID, collect()) as $it) {
-            $qty = (int) ($it->quantity ?? 0);
-            if ($qty <= 0) continue;
-            $w = (float) ($it->sizeWidth ?? 0);
-            $h = (float) ($it->sizeHeight ?? 0);
-            $f = $toInchFactor($it->sizeUnit);
-            $areaSqIn = max(0,$w) * max(0,$h) * ($f*$f);
+            $totalCost = 0.0;
+            foreach ($products->where('OrderID', $ord->id) as $p) {
+                foreach ($itemsByProduct->get($p->ProductID, collect()) as $it) {
+                    $qty = (int) ($it->quantity ?? 0);
+                    if ($qty <= 0) continue;
+                    $w = (float) ($it->sizeWidth ?? 0);
+                    $h = (float) ($it->sizeHeight ?? 0);
+                    $f = $toInchFactor($it->sizeUnit);
+                    $areaSqIn = max(0,$w) * max(0,$h) * ($f*$f);
 
-            $names = [];
-            if (!empty($it->material)) {
-                try {
-                $dec = json_decode($it->material, true, flags: JSON_THROW_ON_ERROR);
-                if (is_array($dec)) $names = array_filter(array_map('strval', $dec));
-                } catch (\Throwable $e) {}
-            }
-            foreach ($names as $name) {
-                $key = trim(mb_strtolower($name));
-                if (isset($materialCosts[$key])) {
-                $unit = (float) $materialCosts[$key]->unitCost;
-                $totalCost += $qty * $areaSqIn * $unit;
+                    $names = [];
+                    if (!empty($it->material)) {
+                        try {
+                            $dec = json_decode($it->material, true, flags: JSON_THROW_ON_ERROR);
+                            if (is_array($dec)) $names = array_filter(array_map('strval', $dec));
+                        } catch (\Throwable $e) {}
+                    }
+                    foreach ($names as $name) {
+                        $key = trim(mb_strtolower($name));
+                        if (isset($materialCosts[$key])) {
+                            $unit = (float) $materialCosts[$key]->unitCost;
+                            $totalCost += $qty * $areaSqIn * $unit;
+                        }
+                    }
                 }
             }
-            }
-        }
-        $ord->total_cost = $totalCost;
+            $ord->total_cost = $totalCost;
 
-        return $ord;
+            return $ord;
         });
 
-        // Sort across the FULL set
+        // 👇 NEW: drop orders that have no non-printing products
+        $computed = $computed->filter(function ($ord) {
+            $hasProducts = (int)($ord->products_count ?? 0) > 0;
+
+            // Only completed orders appear in costing data
+            $isCompleted = ($ord->orderStatus === 'completed');
+
+            return $hasProducts && $isCompleted;
+        });
+
         $computed = match ($sort) {
-        'products' => $computed->sortBy('products_count', SORT_REGULAR, $dir === 'desc'),
-        'used'     => $computed->sortBy('used_quantity', SORT_REGULAR, $dir === 'desc'),
-        'cost'     => $computed->sortBy('total_cost', SORT_REGULAR, $dir === 'desc'),
-        default    => $computed->sortBy('created_at',  SORT_REGULAR, $dir === 'desc'), // date
+            'products' => $computed->sortBy('products_count', SORT_REGULAR, $dir === 'desc'),
+            'used'     => $computed->sortBy('used_quantity', SORT_REGULAR, $dir === 'desc'),
+            'cost'     => $computed->sortBy('total_cost', SORT_REGULAR, $dir === 'desc'),
+            default    => $computed->sortBy('created_at',  SORT_REGULAR, $dir === 'desc'),
         };
 
-        // 4) Paginate AFTER sorting (so sorting spans all pages)
         $total = $computed->count();
         $slice = $computed->values()->slice(($page-1)*$perPage, $perPage)->values();
+
 
         $orders = new LengthAwarePaginator(
             $slice,
