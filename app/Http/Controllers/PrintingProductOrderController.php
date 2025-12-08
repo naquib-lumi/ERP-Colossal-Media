@@ -258,10 +258,15 @@ class PrintingProductOrderController extends Controller
 
         $canonMethod = function (?string $raw): array {
             $m = strtolower(trim((string)$raw));
-            if (str_contains($m, 'courier'))  return ['key' => 'courier', 'label' => 'Courier', 'icon' => 'bi-box-arrow-up-right'];
+            if (str_contains($m, 'courier'))  
+                return ['key' => 'courier', 'label' => 'Courier', 'icon' => 'bi-box-arrow-up-right'];
             if (str_contains($m, 'self') || str_contains($m, 'pickup'))
                 return ['key' => 'pickup', 'label' => 'Self Pickup', 'icon' => 'bi-bag-check'];
-            return ['key' => 'install', 'label' => 'Delivery & Installation', 'icon' => 'bi-truck'];
+            if (str_contains($m, 'installation'))
+                return ['key' => 'installation', 'label' => 'Installation', 'icon' => 'bi-wrench'];
+            if (str_contains($m, 'delivery'))
+                return ['key' => 'delivery ', 'label' => 'Delivery', 'icon' => 'bi-truck'];
+            return ['key' => 'delivery ', 'label' => 'Delivery', 'icon' => 'bi-truck'];
         };
 
         $buildDeliveriesAndTotals = function (int $pid, int $productQty) use ($canonMethod) {
