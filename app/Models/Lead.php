@@ -22,7 +22,7 @@ class Lead extends Model
  public function user()
 {
     return $this->belongsTo(User::class, 'salesperson_id')
-        ->whereIn('role', ['salesperson', 'head-salesperson']);
+        ->whereIn('role', ['salesperson', 'head-salesperson', 'boss']);
 }
 
 
