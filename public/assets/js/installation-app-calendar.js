@@ -204,6 +204,9 @@ window.__installCalBooted = true;
         const deliveryLocation =
           xp.delivery_location || xp.location || xp.address || '—';
 
+        const deliveryMethod =
+          xp.method || '—';
+
         const deliveryQty =
           (xp.product_qty ?? xp.quantity ?? xp.qty ?? null);
 
@@ -280,18 +283,18 @@ window.__installCalBooted = true;
         const permitAttachment = xp.permit_attachment || null;
 
         // 🔹 filename only for display
-let permitFilename = null;
-if (permitAttachment) {
-  const raw = permitAttachment.toString();          // "path|originalName" or just "path"
-  const parts = raw.split('|');
-  permitFilename = (parts[1] || parts[0] || '').split(/[\\/]/).pop();
-}
+        let permitFilename = null;
+        if (permitAttachment) {
+          const raw = permitAttachment.toString();          // "path|originalName" or just "path"
+          const parts = raw.split('|');
+          permitFilename = (parts[1] || parts[0] || '').split(/[\\/]/).pop();
+        }
 
-        // 🔹 download URL via new route (by product_id)
-        let permitHref = null;
-if (window.permitDownloadRoute && xp.product_id) {
-    permitHref = window.permitDownloadRoute.replace(':id', xp.product_id);
-}
+                // 🔹 download URL via new route (by product_id)
+                let permitHref = null;
+        if (window.permitDownloadRoute && xp.product_id) {
+            permitHref = window.permitDownloadRoute.replace(':id', xp.product_id);
+        }
 
         // remove existing modal if any
         document.getElementById(modalId)?.remove();
@@ -314,7 +317,7 @@ if (window.permitDownloadRoute && xp.product_id) {
                       <div class="mb-1 text-muted">
                         <span class="badge d-inline-flex align-items-center me-2"
                               style="background:#eef2ff;color:#3730a3;border-radius:999px;font-weight:600;">
-                          <i class="bi bi-truck"></i> Delivery / Installation
+                          <i class="bi bi-truck"></i> ${deliveryMethod}
                         </span>
                         <span class="badge d-inline-flex align-items-center me-2"
                               style="background:${statusBg};color:${statusTx};border-radius:999px;font-weight:600;">
@@ -388,14 +391,14 @@ if (window.permitDownloadRoute && xp.product_id) {
                     <div class="col-12">
                       <div class="mb-2"><strong>Permit Attachment:</strong></div>
                       <p class="mb-0">
-  ${
-    permitHref
-      ? `<a href="${permitHref}" class="text-decoration-underline">
-            ${permitFilename || ''}
-         </a>`
-      : 'No Permit Attached'
-  }
-</p>
+                        ${
+                          permitHref
+                            ? `<a href="${permitHref}" class="text-decoration-underline">
+                                  ${permitFilename || ''}
+                              </a>`
+                            : 'No Permit Attached'
+                        }
+                      </p>
                     </div>
                   </div>
 
@@ -478,6 +481,22 @@ if (window.permitDownloadRoute && xp.product_id) {
 
         const deliveryLocation =
           xp.delivery_location || xp.location || xp.address || '—';
+
+        const deliveryMethod =
+          xp.method || '—';
+
+        // 👇 add this block
+        const methodKey = (deliveryMethod || '').toString().trim().toLowerCase();
+
+        let methodBg   = '#eef2ff';       // default (Delivery)
+        let methodText = '#3730a3';
+        let methodIcon = 'bi-truck';
+
+        if (methodKey === 'installation') {
+          methodBg   = '#fff5db';         // your install colour
+          methodText = '#ffc420';         // your install text/icon colour
+          methodIcon = 'bi-wrench';
+        }
 
         const deliveryQty =
           (xp.product_qty ?? xp.quantity ?? xp.qty ?? null);
@@ -588,8 +607,8 @@ if (window.permitDownloadRoute && xp.product_id) {
                       <h4 class="mb-1 fw-bold">${jobTitle}</h4>
                       <div class="mb-1 text-muted">
                         <span class="badge d-inline-flex align-items-center me-2"
-                              style="background:#eef2ff;color:#3730a3;border-radius:999px;font-weight:600;">
-                          <i class="bi bi-truck"></i> Delivery / Installation
+                              style="background:${methodBg};color:${methodText};border-radius:999px;font-weight:600;">
+                          <i class="bi ${methodIcon}"></i> ${deliveryMethod}
                         </span>
                         <span class="badge d-inline-flex align-items-center me-2"
                               style="background:${statusBg};color:${statusTx};border-radius:999px;font-weight:600;">
