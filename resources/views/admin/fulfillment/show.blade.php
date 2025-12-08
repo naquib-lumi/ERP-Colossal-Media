@@ -439,9 +439,8 @@ if ($showRejectReason && $product->OrderID) {
       $m = strtolower(trim((string)$m));
       if ($m === 'courier') return 'Courier';
       if (in_array($m, ['self pickup','self_pickup','pickup'], true)) return 'Self Pickup';
-      if ($m === 'delivery_installation' || $m === 'installation' || str_contains($m,'install')) {
-        return 'Delivery & Installation';
-      }
+      if ($m === 'installation') return 'Installation';
+      if ($m === 'delivery') return 'Delivery';
       return '—';
     };
   @endphp
@@ -546,14 +545,20 @@ if ($showRejectReason && $product->OrderID) {
             {{-- NEW: METHOD SELECT --}}
             @php
               $canon = strtolower(trim((string)($d->method ?? '')));
-              if (in_array($canon, ['self_pickup','pickup'])) $canon = 'self pickup';
-              elseif ($canon === 'installation') $canon = 'delivery_installation';
+              if (in_array($canon, ['self_pickup','pickup'])) 
+                $canon = 'self pickup';
+              if ($canon === 'courier') 
+                $canon = 'courier';
+              elseif ($canon === 'installation') 
+                $canon = 'installation';
+              elseif ($canon === 'delivery') 
+                $canon = 'delivery';
             @endphp
             <td>
               <select name="rows[{{ $d->BreakdownID }}][method]"
                       class="form-select form-select-sm js-method delivery-method" required>
-                <option value="">—</option>
-                <option value="delivery_installation" {{ $canon==='delivery_installation' ? 'selected' : '' }}>Delivery &amp; Installation</option>
+                <option value="delivery" {{ $canon==='delivery' ? 'selected' : '' }}>Delivery</option>
+                <option value="installation" {{ $canon==='installation' ? 'selected' : '' }}>Installation</option>
                 <option value="courier" {{ $canon==='courier' ? 'selected' : '' }}>Courier</option>
                 <option value="self pickup" {{ $canon==='self pickup' ? 'selected' : '' }}>Self Pickup</option>
               </select>
@@ -891,8 +896,8 @@ if ($showRejectReason && $product->OrderID) {
       </td>
       <td>
         <select name="rows[${key}][method]" class="form-select form-select-sm js-method" required>
-          <option value="">—</option>
-          <option value="delivery_installation">Delivery &amp; Installation</option>
+          <option value="delivery">Delivery</option>
+          <option value="installation">Installation</option>
           <option value="courier">Courier</option>
           <option value="self pickup">Self Pickup</option>
         </select>
@@ -928,39 +933,14 @@ if ($showRejectReason && $product->OrderID) {
     `;
     tbody.appendChild(tr);
 
-    // ====== NEW LOGIC (reuse your existing behaviour, just extended) ======
+    // new row should not affect the rule detection yet
     const methodSelect = tr.querySelector('.js-method');
-    if (!methodSelect) return;
-
-    // read current methods from existing rows (excluding this new one if empty)
-    const methods = Array.from(document.querySelectorAll('#editTbody .js-method'))
-      .map(s => s.value)
-      .filter(v => v); // remove empty
-
-    const hasCourierOrPickup = methods.some(v => v === 'courier' || v === 'self pickup');
-    const hasDI              = methods.some(v => v === 'delivery_installation');
-
-    // 1) Only Courier / Self Pickup so far -> block Delivery & Installation
-    if (hasCourierOrPickup && !hasDI) {
-      const optDI = methodSelect.querySelector('option[value="delivery_installation"]');
-      if (optDI) {
-        optDI.disabled = true;
-        optDI.hidden   = true;
-      }
+    if (methodSelect) {
+      methodSelect.value = '';
     }
-    // 2) Only Delivery & Installation so far -> block Courier & Self Pickup
-    else if (!hasCourierOrPickup && hasDI) {
-      ['courier', 'self pickup'].forEach(val => {
-        const opt = methodSelect.querySelector(`option[value="${val}"]`);
-        if (opt) {
-          opt.disabled = true;
-          opt.hidden   = true;
-        }
-      });
-    }
-    // case 3: mix of both -> nothing blocked (do nothing)
 
-    // keep your existing install toggle behaviour
+    // re-apply rules so this new row gets the same allowed options
+    applyMethodRules();
     toggleInstallFields(tr);
   });
 
@@ -1003,7 +983,7 @@ if ($showRejectReason && $product->OrderID) {
     const costInput = tr.querySelector('.js-install-cost');
     if (!methodSel || !typeInput || !costInput) return;
 
-    const isDI = (methodSel.value === 'delivery_installation');
+    const isDI = (methodSel.value === 'delivery' || methodSel.value === 'installation');
     typeInput.disabled = !isDI;
     costInput.disabled = !isDI;
 
@@ -1032,7 +1012,7 @@ if ($showRejectReason && $product->OrderID) {
     if (val === 'courier' || val === 'self pickup') {
       hasCourierSelf = true;
     }
-    if (val === 'delivery_installation') {
+    if (val === 'delivery' || val === 'installation') {
       hasDI = true;
     }
   });
@@ -1042,29 +1022,31 @@ if ($showRejectReason && $product->OrderID) {
     const sel = tr.querySelector('.js-method');
     if (!sel) return;
 
-    const optDI      = sel.querySelector('option[value="delivery_installation"]');
-    const optCourier = sel.querySelector('option[value="courier"]');
-    const optPickup  = sel.querySelector('option[value="self pickup"]');
+    const optDelivery     = sel.querySelector('option[value="delivery"]');
+    const optInstallation = sel.querySelector('option[value="installation"]');
+    const optCourier      = sel.querySelector('option[value="courier"]');
+    const optPickup       = sel.querySelector('option[value="self pickup"]');
 
-    // reset (so we don't permanently lock options when pattern changes)
-    [optDI, optCourier, optPickup].forEach(opt => {
+    // reset first (so we don't permanently lock options)
+    [optDelivery, optInstallation, optCourier, optPickup].forEach(opt => {
       if (!opt) return;
       opt.disabled = false;
       opt.hidden   = false;
       opt.title    = '';
     });
 
-    // CASE 1: only Courier/Self-pickup so far -> block DI
+    // CASE 1: only Courier / Self Pickup so far -> block Delivery & Installation
     if (hasCourierSelf && !hasDI) {
-      if (optDI) {
-        optDI.disabled = true;
-        optDI.hidden   = true;
-        optDI.title    = 'Disabled: existing deliveries are Courier / Self Pickup only';
+      [optDelivery, optInstallation].forEach(opt => {
+        if (!opt) return;
+        opt.disabled = true;
+        opt.hidden   = true;
+        opt.title    = 'Disabled: existing deliveries are Courier / Self Pickup only';
+      });
 
-        if (sel.value === 'delivery_installation') {
-          sel.value = '';
-          sel.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+      if (sel.value === 'delivery' || sel.value === 'installation') {
+        sel.value = '';
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
     // CASE 2: only Delivery & Installation so far -> block Courier + Self Pickup
@@ -1170,7 +1152,7 @@ if ($showRejectReason && $product->OrderID) {
   // Install-type / cost helpers (kept from your original code)
   function isDeliveryInstall(tr){
     const m = tr.querySelector('.js-method')?.value || '';
-    return m === 'delivery_installation';
+    return m === 'delivery' || m === 'installation';
   }
   function costAllowed(tr){
     const type = (tr.querySelector('.js-install-type')?.value || '').toLowerCase();
@@ -1235,7 +1217,7 @@ if ($showRejectReason && $product->OrderID) {
 
   function isDeliveryInstall(tr){
     const m = tr.querySelector('.js-method')?.value || '';
-    return m === 'delivery_installation';
+    return m === 'delivery' || m === 'installation';
   }
   function costAllowed(tr){
     const type = (tr.querySelector('.js-install-type')?.value || '').toLowerCase();

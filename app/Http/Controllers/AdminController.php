@@ -1111,7 +1111,8 @@ $inProgressProducts = Product::from('products as p')
             if ($m === '') return null;
             if ($m === 'courier') return 'courier';
             if (in_array($m, ['self pickup','self_pickup','pickup'], true)) return 'self pickup';
-            if ($m === 'delivery_installation' || str_contains($m,'install')) return 'delivery_installation';
+            if ($m === 'delivery') return 'delivery';
+            if ($m === 'installation' || str_contains($m,'install')) return 'installation';
             return $m;
         };
 
@@ -1160,7 +1161,7 @@ $inProgressProducts = Product::from('products as p')
 
                 $qty    = isset($row['quantity']) ? (int)$row['quantity'] : null;
 
-                $allowCost = ($method === 'delivery_installation') && in_array($type, ['outsource','both'], true);
+                $allowCost = ($method === 'delivery' || $method === 'installation') && in_array($type, ['outsource','both'], true);
                 $cost      = $allowCost ? ($row['outsource_cost'] ?? null) : null;
 
                 $payload = [
