@@ -6,6 +6,94 @@
 @push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <style>
+  .remark-card{
+    border-radius:14px;
+    padding:12px 16px;
+    background:#fbfcff;
+    border:1px solid #e5e7eb;
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+  }
+  .remark-card + .remark-card{ margin-top:10px; }
+
+  .remark-pill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:6px 18px;
+    border-radius:999px;
+    font-size:.8rem;
+    font-weight:700;
+    min-width:120px;
+    box-shadow:0 1px 3px rgba(15,23,42,.08) inset;
+  }
+
+  /* 🔹 per-operation colours (same palette as your previous page) */
+  .remark-pill.rp-printing{
+    background:#EEF2FF;
+    color:#4F46E5;
+  }
+  .remark-pill.rp-furnishing{
+    background:#FFF7ED;
+    color:#C2410C;
+  }
+  .remark-pill.rp-installation{
+    background:#ECFEFF;
+    color:#0E7490;
+  }
+  .remark-pill.rp-delivery{
+    background:#E0F2FE;
+    color:#0369A1;
+  }
+  .remark-pill.rp-courier{
+    background:#ECFDF5;
+    color:#047857;
+  }
+  .remark-pill.rp-self_pickup{
+    background:#F3F4F6;
+    color:#111827;
+  }
+  .remark-pill.rp-artist{
+    background:#F9FAE2;
+    color:#FACC15;
+  }
+
+  .remark-body{
+    flex:1;
+    min-width:0;
+  }
+
+  .remark-text{
+    position:relative;
+    padding-left:16px;
+    color:#111827;
+    font-size:.9rem;
+    line-height:1.5;
+  }
+  .remark-text::before{
+    content:"“";
+    position:absolute;
+    left:0;
+    top:-4px;
+    font-size:1.4rem;
+    color:#cbd5f5;
+    line-height:1;
+  }
+
+  .remark-text-main{
+    font-weight:500;
+  }
+
+  .remark-meta{
+    font-size:.78rem;
+    color:#6b7280;
+    margin-top:4px;
+  }
+
+  .remark-actions .btn-link{
+    font-size:.8rem;
+  }
   .ff-reject-reason-box {
       background: #f3f4f6;
       border-radius: 8px;
@@ -685,43 +773,154 @@ if ($showRejectReason && $product->OrderID) {
 </div>
 
   {{-- Product Remarks (with author) --}}
-  <div class="card mb-4">
-    <div class="card-body pb-2">
-      <h6 class="mb-3">Product Remarks</h6>
-      @php
-        $label = [
-          'printing'     => 'To Printing',
-          'furnishing'   => 'To Furnishing',
-          'installation' => 'To Delivery & Installation',
-          'courier'      => 'To Courier',
-          'self_pickup'  => 'To Self Pickup',
-          'artist'       => 'To Artist',
-        ];
-      @endphp
+  @php
+    $label = [
+        'printing'     => 'To Printing',
+        'furnishing'   => 'To Furnishing',
+        'installation' => 'To Delivery & Installation',
+        'courier'      => 'To Courier',
+        'self_pickup'  => 'To Self Pickup',
+        'artist'       => 'To Artist',
+    ];
 
-      <ul class="list-group list-group-flush remarks-list">
-        @forelse ($product->remarks as $r)
-          @php
-            $op        = strtolower((string)($r->operation ?? ''));
-            $author    = optional($r->user)->name ?? '—';
-            $timestamp = $r->created_at ? \Carbon\Carbon::parse($r->created_at)->format('Y-m-d') : '';
-          @endphp
-          <li class="list-group-item">
-            <div class="d-flex align-items-start gap-3">
-              <span class="remarks-op {{ $op }}">{{ $label[$op] ?? ucfirst($op ?: 'Note') }}</span>
-              <div class="flex-grow-1">
-                <div>{{ $r->remark ?? '—' }}</div>
-                <div class="text-muted small mt-1">
+    $currentUserId = auth()->id();
+    $productKey    = $product->ProductID ?? $productId ?? $product->id;
+  @endphp
+
+  <div class="card soft mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="section-hd mb-0">
+          <i class="bi bi-chat-square-text"></i> Product Remarks
+        </div>
+
+        @if(auth()->check())
+          <button type="button"
+                  class="btn btn-sm btn-dark"
+                  id="btnShowAddRemark">
+            <i class="bi bi-plus-lg me-1"></i> Add Product Remark
+          </button>
+        @endif
+      </div>
+
+      {{-- Remarks list --}}
+      @if(($product->remarks ?? collect())->count())
+        <div class="d-flex flex-column gap-2 mt-2">
+          @foreach($product->remarks as $r)
+            @php
+              $op        = strtolower((string)($r->operation ?? ''));
+              $author    = optional($r->user)->name ?? '—';
+              $timestamp = $r->created_at ? \Carbon\Carbon::parse($r->created_at)->format('Y-m-d') : '';
+              $canManage = $currentUserId && (int)$r->user_id === (int)$currentUserId;
+
+              // map to pill colour class
+              $pillClass = 'rp-' . ($op ?: 'printing');
+            @endphp
+
+            <div class="remark-card">
+              <div>
+                <span class="remark-pill {{ $pillClass }}">
+                  {{ $label[$op] ?? ucfirst($op ?: 'Note') }}
+                </span>
+              </div>
+
+              <div class="remark-body">
+                {{-- read-only text --}}
+                <div class="remark-text" id="remark-text-{{ $r->RemarkID }}">
+                  <span class="remark-text-main">{{ $r->remark ?? '—' }}</span>
+                </div>
+
+                {{-- inline edit form (hidden by default) --}}
+                @if($canManage)
+                  <form method="POST"
+                        action="{{ route('admin.fulfillment.remarks.update', [$productKey, $r->RemarkID]) }}"
+                        class="mt-2 d-none js-remark-edit-form"
+                        id="remark-form-{{ $r->RemarkID }}">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" name="operation" value="{{ $r->operation }}">
+                    <textarea name="remark" class="form-control form-control-sm" rows="2" required>{{ $r->remark }}</textarea>
+                    <div class="mt-2 d-flex gap-2">
+                      <button type="submit" class="btn btn-sm btn-dark">Save</button>
+                      <button type="button"
+                              class="btn btn-sm btn-outline-secondary js-cancel-edit"
+                              data-id="{{ $r->RemarkID }}">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                @endif
+
+                <div class="remark-meta">
                   by <span class="fw-semibold">{{ $author }}</span>
-                  @if($timestamp) • <span>{{ $timestamp }}</span>@endif
+                  @if($timestamp) • {{ $timestamp }} @endif
                 </div>
               </div>
+
+              @if($canManage)
+                <div class="remark-actions ms-auto d-flex flex-column align-items-end">
+                  <button type="button"
+                          class="btn btn-link btn-sm p-0 text-primary js-edit-remark"
+                          data-id="{{ $r->RemarkID }}">
+                    Edit
+                  </button>
+
+                  <form method="POST"
+                        action="{{ route('admin.fulfillment.remarks.destroy', [$productKey, $r->RemarkID]) }}"
+                        onsubmit="return confirm('Delete this remark?');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-link btn-sm p-0 text-danger">
+                      Delete
+                    </button>
+                  </form>
+                </div>
+              @endif
             </div>
-          </li>
-        @empty
-          <li class="list-group-item text-muted">No product remarks.</li>
-        @endforelse
-      </ul>
+          @endforeach
+        </div>
+      @else
+        <div class="text-muted small mt-2">No product remarks.</div>
+      @endif
+
+      {{-- Add new remark (hidden until button clicked) --}}
+      @if(auth()->check())
+        <form method="POST"
+              action="{{ route('admin.fulfillment.remarks.store', $productKey) }}"
+              class="mt-3 d-none"
+              id="addRemarkForm">
+          @csrf
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label mb-1 small">Department</label>
+              <select name="operation" class="form-select form-select-sm">
+                <option value="printing">To Printing</option>
+                <option value="furnishing">To Furnishing</option>
+                <option value="installation">To Delivery & Installation</option>
+                <option value="courier">To Courier</option>
+                <option value="self_pickup">To Self Pickup</option>
+                <option value="artist">To Artist</option>
+              </select>
+            </div>
+
+            <div class="col-md-7">
+              <label class="form-label mb-1 small">Remark</label>
+              <textarea name="remark" class="form-control form-control-sm" rows="1" required></textarea>
+            </div>
+
+            <div class="col-md-2 d-flex gap-2 mt-3">
+              <button type="submit" class="btn btn-dark btn-sm w-100">
+                Save Remark
+              </button>
+              <button type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      id="btnCancelAddRemark">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </form>
+      @endif
     </div>
   </div>
 
@@ -1345,5 +1544,51 @@ $(document).on('input', '.qty-input', function () {
 //         return true;
 //     }
 // });
+
+document.addEventListener('DOMContentLoaded', function () {
+  // === Add Product Remark toggle ===
+  const btnShowAdd   = document.getElementById('btnShowAddRemark');
+  const addForm      = document.getElementById('addRemarkForm');
+  const btnCancelAdd = document.getElementById('btnCancelAddRemark');
+
+  if (btnShowAdd && addForm) {
+    btnShowAdd.addEventListener('click', function () {
+      addForm.classList.remove('d-none');
+      btnShowAdd.classList.add('d-none');
+    });
+  }
+  if (btnCancelAdd && addForm && btnShowAdd) {
+    btnCancelAdd.addEventListener('click', function () {
+      addForm.classList.add('d-none');
+      btnShowAdd.classList.remove('d-none');
+      // optional: clear textarea
+      const ta = addForm.querySelector('textarea[name="remark"]');
+      if (ta) ta.value = '';
+    });
+  }
+
+  // === Existing remark edit inline ===
+  document.querySelectorAll('.js-edit-remark').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const id   = this.dataset.id;
+      const form = document.getElementById('remark-form-' + id);
+      const text = document.getElementById('remark-text-' + id);
+      if (!form || !text) return;
+      form.classList.remove('d-none');
+      text.classList.add('d-none');
+    });
+  });
+
+  document.querySelectorAll('.js-cancel-edit').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const id   = this.dataset.id;
+      const form = document.getElementById('remark-form-' + id);
+      const text = document.getElementById('remark-text-' + id);
+      if (!form || !text) return;
+      form.classList.add('d-none');
+      text.classList.remove('d-none');
+    });
+  });
+});
 </script>
 @endpush

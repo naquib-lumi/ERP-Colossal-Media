@@ -421,7 +421,15 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/admin/materials/{id}', [MaterialsController::class, 'destroy'])->name('admin.materials.destroy');
     Route::patch('/admin/materials/{id}/toggle', [MaterialsController::class, 'toggle'])->name('admin.materials.toggle');
 
-    
+    Route::post('/admin/fulfillment/{product}/remarks', [AdminController::class, 'fulfillmentStoreRemark'])
+    ->name('admin.fulfillment.remarks.store');
+
+    Route::put('/admin/fulfillment/{product}/remarks/{remark}', [AdminController::class, 'fulfillmentUpdateRemark'])
+        ->name('admin.fulfillment.remarks.update');
+
+    Route::delete('/admin/fulfillment/{product}/remarks/{remark}', [AdminController::class, 'fulfillmentDestroyRemark'])
+        ->name('admin.fulfillment.remarks.destroy');
+
     // Profile
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
@@ -520,6 +528,16 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::get('/boss/fulfillment/{id}/edit', [BossFulfillmentController::class, 'fulfillmentEdit'])->name('boss.fulfillment.edit');
         Route::put('/boss/fulfillment/{product}/deliveries', [BossFulfillmentController::class, 'updateDeliveries'])->name('boss.fulfillment.deliveries.update');
         Route::post('/boss/fulfillment/permit', [BossFulfillmentController::class, 'storePermit'])->name('boss.fulfillment.permit.store');
+
+        Route::post('/boss/fulfillment/{product}/remarks', [BossFulfillmentController::class, 'bossFulfillmentStoreRemark'])
+        ->name('boss.fulfillment.remarks.store');
+
+        Route::put('/boss/fulfillment/{product}/remarks/{remark}', [BossFulfillmentController::class, 'bossFulfillmentUpdateRemark'])
+            ->name('boss.fulfillment.remarks.update');
+
+        Route::delete('/boss/fulfillment/{product}/remarks/{remark}', [BossFulfillmentController::class, 'bossFulfillmentDestroyRemark'])
+            ->name('boss.fulfillment.remarks.destroy');
+
         Route::get('/boss/permits/{product}/download', [BossFulfillmentController::class, 'downloadPermit'])->name('boss.permits.download');
 
         Route::get('/boss/orders', [BossOrderController::class, 'orders'])->name('boss.orders');

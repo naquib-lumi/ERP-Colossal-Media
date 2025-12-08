@@ -1298,6 +1298,82 @@ $inProgressProducts = Product::from('products as p')
         return back()->with('success', 'Permit uploaded.');
     }
 
+    public function fulfillmentStoreRemark(Request $request, int $productId)
+    {
+        // ensure product exists
+        $product = Product::findOrFail($productId);
+
+        $data = $request->validate([
+            'operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
+            'remark'    => 'required|string|max:2000',
+        ]);
+
+        DB::table('product_remarks')->insert([
+            'ProductID'  => $product->ProductID ?? $product->id,
+            'user_id'    => Auth::id(),
+            'operation'  => $data['operation'],
+            'remark'     => $data['remark'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Product remark added.');
+    }
+
+    public function fulfillmentUpdateRemark(Request $request, int $productId, int $remarkId)
+    {
+        // ensure remark belongs to this product
+        $remark = DB::table('product_remarks')
+            ->where('RemarkID', $remarkId)
+            ->where('ProductID', $productId)
+            ->first();
+
+        if (!$remark) {
+            abort(404);
+        }
+
+        // only owner can edit
+        if ((int)$remark->user_id !== (int)Auth::id()) {
+            abort(403);
+        }
+
+        $data = $request->validate([
+            'operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
+            'remark'    => 'required|string|max:2000',
+        ]);
+
+        DB::table('product_remarks')
+            ->where('RemarkID', $remarkId)
+            ->update([
+                'operation'  => $data['operation'],
+                'remark'     => $data['remark'],
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('success', 'Product remark updated.');
+    }
+
+    public function fulfillmentDestroyRemark(int $productId, int $remarkId)
+    {
+        $remark = DB::table('product_remarks')
+            ->where('RemarkID', $remarkId)
+            ->where('ProductID', $productId)
+            ->first();
+
+        if (!$remark) {
+            abort(404);
+        }
+
+        // only owner can delete
+        if ((int)$remark->user_id !== (int)Auth::id()) {
+            abort(403);
+        }
+
+        DB::table('product_remarks')->where('RemarkID', $remarkId)->delete();
+
+        return back()->with('success', 'Product remark deleted.');
+    }
+
     public function viewPermit($product_id)
 {
     $permit = DB::table('product_permit')
