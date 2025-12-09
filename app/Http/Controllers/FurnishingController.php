@@ -327,7 +327,7 @@ class FurnishingController extends Controller
                     ->all();
 
                 $hasDelivery     = in_array('self_pickup', $methods, true) || in_array('courier', $methods, true);
-                $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true);
+                $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true) || in_array('delivery', $methods, true);
                 
                 // extra install fields only when BOTH delivery & installation exist
                 $installFields = [];

@@ -503,7 +503,7 @@ class PrintingController extends Controller
                         ->all();
 
                     $hasDelivery     = in_array('self_pickup', $methods, true) || in_array('courier', $methods, true);
-                    $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true);
+                    $hasInstallation = in_array('installation', $methods, true) || in_array('delivery_installation', $methods, true) || in_array('delivery', $methods, true);
 
                     if ($hasDelivery && $hasInstallation) {
                         $computedNextStage  = 'delivery';

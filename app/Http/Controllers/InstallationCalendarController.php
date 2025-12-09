@@ -140,7 +140,10 @@ class InstallationCalendarController extends Controller
             switch ($methodRaw) {
                 case 'delivery_installation':
                 case 'installation':
-                    $method = 'Delivery & Installation';
+                    $method = 'Installation';
+                    break;
+                case 'delivery':
+                    $method = 'Delivery';
                     break;
                 case 'self_pickup':
                 case 'self-pickup':

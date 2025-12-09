@@ -221,7 +221,7 @@
     $('#leadTable').on('dblclick', 'tbody tr', function(e) {
       if ($(e.target).closest('select, button, a, i').length) return;
       const leadId = $(this).find('.lead-id').text();
-      if (leadId) window.location.href = `/leads/${leadId}/view`;
+      if (leadId) window.location.href = `/boss/leads/${leadId}/view`;
     });
 
     // —— 下方保留你原有的事件绑定（状态/机会/指派/提醒/附件/表单） —— //

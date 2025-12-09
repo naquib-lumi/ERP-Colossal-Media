@@ -342,6 +342,8 @@
     color: #3730A3
   }
 
+  .badge-installation{background: #fff5dbff;color: #ffc420ff}
+
   .badge-courier {
     background: #ECFEFF;
     color: #155E75
@@ -1058,7 +1060,13 @@
                 @foreach ($block['deliveries'] as $d)
                 @php
                 $m = $d['method']; // courier | pickup | install
-                $badgeClass = $m === 'courier' ? 'badge-courier' : ($m === 'pickup' ? 'badge-pickup' : 'badge-delivery');
+                $badgeClass = match ($m) {
+                    'courier'      => 'badge-courier',
+                    'pickup'       => 'badge-pickup',
+                    'installation' => 'badge-installation',
+                    'delivery'     => 'badge-delivery',
+                    default        => 'badge-delivery',
+                };
                 $badgeIcon = $d['icon'] ?? 'bi-truck';
                 @endphp
                 <div class="dlv-item">

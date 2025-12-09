@@ -91,6 +91,7 @@
   @media (max-width:576px){.dlv-fields{grid-template-columns:1fr}}
   .badge-method{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:600}
   .badge-delivery{background:#EEF2FF;color:#3730A3}
+  .badge-installation{background: #fff5dbff;color: #ffc420ff}
   .badge-courier{background:#ECFEFF;color:#155E75}
   .badge-pickup{background:#F0FDF4;color:#166534}
   .field .label{font-size:12px;color:#98A2B3;margin-bottom:2px}
@@ -523,8 +524,16 @@
               <div class="dlv-list">
                 @foreach ($block['deliveries'] as $d)
                   @php
-                    $m = $d['method']; // courier | pickup | install
-                    $badgeClass = $m === 'courier' ? 'badge-courier' : ($m === 'pickup' ? 'badge-pickup' : 'badge-delivery');
+                    $m = $d['method']; // courier | pickup | installation
+
+                    $badgeClass = match ($m) {
+                        'courier'      => 'badge-courier',
+                        'pickup'       => 'badge-pickup',
+                        'installation' => 'badge-installation',
+                        'delivery'     => 'badge-delivery',
+                        default        => 'badge-delivery',
+                    };
+
                     $badgeIcon = $d['icon'] ?? 'bi-truck';
                   @endphp
                   <div class="dlv-item">

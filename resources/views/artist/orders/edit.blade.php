@@ -1269,7 +1269,8 @@
                               $methodOptions = [
                               'courier' => 'Courier',
                               'self_pickup' => 'Self Pickup',
-                              'delivery_installation' => 'Delivery & Installation',
+                              'delivery' => 'Delivery',
+                              'installation' => 'Installation',
                               ];
 
                               // installation type + outsource cost
@@ -1285,7 +1286,7 @@
                               $costVal = old("products.$pIndex.deliveries.$i.outsource_cost", data_get($d,'outsource_cost'));
 
                               // initial enable/disable state (server-side)
-                              $isDI = ($methodVal === 'delivery_installation');
+                              $isDI = ($methodVal === 'delivery' || $methodVal === 'installation');
                               $costEnabled = $isDI && in_array($insTypeVal, ['outsource','both'], true);
 
                               $insDisabledAttr = trim($disabled.' '.($isDI ? '' : 'disabled'));
@@ -1392,7 +1393,8 @@
                                   <select name="products[{{ $pIndex }}][deliveries][__INDEX__][method]" class="form-select" data-method-select>
                                     <option value="">Method</option>
                                     <option value="courier">Courier</option>
-                                    <option value="delivery_installation">Delivery & Installation</option>
+                                    <option value="delivery">Delivery</option>
+                                    <option value="installation">Installation</option>
                                     <option value="self_pickup">Self Pickup</option>
                                   </select>
                                 </div>
@@ -3634,7 +3636,7 @@
     if (!methodSel || !typeSel || !costInp) return;
 
     const method = (methodSel.value || '').toLowerCase();
-    const isDI = (method === 'delivery_installation');
+    const isDI = (method === 'delivery' || method === 'installation');
 
     // Rule 1: only enabled when "Delivery & Installation"
     typeSel.disabled = !isDI;
@@ -3820,7 +3822,7 @@
 
     if (!methodSel || !typeSel || !costInp) return;
 
-    const isDI      = methodSel.value === 'delivery_installation';
+    const isDI      = (methodSel.value === 'delivery' || methodSel.value === 'installation');
     const needsCost = isDI && (typeSel.value === 'outsource' || typeSel.value === 'both');
 
     // When switching AWAY from DI → clear type + cost before disabling
