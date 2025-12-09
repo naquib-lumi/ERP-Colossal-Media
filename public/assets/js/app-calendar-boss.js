@@ -301,19 +301,21 @@ function modifyToggler(calendar) {
         console.log('Delivery Event Click Data:', info.event.extendedProps);
 let modalId = 'orderDetailModal_' + info.event.id.replace(/[^a-zA-Z0-9]/g, '');
 if (!$('#' + modalId).length) {
-  const methodColors = {
-    'self_pickup': 'bg-primary',
-    'courier': 'bg-success',
-    'delivery_installation': 'bg-warning'
-  };
+ const methodColors = {
+      'self_pickup': 'bg-primary',
+      'courier': 'bg-success',
+      'delivery': 'bg-info',
+       'installation': 'bg-danger'
+    };
   const methodBadge = `<span class="badge ${methodColors[info.event.extendedProps.method] || 'bg-secondary'} me-2">${info.event.extendedProps.method ? info.event.extendedProps.method.replace('_', ' ').toUpperCase() : 'Unknown'}</span>`;
   const leadText = info.event.extendedProps.lead_text || 'N/A';
-  const title = `Delivery - ${info.event.extendedProps.order_number || 'N/A'} - ${info.event.extendedProps.product_name || 'Untitled'}`;
+const title = `${info.event.extendedProps.job_order_name || 'N/A'}`;
   let modalBody = `
     <div class="row mb-3">
       <div class="col-12">
         <h4 class="mb-1 fw-bold">${title}</h4>
-        <div class="text-muted">${methodBadge}📦 Delivery | Lead: ${leadText}</div>
+          <div class="text-muted">${methodBadge} | Lead: ${leadText}</div>
+         <div class="mb-2"><i class="bx bx-calendar me-1"></i>Job Order Deadline: <span id="orderDeadlineDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
       </div>
     </div>
     <div class="row">
@@ -333,8 +335,8 @@ if (!$('#' + modalId).length) {
     <hr class="my-3">
     <div class="row">
       <div class="col-12">
-        <div class="mb-3"><strong>Description:</strong></div>
-        <p id="orderDescriptionDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></p>
+        <div class="mb-3"><strong>Permit Attachment:</strong></div>
+        <p id="orderPermitDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></p>
       </div>
     </div>`;
 
@@ -343,7 +345,7 @@ if (!$('#' + modalId).length) {
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="${modalId}Label">Delivery Details</h5>
+            <h5 class="modal-title" id="${modalId}Label">${info.event.extendedProps.order_number || 'N/A'}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
@@ -376,8 +378,14 @@ if (orderLeadText !== 'N/A' && orderLeadText !== 'Unknown') {
 }
 $('#orderLeadNameDetail_' + safeId).text(orderLeadName);
 $('#orderLeadCompanyDetail_' + safeId).text(orderLeadCompany);
-$('#orderDescriptionDetail_' + safeId).text(info.event.extendedProps.description || 'N/A');
+$('#orderDeadlineDetail_' + safeId).text(info.event.extendedProps.job_order_deadline ? moment(info.event.extendedProps.job_order_deadline).format('MMM DD, YYYY') : 'N/A');
+       let permitText = 'No Permit Attached';
+if (info.event.extendedProps.permit_attachment) {
+  permitText = `<a href="/admin/fulfillment/permit/${info.event.extendedProps.product_id}" target="_blank" class="btn btn-sm btn-outline-primary">View Permit</a>`;
+}
+        $('#orderPermitDetail_' + safeId).html(permitText);
 
+  
 const eventModal = new bootstrap.Modal(document.getElementById(modalId));
 eventModal.show();
       },

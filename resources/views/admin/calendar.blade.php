@@ -144,8 +144,10 @@
                                         <span class="status-dot me-2" style="background-color:#28a745;"></span> Courier
                                     </li>
                                     <li class="d-flex align-items-center">
-                                        <span class="status-dot me-2" style="background-color:#ffc107;"></span> Delivery
-                                        Installation
+                                        <span class="status-dot me-2" style="background-color:#0dcaf0;"></span> Delivery
+                                    </li>
+                                        <li class="d-flex align-items-center">
+                                        <span class="status-dot me-2" style="background-color:#dc3545;"></span> Installation
                                     </li>
                                 </ul>
                             </div>

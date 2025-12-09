@@ -304,16 +304,17 @@ function modifyToggler(calendar) {
     const methodColors = {
       'self_pickup': 'bg-primary',
       'courier': 'bg-success',
-      'delivery_installation': 'bg-warning'
+      'delivery': 'bg-info',
+       'installation': 'bg-danger'
     };
     const methodBadge = `<span class="badge ${methodColors[info.event.extendedProps.method] || 'bg-secondary'} me-2">${info.event.extendedProps.method ? info.event.extendedProps.method.replace('_', ' ').toUpperCase() : 'Unknown'}</span>`;
     const leadText = info.event.extendedProps.lead_text || 'N/A';
-    const title = `Delivery - ${info.event.extendedProps.job_order_name || 'N/A'}`;
+    const title = `${info.event.extendedProps.job_order_name || 'N/A'}`;
     let modalBody = `
       <div class="row mb-3">
         <div class="col-12">
           <h4 class="mb-1 fw-bold">${title}</h4>
-          <div class="text-muted">${methodBadge}📦 Delivery | Lead: ${leadText}</div>
+          <div class="text-muted">${methodBadge} | Lead: ${leadText}</div>
           <div class="mb-2"><i class="bx bx-calendar me-1"></i>Job Order Deadline: <span id="orderDeadlineDetail_${info.event.id.replace(/[^a-zA-Z0-9]/g, '')}"></span></div>
         </div>
       </div>
