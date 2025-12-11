@@ -360,6 +360,8 @@ class FurnishingProductOrderController extends Controller
             ];
             $its = $buildItems((int)$pid);
             [$dels, $tots] = $buildDeliveriesAndTotals((int)$pid, (int)($p->totalQuantity ?? 0));
+
+            $baseOrderIdForBlocks = $headerRow->redo_order ?: $headerRow->OrderID;
             
             $fetchRedoInfo = function (int $orderId) {
                 $row = DB::table('report_redo as rr')
@@ -382,7 +384,7 @@ class FurnishingProductOrderController extends Controller
                 ];
             };
 
-            $redoInfoForOrder = $fetchRedoInfo((int)$headerRow->OrderID);
+            $redoInfoForOrder = $fetchRedoInfo((int) $baseOrderIdForBlocks);
             
             $blocks[] = [
                 'id'             => (int)$pid,

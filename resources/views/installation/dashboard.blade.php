@@ -778,46 +778,49 @@
                     $pid = $r['ProductID'] ?? ($r->ProductID ?? null);
 
                     // current stage + main accepted
-  $isInstallation   = strtolower((string)($r['current_stage'] ?? '')) === 'installation';
-  $acceptedMain     = (int)($r['accepted'] ?? 0) === 1;
+                    $isInstallation   = strtolower((string)($r['current_stage'] ?? '')) === 'installation';
+                    $acceptedMain     = (int)($r['accepted'] ?? 0) === 1;
 
-  // installation-specific fields
-  $instTaskType     = (int)($r['installation_task_type'] ?? 0);
-  $instAccepted     = (int)($r['installation_accepted'] ?? 0) === 1;
-  $instStatus       = strtolower((string)($r['installation_status'] ?? ''));
-  $instInProgress   = $instStatus === 'in_progress';
+                    // installation-specific fields
+                    $instTaskType     = (int)($r['installation_task_type'] ?? 0);
+                    $instAccepted     = (int)($r['installation_accepted'] ?? 0) === 1;
+                    $instStatus       = strtolower((string)($r['installation_status'] ?? ''));
+                    $instInProgress   = $instStatus === 'in_progress';
 
-  $isInstallCompleted = (int)($r['installation_completed'] ?? 0) === 1
-                        || strtolower((string)($r['current_status'] ?? '')) === 'completed';
+                    $isInstallCompleted = (int)($r['installation_completed'] ?? 0) === 1 || strtolower((string)($r['current_status'] ?? '')) === 'completed';
 
-  // 👉 When can we show CHECK + EDIT on dashboard?
-  // 1) Normal installation job: current stage = installation & main accepted = 1
-  // 2) Delivery + Installation job: installation accepted & status in_progress
-  $canEditRow = !$isInstallCompleted && (
-      ($isInstallation && $acceptedMain) ||
-      ($instTaskType === 1 && $instAccepted && $instInProgress)
-  );
+                    // 👉 When can we show CHECK + EDIT on dashboard?
+                    // 1) Normal installation job: current stage = installation & main accepted = 1
+                    // 2) Delivery + Installation job: installation accepted & status in_progress
+                    $canEditRow = (
+                        ($isInstallation && $acceptedMain) ||
+                        ($instTaskType === 1 && $instAccepted && $instInProgress)
+                    );
                   @endphp
 
                   <div class="d-inline-flex gap-1">
                     @if ($canEditRow)
-    {{-- Mark Completed --}}
-    <button class="action-btn js-open-proof"
-            data-id="{{ $pid }}" type="button"
-            title="Mark as Completed" style="background-color:#4CAF50; color:white; border:none; border-radius:50%; padding:6px 8px; cursor:pointer; transition:0.3s; box-shadow:0 2px 5px rgba(0,0,0,0.15);">
-      <i class="bi bi-check2"></i>
-    </button>
+                      {{-- Mark Completed --}}
+                      <button class="action-btn js-open-proof"
+                              data-id="{{ $pid }}" type="button"
+                              title="Mark as Completed" style="background-color:#4CAF50; color:white; border:none; border-radius:50%; padding:6px 8px; cursor:pointer; transition:0.3s; box-shadow:0 2px 5px rgba(0,0,0,0.15);">
+                        <i class="bi bi-check2"></i>
+                      </button>
 
-    {{-- Edit --}}
-    <a href="{{ route('installation.job.show', $pid) }}" class="action-btn" title="Edit">
-      <i class="bi bi-pencil"></i>
-    </a>
-  @else
-    {{-- View only --}}
-    <a href="{{ route('installation.job.show', [$pid, 'from' => 'dashboard']) }}" class="action-btn" title="View">
-      <i class="bi bi-eye"></i>
-    </a>
-  @endif
+                      {{-- Edit --}}
+                      <a href="{{ route('installation.job.show', $pid) }}" class="action-btn" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+
+                      <a class="action-btn" title="Report" href="{{ route('installation.report', $pid) }}">
+                        <i class="bi bi-exclamation-triangle"></i>
+                      </a>
+                    @else
+                      {{-- View only --}}
+                      <a href="{{ route('installation.job.show', [$pid, 'from' => 'dashboard']) }}" class="action-btn" title="View">
+                        <i class="bi bi-eye"></i>
+                      </a>
+                    @endif
                   </div>
                 </td>
               </tr>

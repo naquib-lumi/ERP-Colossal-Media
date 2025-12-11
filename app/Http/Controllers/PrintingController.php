@@ -826,6 +826,7 @@ class PrintingController extends Controller
                     $np->accepted = null;
                     $np->installation_accepted = null;
                     $np->installation_status   = null;
+                    $np->installation_task_type   = null;
                 }
                 $np->save();
 

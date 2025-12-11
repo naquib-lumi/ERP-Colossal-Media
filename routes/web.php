@@ -349,6 +349,9 @@ Route::get('/dashboard', function () {
 
         Route::patch('/installation/jobs/{product}/complete', [InstallationController::class, 'completeWithProof'])->name('installation.jobs.complete');
         Route::get('/installation/permit/{product}', [\App\Http\Controllers\InstallationCalendarController::class, 'installationDownloadPermit'])->name('installation.permit.downloads');
+
+        Route::get('/installation/report/{productId}', [InstallationController::class, 'installationReportForm'])->name('installation.report');
+        Route::post('/installation/report/{productId}', [InstallationController::class, 'installationReportSubmit'])->name('installation.report.submit');
     });
 
 

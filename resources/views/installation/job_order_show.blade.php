@@ -790,6 +790,34 @@
         default     => (url()->previous() ?: route('printing.dashboard')),
       };
     @endphp
+
+    @php
+      // Determine base order id for redo (original vs redo)
+      $baseOrderId = $header->redo ?? $header->OrderID ?? $header->order_id ?? null;
+
+      $redoRecord = null;
+      $redoByName = null;
+      $redoAt = null;
+
+      if ($baseOrderId) {
+          $redoRecord = DB::table('report_redo')
+              ->where('OrderID', $baseOrderId)
+              ->orderByDesc('ReportID')
+              ->first();
+
+          if ($redoRecord) {
+              if (!empty($redoRecord->user_id)) {
+                  $redoByName = \App\Models\User::find($redoRecord->user_id)?->name;
+              }
+
+              try {
+                  $redoAt = \Carbon\Carbon::parse($redoRecord->created_at)->format('Y-m-d H:i');
+              } catch (\Throwable $e) {
+                  $redoAt = (string) $redoRecord->created_at;
+              }
+          }
+      }
+    @endphp
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-2">
         <!-- <a href="javascript:history.back()" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i></a> -->
