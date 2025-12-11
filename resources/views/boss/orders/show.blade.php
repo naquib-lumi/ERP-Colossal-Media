@@ -136,15 +136,17 @@ $isArchived = (int)($order->status ?? 0) === 1;
             Job Order Details – {{ $order->order_number }}
             @endif
         </h4>
-        @if(!$isArchived)
-        <div class="d-flex align-items-center gap-2">
-            <a href="{{ route('boss.orders.edit', $order->id) }}"
-                class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
-                style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
-                <i class="bx bx-edit-alt fs-5"></i>
-                <span>Edit Order</span>
-            </a>
-        </div>
+        @if($order->orderStatus != "completed")
+            @if(!$isArchived)
+            <div class="d-flex align-items-center gap-2">
+                <a href="{{ route('boss.orders.edit', $order->id) }}"
+                    class="btn d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
+                    style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
+                    <i class="bx bx-edit-alt fs-5"></i>
+                    <span>Edit Order</span>
+                </a>
+            </div>
+            @endif
         @endif
     </div>
 
@@ -837,6 +839,7 @@ $isArchived = (int)($order->status ?? 0) === 1;
                 @endif
             </div>
         </div>
+        @if($order->orderStatus != "completed")
         @if(!$isArchived)
         <div class="d-flex justify-content-end mt-4">
             <a href="{{ route('boss.orders.edit', $order->id) }}"
@@ -846,6 +849,7 @@ $isArchived = (int)($order->status ?? 0) === 1;
                 <span>Edit Order</span>
             </a>
         </div>
+        @endif
         @endif
 </div>
 

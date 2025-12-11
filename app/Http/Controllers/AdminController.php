@@ -656,7 +656,7 @@ $inProgressProducts = Product::from('products as p')
                 $deliveryMethod = strtolower(trim((string) ($r->delivery_method ?? '')));
                 $installFlag    = (int) ($r->installation_task_type ?? 0);
 
-                if ($installFlag === 1 && $deliveryMethod === 'delivery_installation') {
+                if ($installFlag === 1 && ($deliveryMethod === 'delivery' || $deliveryMethod === 'installation')) {
                     // treat as installation so it shows as Delivery & Installation
                     $logicalTask = 'installation';
                 } else {

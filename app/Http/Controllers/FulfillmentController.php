@@ -236,7 +236,7 @@ public function index(Request $request)
 
         // If this is a delivery row whose method is delivery_installation,
         // treat it as "Delivery & Installation" for the UI
-        if ($rawTask === 'delivery' && $method === 'delivery_installation') {
+        if ($rawTask === 'delivery' && ($method === 'delivery' || $method === 'installation')) {
             $r->task = 'delivery_installation';
         }
 
