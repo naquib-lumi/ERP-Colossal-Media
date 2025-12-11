@@ -162,7 +162,14 @@ public function index(Request $request)
 
     // (4) Status filter (kept)
     if ($status !== '') {
-        $query->whereRaw('LOWER(p.status) = ?', [$status]);
+        $query->whereRaw("
+            CASE
+            WHEN LOWER(p.taskType) = 'installation'
+                OR (LOWER(p.taskType) = 'delivery' AND LOWER(dd.method) = 'installation')
+            THEN LOWER(p.installation_status)
+            ELSE LOWER(p.status)
+            END = ?
+        ", [$status]);
     }
 
     // (5) Artist dropdown filter → order belongs to this artist
@@ -203,7 +210,16 @@ public function index(Request $request)
         'p.OrderID as order_id_current',
         DB::raw('COALESCE(oo.id, o.id) as order_id_for_display'),
         DB::raw("DATE_FORMAT(o.deadline, '%Y-%m-%d') as deadline"),
-        DB::raw('LOWER(p.status) as status'),
+        DB::raw('LOWER(p.status) as raw_status'),
+        DB::raw('LOWER(p.installation_status) as installation_status'),
+        DB::raw("
+            CASE
+            WHEN LOWER(p.taskType) = 'installation'
+                OR (LOWER(p.taskType) = 'delivery' AND LOWER(dd.method) = 'installation')
+            THEN LOWER(p.installation_status)
+            ELSE LOWER(p.status)
+            END AS effective_status
+        "),
         DB::raw("DATE_FORMAT(dd.date, '%Y-%m-%d') as deliv_date"),
         DB::raw("DATE_FORMAT(dd.time, '%H:%i')     as deliv_time"),
         'dd.location as deliv_loc',
@@ -259,10 +275,15 @@ public function index(Request $request)
 
     $statuses = DB::table('products')
         ->whereNotNull('status')
-        ->selectRaw('LOWER(status) as status')
+        ->selectRaw('LOWER(status) as s')
+        ->union(
+            DB::table('products')
+                ->whereNotNull('installation_status')
+                ->selectRaw('LOWER(installation_status) as s')
+        )
         ->distinct()
-        ->orderBy('status')
-        ->pluck('status')
+        ->orderBy('s')
+        ->pluck('s')
         ->toArray();
 
     if ($request->ajax()) {

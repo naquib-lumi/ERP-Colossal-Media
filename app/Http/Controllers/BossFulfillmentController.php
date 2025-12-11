@@ -80,7 +80,7 @@ class BossFulfillmentController extends Controller
                 'd.BreakdownID as breakdown_id','d.date as delivery_date','d.time as delivery_time',
                 'd.location as delivery_location','d.deliver_install_type',
                 'pf.permit_file',
-                'p.installation_task_type','p.installation_status','p.installation_accepted',
+                'p.installation_task_type','p.installation_status as product_installation_status','p.installation_accepted',
                 'd.method as delivery_method',
             ]);
             // rows missing date/location first → then by delivery date/time
@@ -289,6 +289,7 @@ class BossFulfillmentController extends Controller
                     'company'        => $r->companyName,
                     'task_label'     => $taskLabel,
                     'status'         => (string)($r->product_status ?? ''),
+                    'installation_status'         => (string)($r->product_installation_status ?? ''),
                     'delivery_dt'    => $dt,
                     'delivery_loc'   => (string)($r->delivery_location ?? ''),
                     'install_type'   => $installLabel,

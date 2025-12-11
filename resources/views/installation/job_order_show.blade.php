@@ -1299,7 +1299,7 @@
       $orderNotRejected = strtolower((string)($header->orderStatus ?? '')) !== 'rejected';
 
       // main accepted flags (for the "normal" stage)
-      $isRejected = isset($header->accepted) && (int)$header->accepted === 0;
+      $isRejected = isset($header->accepted) && (int)$header->accepted === 0 || isset($header->installation_accepted) && (int)$header->installation_accepted === 0;
       $isAccepted = isset($header->accepted) && (int)$header->accepted === 1;
       $isPending  = !isset($header->accepted) || $header->accepted === null;
 
