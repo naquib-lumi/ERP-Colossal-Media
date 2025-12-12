@@ -713,6 +713,17 @@ class InstallationController extends Controller
             ->where(function ($w) {
                 $w->whereNull('o.status')->orWhere('o.status', 0);
             })
+            ->where(function ($w) {
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
+            })
+            ->where(function ($w) {
+                $w->where('p.editable', '=', 0)  // ✅ bypass check if editable = 0
+                ->orWhere(function ($w2) {
+                    $w2->whereNull('o.orderStatus')
+                        ->orWhere('o.orderStatus', '!=', 'in_progress');
+                });
+            })
             // EXCLUDE products with NULL/blank taskType
             ->whereNotNull('p.taskType')
             ->whereRaw("TRIM(p.taskType) <> ''")
