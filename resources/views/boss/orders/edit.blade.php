@@ -3112,7 +3112,7 @@
               window.location.reload();
             } else {
               // ✅ Redirect to boss.orders when submitted
-              window.location.href = '/bossorders';
+              window.location.href = '/boss/orders';
             }
           }
           return true; // allow caller to know it succeeded
