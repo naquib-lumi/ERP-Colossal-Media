@@ -57,29 +57,46 @@
 
         {{-- TASK TYPE (friendly label) --}}
         @php
-        $taskKey = strtolower($r->task ?? '');
+            $taskKey = strtolower($r->task ?? '');
 
-        $taskLabel = match ($taskKey) {
-          'delivery', 'dispatch_control'       => 'Dispatch Control',
-          'installation', 'delivery_installation' => 'Delivery & Installation',
-          default => \Illuminate\Support\Str::of($r->task ?? '')->replace('_',' ')->title(),
-        };
+            // Task label
+            $taskLabel = match ($taskKey) {
+                'delivery', 'dispatch_control'           => 'Dispatch Control',
+                'installation', 'delivery_installation'  => 'Delivery & Installation',
+                default => \Illuminate\Support\Str::of($r->task ?? '')->replace('_',' ')->title(),
+            };
 
-        $taskClass = match (strtolower($taskLabel)) {
-          'printing'                 => 'bg-secondary',
-          'furnishing'               => 'bg-purple',
-          'dispatch control'         => 'bg-warning text-dark',
-          'delivery & installation'  => 'bg-primary',
-          default                    => 'bg-light text-dark',
-        };
+            $taskLower = strtolower($taskLabel);
 
-        $statusLabel = \Illuminate\Support\Str::of($r->status ?? '')->replace('_',' ')->title();
-        $statusClass = match (strtolower($r->status)) {
-          'completed'   => 'bg-success',
-          'rejected'    => 'bg-danger',
-          'in_progress' => 'bg-info',
-          default       => 'bg-light text-dark',
-        };
+            // Task badge class
+            $taskClass = match ($taskLower) {
+                'printing'                 => 'bg-secondary',
+                'furnishing'               => 'bg-purple',
+                'dispatch control'         => 'bg-warning text-dark',
+                'delivery & installation'  => 'bg-primary',
+                default                    => 'bg-light text-dark',
+            };
+
+            // 🔥 Decide which status field to use
+            if ($taskLower === 'delivery & installation') {
+                $rawStatus = strtolower((string) ($r->installation_status ?? ''));
+            } else {
+                $rawStatus = strtolower((string) ($r->status ?? ''));
+            }
+
+            $effStatus  = strtolower($r->effective_status ?? '');
+            $statusLabel = $effStatus
+                ? \Illuminate\Support\Str::of($effStatus)->replace('_',' ')->title()
+                : '-';
+
+            $statusClass = match ($effStatus) {
+              'completed'   => 'bg-success',
+              'rejected'    => 'bg-danger',
+              'in_progress' => 'bg-info',
+              default       => 'bg-light text-dark',
+            };
+
+            
         @endphp
 
         <td><span class="badge {{ $taskClass }}">{{ $taskLabel }}</span></td>

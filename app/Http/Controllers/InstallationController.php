@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Helpers\Helpers;
 use Carbon\Carbon;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\OrderAttachment;
 
 class InstallationController extends Controller
 {
@@ -854,5 +857,251 @@ class InstallationController extends Controller
             'sort_by'    => $sortBy,
             'sort_mode'  => $sortMode,
         ]);
+    }
+
+    /**
+     * Report issue form (Printing)
+     */
+    public function installationReportForm($productId)
+    {
+        $row = DB::table('products as p')
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->leftJoin('product_items as pi', 'p.ProductID', '=', 'pi.ProductID')
+            ->select([
+                'p.ProductID',
+                'p.redoOf',
+                'p.created_at',
+                'o.orderDate',
+                'o.order_number',
+                DB::raw("
+                    CONCAT(
+                        '#ORD-',
+                        YEAR(o.orderDate), '-',
+                        LPAD(o.id, 3, '0'),
+                        '-P',
+                        LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                        CASE 
+                            WHEN p.redoOf IS NOT NULL THEN 'R' 
+                            ELSE '' 
+                        END
+                    ) AS product_code_display
+                "),
+            ])
+            ->where('p.ProductID', $productId)
+            ->first();
+
+        return view('installation.report_issue', [
+            'productId' => $productId,
+            'row'       => $row
+        ]);
+    }
+
+
+    public function installationReportSubmit(Request $request, int $productId)
+    {
+        // 1) Validate + normalize
+        $data = $request->validate([
+            'reason'        => ['required', 'string', 'max:255'],
+            'other_reason'  => ['nullable', 'string', 'max:2000'],
+            'reason_other'  => ['nullable', 'string', 'max:2000'], // legacy alias
+            'notes'         => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $picked     = trim((string)($data['reason'] ?? ''));
+        $otherText  = trim((string)($data['other_reason'] ?? $data['reason_other'] ?? ''));
+        $notes      = trim((string)($data['notes'] ?? ''));
+
+        // If "Others" → use typed text; else append notes to chosen reason
+        $baseReason = (strcasecmp($picked, 'Others') === 0)
+            ? ($otherText !== '' ? $otherText : 'Others')
+            : $picked;
+
+        $reasonText = $baseReason;
+        if ($notes !== '') {
+            $reasonText .= ': ' . $notes; // "reason: note"
+        }
+
+        // 2) Resolve the product and order
+        $product = Product::findOrFail($productId);
+        $order   = Order::findOrFail((int)$product->OrderID);
+        $actorId = auth()->id();
+
+        // 3) Transaction – archive prior redos of the base, create new redo, clone data
+        DB::transaction(function () use ($order, $productId, $reasonText, $actorId) {
+
+            $baseId    = $order->redo ? (int) $order->redo : (int) $order->id;
+            $baseOrder = $order->redo ? Order::findOrFail($baseId) : $order;
+            $sourceOrder = $order;
+
+            // 🔴 Hide existing redos (status=1) for the same base so only newest redo shows
+            Order::where('redo', $baseId)->update(['status' => 1]);
+
+            // (Optional) count existing for analytics; we don’t need it for numbering here
+            $existingCount = Order::lockForUpdate()->where('redo', $baseId)->count();
+
+            // 🔵 Create brand-new redo order from the BASE order
+            $redo = $baseOrder->replicate([
+                'id','order_number','created_at','updated_at','submit','draft','status','redo','orderStatus'
+            ]);
+
+            $redo->order_number = $this->nextRedoNumber($baseOrder->order_number);
+            $redo->redo         = $baseId;
+            $redo->draft        = 1;
+            $redo->submit       = 0;
+            $redo->orderStatus  = 'in_progress';
+            $redo->status       = 0;           // keep visible
+            $redo->data_entry_id = null;       // detach from DE
+            $redo->pending       = 0;
+            $redo->created_at   = now();
+            $redo->updated_at   = now();
+
+            $redo->save();
+
+            // 🗒️ Log the reason
+            if ($reasonText !== '') {
+                DB::table('report_redo')->insert([
+                    'OrderID'    => $baseId,
+                    'user_id'    => $actorId,
+                    'reason'     => $reasonText,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            /**
+             * =========================================
+             *  🔁  DUPLICATE ORDER ATTACHMENTS
+             *  from $sourceOrder -> $redoOrder
+             * =========================================
+             */
+            $oldAttachments = OrderAttachment::where('order_id', $sourceOrder->id)->get();
+
+            foreach ($oldAttachments as $att) {
+                $oldPath = ltrim((string) $att->file_path, '/');     // e.g. orders/274/attachments/file.pdf
+                $disk    = Storage::disk('public');
+
+                if (!$disk->exists($oldPath)) {
+                    // file missing, skip this row
+                    continue;
+                }
+
+                $filename = basename($oldPath);
+                $name     = pathinfo($filename, PATHINFO_FILENAME);
+                $ext      = pathinfo($filename, PATHINFO_EXTENSION);
+
+                $newDir  = "orders/{$redo->id}/attachments";
+                $candidate = $filename;
+                $i = 1;
+
+                // avoid collisions in the new folder
+                while ($disk->exists("$newDir/$candidate")) {
+                    $candidate = "{$name} ({$i}).{$ext}";
+                    $i++;
+                }
+
+                $newPath = "$newDir/$candidate";
+
+                // copy the physical file
+                $disk->makeDirectory($newDir);
+                $disk->copy($oldPath, $newPath);
+
+                // insert new DB row pointing to the new file
+                OrderAttachment::create([
+                    'order_id'      => $redo->id,
+                    'user_id'       => $att->user_id,        // keep original uploader
+                    'file_path'     => $newPath,             // e.g. orders/275/attachments/file.pdf
+                    'original_name' => $att->original_name,
+                    'mime_type'     => $att->mime_type,
+                    'size'          => $att->size,
+                ]);
+            }
+            // ===== END attachments clone =====
+
+            // 4) Clone ALL products of the BASE order → only the REPORTED product is editable=1
+            $baseProducts = Product::with(['items.spec','remarks','deliveryBreakdowns'])
+                ->where('OrderID', $baseOrder->id)
+                ->orderBy('ProductID')
+                ->get();
+
+            // Find the “origin” ProductID for the reported product (in case we’re on a redo)
+            $reportedOriginId = Product::where('ProductID', $productId)
+                ->value(DB::raw('COALESCE(redoOf, ProductID)'));
+
+            foreach ($baseProducts as $origin) {
+                $editable = ((int)$origin->ProductID === (int)$reportedOriginId) ? 1 : 0;
+
+                $np = $origin->replicate(['ProductID','OrderID','created_at','updated_at']);
+                $np->OrderID    = $redo->id;
+                $np->redoOf     = $origin->ProductID;
+                $np->editable   = $editable;
+                $np->created_at = now();
+                $np->updated_at = now();
+                if ($editable) {
+                    $np->accepted = null;
+                    $np->installation_accepted = null;
+                    $np->installation_status   = null;
+                    $np->installation_task_type   = null;
+                }
+                $np->save();
+
+                foreach ($origin->items as $it) {
+                    $ni = $it->replicate(['ItemID','ProductID','created_at','updated_at']);
+                    $ni->ProductID  = $np->ProductID;
+                    $ni->created_at = now();
+                    $ni->updated_at = now();
+                    $ni->save();
+
+                    if ($it->spec) {
+                        $ns = $it->spec->replicate(['SpecificationID','ItemID','created_at','updated_at']);
+                        $ns->ItemID     = $ni->ItemID;
+                        $ns->created_at = now();
+                        $ns->updated_at = now();
+                        $ns->save();
+                    }
+                }
+                foreach ($origin->remarks as $rm) {
+                    $nr = $rm->replicate(['RemarkID','ProductID','created_at','updated_at']);
+                    $nr->ProductID  = $np->ProductID;
+                    $nr->created_at = now();
+                    $nr->updated_at = now();
+                    $nr->save();
+                }
+                foreach ($origin->deliveryBreakdowns as $db) {
+                    $nd = $db->replicate(['BreakdownID','ProductID','created_at','updated_at']);
+                    $nd->ProductID  = $np->ProductID;
+                    $nd->created_at = now();
+                    $nd->updated_at = now();
+                    $nd->save();
+                }
+                if ((int)$np->editable === 0) {
+                    foreach ($origin->progress as $pg) {
+                        $npgr = $pg->replicate(['ProgressID','ProductID','created_at','updated_at']);
+                        $npgr->ProductID  = $np->ProductID;
+                        $npgr->created_at = now();
+                        $npgr->updated_at = now();
+                        $npgr->save();
+                    }
+                }
+            }
+
+            // (Optional) if this was the first redo ever, you could archive the base:
+            if ($existingCount === 0 && $order->id === $baseOrder->id) {
+                $order->forceFill(['status' => 1])->save();
+            }
+        });
+
+        return redirect()
+            ->route('installation.dashboard')
+            ->with('status', 'Report submitted. Redo order has been created.');
+    }
+
+    protected function nextRedoNumber(string $baseOrderNo): string
+    {
+        // remove leading '#' and any existing R or R1/R2 etc.
+        $base = ltrim($baseOrderNo, '#');
+        $base = preg_replace('/R\d*$/i', '', $base);
+
+        // always return one R only
+        return '#' . $base . 'R';
     }
 }

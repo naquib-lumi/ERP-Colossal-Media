@@ -141,6 +141,7 @@ $isArchived = (int)($order->status ?? 0) === 1;
             Job Order Details – {{ $order->order_number }}
             @endif
         </h4>
+        @if($order->orderStatus != "completed")
         @if(!$isArchived)
         <div class="d-flex align-items-center gap-2">
             <a href="{{ route('artist.orders.edit', $order->id) }}"
@@ -150,6 +151,7 @@ $isArchived = (int)($order->status ?? 0) === 1;
                 <span>Edit Order</span>
             </a>
         </div>
+        @endif
         @endif
     </div>
 
@@ -868,6 +870,7 @@ $isArchived = (int)($order->status ?? 0) === 1;
                 @endif
             </div>
         </div>
+        @if($order->orderStatus != "completed")
         @if(!$isArchived)
         <div class="d-flex justify-content-end mt-4">
             <a href="{{ route('artist.orders.edit', $order->id) }}"
@@ -877,6 +880,7 @@ $isArchived = (int)($order->status ?? 0) === 1;
                 <span>Edit Order</span>
             </a>
         </div>
+        @endif
         @endif
 </div>
 

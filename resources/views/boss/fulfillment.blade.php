@@ -668,15 +668,28 @@
         <tbody>
           @forelse($rows as $r)
           @php
-          $statusClass = match(strtolower($r->status)){
+          // Decide which status field to use based on task
+          $taskLabel  = $r->task_label ?? '-';
+          $taskLower  = strtolower($taskLabel);
+
+          if ($taskLower === 'delivery & installation') {
+              $rawStatus = strtolower((string) $r->installation_status);
+          } else {
+              $rawStatus = strtolower((string) $r->status);
+          }
+
+          $statusClass = match($rawStatus){
           'completed' => 'bg-success',
           'in_progress' => 'bg-info',
           'rejected' => 'bg-danger',
           default => 'bg-secondary'
           };
 
-          $taskLabel  = $r->task_label ?? '-';
-          $taskClass  = match (strtolower($taskLabel)) {
+          $statusLabel = $rawStatus
+          ? \Illuminate\Support\Str::of($rawStatus)->replace('_', ' ')->title()
+          : '-';
+
+          $taskClass  = match ($taskLower) {
             'printing'                 => 'bg-secondary text-white',   // gray
             'furnishing'               => 'bg-purple text-white',      // custom purple (see CSS note below)
             'dispatch control'         => 'bg-warning text-dark',      // yellow
@@ -701,7 +714,7 @@
             <td><span class="badge {{ $taskClass }}">{{ $taskLabel }}</span></td>
             <td>
               <span class="badge {{ $statusClass }}">
-                {{ \Illuminate\Support\Str::of($r->status)->replace('_', ' ')->title() ?: '-' }}
+                {{ $statusLabel  }}
               </span>
             </td>
 

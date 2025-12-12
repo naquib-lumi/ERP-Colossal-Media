@@ -507,7 +507,7 @@ $inProgressProducts = Product::from('products as p')
                 'd.BreakdownID as breakdown_id','d.date as delivery_date','d.time as delivery_time',
                 'd.location as delivery_location','d.deliver_install_type',
                 'pf.permit_file', 
-                'p.installation_task_type','p.installation_status','p.installation_accepted',
+                'p.installation_task_type','p.installation_status as product_installation_status','p.installation_accepted',
                 'd.method as delivery_method',
             ]);
 
@@ -656,7 +656,7 @@ $inProgressProducts = Product::from('products as p')
                 $deliveryMethod = strtolower(trim((string) ($r->delivery_method ?? '')));
                 $installFlag    = (int) ($r->installation_task_type ?? 0);
 
-                if ($installFlag === 1 && $deliveryMethod === 'delivery_installation') {
+                if ($installFlag === 1 && ($deliveryMethod === 'delivery' || $deliveryMethod === 'installation')) {
                     // treat as installation so it shows as Delivery & Installation
                     $logicalTask = 'installation';
                 } else {
@@ -710,6 +710,7 @@ $inProgressProducts = Product::from('products as p')
                     'company'        => $r->companyName,
                     'task_label'     => $taskLabel,
                     'status'         => (string)($r->product_status ?? ''),
+                    'installation_status'         => (string)($r->product_installation_status ?? ''),
                     'delivery_dt'    => $dt,
                     'deadline'     => $deadline,
                     'delivery_loc'   => (string)($r->delivery_location ?? ''),
