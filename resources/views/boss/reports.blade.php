@@ -444,7 +444,7 @@
               <th>Machine Type</th>
               <th>Used by Items</th>
               <th>Total Quantity</th>
-              <th class="text-end">Actions</th>
+              <!-- <th class="text-end">Actions</th> -->
             </tr>
           </thead>
           <tbody>
@@ -454,9 +454,9 @@
                 <td>{{ $m->machine_type }}</td>
                 <td>{{ number_format($m->used_items) }} items</td>
                 <td>{{ number_format($m->total_qty) }}</td>
-                <td class="text-end">
+                <!-- <td class="text-end">
                   <button class="kebab"><i class="bi bi-three-dots-vertical"></i></button>
-                </td>
+                </td> -->
               </tr>
             @empty
               <tr>
