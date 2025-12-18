@@ -120,8 +120,8 @@ class BossDashboardController extends Controller
 
         // Salesperson list (for your dropdown – optional)
         $salespeople = DB::table('users')
-            ->select('id','name')
-            ->where('role', 'salesperson')
+            ->select('id', 'name')
+            ->whereIn('role', ['salesperson', 'head-salesperson'])
             ->orderBy('name')
             ->get();
 
