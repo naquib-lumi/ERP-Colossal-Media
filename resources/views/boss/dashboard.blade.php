@@ -147,7 +147,7 @@
     <!-- Charts row -->
     <div class="row g-3 mt-1">
       <!-- Monthly Performance（单月构成） -->
-      <div class="col-lg-7">
+      <div class="col-lg-5">
         <div class="card soft p-3 h-100">
           <div class="d-flex justify-content-between align-items-center">
             <h6 class="fw-bold mb-0">Monthly Performance</h6>
@@ -173,7 +173,7 @@
       </div>
 
       <!-- Meeting Outcomes（左图右筛） -->
-      <div class="col-lg-5">
+      <div class="col-lg-7">
   <div class="card soft p-3 h-100">
     <h6 class="fw-bold mb-2">Meeting Outcomes</h6>
     <div class="outcomes-grid">
