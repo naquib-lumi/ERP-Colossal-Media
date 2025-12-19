@@ -208,7 +208,7 @@
       </div>
 
       <div class="toolbar">
-        <form method="GET" action="{{ route('boss.datamanagement') }}" class="toolbar" style="border:0;padding:0;" style="width: 100%;">
+        <form method="GET" action="{{ route('boss.datamanagement') }}" class="toolbar" style="border:0;padding:0;width: 100%;" >
           <input type="hidden" name="tab" value="cost">
 
           <div class="search">
