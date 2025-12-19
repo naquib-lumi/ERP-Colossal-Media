@@ -393,7 +393,17 @@
             $showRedoBadge = ((int)($ord->status ?? 0) === 1);
           @endphp
 
-          <tr>
+          <tr
+              id="job-{{ $ord->id }}"
+              class="js-row-open"
+              style="cursor:pointer;"
+              data-href="{{ route('boss.orders.show', $ord->id) }}"
+              data-code="{{ $displayNo }}"
+              ondblclick="
+                if (event.target.closest('a,button,input,select,textarea,label,svg,path,i')) return;
+                window.location.href = this.dataset.href;
+              "
+            >
             <td>
               <span class="fw-semibold">{{ $displayNo }}</span>
               @if ($showRedoBadge)
@@ -1376,5 +1386,21 @@ window.addEventListener('load', paginateTable);
   // 3) Also handle back/forward
   window.addEventListener('hashchange', applyFromHash);
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const tbody = document.getElementById('adBody'); // your tbody id
+  if (!tbody) return;
+
+  tbody.addEventListener('dblclick', (e) => {
+    const tr = e.target.closest('tr.js-row-open');
+    if (!tr) return;
+
+    // If user double-clicks on any clickable element, don't hijack it
+    if (e.target.closest('a, button, input, select, textarea, label, svg, path, i')) return;
+
+    const url = tr.dataset.href;
+    if (url) window.location.assign(url);
+  });
+});
 </script>
 @endsection
