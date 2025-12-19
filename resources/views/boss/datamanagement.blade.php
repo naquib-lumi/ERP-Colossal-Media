@@ -208,18 +208,31 @@
       </div>
 
       <div class="toolbar">
-        <div class="search">
-          <i class="bi bi-search"></i>
-          <input id="q" type="text" placeholder="Search materials...">
-        </div>
-        <div class="select">
-          <select id="typeFilter">
-            <option value="all">All Material Types</option>
-            @foreach($types as $type)
-              <option value="{{ $type->id }}">{{ $type->name }}</option>
-            @endforeach
-          </select>
-        </div>
+        <form method="GET" action="{{ route('boss.datamanagement') }}" class="toolbar" style="border:0;padding:0;" style="width: 100%;">
+          <input type="hidden" name="tab" value="cost">
+
+          <div class="search">
+            <i class="bi bi-search"></i>
+            <input
+              name="q"
+              type="search"
+              value="{{ request('q','') }}"
+              placeholder="Search materials..."
+              onkeydown="if(event.key==='Enter'){ this.form.submit(); }"
+            >
+          </div>
+
+          <div class="select">
+            <select name="type" onchange="this.form.submit()">
+              <option value="all">All Material Types</option>
+              @foreach($types as $type)
+                <option value="{{ $type->id }}" {{ request('type','all') == $type->id ? 'selected' : '' }}>
+                  {{ $type->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+        </form>
       </div>
 
       <div class="table-wrap" style="padding:6px 12px 10px;">
@@ -393,7 +406,17 @@
             $showRedoBadge = ((int)($ord->status ?? 0) === 1);
           @endphp
 
-          <tr>
+          <tr
+              id="job-{{ $ord->id }}"
+              class="js-row-open"
+              style="cursor:pointer;"
+              data-href="{{ route('boss.orders.show', $ord->id) }}"
+              data-code="{{ $displayNo }}"
+              ondblclick="
+                if (event.target.closest('a,button,input,select,textarea,label,svg,path,i')) return;
+                window.location.href = this.dataset.href;
+              "
+            >
             <td>
               <span class="fw-semibold">{{ $displayNo }}</span>
               @if ($showRedoBadge)
@@ -1376,5 +1399,21 @@ window.addEventListener('load', paginateTable);
   // 3) Also handle back/forward
   window.addEventListener('hashchange', applyFromHash);
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const tbody = document.getElementById('adBody'); // your tbody id
+  if (!tbody) return;
+
+  tbody.addEventListener('dblclick', (e) => {
+    const tr = e.target.closest('tr.js-row-open');
+    if (!tr) return;
+
+    // If user double-clicks on any clickable element, don't hijack it
+    if (e.target.closest('a, button, input, select, textarea, label, svg, path, i')) return;
+
+    const url = tr.dataset.href;
+    if (url) window.location.assign(url);
+  });
+});
 </script>
 @endsection

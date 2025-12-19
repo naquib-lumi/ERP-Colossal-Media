@@ -120,7 +120,7 @@ $isArchived = (int)($order->status ?? 0) === 1;
 
     {{-- Header & Export --}}
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-        <a href="{{ route('boss.orders') }}"
+        <a href="javascript:history.back()"
             class="text-decoration-none text-muted me-3"
             style="display: inline-flex; align-items: center; gap: 8px;">
             <i class="bi bi-arrow-left-circle fw-semibold"

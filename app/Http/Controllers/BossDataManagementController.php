@@ -118,9 +118,23 @@ class BossDataManagementController extends Controller
         }
 
         // page materials and decorate with computed fields
-        $materials = Material::with(['materialType:id,name'])
-            ->orderBy('materialName')
-            ->paginate($perPage);
+        $q = trim((string) $request->query('q', ''));
+        $type = $request->query('type', 'all');
+
+        $materialsQuery = Material::with(['materialType:id,name'])
+            ->orderBy('materialName');
+
+        if ($q !== '') {
+            $materialsQuery->where('materialName', 'like', "%{$q}%");
+        }
+
+        if ($type !== 'all' && $type !== '') {
+            $materialsQuery->where('material_type_id', $type);
+        }
+
+        $materials = $materialsQuery
+            ->paginate($perPage)
+            ->withQueryString(); 
 
         $materials->getCollection()->transform(function ($m) use ($usedMap, $areaQtyMap) {
             $key = mb_strtolower(trim((string) $m->materialName));
@@ -136,39 +150,39 @@ class BossDataManagementController extends Controller
 
         // ===== Another Data: Orders + quantities =====
 
-        $orders = DB::table('orders as o')
-            // base order for redo
-            ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
+        // $orders = DB::table('orders as o')
+        //     // base order for redo
+        //     ->leftJoin('orders as base', 'base.id', '=', 'o.redo')
 
-            // only join non-printing products
-            ->leftJoin('products as p', function ($join) {
-                $join->on('p.OrderID', '=', 'o.id')
-                    ->where('p.taskType', '!=', 'printing')
-                    ->orWhereNull('p.taskType');   // keep products with NULL taskType if you want
-            })
+        //     // only join non-printing products
+        //     ->leftJoin('products as p', function ($join) {
+        //         $join->on('p.OrderID', '=', 'o.id')
+        //             ->where('p.taskType', '!=', 'printing')
+        //             ->orWhereNull('p.taskType');   // keep products with NULL taskType if you want
+        //     })
 
-            ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
-            ->groupBy(
-                'o.id',
-                'o.order_number',
-                'o.created_at',
-                'o.status',
-                'o.redo',
-                'base.order_number'
-            )
-            ->select([
-                'o.id',
-                'o.order_number',
-                'o.created_at',
-                'o.status',
-                'base.order_number as base_order_number',
-                DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
-                DB::raw('COUNT(DISTINCT p.ProductID) AS products_count'),
-                DB::raw('COALESCE(SUM(pi.quantity), 0) AS total_item_quantity'),
-            ])
-            ->orderBy('o.created_at', 'desc')
-            ->paginate(10, ['*'], 'orders_page')
-            ->withQueryString();
+        //     ->leftJoin('product_items as pi', 'pi.ProductID', '=', 'p.ProductID')
+        //     ->groupBy(
+        //         'o.id',
+        //         'o.order_number',
+        //         'o.created_at',
+        //         'o.status',
+        //         'o.redo',
+        //         'base.order_number'
+        //     )
+        //     ->select([
+        //         'o.id',
+        //         'o.order_number',
+        //         'o.created_at',
+        //         'o.status',
+        //         'base.order_number as base_order_number',
+        //         DB::raw('CASE WHEN o.redo IS NULL THEN 0 ELSE 1 END as is_redo'),
+        //         DB::raw('COUNT(DISTINCT p.ProductID) AS products_count'),
+        //         DB::raw('COALESCE(SUM(pi.quantity), 0) AS total_item_quantity'),
+        //     ])
+        //     ->orderBy('o.created_at', 'desc')
+        //     ->paginate(10, ['*'], 'orders_page')
+        //     ->withQueryString();
 
 
         // ================== ANOTHER DATA: ORDERS ==================
@@ -246,10 +260,17 @@ class BossDataManagementController extends Controller
 
         // Nothing to do?
         if ($ordersAll->isEmpty()) {
-        $orders = new LengthAwarePaginator([], 0, $perPage, $page, [
-            'path' => url()->current(), 'pageName' => 'orders_page'
-        ]);
-        return view('boss.datamanagement', compact('materials', 'type', 'orders', 'activeTab'));
+
+            $orders = new LengthAwarePaginator([], 0, $perPage, $page, [
+                'path' => url()->current(),
+                'pageName' => 'orders_page'
+            ]);
+
+            // keep query string in pagination links
+            $orders->appends($request->except('orders_page'));
+
+            // IMPORTANT: use $types (not $type)
+            return view('boss.datamanagement', compact('materials', 'types', 'orders', 'activeTab'));
         }
 
         // 2) Preload aggregates for ALL matching order IDs
