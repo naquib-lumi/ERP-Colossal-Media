@@ -118,9 +118,23 @@ class BossDataManagementController extends Controller
         }
 
         // page materials and decorate with computed fields
-        $materials = Material::with(['materialType:id,name'])
-            ->orderBy('materialName')
-            ->paginate($perPage);
+        $q = trim((string) $request->query('q', ''));
+        $type = $request->query('type', 'all');
+
+        $materialsQuery = Material::with(['materialType:id,name'])
+            ->orderBy('materialName');
+
+        if ($q !== '') {
+            $materialsQuery->where('materialName', 'like', "%{$q}%");
+        }
+
+        if ($type !== 'all' && $type !== '') {
+            $materialsQuery->where('material_type_id', $type);
+        }
+
+        $materials = $materialsQuery
+            ->paginate($perPage)
+            ->withQueryString(); 
 
         $materials->getCollection()->transform(function ($m) use ($usedMap, $areaQtyMap) {
             $key = mb_strtolower(trim((string) $m->materialName));
