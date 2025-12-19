@@ -16,10 +16,19 @@ class BossReportController extends Controller
     {
         // ----- Read filters -----
         $salespersonId = $request->input('salesperson', 'all');
-        $period        = $request->input('period', 'monthly');
+        $period        = strtolower($request->input('period', 'monthly'));
 
         $startParam = $request->input('start_date');
         $endParam   = $request->input('end_date');
+
+        // Month selector in your UI is short name (Jan/Feb/…).
+        $mpMonthShort = $request->input('mpMonth');          // e.g. "Jun"
+        $yearParam    = $request->input('year', Carbon::now()->year);
+
+        if (!$mpMonthShort) {
+            $mpMonthShort = Carbon::now()->format('M');      // Jan…Dec
+            $yearParam    = Carbon::now()->year;
+        }
 
         // Defaults: current month
         if (!$startParam || !$endParam) {
@@ -32,32 +41,78 @@ class BossReportController extends Controller
         $end   = Carbon::parse($endParam)->endOfDay();
 
         // =========================
-        // KPI TILES (top 4 cards)
+        // LEADS BASE (shared)
         // =========================
-        // Leads in selected range (+ salesperson)
-        $leadsBase = DB::table('leads')
-            ->whereBetween('date', [$startParam, $endParam]);
-        if ($salespersonId !== 'all' && $salespersonId) {
-            $leadsBase->where('salesperson_id', $salespersonId); // or salesperson_id if that's your column
-        }
-        $totalLeadsAdded = (clone $leadsBase)->count();   // <-- IMPORTANT: use the filtered base
+        $monthStartC = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->startOfMonth();
+        $monthEndC   = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->endOfMonth();
 
+        $monthStart = $monthStartC->toDateString();
+        $monthEnd   = $monthEndC->toDateString();
+        $lq = DB::table('leads')
+            ->whereBetween('created_at', [
+                (clone $monthStartC)->startOfDay(),
+                (clone $monthEndC)->endOfDay(),
+            ]);
+
+        $cumBase = DB::table('leads')
+            ->where('created_at', '<=', (clone $monthEndC)->endOfDay());
+
+        // apply salesperson filter to BOTH queries (important)
+        if ($salespersonId !== 'all' && $salespersonId) {
+            $lq->where('salesperson_id', $salespersonId);
+            $cumBase->where('salesperson_id', $salespersonId);
+        }
+
+        $leadsThisMonth = (clone $lq)->count();
+
+        // cumulative up to month end
+        $acceptedCum   = (clone $cumBase)->where('status', 'accept')->count();
+        $rejectedCum   = (clone $cumBase)->where('status', 'reject')->count();
+        $fiftyFiftyCum = (clone $cumBase)->where('opportunity', '50/50')->count();
+
+        // ⚠️ match your real DB value: in your earlier code you used "Low Chance"
+        $lowChanceCum  = (clone $cumBase)->whereIn('opportunity', ['Low', 'Low Chance'])->count();
+
+        $monthlyPerformance = [
+            'month_short' => $mpMonthShort,
+            'year'        => (int) $yearParam,
+            'bars'        => [
+                'leads_added' => (int) $leadsThisMonth,
+                'accepted'    => (int) $acceptedCum,
+                'rejected'    => (int) $rejectedCum,
+                'fifty_fifty' => (int) $fiftyFiftyCum,
+                'low_chance'  => (int) $lowChanceCum,
+            ],
+        ];
+
+        // =========================
+        // MEETINGS BASE (shared)
+        // =========================
         $meetingBase = DB::table('meetings')
-            ->whereBetween(DB::raw('DATE(start_time)'), [$startParam, $endParam]);
+            ->whereBetween(DB::raw('DATE(start_time)'), [$start->toDateString(), $end->toDateString()]);
+
         if ($salespersonId !== 'all' && $salespersonId) {
             $meetingBase->where('user_id', $salespersonId);
         }
 
-        $totalMeetings    = (clone $meetingBase)->count();
-        $acceptedMeetings = (clone $meetingBase)->where('status', 'scheduled')->count();
-        $rejectedMeetings = (clone $meetingBase)->where('status', 'canceled')->count();
+        $meetingAgg = (clone $meetingBase)->selectRaw("
+            COUNT(*)                                             AS total_meetings,
+            SUM(CASE WHEN status='scheduled' THEN 1 ELSE 0 END)  AS accepted_meets,
+            SUM(CASE WHEN status='canceled' THEN 1 ELSE 0 END)   AS rejected_meets
+        ")->first();
 
         $kpis = [
-            'total_leads'    => $totalLeadsAdded,
-            'total_meetings' => $totalMeetings,
-            'accepted_meets' => $acceptedMeetings,
-            'rejected_meets' => $rejectedMeetings,
-            'filters'        => [
+            'total_leads'    => $leadsThisMonth,
+            'total_meetings' => (int)($meetingAgg->total_meetings ?? 0),
+            'accepted_meets' => (int)($meetingAgg->accepted_meets ?? 0),
+            'rejected_meets' => (int)($meetingAgg->rejected_meets ?? 0),
+        ];
+
+        // pie (meeting outcomes)
+        $meetingOutcomes = [
+            'accepted' => (int)($meetingAgg->accepted_meets ?? 0),
+            'rejected' => (int)($meetingAgg->rejected_meets ?? 0),
+            'filters'  => [
                 'start_date'  => $start->toDateString(),
                 'end_date'    => $end->toDateString(),
                 'salesperson' => $salespersonId,
@@ -65,32 +120,13 @@ class BossReportController extends Controller
             ],
         ];
 
-        // ===========================================
-        // Monthly Performance (your 5 bars definition)
-        // ===========================================
-        // Bar 1: leads added IN selected month only
-        $mpBase = DB::table('leads')
-            ->whereBetween('date', [$startParam, $endParam]);
-        if ($salespersonId !== 'all' && $salespersonId) {
-            $mpBase->where('salesperson_id', $salespersonId);
-        }
-        $mpRow = (clone $mpBase)->selectRaw("
-            COUNT(*)                                                AS leads_added,
-            SUM(CASE WHEN status='accept' THEN 1 ELSE 0 END)        AS accepted,
-            SUM(CASE WHEN status='reject' THEN 1 ELSE 0 END)        AS rejected,
-            SUM(CASE WHEN opportunity='50/50' THEN 1 ELSE 0 END)    AS fifty_fifty,
-            SUM(CASE WHEN opportunity='Low' THEN 1 ELSE 0 END)      AS low_chance
-        ")->first();
-
-        $monthlyPerformance = [
-            'bars' => [
-                'leads_added' => (int)($mpRow->leads_added ?? 0),
-                'accepted'    => (int)($mpRow->accepted ?? 0),
-                'rejected'    => (int)($mpRow->rejected ?? 0),
-                'fifty_fifty' => (int)($mpRow->fifty_fifty ?? 0),
-                'low_chance'  => (int)($mpRow->low_chance ?? 0),
-            ],
-        ];
+        // Salesperson list (dropdown)
+        $salespeople = DB::table('users')
+            ->select('id', 'name')
+            ->whereIn('role', ['salesperson', 'head-salesperson'])
+            ->orderBy('name')
+            ->get();
+        
 
         // ==========================
         // Meeting Outcomes (pie)
@@ -113,12 +149,6 @@ class BossReportController extends Controller
             ],
         ];
 
-        // Salesperson list (for your dropdown – optional)
-        $salespeople = DB::table('users')
-            ->select('id','name')
-            ->where('role', 'salesperson')
-            ->orderBy('name')
-            ->get();
 
         // ===== Job Orders (show only REDO orders) =====
         $q          = trim($request->input('order_search', ''));    // text search
@@ -402,9 +432,7 @@ class BossReportController extends Controller
                 'end_date'    => $endParam,
             ],
 
-            'jobFulfillment' => $jobFulfillment,
             'orderFilters'   => $orderFilters,
-            'artists'        => $artists,
         ]);
     }
 

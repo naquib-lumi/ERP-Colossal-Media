@@ -35,9 +35,11 @@ class BossDashboardController extends Controller
             $yearParam    = Carbon::now()->year;
         }
 
-        // Build month start/end from short name + year
-        $monthStart = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->startOfMonth()->toDateString();
-        $monthEnd   = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->endOfMonth()->toDateString();
+        $monthStartC = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->startOfMonth();
+        $monthEndC   = Carbon::parse("1 {$mpMonthShort} {$yearParam}")->endOfMonth();
+
+        $monthStart = $monthStartC->toDateString();
+        $monthEnd   = $monthEndC->toDateString();
 
         // =========================
         // KPI TILES (top 4 cards)
@@ -64,27 +66,36 @@ class BossDashboardController extends Controller
         // Monthly Performance (your 5 bars definition)
         // ===========================================
         // Bar 1: leads added IN selected month only
-        $leadsThisMonth = DB::table('leads')
-            ->whereBetween('date', [$monthStart, $monthEnd])
-            ->count();
+        $lq = DB::table('leads')->whereBetween('created_at', [
+            $monthStartC->startOfDay(),
+            $monthEndC->endOfDay(),
+        ]);
 
         // Bars 2–5: cumulative from beginning up to end of selected month
-        $cumBase = DB::table('leads')->where('date', '<=', $monthEnd);
+        $cumBase = DB::table('leads')
+            ->where('created_at', '<=', (clone $monthEndC)->endOfDay());
 
+        // apply salesperson filter to BOTH queries (important)
+        if ($salespersonId !== 'all' && $salespersonId) {
+            $lq->where('salesperson_id', $salespersonId);
+            $cumBase->where('salesperson_id', $salespersonId);
+        }
+        
+        $leadsThisMonth = (clone $lq)->count();
         $acceptedCum   = (clone $cumBase)->where('status', 'accept')->count();
         $rejectedCum   = (clone $cumBase)->where('status', 'reject')->count();
         $fiftyFiftyCum = (clone $cumBase)->where('opportunity', '50/50')->count();
-        $lowChanceCum  = (clone $cumBase)->where('opportunity', 'Low')->count();
+        $lowChanceCum  = (clone $cumBase)->whereIn('opportunity', ['Low', 'Low Chance'])->count();
 
         $monthlyPerformance = [
             'month_short' => $mpMonthShort,
             'year'        => (int)$yearParam,
             'bars'        => [
-                'leads_added' => $leadsThisMonth,
-                'accepted'    => $acceptedCum,
-                'rejected'    => $rejectedCum,
-                'fifty_fifty' => $fiftyFiftyCum,
-                'low_chance'  => $lowChanceCum,
+                'leads_added' => (int) $leadsThisMonth,
+                'accepted'    => (int) $acceptedCum,
+                'rejected'    => (int) $rejectedCum,
+                'fifty_fifty' => (int) $fiftyFiftyCum,
+                'low_chance'  => (int) $lowChanceCum,
             ],
         ];
 
