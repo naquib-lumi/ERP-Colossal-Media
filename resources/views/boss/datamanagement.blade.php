@@ -682,11 +682,13 @@
     document.querySelectorAll('.ad-menu, .dropdown-menu').forEach(m => (m.style.display = 'none'));
   });
 
-  function openMask(id){ $('#'+id).classList.add('show'); }
-  function closeMask(id){ $('#'+id).classList.remove('show'); }
-  document.addEventListener('click',(e)=>{
-    const c = e.target.dataset.close;
-    if(c) closeMask(c);
+  function openMask(id){ document.getElementById(id)?.classList.add('show'); }
+  function closeMask(id){ document.getElementById(id)?.classList.remove('show'); }
+
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-close]');
+    if (!el) return;
+    closeMask(el.dataset.close);
   });
 
   // Filters

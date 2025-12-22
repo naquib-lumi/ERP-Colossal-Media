@@ -222,7 +222,6 @@
               <option value="monthly"   {{ $p==='monthly'  ? 'selected' : '' }}>Monthly</option>
               <option value="quarterly" {{ $p==='quarterly'? 'selected' : '' }}>Quarterly</option>
               <option value="yearly"    {{ $p==='yearly'   ? 'selected' : '' }}>Yearly</option>
-              <option value="custom"    {{ $p==='custom'   ? 'selected' : '' }}>Custom</option>
             </select>
           </div>
           {{-- No submit button needed; we auto-submit on change --}}

@@ -108,14 +108,72 @@ class BossFulfillmentController extends Controller
 
         // (1) Order box: numeric id or text (job title)
         if ($orderId !== '') {
-            if (preg_match('/^\d+$/', $orderId)) {
-                $query->where(function ($w) use ($orderId) {
-                    $w->where('o.id', $orderId)
-                    ->orWhere('p.ProductID', 'like', "%{$orderId}%")
-                    ->orWhere('p.redoOf',   'like', "%{$orderId}%");
+
+            $raw = trim($orderId);
+
+            // detect trailing R (redo)
+            $hasR = false;
+            if (preg_match('/r$/i', $raw)) {
+                $hasR = true;
+                $raw = preg_replace('/r$/i', '', $raw);
+                $raw = rtrim($raw);
+            }
+
+            // remove leading '#'
+            $raw = ltrim($raw, '#');
+
+            // CASE A: digits only => treat as order numeric id (or redo base id)
+            if (preg_match('/^\d+$/', $raw)) {
+                $oid = (int) $raw;
+
+                $query->where(function ($w) use ($oid) {
+                    $w->where('o.id', $oid)
+                    ->orWhere('o.redo', $oid);   // important: match redo base order id too (your display uses order_redo ?: order_id)
                 });
+
+                if ($hasR) {
+                    // if user typed "...R", only show redo orders
+                    $query->whereNotNull('o.redo')->where('o.redo', '>', 0);
+                    // OR if your schema is redo flag (0/1) then use:
+                    // $query->where('o.redo', 1);
+                }
+
             } else {
-                $query->where('o.orderTitle', 'like', "%{$orderId}%");
+                // CASE B: formatted "ORD-YYYY-NNN" (with variable digit count)
+                // Example: ORD-2025-029 or ORD-2025-0029
+                if (preg_match('/^ord-(\d{4})-(\d{1,6})$/i', $raw, $m)) {
+                    $year = $m[1];
+                    $seq  = (int) $m[2];
+
+                    // your display uses 3 digits: %03d
+                    $seq3 = str_pad((string)$seq, 3, '0', STR_PAD_LEFT);
+                    $needle = "ORD-$year-$seq3";
+
+                    $query->where(function ($w) use ($needle) {
+                        // if your DB stores with '#', remove UPPER(...) only
+                        $w->whereRaw('UPPER(o.order_number) = ?', [strtoupper($needle)]);
+                    });
+
+                    if ($hasR) {
+                        $query->whereNotNull('o.redo')->where('o.redo', '>', 0);
+                        // OR (if redo is boolean):
+                        // $query->where('o.redo', 1);
+                    }
+
+                } else {
+                    // fallback: partial match order_number OR orderTitle
+                    // (keeps it useful if user pastes something unexpected)
+                    $query->where(function ($w) use ($raw) {
+                        $w->where('o.order_number', 'like', "%{$raw}%")
+                        ->orWhere('o.orderTitle',  'like', "%{$raw}%");
+                    });
+
+                    if ($hasR) {
+                        $query->whereNotNull('o.redo')->where('o.redo', '>', 0);
+                        // OR boolean redo:
+                        // $query->where('o.redo', 1);
+                    }
+                }
             }
         }
 

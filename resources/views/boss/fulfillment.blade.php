@@ -579,7 +579,7 @@
           <input type="text"
                  name="order_id"
                  class="form-control"
-                 placeholder="Enter Product ID"
+                 placeholder="Enter Order ID"
                  value="{{ $filters['order_id'] }}">
         </div>
       </div>
