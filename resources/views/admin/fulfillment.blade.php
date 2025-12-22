@@ -661,7 +661,30 @@
             <th>Delivery Date</th>
             <th>Location</th>
             <th>Install Type</th>
-            <th class="text-center">Permit</th>
+            @php
+              $q = request()->except('page'); // keep filters
+              $currentSort = request('sort','');
+              $currentDir  = request('dir','asc');
+
+              // toggle: first click => asc (missing first), second click => desc (uploaded first)
+              $nextDir = ($currentSort === 'permit' && $currentDir === 'asc') ? 'desc' : 'asc';
+
+              $permitUrl = route('admin.fulfillment', array_merge($q, [
+                'sort' => 'permit',
+                'dir'  => $nextDir,
+              ]));
+
+              $permitArrow = '';
+              if ($currentSort === 'permit') {
+                $permitArrow = $currentDir === 'asc' ? '▲' : '▼';
+              }
+            @endphp
+
+            <th class="text-center" style="white-space:nowrap;">
+              <a href="{{ $permitUrl }}" class="text-decoration-none text-dark">
+                PERMIT {!! $permitArrow ? '<span class="ms-1">'.$permitArrow.'</span>' : '' !!}
+              </a>
+            </th>
             <th class="text-end" style="min-width:120px;">Actions</th>
           </tr>
         </thead>
