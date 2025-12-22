@@ -529,6 +529,44 @@ $inProgressProducts = Product::from('products as p')
             ->orderByRaw('COALESCE(d.date, o.orderDate, o.created_at) ASC')
             ->orderByRaw("COALESCE(d.time, '00:00:00') ASC");
 
+        // ---- Sorting (permit / default)
+        $sort = strtolower(trim((string) $request->query('sort', '')));
+        $dir  = strtolower(trim((string) $request->query('dir', 'asc')));
+        $dir  = in_array($dir, ['asc','desc'], true) ? $dir : 'asc';
+
+        // If user sorts by permit, override default ordering
+        if ($sort === 'permit') {
+            // asc  => missing first
+            // desc => uploaded first
+            $query->reorder()
+                ->orderByRaw("
+                    CASE
+                        WHEN pf.permit_file IS NULL OR pf.permit_file = '' THEN 0
+                        ELSE 1
+                    END {$dir}
+                ")
+                // keep stable ordering inside each group
+                ->orderByRaw('COALESCE(d.date, o.orderDate, o.created_at) ASC')
+                ->orderByRaw("COALESCE(d.time, '00:00:00') ASC");
+        } else {
+            // ===== your existing default ordering =====
+            $missingExpr = '((pf.permit_file IS NULL OR pf.permit_file = "")'
+                .' + (d.date IS NULL)'
+                .' + (d.location IS NULL OR d.location = ""))';
+
+            $query
+                ->orderByRaw("
+                    CASE
+                        WHEN $missingExpr = 3 THEN 0
+                        WHEN $missingExpr = 2 THEN 1
+                        WHEN $missingExpr = 1 THEN 2
+                        ELSE 3
+                    END ASC
+                ")
+                ->orderByRaw('COALESCE(d.date, o.orderDate, o.created_at) ASC')
+                ->orderByRaw("COALESCE(d.time, '00:00:00') ASC");
+        }
+
         // (1) Order box: numeric id or text (job title)
         if ($orderId !== '') {
 
