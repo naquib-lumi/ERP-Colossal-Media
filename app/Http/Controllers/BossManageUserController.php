@@ -5,16 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
-use App\Models\Lead;
-use App\Models\Order;
-use Carbon\Carbon;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Schema;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class BossManageUserController extends Controller
 {
@@ -22,8 +17,8 @@ class BossManageUserController extends Controller
     {
         return [
             'admin',
-            'boss',
             'salesperson',
+            'head-salesperson',
             'head-artist',
             'artist',
             'operations-printing',
@@ -31,8 +26,7 @@ class BossManageUserController extends Controller
             'operations-dispatch-control',
             'operations-delivery-installation',
             'data-entry',
-            'installation', // 如果你在前端下拉里用到了
-            'head-salesperson',
+            'installation',
         ];
     }
     
@@ -40,23 +34,11 @@ class BossManageUserController extends Controller
     {
         if (!Auth::user()->hasRole('boss')) abort(403, 'Unauthorized');
 
-        $q      = trim((string)$request->query('q', ''));
-        $role   = $request->query('role', 'all');
-        $status = $request->query('status', 'all');
-
         $users = User::query()
-            ->when($q !== '', function ($qbuilder) use ($q) {
-                $qbuilder->where(function ($w) use ($q) {
-                    $w->where('name', 'like', "%{$q}%")
-                      ->orWhere('email', 'like', "%{$q}%")
-                      ->orWhere('contact_number', 'like', "%{$q}%");
-                });
-            })
-            ->when($role !== 'all', fn($qb) => $qb->where('role', $role))
-            ->when($status !== 'all', fn($qb) => $qb->where('status', strtolower($status)))
-            ->orderBy('name')
-            ->paginate(10)
-            ->withQueryString();
+        ->where('role', '!=', 'admin')
+        ->where('role', '!=', 'boss')
+        ->orderBy('name')
+        ->get();
 
         return view('boss.manageuser', [
             'users'       => $users,
@@ -75,7 +57,8 @@ class BossManageUserController extends Controller
         $status = $request->get('status');
 
         $query = User::query()
-            ->select(['id','name','email','contact_number','status','role','created_at','updated_at']);
+            ->select(['id','name','email','contact_number','status','role','created_at','updated_at'])
+            ->where('role', '!=', 'admin');
 
         if ($q !== '') {
             $query->where(function($w) use ($q){
@@ -84,46 +67,46 @@ class BossManageUserController extends Controller
                   ->orWhere('contact_number','like',"%{$q}%");
             });
         }
-        if ($role && $role !== 'all')     $query->where('role', $role);
-        if ($status && $status !== 'all') $query->where('status', strtolower($status));
+        if ($role && $role !== 'all' && $role !== 'admin') {
+            $query->where('role', $role);
+        }
+        if ($status && $status !== 'all') {
+            $query->whereRaw('LOWER(status)=?', [strtolower($status)]);
+        }
 
         return DataTables::of($query)
-            ->addColumn('actions', function(User $u){
-                return [
-                    'update' => route('boss.user.update', $u),
-                    'toggle' => route('boss.user.disable', $u),
-                ];
-            })
-            ->toJson();
+            ->addColumn('actions', fn(User $u) => [
+                'update' => route('boss.user.update', $u),
+                'toggle' => route('boss.user.disable', $u),
+            ])->toJson();
     }
 
     public function storeUser(Request $request)
     {
         if (!Auth::user()->hasRole('boss')) abort(403, 'Unauthorized');
 
-        $roles = implode(',', $this->allowedRoles());
+        $roles = $this->allowedRoles();
 
-        $validated = $request->validate([
-            'name'           => ['required', 'string', 'max:255'],
-            'email'          => ['required', 'email', 'max:255', 'unique:users,email'],
-            'contact_number' => ['nullable', 'string', 'max:30'],
-            'role'           => ["required","in:$roles"],
-            'password'       => [ 'required', Password::min(8)->mixedCase()->numbers()->symbols() ],
+        $data = $request->validate([
+            'name'           => ['required','string','max:255'],
+            'email'          => ['required','email','max:255','unique:users,email'],
+            'contact_number' => ['nullable','string','max:30'],
+            'role'           => ['required', Rule::in($roles)],
+            'password'       => ['nullable','string','min:8'],
             'status'         => ['nullable','in:active,inactive'],
         ]);
 
-        $user = User::create([
-            'name'           => $validated['name'],
-            'email'          => $validated['email'],
-            'contact_number' => $validated['contact_number'] ?? null,
-            'role'           => $validated['role'],
-            'password'       => Hash::make($validated['password']),
-            'status'         => strtolower($validated['status'] ?? 'active'),
+        $plain = $data['password'] ?: Str::password(12);
+        $user  = User::create([
+            'name'           => $data['name'],
+            'email'          => $data['email'],
+            'contact_number' => $data['contact_number'] ?? null,
+            'role'           => $data['role'],
+            'password'       => Hash::make($plain),
+            'status'         => strtolower($data['status'] ?? 'active'),
         ]);
 
-        return $request->expectsJson()
-            ? response()->json(['success' => true, 'message' => 'User created successfully.', 'user' => $user], 201)
-            : back()->with('success', 'User created successfully.');
+        return back()->with('success', 'User created. Temp password: '.$plain);
     }
 
     /** 更新用户（状态统一写小写） */
@@ -131,27 +114,37 @@ class BossManageUserController extends Controller
     {
         if (!Auth::user()->hasRole('boss')) abort(403, 'Unauthorized');
 
-        $roles = implode(',', $this->allowedRoles());
+        $roles = $this->allowedRoles();
 
-        $validated = $request->validate([
-            'name'           => ['required', 'string', 'max:255'],
-            'email'          => ['required', 'email', 'max:255', 'unique:users,email,'.$user->id],
-            'contact_number' => ['nullable', 'string', 'max:30'],
-            'role'           => ["required","in:$roles"],
+        $data = $request->validate([
+            'name'           => ['required','string','max:255'],
+            'email'          => ['required','email','max:255','unique:users,email,'.$user->id],
+            'contact_number' => ['nullable','string','max:30'],
+            'role'           => ['sometimes', 'required', Rule::in($roles)],
             'password'       => ['nullable', Password::min(8)->mixedCase()->numbers()->symbols()],
             'status'         => ['required','in:active,inactive'],
         ]);
 
+        if (auth()->id() === $user->id && strtolower($data['status']) === 'inactive') {
+            return back()->withErrors(['status' => 'You cannot deactivate your own account.']);
+        }
+        if (auth()->id() === $user->id && $user->role === 'admin' && $request->filled('role') && $data['role'] !== 'admin') {
+            return back()->withErrors(['role' => 'You cannot downgrade your own admin role.']);
+        }
+
         $user->fill([
-            'name'           => $validated['name'],
-            'email'          => $validated['email'],
-            'contact_number' => $validated['contact_number'] ?? null,
-            'role'           => $validated['role'],
-            'status'         => strtolower($validated['status']),
+            'name'           => $data['name'],
+            'email'          => $data['email'],
+            'contact_number' => $data['contact_number'] ?? null,
+            'status'         => strtolower($data['status']),
         ]);
 
-        if (!empty($validated['password'])) {
-            $user->password = Hash::make($validated['password']);
+        if ($request->filled('role')) {
+            $user->role = $data['role'];
+        }
+
+        if (!empty($data['password'])) {
+            $user->password = Hash::make($data['password']);
         }
 
         $user->save();
@@ -162,13 +155,27 @@ class BossManageUserController extends Controller
                         ->with('success', 'User updated successfully.');
     }
 
+    /** 重置密码到 password123 */
+    public function resetPassword(Request $request, User $user)
+    {
+        if (!Auth::user()->hasRole('boss')) abort(403, 'Unauthorized');
+
+        $user->password = Hash::make('password123');
+        $user->save();
+
+        return back()->with('success', 'Password reset to password123.');
+    }
+
     /** 启/停用切换（大小写安全） */
     public function disableUser(Request $request, User $user)
     {
         if (!Auth::user()->hasRole('boss')) abort(403, 'Unauthorized');
 
-        $current = strtolower((string)$user->status);
-        $user->status = $current === 'active' ? 'inactive' : 'active';
+        if (auth()->id() === $user->id) {
+            return back()->withErrors(['status' => 'You cannot deactivate your own account.']);
+        }
+
+        $user->status = strtolower((string)$user->status) === 'active' ? 'inactive' : 'active';
         $user->save();
 
         return $request->expectsJson()
