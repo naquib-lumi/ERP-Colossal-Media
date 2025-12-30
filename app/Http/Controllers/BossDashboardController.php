@@ -133,6 +133,7 @@ class BossDashboardController extends Controller
         $salespeople = DB::table('users')
             ->select('id', 'name')
             ->whereIn('role', ['salesperson', 'head-salesperson'])
+            ->where('status', 'active')
             ->orderBy('name')
             ->get();
 
