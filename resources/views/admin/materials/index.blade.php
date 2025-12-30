@@ -105,7 +105,7 @@
       <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
         <i class="bi bi-three-dots-vertical"></i>
       </button>
-      <div class="dropdown-menu">
+      <div class="dropdown-menu dm-menu">
         <button class="dropdown-item btnEdit" data-id="{{ $material->MaterialID }}" data-name="{{ $material->materialName }}" data-type="{{ $material->material_type_id }}" data-cost="{{ $material->unitCost }}">
           <i class="bi bi-pencil me-2"></i> Edit
         </button>
@@ -150,7 +150,7 @@
                   <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
                     <i class="bi bi-three-dots-vertical"></i>
                   </button>
-                  <div class="dropdown-menu">
+                  <div class="dropdown-menu dm-menu">
                     <button class="dropdown-item btnEditType" data-id="{{ $type->id }}" data-name="{{ $type->name }}">
                       <i class="bi bi-pencil me-2"></i> Edit
                     </button>
@@ -294,9 +294,12 @@
     const closer = t.closest('[data-close]');
     if (closer){ closeMask(closer.getAttribute('data-close')); return; }
     const toggle = t.closest('[data-toggle="dropdown"]');
-    $$('.dropdown-menu').forEach(m => {
-      if (toggle && m.previousElementSibling === toggle) {
-        m.style.display = m.style.display === 'block' ? 'none' : 'block';
+
+    // only handle OUR menus
+    $$('.dm-menu').forEach(m => {
+      const btn = m.previousElementSibling; // the kebab button
+      if (toggle && btn === toggle) {
+        m.style.display = (m.style.display === 'block' ? 'none' : 'block');
       } else {
         m.style.display = 'none';
       }
@@ -413,7 +416,7 @@
               <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
                 <i class="bi bi-three-dots-vertical"></i>
               </button>
-              <div class="dropdown-menu">
+              <div class="dropdown-menu dm-menu">
                 <button class="dropdown-item btnEditType" data-id="${data.type.id}" data-name="${data.type.name}">
                   <i class="bi bi-pencil me-2"></i> Edit
                 </button>

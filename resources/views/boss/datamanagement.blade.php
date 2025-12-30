@@ -456,23 +456,6 @@
 </div>
 </div>
 
-<!-- ========== MODALS ========== -->
-<!-- <div class="x-mask" id="mdlType">
-  <div class="x">
-    <div class="x-hd"><i class="bi bi-tags"></i> Add Material Type</div>
-    <div class="x-bd">
-      <div class="field">
-        <div class="label">Type Name *</div>
-        <input id="typeName" type="text" class="control" placeholder="e.g., PVC, Board, Fabric">
-      </div>
-    </div>
-    <div class="x-ft">
-      <button class="btn btn-ghost" data-close="mdlType">Cancel</button>
-      <button class="btn btn-primary" id="btnSaveType">Save Type</button>
-    </div>
-  </div>
-</div> -->
-
 {{-- Manage Material Types modal --}}
 <div id="mdlTypes" class="x-mask" aria-hidden="true">
   <div class="x-dialog" style="width:800px; max-width:90vw">
@@ -502,7 +485,7 @@
                   <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
                     <i class="bi bi-three-dots-vertical"></i>
                   </button>
-                  <div class="dropdown-menu">
+                  <div class="dropdown-menu ad-menu">
                     <button class="dropdown-item btnEditType" data-id="{{ $type->id }}" data-name="{{ $type->name }}">
                       <i class="bi bi-pencil me-2"></i> Edit
                     </button>
@@ -667,20 +650,30 @@
   });
 
   // Dropdown (simple)
-  document.addEventListener('click', (e) => {
-    const kebab = e.target.closest('.kebab');
-    if (kebab) {
-      const container = kebab.closest('td') || kebab.parentElement;
-      // close all menus first
-      document.querySelectorAll('.ad-menu, .dropdown-menu').forEach(m => (m.style.display = 'none'));
-      // toggle the one in this cell / header
-      const menu = container?.querySelector('.ad-menu, .dropdown-menu');
-      if (menu) menu.style.display = (menu.style.display === 'block' ? 'none' : 'block');
-      return;
+// Dropdown (ONLY for Data Management kebab menus)
+document.addEventListener('click', (e) => {
+  const kebab = e.target.closest('.kebab');
+
+  // If click is on kebab, toggle only the nearest custom menu
+  if (kebab) {
+    const container = kebab.closest('td') || kebab.parentElement;
+
+    // close only our custom menus
+    document.querySelectorAll('.ad-menu').forEach(m => (m.style.display = 'none'));
+
+    const menu = container?.querySelector('.ad-menu');
+    if (menu) {
+      menu.style.display = (menu.style.display === 'block' ? 'none' : 'block');
     }
-    // clicked outside → close menus
-    document.querySelectorAll('.ad-menu, .dropdown-menu').forEach(m => (m.style.display = 'none'));
-  });
+
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+
+  // click outside -> close only our custom menus
+  document.querySelectorAll('.ad-menu').forEach(m => (m.style.display = 'none'));
+});
 
   function openMask(id){ document.getElementById(id)?.classList.add('show'); }
   function closeMask(id){ document.getElementById(id)?.classList.remove('show'); }
@@ -906,7 +899,7 @@ document.addEventListener('click', (e) => {
               <button class="kebab" data-toggle="dropdown" aria-expanded="false" title="Actions">
                 <i class="bi bi-three-dots-vertical"></i>
               </button>
-              <div class="dropdown-menu">
+              <div class="dropdown-menu ad-menu">
                 <button class="dropdown-item btnEditType" data-id="${type.id}" data-name="${type.name}">
                   <i class="bi bi-pencil me-2"></i> Edit
                 </button>
