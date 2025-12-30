@@ -466,6 +466,8 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         
         // Users
         Route::get('/boss/manageuser', [BossManageUserController::class, 'manageUser'])->name('boss.manageuser');
+        Route::patch('/boss/user/{user}/resetpassword', [BossManageUserController::class, 'resetPassword'])->name('boss.user.resetpassword');
+
         Route::get('/boss/user', [BossManageUserController::class, 'user'])->name('boss.user'); // DataTables JSON（可选）
         Route::post('/boss/user', [BossManageUserController::class, 'storeUser'])->name('boss.user.store');
         Route::put('/boss/user/{user}', [BossManageUserController::class, 'updateUser'])->name('boss.user.update');
