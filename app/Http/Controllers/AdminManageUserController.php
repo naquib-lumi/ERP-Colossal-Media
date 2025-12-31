@@ -39,8 +39,8 @@ class AdminManageUserController extends Controller
         if (!Auth::user()->hasRole('admin')) abort(403, 'Unauthorized');
 
      $users = User::query()
-    ->where('role', '!=', 'admin')
-    // ->where('role', '!=', 'boss')
+    //->where('role', '!=', 'admin')
+    ->where('role', '!=', 'boss')
     ->orderBy('name')
     ->get();
 
