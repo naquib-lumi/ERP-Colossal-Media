@@ -35,8 +35,8 @@ class BossManageUserController extends Controller
         if (!Auth::user()->hasRole('boss')) abort(403, 'Unauthorized');
 
         $users = User::query()
-        ->where('role', '!=', 'admin')
-        // ->where('role', '!=', 'boss')
+        //->where('role', '!=', 'admin')
+        ->where('role', '!=', 'boss')
         ->orderBy('name')
         ->get();
 
