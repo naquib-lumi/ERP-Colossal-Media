@@ -40,7 +40,7 @@ class AdminManageUserController extends Controller
 
      $users = User::query()
     ->where('role', '!=', 'admin')
-    ->where('role', '!=', 'boss')
+    // ->where('role', '!=', 'boss')
     ->orderBy('name')
     ->get();
 
@@ -63,7 +63,8 @@ class AdminManageUserController extends Controller
 
         $query = User::query()
             ->select(['id','name','email','contact_number','status','role','created_at','updated_at'])
-            ->where('role', '!=', 'admin');
+            ->where('role', '!=', 'admin')
+            ->where('role', '!=', 'boss');
 
         if ($q !== '') {
             $query->where(function($w) use ($q){
