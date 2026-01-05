@@ -308,7 +308,7 @@
             <tr id="job-{{ $row->ProductID }}" class="js-row-open" data-code="{{ $row->display_product_id }}" data-href="{{ $showUrl }}" style="cursor:pointer;">
               <td class="whitespace-nowrap font-medium">{{ $row->display_product_id }}</td>
               <td>{{ ($row->printer ?? '-') === '-' ? '—' : $row->printer }}</td>
-              <td>{{ is_numeric($row->sq_inch ?? null) ? number_format((float)$row->sq_inch, 0).' sq in' : '0 sq in' }}</td>
+              <td>{{ number_format((float)($row->sq_inch ?? 0), 4) }} sq in</td>
               <td class="td-deadline {{ $dlClass }}" data-date="{{ $deadlineRaw ?? '' }}">
                 {{ $deadline }}
                 @if($isOverdue)

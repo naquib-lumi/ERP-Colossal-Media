@@ -330,7 +330,7 @@
               style="cursor:pointer;">
             <td class="whitespace-nowrap font-medium">{{ $j->display_product_id }}</td>
             <td>{{ ($j->cutter ?? '-') === '-' ? '—' : $j->cutter }}</td>
-            <td>{{ is_numeric($j->sq_inch ?? null) ? number_format((float)$j->sq_inch, 0).' sq in' : '0 sq in' }}</td>
+            <td>{{ number_format((float)($j->sq_inch ?? 0), 4) }} sq in</td>
 
             <td class="td-deadline {{ $dlClass }}" data-date="{{ $j->deadline ?: '' }}">
               {{ $deadlineStr }}

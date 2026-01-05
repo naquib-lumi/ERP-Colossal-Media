@@ -36,7 +36,31 @@ class FurnishingController extends Controller
         $sbStart = $readDate($request->get('submitted_from'));
         $sbEnd   = $readDate($request->get('submitted_to'));
 
-        $sqExpr = 'SUM(IFNULL(pi.sizeWidth,0) * IFNULL(pi.sizeHeight,0))'; // display only
+        // Unit comes from product_items.sizeUnit (default is 'mm' in your table)
+        $unitExpr = "COALESCE(NULLIF(LOWER(TRIM(pi.sizeUnit)), ''), 'in')";
+
+        $widthInExpr = "
+        CASE
+        WHEN $unitExpr IN ('mm','millimeter','millimetre') THEN (IFNULL(pi.sizeWidth,0) / 25.4)
+        WHEN $unitExpr IN ('cm','centimeter','centimetre') THEN (IFNULL(pi.sizeWidth,0) / 2.54)
+        WHEN $unitExpr IN ('ft','feet','foot')             THEN (IFNULL(pi.sizeWidth,0) * 12)
+        WHEN $unitExpr IN ('in','inch','inches')           THEN  IFNULL(pi.sizeWidth,0)
+        ELSE IFNULL(pi.sizeWidth,0) -- fallback: treat as inch
+        END
+        ";
+
+        $heightInExpr = "
+        CASE
+        WHEN $unitExpr IN ('mm','millimeter','millimetre') THEN (IFNULL(pi.sizeHeight,0) / 25.4)
+        WHEN $unitExpr IN ('cm','centimeter','centimetre') THEN (IFNULL(pi.sizeHeight,0) / 2.54)
+        WHEN $unitExpr IN ('ft','feet','foot')             THEN (IFNULL(pi.sizeHeight,0) * 12)
+        WHEN $unitExpr IN ('in','inch','inches')           THEN  IFNULL(pi.sizeHeight,0)
+        ELSE IFNULL(pi.sizeHeight,0)
+        END
+        ";
+
+        // Total SQ INCH per product = sum of each item's (width_in * height_in)
+        $sqExpr = "ROUND(SUM(($widthInExpr) * ($heightInExpr)), 4)";
 
         $jobs = DB::table('products as p')
             ->leftJoin('orders as o', 'p.OrderID', '=', 'o.id')
