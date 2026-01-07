@@ -972,7 +972,7 @@ class ArtistController extends Controller
             'products.*.delete_remarks.*'       => ['integer'],
 
             // attachments
-            'attachments.*'                     => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps','max:204800'],
+            'attachments.*'                     => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps','max:215040'],
             'delete_attachments'                => ['array'],
             'delete_attachments.*'              => ['string'],
         ];
@@ -1730,7 +1730,7 @@ class ArtistController extends Controller
         }
 
         $request->validate([
-            'file' => 'required|file|max:204800|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ps,ai',
+            'file' => 'required|file|max:215040|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ps,ai',
         ]);
 
         $file = $request->file('file');
