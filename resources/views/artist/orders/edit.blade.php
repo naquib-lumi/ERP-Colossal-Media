@@ -3225,16 +3225,17 @@
             }
           }
           return true;
-        } else {
-          if (!silent) {
-            await Swal.fire({
-              icon: 'error',
-              title: 'Save failed',
-              text: data.message || `HTTP ${res.status} — please try again`
-            });
-          }
-          return false;
-        }
+        } 
+        // else {
+          // if (!silent) {
+          //  await Swal.fire({
+          //    icon: 'error',
+          //    title: 'Save failed',
+          //    text: data.message || `HTTP ${res.status} — please try again`
+          //  });
+          // }
+          // return false;
+        // }
       } catch (e) {
         console.error(e);
         loading(false); // be sure to hide on network errors too
