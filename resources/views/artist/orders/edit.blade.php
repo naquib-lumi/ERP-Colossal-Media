@@ -3193,16 +3193,13 @@
         });
 
         if (res.status === 422) {
-          data = await res.json().catch(() => ({}));
-          // 2) hide loading BEFORE showing SweetAlert
-          loading(false);
+          const data = await res.json().catch(() => ({}));
           const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
           await Swal.fire({
             icon: 'error',
             title: 'Validation error',
             text: msg
           });
-          return false;
         }
 
         data = await res.json().catch(() => ({}));

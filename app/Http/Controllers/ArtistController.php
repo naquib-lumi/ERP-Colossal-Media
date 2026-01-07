@@ -972,7 +972,7 @@ class ArtistController extends Controller
             'products.*.delete_remarks.*'       => ['integer'],
 
             // attachments
-            'attachments.*'                     => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps','max:204800'],
+            'attachments.*'                     => ['file','mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps','max:102400'],
             'delete_attachments'                => ['array'],
             'delete_attachments.*'              => ['string'],
         ];
@@ -1049,7 +1049,14 @@ class ArtistController extends Controller
 
         $request->merge($payload);
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make(
+            $request->all(),
+            $rules,
+            [
+                // 🔴 custom message for size
+                'attachments.*.max'   => 'Attachment size cannot be more than 100MB.',
+            ]
+        );
         if ($validator->fails()) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -1729,9 +1736,16 @@ class ArtistController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $request->validate([
-            'file' => 'required|file|max:204800|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ps,ai',
-        ]);
+        $request->validate(
+            [
+                'file' => 'required|file|max:102400|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,ps,ai',
+            ],
+            [
+                // 🔴 main one you care about
+                'file.max'   => 'Attachment size cannot be more than 100MB.',
+                
+            ]
+        );
 
         $file = $request->file('file');
         $dir  = "orders/{$order->id}/attachments";
