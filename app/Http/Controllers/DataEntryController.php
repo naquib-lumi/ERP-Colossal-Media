@@ -693,35 +693,28 @@ class DataEntryController extends Controller
 
         $payload = $request->all();
 
-        // If front-end sent compressed items JSON, expand it back into products[*].items
+        // Expand compact items JSON (products_items_json) back into products[*].items
         if (!empty($payload['products_items_json'])) {
-            $itemsBlocks = json_decode($payload['products_items_json'], true);
+            $itemsByIndex = json_decode($payload['products_items_json'], true);
 
-            if (json_last_error() === JSON_ERROR_NONE && is_array($itemsBlocks)) {
-                // Index by product_id for quick lookup
-                $byProductId = [];
-                foreach ($itemsBlocks as $block) {
-                    $pid = isset($block['product_id']) ? (int) $block['product_id'] : 0;
-                    if ($pid > 0) {
-                        $byProductId[$pid] = isset($block['items']) && is_array($block['items'])
-                            ? $block['items']
-                            : [];
-                    }
-                }
-
+            if (json_last_error() === JSON_ERROR_NONE && is_array($itemsByIndex)) {
                 if (!empty($payload['products']) && is_array($payload['products'])) {
-                    foreach ($payload['products'] as &$pg) {
-                        $pid = isset($pg['product_id']) ? (int) $pg['product_id'] : 0;
-                        if ($pid > 0 && array_key_exists($pid, $byProductId)) {
-                            $pg['items'] = $byProductId[$pid];
+                    foreach ($itemsByIndex as $pIndex => $block) {
+                        $pIndex = (int) $pIndex;
+                        if (!isset($payload['products'][$pIndex])) {
+                            continue;
+                        }
+                        if (!empty($block['items']) && is_array($block['items'])) {
+                            $payload['products'][$pIndex]['items'] = $block['items'];
+                        } else {
+                            // no items for this product index
+                            $payload['products'][$pIndex]['items'] = [];
                         }
                     }
-                    unset($pg);
                 }
             }
 
-            // We don't need the raw JSON anymore
-            unset($payload['products_items_json']);
+            unset($payload['products_items_json']); // we don't need the raw JSON afterwards
         }
 
         if (!empty($payload['products']) && is_array($payload['products'])) {

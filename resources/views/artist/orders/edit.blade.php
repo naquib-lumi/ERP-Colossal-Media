@@ -3031,7 +3031,8 @@
 
     // Build FormData but include values from disabled inputs by temporarily enabling them.
     function buildFormDataIncludingDisabled(formEl) {
-      // Only temporarily enable disabled fields that are NOT explicitly marked to skip
+      // Only temporarily re-enable fields that are disabled
+      // for UI reasons, not the ones we explicitly skip
       const disabled = Array.from(
         formEl.querySelectorAll('[disabled]:not([data-skip-enable="1"])')
       );
@@ -3061,85 +3062,90 @@
      * so they are NOT included in the normal FormData payload (avoids max_input_vars).
      */
     function prepareItemsJson(formEl) {
-      const result = [];
-      const products = formEl.querySelectorAll('[data-product-row]');
+      // productsIndexed[index] = { items: [...] }
+      const productsIndexed = {};
 
-      products.forEach(productEl => {
-        const pidInput = productEl.querySelector(
-          'input[name^="products"][name$="[product_id]"]'
-        );
-        const productId = pidInput ? parseInt(pidInput.value || '0', 10) || null : null;
+      // Find all item-related fields in the form
+      formEl
+        .querySelectorAll('input[name^="products["][name*="[items]"], select[name^="products["][name*="[items]"], textarea[name^="products["][name*="[items]"]')
+        .forEach(field => {
+          const name = field.name;
+          if (!name) return;
 
-        const productBlock = {
-          product_id: productId,
-          items: [],
-        };
+          // Match patterns like:
+          // products[0][items][3][itemName]
+          // products[1][items][10][material][]
+          const m = name.match(/^products\[(\d+)]\[items]\[(\d+)]\[(.+?)](\[\])?$/);
+          if (!m) return;
 
-        // Each accordion-item with data-kind="item" is a single item row
-        const itemRows = productEl.querySelectorAll('.accordion-item[data-kind="item"]');
+          const productIndex = parseInt(m[1], 10); // 0, 1, 2, ...
+          const itemIndex    = parseInt(m[2], 10); // 0, 1, 2, ...
+          const key          = m[3];              // e.g. itemName, quantity, material
+          const isArray      = !!m[4];            // material[]
 
-        itemRows.forEach(itemEl => {
-          const row = {};
-
-          // Grab all inputs/selects/textareas that belong to this item
-          itemEl
-            .querySelectorAll('input[name], select[name], textarea[name]')
-            .forEach(field => {
-              const name = field.name;
-              if (!name) return;
-
-              // Match: products[0][items][3][itemName] or ...[material][]
-              const m = name.match(/products\[\d+]\[items]\[\d+]\[(.+?)](\[\])?$/);
-              if (!m) return;
-
-              const key = m[1];       // e.g. "itemName", "quantity", "material"
-              const isArray = !!m[2]; // material[] is an array
-              let value = field.value;
-
-              if (field.type === 'checkbox' || field.type === 'radio') {
-                if (!field.checked) value = null;
-              }
-
-              if (value === '' || value === null || typeof value === 'undefined') {
-                return;
-              }
-
-              if (isArray) {
-                if (!Array.isArray(row[key])) row[key] = [];
-                row[key].push(value);
-              } else {
-                row[key] = value;
-              }
-            });
-
-          // Mirror the server-side "empty row" guard:
-          const check = { ...row };
-          delete check.id;
-          delete check.material;
-
-          const hasNonEmpty = Object.values(check).some(
-            v => v !== '' && v !== null && typeof v !== 'undefined'
-          );
-          const hasMaterial = Array.isArray(row.material)
-            ? row.material.length > 0
-            : !!row.material;
-
-          if (!hasNonEmpty && !hasMaterial) {
-            return; // completely empty → skip
+          // Initialize structures
+          if (!productsIndexed[productIndex]) {
+            productsIndexed[productIndex] = { items: [] };
+          }
+          if (!productsIndexed[productIndex].items[itemIndex]) {
+            productsIndexed[productIndex].items[itemIndex] = {};
           }
 
-          productBlock.items.push(row);
+          let value = field.value;
+
+          // Handle checkbox / radio
+          if (field.type === 'checkbox' || field.type === 'radio') {
+            if (!field.checked) return;
+          }
+
+          if (value === '' || value === null || typeof value === 'undefined') {
+            return;
+          }
+
+          const item = productsIndexed[productIndex].items[itemIndex];
+
+          if (isArray) {
+            if (!Array.isArray(item[key])) item[key] = [];
+            item[key].push(value);
+          } else {
+            item[key] = value;
+          }
         });
 
-        result.push(productBlock);
-      });
+      // Apply the same "empty row" filter as backend:
+      for (const pIndex in productsIndexed) {
+        const product = productsIndexed[pIndex];
+        const filteredItems = [];
 
-      const hidden = formEl.querySelector('#products-items-json');
-      if (hidden) {
-        hidden.value = JSON.stringify(result);
+        (product.items || []).forEach(row => {
+          if (!row) return;
+
+          const clone = { ...row };
+          delete clone.id;
+          delete clone.material;
+
+          const hasNonEmpty = Object.values(clone).some(
+            v => v !== '' && v !== null && typeof v !== 'undefined'
+          );
+
+          const hasMaterial =
+            Array.isArray(row.material) ? row.material.length > 0 : !!row.material;
+
+          if (hasNonEmpty || hasMaterial) {
+            filteredItems.push(row);
+          }
+        });
+
+        product.items = filteredItems;
       }
 
-      // Mark all original item inputs so they are ignored by FormData
+      // Store as JSON in hidden field
+      const hidden = formEl.querySelector('#products-items-json');
+      if (hidden) {
+        hidden.value = JSON.stringify(productsIndexed);
+      }
+
+      // IMPORTANT: Disable all original item inputs so they don't count toward max_input_vars
       formEl
         .querySelectorAll('[name^="products["][name*="[items]"]')
         .forEach(el => {
@@ -3153,7 +3159,7 @@
 
       isDraftEl.value = isDraft ? 1 : 0;
 
-      // Build compact JSON of item rows BEFORE we construct FormData
+      // 🔴 NEW: build items JSON and disable original item inputs
       prepareItemsJson(form);
 
       const fd = buildFormDataIncludingDisabled(form);
