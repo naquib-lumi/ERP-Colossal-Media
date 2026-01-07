@@ -341,6 +341,8 @@
   @method('PUT')
 
   <input type="hidden" id="is_draft" name="is_draft" value="0">
+  <input type="hidden" id="products-items-json" name="products_items_json" value="">
+
   @php
   $isSubmitted = isset($isSubmitted) ? (bool)$isSubmitted : ((int)($order->submit ?? 0) === 1);
 
@@ -3029,19 +3031,130 @@
 
     // Build FormData but include values from disabled inputs by temporarily enabling them.
     function buildFormDataIncludingDisabled(formEl) {
-      const disabled = Array.from(formEl.querySelectorAll('[disabled]'));
-      // Temporarily enable everything disabled so FormData sees them
-      disabled.forEach(el => el.removeAttribute('disabled'));
+      // Only temporarily enable disabled fields that are NOT explicitly marked to skip
+      const disabled = Array.from(
+        formEl.querySelectorAll('[disabled]:not([data-skip-enable="1"])')
+      );
+
+      disabled.forEach(el => {
+        el.dataset._wasDisabled = '1';
+        el.disabled = false;
+      });
+
       const fd = new FormData(formEl);
-      // Restore the disabled state
-      disabled.forEach(el => el.setAttribute('disabled', 'disabled'));
+
+      disabled.forEach(el => {
+        if (el.dataset._wasDisabled === '1') {
+          el.disabled = true;
+          delete el.dataset._wasDisabled;
+        }
+      });
+
       return fd;
+    }
+
+    /**
+     * Collect all item rows for each product into a compact JSON structure:
+     *   [{ product_id: 123, items: [ {itemName: '...', ...}, ...] }, ...]
+     * and store it in the hidden <input name="products_items_json">.
+     * Then mark all original item inputs with data-skip-enable="1" and disable them
+     * so they are NOT included in the normal FormData payload (avoids max_input_vars).
+     */
+    function prepareItemsJson(formEl) {
+      const result = [];
+      const products = formEl.querySelectorAll('[data-product-row]');
+
+      products.forEach(productEl => {
+        const pidInput = productEl.querySelector(
+          'input[name^="products"][name$="[product_id]"]'
+        );
+        const productId = pidInput ? parseInt(pidInput.value || '0', 10) || null : null;
+
+        const productBlock = {
+          product_id: productId,
+          items: [],
+        };
+
+        // Each accordion-item with data-kind="item" is a single item row
+        const itemRows = productEl.querySelectorAll('.accordion-item[data-kind="item"]');
+
+        itemRows.forEach(itemEl => {
+          const row = {};
+
+          // Grab all inputs/selects/textareas that belong to this item
+          itemEl
+            .querySelectorAll('input[name], select[name], textarea[name]')
+            .forEach(field => {
+              const name = field.name;
+              if (!name) return;
+
+              // Match: products[0][items][3][itemName] or ...[material][]
+              const m = name.match(/products\[\d+]\[items]\[\d+]\[(.+?)](\[\])?$/);
+              if (!m) return;
+
+              const key = m[1];       // e.g. "itemName", "quantity", "material"
+              const isArray = !!m[2]; // material[] is an array
+              let value = field.value;
+
+              if (field.type === 'checkbox' || field.type === 'radio') {
+                if (!field.checked) value = null;
+              }
+
+              if (value === '' || value === null || typeof value === 'undefined') {
+                return;
+              }
+
+              if (isArray) {
+                if (!Array.isArray(row[key])) row[key] = [];
+                row[key].push(value);
+              } else {
+                row[key] = value;
+              }
+            });
+
+          // Mirror the server-side "empty row" guard:
+          const check = { ...row };
+          delete check.id;
+          delete check.material;
+
+          const hasNonEmpty = Object.values(check).some(
+            v => v !== '' && v !== null && typeof v !== 'undefined'
+          );
+          const hasMaterial = Array.isArray(row.material)
+            ? row.material.length > 0
+            : !!row.material;
+
+          if (!hasNonEmpty && !hasMaterial) {
+            return; // completely empty → skip
+          }
+
+          productBlock.items.push(row);
+        });
+
+        result.push(productBlock);
+      });
+
+      const hidden = formEl.querySelector('#products-items-json');
+      if (hidden) {
+        hidden.value = JSON.stringify(result);
+      }
+
+      // Mark all original item inputs so they are ignored by FormData
+      formEl
+        .querySelectorAll('[name^="products["][name*="[items]"]')
+        .forEach(el => {
+          el.dataset.skipEnable = '1';
+          el.disabled = true;
+        });
     }
 
     async function send(isDraft, options = {}) {
       const silent = !!options.silent;
-      
+
       isDraftEl.value = isDraft ? 1 : 0;
+
+      // Build compact JSON of item rows BEFORE we construct FormData
+      prepareItemsJson(form);
 
       const fd = buildFormDataIncludingDisabled(form);
       fd.set('is_draft', isDraftEl.value);
@@ -3068,7 +3181,8 @@
           credentials: 'same-origin',
           headers: {
             'X-CSRF-TOKEN': csrf,
-            'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
           }
         });
 
@@ -3090,7 +3204,8 @@
         // 2) hide loading BEFORE showing SweetAlert
         loading(false);
 
-        if (res.ok && data?.ok) {
+        // Treat any HTTP 2xx as success; use JSON message only if available
+        if (res.ok) {
           if (!silent) {
             await Swal.fire({
               icon: 'success',
@@ -3106,13 +3221,13 @@
               window.location.href = '/artist/orders';
             }
           }
-          return true; // allow caller to know it succeeded
+          return true;
         } else {
           if (!silent) {
             await Swal.fire({
               icon: 'error',
               title: 'Save failed',
-              text: data?.message || `HTTP ${res.status} — please try again`
+              text: data.message || `HTTP ${res.status} — please try again`
             });
           }
           return false;

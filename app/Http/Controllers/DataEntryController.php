@@ -614,8 +614,20 @@ class DataEntryController extends Controller
             }
         }
 
+        // If products_json is present, decode into products[]
+        if ($request->filled('products_json')) {
+            $decoded = json_decode($request->input('products_json'), true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $payload = $request->all();
+                $payload['products'] = $decoded;
+                $request->replace($payload); // now $request->input('products') works as before
+            }
+        }
+
         // ----- Validation -----
         $rules = [
+            'products_items_json'              => ['nullable', 'string'],
             'design_confirmed'  => ['required','boolean'],
             'is_draft'          => ['required','in:0,1'],
 
@@ -680,6 +692,37 @@ class DataEntryController extends Controller
         ];
 
         $payload = $request->all();
+
+        // If front-end sent compressed items JSON, expand it back into products[*].items
+        if (!empty($payload['products_items_json'])) {
+            $itemsBlocks = json_decode($payload['products_items_json'], true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($itemsBlocks)) {
+                // Index by product_id for quick lookup
+                $byProductId = [];
+                foreach ($itemsBlocks as $block) {
+                    $pid = isset($block['product_id']) ? (int) $block['product_id'] : 0;
+                    if ($pid > 0) {
+                        $byProductId[$pid] = isset($block['items']) && is_array($block['items'])
+                            ? $block['items']
+                            : [];
+                    }
+                }
+
+                if (!empty($payload['products']) && is_array($payload['products'])) {
+                    foreach ($payload['products'] as &$pg) {
+                        $pid = isset($pg['product_id']) ? (int) $pg['product_id'] : 0;
+                        if ($pid > 0 && array_key_exists($pid, $byProductId)) {
+                            $pg['items'] = $byProductId[$pid];
+                        }
+                    }
+                    unset($pg);
+                }
+            }
+
+            // We don't need the raw JSON anymore
+            unset($payload['products_items_json']);
+        }
 
         if (!empty($payload['products']) && is_array($payload['products'])) {
             foreach ($payload['products'] as &$pg) {
@@ -1144,10 +1187,20 @@ class DataEntryController extends Controller
                 ? 'Order submitted.'
                 : ($request->input('is_draft') === '1' ? 'Draft saved.' : 'Order updated.');
 
-            if ($request->expectsJson()) {
-                return response()->json(['ok' => true, 'message' => $message]);
+            if (
+                $request->ajax() ||
+                $request->wantsJson() ||
+                $request->header('X-Requested-With') === 'XMLHttpRequest'
+            ) {
+                return response()->json([
+                    'ok'      => true,
+                    'message' => $message,
+                ]);
             }
-            return back()->with('success', $message);
+
+            return redirect()
+                ->route('artist.orders')
+                ->with('success', $message);
         } catch (\Throwable $e) {
             Log::error('Data-entry update failed', [
                 'order_id' => $order->id,
@@ -1155,8 +1208,15 @@ class DataEntryController extends Controller
                 'trace'    => $e->getTraceAsString(),
             ]);
 
-            if ($request->expectsJson()) {
-                return response()->json(['ok' => false, 'message' => 'Failed to save. Please try again.'], 500);
+            if (
+                $request->ajax() ||
+                $request->wantsJson() ||
+                $request->header('X-Requested-With') === 'XMLHttpRequest'
+            ) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => 'Failed to save. Please try again.',
+                ], 500);
             }
             return back()->with('error', 'Failed to save. Please try again.');
         }
