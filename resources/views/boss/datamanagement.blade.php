@@ -192,6 +192,10 @@
     <a href="{{ route('boss.datamanagement', ['tab' => 'another']) }}"
       class="tab-btn {{ $activeTab === 'another' ? 'active' : '' }}"
       data-target="#anotherData">Order Costing</a>
+
+    <a href="{{ route('boss.datamanagement', ['tab' => 'machines']) }}"
+      class="tab-btn {{ $activeTab === 'machines' ? 'active' : '' }}"
+      data-target="#machinesData">Machines Data</a>
   </div>
   <div class="tabs-border"></div>
 
@@ -312,6 +316,73 @@
       </div>
     </div>
   </div>
+
+    <div class="tab-panel {{ ($activeTab === 'machines') ? 'active' : '' }}" id="machinesData">
+  <div class="card">
+    <div class="card-hd">
+      <div>
+        <div class="title" style="font-size: 20px !important;">Machines Data</div>
+        <div class="muted" style="font-size: 12px; color: var(--muted); margin-top:4px;">
+          Showing all machines for this system.
+        </div>
+      </div>
+      <div class="actions">
+        <button id="btnAddMachine" class="btn btn-dark">
+          <i class="bi bi-plus-lg"></i> Add Machine
+        </button>
+      </div>
+    </div>
+
+    {{-- Search + filter toolbar --}}
+    <div class="toolbar" style="border-top:1px solid #edf0f5;padding:10px 16px;display:flex;gap:12px;align-items:center;">
+      <div class="search" style="flex:1;">
+        <i class="bi bi-search"></i>
+        <input
+          id="machineSearch"
+          type="search"
+          placeholder="Search machines..."
+        >
+      </div>
+
+      <div class="select" style="width:220px;">
+        <select id="machineFilterType">
+          <option value="">All Machine Types</option>
+          <option value="printer">Printer</option>
+          <option value="cutter">Cutter</option>
+          <option value="lamination">Lamination</option>
+        </select>
+      </div>
+
+      <button id="machineApplyFilter" class="btn btn-dark" style="height:36px;">Apply</button>
+      <button id="machineResetFilter" class="btn btn-ghost" style="height:36px;">Reset</button>
+    </div>
+
+    <div class="table-wrap" style="padding:6px 12px 10px;">
+      <table class="ad-table" id="machinesTable">
+        <thead>
+          <tr>
+            <th style="font-weight:bold;width:60px;">#</th>
+            <th style="font-weight:bold;">Machine Name</th>
+            <th style="font-weight:bold;">Machine Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse(($machines ?? []) as $machine)
+            <tr>
+              <td class="ad-num">{{ $loop->iteration }}</td>
+              <td>{{ $machine->machine_name }}</td>
+              <td>{{ ucfirst($machine->machine_type) }}</td>
+            </tr>
+          @empty
+            <tr id="machinesEmptyRow">
+              <td colspan="3" class="ad-empty">No machines found.</td>
+            </tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
   <!-- Keep "Another Data" as-is (do not touch) -->
 <div class="tab-panel {{ ($activeTab === 'another') ? 'active' : '' }}" id="anotherData">
@@ -552,6 +623,40 @@
   </div>
 </div>
 
+<div class="x-mask" id="mdlMachine">
+  <div class="x">
+    <div class="x-hd"><i class="bi bi-plus-square"></i> Add Machine</div>
+
+    <div class="x-bd">
+      <div class="field">
+        <div class="label">Machine Name *</div>
+        <input
+          id="machineName"
+          type="text"
+          class="control"
+          placeholder="e.g. Handtop Hybrid">
+      </div>
+
+      <div class="field">
+        <div class="label">Machine Type *</div>
+        <select id="machineType" class="control">
+          <option value="">Select type</option>
+          <option value="printer">Printer</option>
+          <option value="cutter">Cutter</option>
+          <option value="lamination">Lamination</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="x-ft">
+      <button class="btn btn-ghost" data-close="mdlMachine">Cancel</button>
+      <button class="btn btn-dark" id="btnSaveMachine">
+        <i class="bi bi-floppy2"></i> Save Machine
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="x-mask" id="mdlQuickEdit">
   <div class="x">
     <div class="x-hd">
@@ -634,6 +739,98 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+  
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    const table      = document.getElementById('machinesTable');
+    if (!table) return;
+
+    const tbody      = table.querySelector('tbody');
+    const emptyRow   = document.getElementById('machinesEmptyRow');
+    const searchInput = document.getElementById('machineSearch');
+    const typeSelect  = document.getElementById('machineFilterType');
+    const applyBtn    = document.getElementById('machineApplyFilter');
+    const resetBtn    = document.getElementById('machineResetFilter');
+
+    const TYPE_ORDER = {
+      printer: 0,
+      cutter: 1,
+      lamination: 2,
+    };
+
+    function getDataRows() {
+      return Array.from(tbody.querySelectorAll('tr'))
+        .filter(tr => !tr.id || tr.id !== 'machinesEmptyRow');
+    }
+
+    function sortMachines() {
+      const rows = getDataRows();
+      rows.sort((a, b) => {
+        const typeA = (a.children[2]?.textContent || '').trim().toLowerCase();
+        const typeB = (b.children[2]?.textContent || '').trim().toLowerCase();
+        const orderA = TYPE_ORDER[typeA] ?? 999;
+        const orderB = TYPE_ORDER[typeB] ?? 999;
+
+        if (orderA !== orderB) return orderA - orderB;
+
+        const nameA = (a.children[1]?.textContent || '').trim().toLowerCase();
+        const nameB = (b.children[1]?.textContent || '').trim().toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      rows.forEach(tr => tbody.appendChild(tr));
+    }
+
+    function applyFilter() {
+      const q = (searchInput?.value || '').trim().toLowerCase();
+      const t = (typeSelect?.value || '').trim().toLowerCase();
+
+      const rows = getDataRows();
+      let visibleCount = 0;
+
+      rows.forEach(tr => {
+        const nameText = (tr.children[1]?.textContent || '').trim().toLowerCase();
+        const typeText = (tr.children[2]?.textContent || '').trim().toLowerCase();
+
+        const matchSearch = !q || nameText.includes(q);
+        const matchType   = !t || typeText === t;
+
+        if (matchSearch && matchType) {
+          tr.style.display = '';
+          visibleCount++;
+          const numCell = tr.querySelector('.ad-num');
+          if (numCell) numCell.textContent = String(visibleCount);
+        } else {
+          tr.style.display = 'none';
+        }
+      });
+
+      if (emptyRow) {
+        emptyRow.style.display = visibleCount === 0 ? '' : 'none';
+      }
+    }
+
+    if (applyBtn) {
+      applyBtn.addEventListener('click', function () {
+        sortMachines();
+        applyFilter();
+      });
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function () {
+        if (searchInput) searchInput.value = '';
+        if (typeSelect) typeSelect.value = '';
+        sortMachines();
+        applyFilter();
+      });
+    }
+
+    // Initial default sort + show all
+    sortMachines();
+    applyFilter();
+  });
+})();
 (() => {
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
@@ -1017,6 +1214,97 @@ document.addEventListener('click', (e) => {
       });
   });
 
+    // Add Machine (with confirmation)
+  const btnAddMachine = document.getElementById('btnAddMachine');
+  if (btnAddMachine) {
+    btnAddMachine.addEventListener('click', () => openMask('mdlMachine'));
+  }
+
+  const btnSaveMachine = document.getElementById('btnSaveMachine');
+  if (btnSaveMachine) {
+    btnSaveMachine.addEventListener('click', () => {
+      const name = (document.getElementById('machineName')?.value || '').trim();
+      const type = (document.getElementById('machineType')?.value || '').trim();
+
+      if (!name) {
+        return Swal.fire({
+          icon: 'warning',
+          title: 'Machine name required',
+          text: 'Please enter a machine name.',
+        });
+      }
+
+      if (!type) {
+        return Swal.fire({
+          icon: 'warning',
+          title: 'Machine type required',
+          text: 'Please select a machine type.',
+        });
+      }
+
+      // Confirm before saving
+      Swal.fire({
+        icon: 'question',
+        title: 'Add this machine?',
+        text: 'Are you sure you want to add this machine? Once added, it cannot be undone.',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, add it',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+      }).then((result) => {
+        if (!result.isConfirmed) return;
+
+        Swal.fire({
+          title: 'Saving...',
+          didOpen: () => Swal.showLoading(),
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          showConfirmButton: false,
+        });
+
+        fetch("{{ route('boss.datamanagement.machines.store') }}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrf,
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            machine_name: name,
+            machine_type: type,
+          }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (!data || !data.success) {
+              return Swal.fire({
+                icon: 'error',
+                title: 'Failed to save',
+                text: data?.message || 'Unable to create machine. Please try again.',
+              });
+            }
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Machine added!',
+              timer: 1300,
+              showConfirmButton: false,
+            }).then(() => {
+              closeMask('mdlMachine');
+              location.reload();
+            });
+          })
+          .catch(() => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Server error',
+              text: 'Something went wrong while saving the machine.',
+            });
+          });
+      });
+    });
+  }
+
   // Edit (open)
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.btnEdit');
@@ -1365,13 +1653,18 @@ window.addEventListener('load', paginateTable);
   }
 
   function hashFor(targetSel) {
-    return targetSel === '#anotherData' ? '#another' : '#cost';
+    if (targetSel === '#anotherData') return '#another';
+    if (targetSel === '#machinesData') return '#machines';
+    return '#cost';
   }
 
   function applyFromHash() {
     const h = (location.hash || '').toLowerCase();
-    if (h === '#another') activate('#anotherData');
-    else {
+    if (h === '#another') {
+      activate('#anotherData');
+    } else if (h === '#machines') {
+      activate('#machinesData');
+    } else {
       activate('#costData');
       if (h !== '#cost') history.replaceState(null, '', '#cost');
     }
@@ -1394,6 +1687,98 @@ window.addEventListener('load', paginateTable);
   // 3) Also handle back/forward
   window.addEventListener('hashchange', applyFromHash);
 })();
+
+// ----- Machines table helpers -----
+  const MACHINE_TYPE_ORDER = {
+    printer: 0,
+    cutter: 1,
+    lamination: 2,
+  };
+
+  function sortMachinesTable() {
+    const table = document.getElementById('machinesTable');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'))
+      .filter(tr => tr.id !== 'machinesEmptyRow');
+
+    rows.sort((a, b) => {
+      const typeA = (a.children[2]?.textContent || '').trim().toLowerCase();
+      const typeB = (b.children[2]?.textContent || '').trim().toLowerCase();
+      const orderA = MACHINE_TYPE_ORDER[typeA] ?? 999;
+      const orderB = MACHINE_TYPE_ORDER[typeB] ?? 999;
+
+      if (orderA !== orderB) return orderA - orderB;
+
+      const nameA = (a.children[1]?.textContent || '').trim().toLowerCase();
+      const nameB = (b.children[1]?.textContent || '').trim().toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
+    rows.forEach(tr => tbody.appendChild(tr));
+  }
+
+  function applyMachineFilterAndSearch() {
+    const table = document.getElementById('machinesTable');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    const searchInput = document.getElementById('machineSearch');
+    const typeSelect  = document.getElementById('machineFilterType');
+    const emptyRow    = document.getElementById('machinesEmptyRow');
+
+    const q = (searchInput?.value || '').toLowerCase().trim();
+    const t = (typeSelect?.value || '').toLowerCase().trim();
+
+    const rows = Array.from(tbody.querySelectorAll('tr'))
+      .filter(tr => tr.id !== 'machinesEmptyRow');
+
+    let visible = 0;
+    rows.forEach(tr => {
+      const name = (tr.children[1]?.textContent || '').toLowerCase();
+      const typeText = (tr.children[2]?.textContent || '').toLowerCase();
+
+      const matchSearch = !q || name.includes(q);
+      const matchType   = !t || typeText === t;
+
+      if (matchSearch && matchType) {
+        tr.style.display = '';
+        const numCell = tr.querySelector('.ad-num');
+        if (numCell) numCell.textContent = (++visible).toString();
+      } else {
+        tr.style.display = 'none';
+      }
+    });
+
+    if (emptyRow) {
+      emptyRow.style.display = visible === 0 ? '' : 'none';
+    }
+  }
+
+  const btnMachineApply = document.getElementById('machineApplyFilter');
+  const btnMachineReset = document.getElementById('machineResetFilter');
+
+  if (btnMachineApply) {
+    btnMachineApply.addEventListener('click', () => {
+      sortMachinesTable();
+      applyMachineFilterAndSearch();
+    });
+  }
+
+  if (btnMachineReset) {
+    btnMachineReset.addEventListener('click', () => {
+      document.getElementById('machineSearch').value = '';
+      document.getElementById('machineFilterType').value = '';
+
+      sortMachinesTable();
+      applyMachineFilterAndSearch();
+    });
+  }
 
 document.addEventListener('DOMContentLoaded', () => {
   const tbody = document.getElementById('adBody'); // your tbody id
