@@ -423,10 +423,10 @@
             </a>
 
             {{-- Add Machine Type (frontend modal) --}}
-            <button type="button" class="btn btn-secondary"
+            <!-- <button type="button" class="btn btn-secondary"
                     data-bs-toggle="modal" data-bs-target="#addMachineModal">
               Add Machine Type
-            </button>
+            </button> -->
           </div>
 
         </div>

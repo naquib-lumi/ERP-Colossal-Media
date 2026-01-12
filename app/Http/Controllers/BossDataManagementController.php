@@ -37,6 +37,12 @@ class BossDataManagementController extends Controller
         $types = MaterialType::orderBy('name')->get();
         // $units = Unit::orderByRaw('COALESCE(label, name)')->pluck('label', 'id');
 
+        // Machines for Machines Data tab
+        $machines = DB::table('machines')
+            ->select('id', 'machine_name', 'machine_type')
+            ->orderBy('machine_name')
+            ->get();
+
         // Pull what we need once
         $rows = DB::table('product_items')
             ->select(['material', 'quantity', 'sizeWidth', 'sizeHeight', 'sizeUnit'])
@@ -255,6 +261,12 @@ class BossDataManagementController extends Controller
         });
         }
 
+        // Load machines for Machines Data tab
+        $machines = DB::table('machines')
+            ->select('id', 'machine_name', 'machine_type')
+            ->orderBy('machine_name')
+            ->get();
+
         // Pull ALL matching orders (we'll sort and paginate after computing totals)
         $ordersAll = collect($ordersQuery->orderBy('o.created_at', 'desc')->get());
 
@@ -270,7 +282,7 @@ class BossDataManagementController extends Controller
             $orders->appends($request->except('orders_page'));
 
             // IMPORTANT: use $types (not $type)
-            return view('boss.datamanagement', compact('materials', 'types', 'orders', 'activeTab'));
+            return view('boss.datamanagement', compact('materials', 'types', 'orders', 'activeTab', 'machines'));
         }
 
         // 2) Preload aggregates for ALL matching order IDs
@@ -393,7 +405,7 @@ class BossDataManagementController extends Controller
         );
         $orders->appends($request->except('orders_page'));
 
-        return view('boss.datamanagement', compact('materials', 'types', 'orders', 'activeTab'));
+        return view('boss.datamanagement', compact('materials', 'types', 'orders', 'activeTab', 'machines'));
     }
 
     public function orderProducts(int $orderId)
@@ -658,4 +670,36 @@ class BossDataManagementController extends Controller
         $material->delete();
         return response()->json(['success' => true]);
     }
+
+    public function storeMachine(Request $request)
+{
+    $data = $request->validate([
+        'machine_name' => 'required|string|max:255',
+        'machine_type' => 'required|in:printer,cutter,lamination',
+    ]);
+
+    $id = DB::table('machines')->insertGetId([
+        'user_id'      => Auth::id(),   // or null if you prefer
+        'machine_name' => $data['machine_name'],
+        'machine_type' => $data['machine_type'],
+        'created_at'   => now(),
+        'updated_at'   => now(),
+    ]);
+
+    if ($request->expectsJson()) {
+        return response()->json([
+            'success' => true,
+            'machine' => [
+                'id'           => $id,
+                'machine_name' => $data['machine_name'],
+                'machine_type' => $data['machine_type'],
+            ],
+        ]);
+    }
+
+    return redirect()
+        ->route('boss.datamanagement', ['tab' => 'machines'])
+        ->with('status', 'Machine added');
+}
+
 }
