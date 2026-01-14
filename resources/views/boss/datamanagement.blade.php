@@ -364,14 +364,42 @@
             <th style="font-weight:bold;width:60px;">#</th>
             <th style="font-weight:bold;">Machine Name</th>
             <th style="font-weight:bold;">Machine Type</th>
+            <th style="font-weight:bold;width:120px;">Status</th>
+            <th style="font-weight:bold;width:220px;">Actions</th>
           </tr>
         </thead>
         <tbody>
           @forelse(($machines ?? []) as $machine)
-            <tr>
+            <tr data-machine-id="{{ $machine->id }}">
               <td class="ad-num">{{ $loop->iteration }}</td>
-              <td>{{ $machine->machine_name }}</td>
-              <td>{{ ucfirst($machine->machine_type) }}</td>
+              <td class="machine-name-cell">{{ $machine->machine_name }}</td>
+              <td class="machine-type-cell">{{ ucfirst($machine->machine_type) }}</td>
+              <td class="machine-status-cell">
+                @if($machine->active)
+                  <span class="badge bg-success">Active</span>
+                @else
+                  <span class="badge bg-secondary">Inactive</span>
+                @endif
+              </td>
+              <td class="machine-actions-cell">
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-xs machine-edit-btn"
+                  data-id="{{ $machine->id }}"
+                  data-name="{{ $machine->machine_name }}"
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-xs machine-toggle-btn"
+                  data-id="{{ $machine->id }}"
+                  data-active="{{ (int)$machine->active }}"
+                >
+                  {{ $machine->active ? 'Deactivate' : 'Activate' }}
+                </button>
+              </td>
             </tr>
           @empty
             <tr id="machinesEmptyRow">
@@ -657,6 +685,31 @@
   </div>
 </div>
 
+<div class="x-mask" id="mdlMachineEdit">
+  <div class="x">
+    <div class="x-hd"><i class="bi bi-pencil-square"></i> Edit Machine</div>
+
+    <div class="x-bd">
+      <input type="hidden" id="editMachineId">
+      <div class="field">
+        <div class="label">Machine Name *</div>
+        <input
+          id="editMachineName"
+          type="text"
+          class="control"
+          placeholder="Machine name">
+      </div>
+    </div>
+
+    <div class="x-ft">
+      <button class="btn btn-ghost" data-close="mdlMachineEdit">Cancel</button>
+      <button class="btn btn-dark" id="btnUpdateMachine">
+        <i class="bi bi-floppy2"></i> Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="x-mask" id="mdlQuickEdit">
   <div class="x">
     <div class="x-hd">
@@ -742,11 +795,11 @@
   
 (function () {
   document.addEventListener('DOMContentLoaded', function () {
-    const table      = document.getElementById('machinesTable');
+    const table       = document.getElementById('machinesTable');
     if (!table) return;
 
-    const tbody      = table.querySelector('tbody');
-    const emptyRow   = document.getElementById('machinesEmptyRow');
+    const tbody       = table.querySelector('tbody');
+    const emptyRow    = document.getElementById('machinesEmptyRow');
     const searchInput = document.getElementById('machineSearch');
     const typeSelect  = document.getElementById('machineFilterType');
     const applyBtn    = document.getElementById('machineApplyFilter');
@@ -758,6 +811,9 @@
       lamination: 2,
     };
 
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const baseUrl = "{{ url('/boss/datamanagement/machines') }}";
+
     function getDataRows() {
       return Array.from(tbody.querySelectorAll('tr'))
         .filter(tr => !tr.id || tr.id !== 'machinesEmptyRow');
@@ -766,15 +822,15 @@
     function sortMachines() {
       const rows = getDataRows();
       rows.sort((a, b) => {
-        const typeA = (a.children[2]?.textContent || '').trim().toLowerCase();
-        const typeB = (b.children[2]?.textContent || '').trim().toLowerCase();
+        const typeA = (a.querySelector('.machine-type-cell')?.textContent || '').trim().toLowerCase();
+        const typeB = (b.querySelector('.machine-type-cell')?.textContent || '').trim().toLowerCase();
         const orderA = TYPE_ORDER[typeA] ?? 999;
         const orderB = TYPE_ORDER[typeB] ?? 999;
 
         if (orderA !== orderB) return orderA - orderB;
 
-        const nameA = (a.children[1]?.textContent || '').trim().toLowerCase();
-        const nameB = (b.children[1]?.textContent || '').trim().toLowerCase();
+        const nameA = (a.querySelector('.machine-name-cell')?.textContent || '').trim().toLowerCase();
+        const nameB = (b.querySelector('.machine-name-cell')?.textContent || '').trim().toLowerCase();
         return nameA.localeCompare(nameB);
       });
 
@@ -789,8 +845,8 @@
       let visibleCount = 0;
 
       rows.forEach(tr => {
-        const nameText = (tr.children[1]?.textContent || '').trim().toLowerCase();
-        const typeText = (tr.children[2]?.textContent || '').trim().toLowerCase();
+        const nameText = (tr.querySelector('.machine-name-cell')?.textContent || '').trim().toLowerCase();
+        const typeText = (tr.querySelector('.machine-type-cell')?.textContent || '').trim().toLowerCase();
 
         const matchSearch = !q || nameText.includes(q);
         const matchType   = !t || typeText === t;
@@ -823,6 +879,183 @@
         if (typeSelect) typeSelect.value = '';
         sortMachines();
         applyFilter();
+      });
+    }
+
+    // ----- Edit & Activate/Deactivate -----
+    tbody.addEventListener('click', function (e) {
+      const editBtn = e.target.closest('.machine-edit-btn');
+      if (editBtn) {
+        const id   = editBtn.getAttribute('data-id');
+        const name = editBtn.getAttribute('data-name') || '';
+
+        document.getElementById('editMachineId').value = id;
+        document.getElementById('editMachineName').value = name;
+
+        if (typeof openMask === 'function') {
+          openMask('mdlMachineEdit');
+        }
+        return;
+      }
+
+      const toggleBtn = e.target.closest('.machine-toggle-btn');
+      if (toggleBtn) {
+        const id     = toggleBtn.getAttribute('data-id');
+        const active = toggleBtn.getAttribute('data-active') === '1';
+
+        Swal.fire({
+          icon: 'question',
+          title: active ? 'Deactivate machine?' : 'Activate machine?',
+          text: active
+            ? 'Are you sure you want to deactivate this machine?'
+            : 'Are you sure you want to activate this machine?',
+          showCancelButton: true,
+          confirmButtonText: active ? 'Yes, deactivate' : 'Yes, activate',
+          cancelButtonText: 'Cancel',
+          reverseButtons: true,
+        }).then(result => {
+          if (!result.isConfirmed) return;
+
+          Swal.fire({
+            title: 'Updating...',
+            didOpen: () => Swal.showLoading(),
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+          });
+
+          fetch(`${baseUrl}/${id}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': csrf,
+              'Accept': 'application/json',
+            },
+          })
+            .then(r => r.json())
+            .then(data => {
+              if (!data || !data.success) {
+                return Swal.fire({
+                  icon: 'error',
+                  title: 'Update failed',
+                  text: data?.message || 'Unable to update status.',
+                });
+              }
+
+              const newActive = !!data.active;
+              toggleBtn.setAttribute('data-active', newActive ? '1' : '0');
+              toggleBtn.textContent = newActive ? 'Deactivate' : 'Activate';
+
+              const row = toggleBtn.closest('tr');
+              const statusCell = row?.querySelector('.machine-status-cell');
+              if (statusCell) {
+                statusCell.innerHTML = newActive
+                  ? '<span class="badge bg-success">Active</span>'
+                  : '<span class="badge bg-secondary">Inactive</span>';
+              }
+
+              Swal.fire({
+                icon: 'success',
+                title: 'Status updated',
+                timer: 1000,
+                showConfirmButton: false,
+              });
+            })
+            .catch(() => {
+              Swal.fire({
+                icon: 'error',
+                title: 'Server error',
+                text: 'Something went wrong while updating status.',
+              });
+            });
+        });
+
+        return;
+      }
+    });
+
+    const btnUpdateMachine = document.getElementById('btnUpdateMachine');
+    if (btnUpdateMachine) {
+      btnUpdateMachine.addEventListener('click', function () {
+        const id   = document.getElementById('editMachineId').value;
+        const name = (document.getElementById('editMachineName').value || '').trim();
+
+        if (!name) {
+          return Swal.fire({
+            icon: 'warning',
+            title: 'Machine name required',
+            text: 'Please enter a machine name.',
+          });
+        }
+
+        Swal.fire({
+          icon: 'question',
+          title: 'Save changes?',
+          text: 'Are you sure you want to update this machine name?',
+          showCancelButton: true,
+          confirmButtonText: 'Yes, save',
+          cancelButtonText: 'Cancel',
+          reverseButtons: true,
+        }).then(result => {
+          if (!result.isConfirmed) return;
+
+          Swal.fire({
+            title: 'Saving...',
+            didOpen: () => Swal.showLoading(),
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+          });
+
+          fetch(`${baseUrl}/${id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': csrf,
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ machine_name: name }),
+          })
+            .then(r => r.json())
+            .then(data => {
+              if (!data || !data.success) {
+                return Swal.fire({
+                  icon: 'error',
+                  title: 'Update failed',
+                  text: data?.message || 'Unable to update machine.',
+                });
+              }
+
+              const row = tbody.querySelector(`tr[data-machine-id="${id}"]`);
+              if (row) {
+                const nameCell = row.querySelector('.machine-name-cell');
+                const editBtn = row.querySelector('.machine-edit-btn');
+                if (nameCell) nameCell.textContent = name;
+                if (editBtn) editBtn.setAttribute('data-name', name);
+              }
+
+              if (typeof closeMask === 'function') {
+                closeMask('mdlMachineEdit');
+              }
+
+              sortMachines();
+              applyFilter();
+
+              Swal.fire({
+                icon: 'success',
+                title: 'Machine updated',
+                timer: 1000,
+                showConfirmButton: false,
+              });
+            })
+            .catch(() => {
+              Swal.fire({
+                icon: 'error',
+                title: 'Server error',
+                text: 'Something went wrong while updating machine.',
+              });
+            });
+        });
       });
     }
 
@@ -874,6 +1107,15 @@ document.addEventListener('click', (e) => {
 
   function openMask(id){ document.getElementById(id)?.classList.add('show'); }
   function closeMask(id){ document.getElementById(id)?.classList.remove('show'); }
+
+  // with these:
+  window.openMask = function (id) {
+    document.getElementById(id)?.classList.add('show');
+  };
+
+  window.closeMask = function (id) {
+    document.getElementById(id)?.classList.remove('show');
+  };
 
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-close]');
@@ -1246,7 +1488,7 @@ document.addEventListener('click', (e) => {
       Swal.fire({
         icon: 'question',
         title: 'Add this machine?',
-        text: 'Are you sure you want to add this machine? Once added, it cannot be undone.',
+        text: 'Are you sure you want to add this machine?',
         showCancelButton: true,
         confirmButtonText: 'Yes, add it',
         cancelButtonText: 'Cancel',
