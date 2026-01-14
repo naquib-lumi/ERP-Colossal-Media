@@ -39,7 +39,8 @@ class BossDataManagementController extends Controller
 
         // Machines for Machines Data tab
         $machines = DB::table('machines')
-            ->select('id', 'machine_name', 'machine_type')
+            ->select('id', 'machine_name', 'machine_type', 'active')
+            ->orderBy('machine_type')
             ->orderBy('machine_name')
             ->get();
 
@@ -263,7 +264,8 @@ class BossDataManagementController extends Controller
 
         // Load machines for Machines Data tab
         $machines = DB::table('machines')
-            ->select('id', 'machine_name', 'machine_type')
+            ->select('id', 'machine_name', 'machine_type', 'active')
+            ->orderBy('machine_type')
             ->orderBy('machine_name')
             ->get();
 
@@ -636,33 +638,33 @@ class BossDataManagementController extends Controller
     }
 
     public function update(Request $request, $id)
-{
-    $material = Material::findOrFail($id);
+    {
+        $material = Material::findOrFail($id);
 
-    $request->validate([
-        'qeName' => 'required|string|max:255',
-        'qeNew'  => 'required|numeric|min:0',
-        'qeType' => 'required|integer|exists:material_types,id',
-    ]);
+        $request->validate([
+            'qeName' => 'required|string|max:255',
+            'qeNew'  => 'required|numeric|min:0',
+            'qeType' => 'required|integer|exists:material_types,id',
+        ]);
 
-    $material->materialName     = $request->qeName;
-    $material->unitCost         = $request->qeNew;
-    $material->material_type_id = (int) $request->qeType;
+        $material->materialName     = $request->qeName;
+        $material->unitCost         = $request->qeNew;
+        $material->material_type_id = (int) $request->qeType;
 
-    $material->save();
-    $material->load('materialType');
+        $material->save();
+        $material->load('materialType');
 
-    return response()->json([
-        'success'  => true,
-        'material' => [
-            'id'        => $material->MaterialID,
-            'name'      => $material->materialName,
-            'unit_cost' => $material->unitCost,
-            'type_id'   => $material->material_type_id,
-            'type_name' => optional($material->materialType)->name,
-        ],
-    ]);
-}
+        return response()->json([
+            'success'  => true,
+            'material' => [
+                'id'        => $material->MaterialID,
+                'name'      => $material->materialName,
+                'unit_cost' => $material->unitCost,
+                'type_id'   => $material->material_type_id,
+                'type_name' => optional($material->materialType)->name,
+            ],
+        ]);
+    }
 
     public function destroy($id)
     {
@@ -672,34 +674,83 @@ class BossDataManagementController extends Controller
     }
 
     public function storeMachine(Request $request)
+    {
+        $data = $request->validate([
+            'machine_name' => 'required|string|max:255',
+            'machine_type' => 'required|in:printer,cutter,lamination',
+        ]);
+
+        $id = DB::table('machines')->insertGetId([
+            'user_id'      => Auth::id(),   // or null if you prefer
+            'machine_name' => $data['machine_name'],
+            'machine_type' => $data['machine_type'],
+            'active'       => 1,
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'machine' => [
+                    'id'           => $id,
+                    'machine_name' => $data['machine_name'],
+                    'machine_type' => $data['machine_type'],
+                    'active'       => 1,
+                ],
+            ]);
+        }
+
+        return redirect()
+            ->route('boss.datamanagement', ['tab' => 'machines'])
+            ->with('status', 'Machine added');
+    }
+
+public function updateMachine(Request $request, $id)
 {
     $data = $request->validate([
         'machine_name' => 'required|string|max:255',
-        'machine_type' => 'required|in:printer,cutter,lamination',
     ]);
 
-    $id = DB::table('machines')->insertGetId([
-        'user_id'      => Auth::id(),   // or null if you prefer
-        'machine_name' => $data['machine_name'],
-        'machine_type' => $data['machine_type'],
-        'created_at'   => now(),
-        'updated_at'   => now(),
-    ]);
-
-    if ($request->expectsJson()) {
-        return response()->json([
-            'success' => true,
-            'machine' => [
-                'id'           => $id,
-                'machine_name' => $data['machine_name'],
-                'machine_type' => $data['machine_type'],
-            ],
+    $updated = DB::table('machines')
+        ->where('id', $id)
+        ->update([
+            'machine_name' => $data['machine_name'],
+            'updated_at'   => now(),
         ]);
+
+    if (!$updated) {
+        return response()->json(['success' => false, 'message' => 'Machine not found'], 404);
     }
 
-    return redirect()
-        ->route('boss.datamanagement', ['tab' => 'machines'])
-        ->with('status', 'Machine added');
+    $machine = DB::table('machines')->where('id', $id)->first();
+
+    return response()->json([
+        'success' => true,
+        'machine' => $machine,
+    ]);
 }
 
+public function toggleMachineStatus(Request $request, $id)
+{
+    $machine = DB::table('machines')->where('id', $id)->first();
+
+    if (!$machine) {
+        return response()->json(['success' => false, 'message' => 'Machine not found'], 404);
+    }
+
+    $newActive = $machine->active ? 0 : 1;
+
+    DB::table('machines')
+        ->where('id', $id)
+        ->update([
+            'active'     => $newActive,
+            'updated_at' => now(),
+        ]);
+
+    return response()->json([
+        'success' => true,
+        'active'  => $newActive,
+    ]);
+}
 }

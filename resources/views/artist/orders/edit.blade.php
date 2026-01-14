@@ -923,6 +923,8 @@
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
 
                                       @foreach($laminationMachines ?? [] as $m)
+                                          @continue(isset($m->active) && !$m->active)  {{-- skip deactivated machines --}}
+
                                           <option value="{{ $m->machine_name }}"
                                               {{ (isset($item->lamination) && $item->lamination === $m->machine_name) ? 'selected' : '' }}>
                                               {{ $m->machine_name }}
@@ -945,6 +947,8 @@
                                       <option value="TBC" {{ (isset($item->printer) && $item->printer === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($printerMachines ?? [] as $m)
+                                          @continue(isset($m->active) && !$m->active)
+
                                           <option value="{{ $m->machine_name }}"
                                               {{ (isset($item->printer) && $item->printer === $m->machine_name) ? 'selected' : '' }}>
                                               {{ $m->machine_name }}
@@ -967,6 +971,8 @@
                                       <option value="TBC" {{ (isset($item->cutter) && $item->cutter === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($cutterMachines ?? [] as $m)
+                                          @continue(isset($m->active) && !$m->active)
+
                                           <option value="{{ $m->machine_name }}"
                                               {{ (isset($item->cutter) && $item->cutter === $m->machine_name) ? 'selected' : '' }}>
                                               {{ $m->machine_name }}
@@ -1138,6 +1144,8 @@
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
 
                                       @foreach($laminationMachines ?? [] as $m)
+                                          @continue(isset($m->active) && !$m->active)  {{-- skip deactivated machines --}}
+
                                           <option value="{{ $m->machine_name }}"
                                               {{ (isset($item->lamination) && $item->lamination === $m->machine_name) ? 'selected' : '' }}>
                                               {{ $m->machine_name }}
@@ -1156,6 +1164,8 @@
                                         <option value="TBC" {{ (isset($item->printer) && $item->printer === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                         @foreach($printerMachines ?? [] as $m)
+                                            @continue(isset($m->active) && !$m->active)
+
                                             <option value="{{ $m->machine_name }}"
                                                 {{ (isset($item->printer) && $item->printer === $m->machine_name) ? 'selected' : '' }}>
                                                 {{ $m->machine_name }}
@@ -1174,6 +1184,8 @@
                                       <option value="TBC" {{ (isset($item->cutter) && $item->cutter === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($cutterMachines ?? [] as $m)
+                                          @continue(isset($m->active) && !$m->active)
+
                                           <option value="{{ $m->machine_name }}"
                                               {{ (isset($item->cutter) && $item->cutter === $m->machine_name) ? 'selected' : '' }}>
                                               {{ $m->machine_name }}

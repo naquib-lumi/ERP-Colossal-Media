@@ -600,15 +600,15 @@ class BossOrderController extends Controller
 
         $printerMachines = \App\Models\Machine::where('machine_type', 'printer')
             ->orderBy('machine_name')
-            ->get(['id', 'machine_name']);
+            ->get(['id', 'machine_name', 'active']);
 
         $cutterMachines = \App\Models\Machine::where('machine_type', 'cutter')
             ->orderBy('machine_name')
-            ->get(['id', 'machine_name']);
+            ->get(['id', 'machine_name', 'active']);
 
         $laminationMachines = \App\Models\Machine::where('machine_type', 'lamination')
             ->orderBy('machine_name')
-            ->get(['id', 'machine_name']);
+            ->get(['id', 'machine_name', 'active']);
 
         return view('boss.orders.edit', compact(
             'order','orderCode','today','attachments','product','items', 'materials', 'allMaterials', 'deliveries', 'leadAttachments',
