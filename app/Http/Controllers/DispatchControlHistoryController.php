@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class DispatchControlHistoryController extends Controller
 {
@@ -213,11 +214,81 @@ class DispatchControlHistoryController extends Controller
                 'url'  => Storage::disk('public')->url($r->file_path),
                 'mime' => $r->mime,
                 'size' => (int)$r->size,
-                'uploaded_at' => $r->created_at ? \Carbon\Carbon::parse($r->created_at)->format('M d, Y H:i') : null,
+                'uploaded_at' => $r->created_at ? \Carbon\Carbon::parse($r->created_at)->timezone('Asia/Kuala_Lumpur')->format('M d, Y H:i') : null,
             ];
         });
 
         return response()->json(['ok' => true, 'files' => $files]);
+    }
+
+    public function storeProofs(Request $request, int $product)
+    {
+        // validate files
+        $request->validate([
+            'files'   => 'required',
+            'files.*' => 'file|mimes:jpg,jpeg,png,gif,webp,pdf|max:8192',
+        ]);
+
+        // get Product + Order so we can fill installation_proofs
+        $productRow = DB::table('products')
+            ->select('ProductID', 'OrderID')
+            ->where('ProductID', $product)
+            ->first();
+
+        if (!$productRow) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Product not found.',
+            ], 404);
+        }
+
+        $userId = Auth::id();
+        $now    = now();
+
+        $uploaded = [];
+
+        foreach ($request->file('files', []) as $file) {
+            if (!$file || !$file->isValid()) {
+                continue;
+            }
+
+            // store file on public disk
+            $storedPath = $file->store('installation_proofs', 'public');
+
+            // write to installation_proofs
+            $id = DB::table('installation_proofs')->insertGetId([
+                'ProductID'     => $productRow->ProductID,
+                'OrderID'       => $productRow->OrderID,
+                'file_path'     => $storedPath,
+                'original_name' => $file->getClientOriginalName(),
+                'mime'          => $file->getClientMimeType(),
+                'size'          => $file->getSize(),
+                'uploaded_by'   => $userId,
+                'created_at'    => $now,
+                'updated_at'    => $now,
+            ]);
+
+            $uploaded[] = [
+                'id'          => $id,
+                'name'        => $file->getClientOriginalName(),
+                'url'         => Storage::disk('public')->url($storedPath),
+                'mime'        => $file->getClientMimeType(),
+                'size'        => $file->getSize(),
+                'uploaded_at' => $now->format('M d, Y H:i'),
+            ];
+        }
+
+        if (!count($uploaded)) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No valid files uploaded.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok'    => true,
+            'files' => $uploaded,
+        ]);
     }
 
 }
