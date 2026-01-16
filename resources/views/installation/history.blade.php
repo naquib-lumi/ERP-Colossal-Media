@@ -302,6 +302,7 @@
         class="btn btn-light border btn-sm js-view-proofs"
         data-product="{{ $row->ProductID ?? $row['ProductID'] }}"
         data-url="{{ route('installation.history.proofs', ['product' => $row->ProductID ?? $row['ProductID']]) }}"
+        data-upload-url="{{ route('installation.history.proofs.store', ['product' => $row->ProductID ?? $row['ProductID']]) }}"
       >
         <i class="bi bi-eye me-1"></i> View
       </button>
@@ -405,8 +406,27 @@
         <div id="lbEmpty" class="text-muted text-center py-4" style="display:none;">No files found.</div>
       </div>
 
-      <div class="cx-footer">
-        <button type="button" class="btn btn-back" data-close="proofModal">Close</button>
+      <div class="cx-footer d-flex justify-content-between align-items-center gap-2 flex-wrap">
+          <form id="lbUploadForm"
+                class="d-flex align-items-center gap-2"
+                enctype="multipart/form-data"
+                method="post">
+              @csrf
+              <input
+                  type="file"
+                  id="lbFiles"
+                  name="files[]"
+                  class="form-control form-control-sm"
+                  multiple
+                  accept="image/*,.pdf"
+                  style="background: white;"
+              >
+              <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">
+                  <i class="bi bi-cloud-upload me-1"></i> Upload new proof
+              </button>
+          </form>
+
+          <button type="button" class="btn btn-back ms-auto" data-close="proofModal">Close</button>
       </div>
     </div>
   </div>
@@ -458,9 +478,14 @@
   const next  = modal.querySelector('.lb-next');
   const uploadedEl = document.getElementById('lbUploadedAt');
 
-  let files = [];   // [{url,name,uploaded_at}, ...]
-  let idx   = 0;    // current index
+  const uploadForm  = document.getElementById('lbUploadForm');
+  const uploadInput = document.getElementById('lbFiles');
+
+  let files = [];        // [{url,name,...}]
+  let idx   = 0;         // current index
   let keyBound = false;
+  let listUrl   = null;  // GET proofs url
+  let uploadUrl = null;  // POST upload url
 
   function openModal() {
     modal.classList.add('show');
@@ -528,10 +553,14 @@
   function go(delta) { show(idx + delta); }
 
   async function loadProofs(url) {
-    img.src = ''; cap.textContent = ''; strip.innerHTML = '';
+    listUrl = url;
+    img.src = '';
+    cap.textContent = '';
+    strip.innerHTML = '';
     if (uploadedEl) uploadedEl.textContent = '';
     empty.style.display = 'none';
-    files = []; idx = 0;
+    files = [];
+    idx   = 0;
 
     try {
       const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
@@ -554,11 +583,66 @@
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-view-proofs');
     if (!btn) return;
+
     const url = btn.getAttribute('data-url');
     if (!url) return;
+
+    uploadUrl = btn.getAttribute('data-upload-url') || null;
+
     openModal();
     loadProofs(url);
   });
+
+  if (uploadForm && uploadInput) {
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!uploadUrl) {
+        alert('Missing upload URL.');
+        return;
+      }
+      if (!uploadInput.files.length) {
+        alert('Please choose at least one file.');
+        return;
+      }
+
+      const fd = new FormData(uploadForm);
+      const submitBtn = uploadForm.querySelector('button[type="submit"]');
+
+      try {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML =
+            '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Uploading...';
+        }
+
+        const res = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: fd,
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.ok === false) {
+          throw new Error(json.message || 'Upload failed.');
+        }
+
+        uploadInput.value = '';
+
+        // reload list so new proofs appear immediately
+        if (listUrl) {
+          await loadProofs(listUrl);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Unable to upload proof(s). Please try again.');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Upload new proof';
+        }
+      }
+    });
+  }
 });
 
 (() => {

@@ -352,6 +352,9 @@ Route::get('/dashboard', function () {
 
         Route::get('/installation/report/{productId}', [InstallationController::class, 'installationReportForm'])->name('installation.report');
         Route::post('/installation/report/{productId}', [InstallationController::class, 'installationReportSubmit'])->name('installation.report.submit');
+
+        Route::post('/installation/history/{product}/proofs', [InstallationHistoryController::class, 'storeInstallationProofs'])->name('installation.history.proofs.store');
+
     });
 
 
@@ -373,6 +376,9 @@ Route::get('/dashboard', function () {
         Route::put('/dispatchcontrol/profile', [DispatchControlProfileController::class, 'update'])->name('dispatchcontrol.user.update');
 
         Route::patch('/dispatchcontrol/jobs/{product}/complete', [DispatchControlController::class, 'completeWithProof'])->name('dispatchcontrol.jobs.complete');
+
+        // NEW – upload more proofs from history lightbox
+        Route::post('/dispatchcontrol/history/{product}/proofs', [DispatchControlHistoryController::class, 'storeProofs'])->name('dispatchcontrol.history.proofs.store');
     });
 
 
