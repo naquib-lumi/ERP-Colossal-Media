@@ -1192,7 +1192,7 @@ class DataEntryController extends Controller
             }
 
             return redirect()
-                ->route('artist.orders')
+                ->route('data-entry.orders')
                 ->with('success', $message);
         } catch (\Throwable $e) {
             Log::error('Data-entry update failed', [
