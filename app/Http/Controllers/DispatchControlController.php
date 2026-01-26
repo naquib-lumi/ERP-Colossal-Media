@@ -126,6 +126,7 @@ class DispatchControlController extends Controller
                 'p.installation_task_type',
                 'p.installation_status',
                 'p.installation_accepted',
+                'p.packaging',
                 'o.order_number',
                 'o.orderDate',
                 'o.deadline',
@@ -192,6 +193,7 @@ class DispatchControlController extends Controller
                     'current_stage'   => $curStage  ? strtolower($curStage)  : null,
                     'current_status'  => $curStatus ? strtolower($curStatus) : null,
                     'accepted'        => (int)($r->accepted ?? 0),
+                    'packaging' => (int)($r->packaging ?? 0),
                     // NEW
                     'installation_task_type' => $r->installation_task_type ?? null,
                     'installation_status'     => $r->installation_status ? strtolower($r->installation_status) : null,
@@ -593,239 +595,239 @@ class DispatchControlController extends Controller
     }
 
     public function index(Request $request)
-{
-    // ---------- FILTER INPUTS ----------
-    $pid       = trim((string)$request->query('pid', ''));              // Product ID/code (all pages)
-    $q         = trim((string)$request->query('q', ''));                // keyword: order title/company/product/remarks
-    $artist    = trim((string)$request->query('artist', ''));           // orders.artist_id
-    $taskType  = trim((string)$request->query('task_type', $request->query('type',''))); // keep old 'type'
-    $status    = trim((string)$request->query('status', ''));
+    {
+        // ---------- FILTER INPUTS ----------
+        $pid       = trim((string)$request->query('pid', ''));              // Product ID/code (all pages)
+        $q         = trim((string)$request->query('q', ''));                // keyword: order title/company/product/remarks
+        $artist    = trim((string)$request->query('artist', ''));           // orders.artist_id
+        $taskType  = trim((string)$request->query('task_type', $request->query('type',''))); // keep old 'type'
+        $status    = trim((string)$request->query('status', ''));
 
-    // Nearest/furthest sort
-    $sortBy    = trim((string)$request->query('sort_by', ''));          // 'deadline' | 'delivery_date' | ''
-    $sortMode  = trim((string)$request->query('sort_mode', 'near'));    // 'near' | 'far'
+        // Nearest/furthest sort
+        $sortBy    = trim((string)$request->query('sort_by', ''));          // 'deadline' | 'delivery_date' | ''
+        $sortMode  = trim((string)$request->query('sort_mode', 'near'));    // 'near' | 'far'
 
-    // ---------- OVERVIEW TILES (unchanged) ----------
-    $stats = [
-        'printing' => DB::table('products as p')
-            ->join('orders as o', 'o.id', '=', 'p.OrderID')
-            ->whereRaw('LOWER(p.taskType) = "printing"')
+        // ---------- OVERVIEW TILES (unchanged) ----------
+        $stats = [
+            'printing' => DB::table('products as p')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(p.taskType) = "printing"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'furnishing' => DB::table('products as p')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(p.taskType) = "furnishing"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'installation' => DB::table('products as p')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(p.taskType) = "installation"')
+                ->orWhere('p.installation_task_type', 1)
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'self_pickup' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->where(function ($q) {
+                    $q->whereRaw('LOWER(d.method) = "self pickup"')
+                    ->orWhereRaw('LOWER(d.method) = "self_pickup"');
+                })
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+
+            'courier' => DB::table('delivery_breakdowns as d')
+                ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
+                ->join('orders as o', 'o.id', '=', 'p.OrderID')
+                ->whereRaw('LOWER(d.method) = "courier"')
+                ->where(function ($w) {
+                    $w->whereNull('o.status')->orWhere('o.status', 0);
+                })
+                ->count(),
+        ];
+
+        // ---------- ARTIST DROPDOWN ----------
+        $artists = DB::table('users')
+            ->select('id','name')
+            ->whereIn(DB::raw('LOWER(role)'), ['artist','head-artist'])
+            ->orderBy('name')
+            ->get();
+
+        // ---------- TABLE QUERY ----------
+        $orders = DB::table('products as p')
+            ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
+            ->leftJoin('delivery_breakdowns as db', 'db.ProductID', '=', 'p.ProductID')
+
+            // EXCLUDE archived/rejected orders (status = 1)
             ->where(function ($w) {
                 $w->whereNull('o.status')->orWhere('o.status', 0);
             })
-            ->count(),
-
-        'furnishing' => DB::table('products as p')
-            ->join('orders as o', 'o.id', '=', 'p.OrderID')
-            ->whereRaw('LOWER(p.taskType) = "furnishing"')
             ->where(function ($w) {
-                $w->whereNull('o.status')->orWhere('o.status', 0);
-            })
-            ->count(),
-
-        'installation' => DB::table('products as p')
-            ->join('orders as o', 'o.id', '=', 'p.OrderID')
-            ->whereRaw('LOWER(p.taskType) = "installation"')
-            ->orWhere('p.installation_task_type', 1)
-            ->where(function ($w) {
-                $w->whereNull('o.status')->orWhere('o.status', 0);
-            })
-            ->count(),
-
-        'self_pickup' => DB::table('delivery_breakdowns as d')
-            ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
-            ->join('orders as o', 'o.id', '=', 'p.OrderID')
-            ->where(function ($q) {
-                $q->whereRaw('LOWER(d.method) = "self pickup"')
-                ->orWhereRaw('LOWER(d.method) = "self_pickup"');
+                $w->whereNull('o.orderStatus')
+                ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
             })
             ->where(function ($w) {
-                $w->whereNull('o.status')->orWhere('o.status', 0);
+                $w->where('p.editable', '=', 0)  // ✅ bypass check if editable = 0
+                ->orWhere(function ($w2) {
+                    $w2->whereNull('o.orderStatus')
+                        ->orWhere('o.orderStatus', '!=', 'in_progress');
+                });
             })
-            ->count(),
+            // EXCLUDE products with NULL/blank taskType
+            ->whereNotNull('p.taskType')
+            ->whereRaw("TRIM(p.taskType) <> ''")
 
-        'courier' => DB::table('delivery_breakdowns as d')
-            ->join('products as p', 'p.ProductID', '=', 'd.ProductID')
-            ->join('orders as o', 'o.id', '=', 'p.OrderID')
-            ->whereRaw('LOWER(d.method) = "courier"')
-            ->where(function ($w) {
-                $w->whereNull('o.status')->orWhere('o.status', 0);
+            ->selectRaw("
+                p.ProductID,
+                p.productName                                     as product_name,
+                p.taskType                                        as task_type,
+                p.status                                          as status,
+
+                DATE_FORMAT(COALESCE(o.deadline, p.updated_at), '%Y-%m-%d') as deadline,
+                DATE_FORMAT(db.date, '%Y-%m-%d')                  as delivery_date,
+                db.location                                       as delivery_location,
+                p.installation_task_type,
+                db.method                                         as delivery_method, 
+                db.deliver_install_type                           as deliver_install_type,
+                o.id                                              as order_id,
+                o.orderTitle,
+                o.companyName,
+                o.artist_id,
+
+                -- Code: #ORD-YYYY-<baseOrderId>-P<baseProductId>[R]
+                CONCAT(
+                    '#ORD-',
+                    LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
+                    '-',
+                    LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
+                    '-P',
+                    LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                    CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
+                ) as product_code
+            ")
+
+            // PRODUCT ID / CODE search (works across all pages)
+            ->when($pid !== '', function ($qb) use ($pid) {
+                $like = "%{$pid}%";
+                $qb->where(function ($w) use ($pid, $like) {
+                    // numeric convenience
+                    if (ctype_digit($pid)) {
+                        $w->where('p.ProductID', (int)$pid)
+                        ->orWhere('o.id', (int)$pid);
+                    } else {
+                        $w->where('p.ProductID', 'like', $like)
+                        ->orWhere('o.id', 'like', $like);
+                    }
+
+                    // also match the formatted product code with base ids + optional R
+                    $w->orWhereRaw("
+                        CONCAT(
+                            '#ORD-',
+                            LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
+                            '-',
+                            LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
+                            '-P',
+                            LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                            CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
+                        ) LIKE ?
+                    ", [$like]);
+                });
             })
-            ->count(),
-    ];
 
-    // ---------- ARTIST DROPDOWN ----------
-    $artists = DB::table('users')
-        ->select('id','name')
-        ->whereIn(DB::raw('LOWER(role)'), ['artist','head-artist'])
-        ->orderBy('name')
-        ->get();
+            // KEYWORD: order title / company name / product name / delivery location
+            ->when($q !== '', function ($qb) use ($q) {
+                $like = "%{$q}%";
+                $qb->where(function ($w) use ($like) {
+                    $w->where('o.orderTitle',   'like', $like)
+                    ->orWhere('o.companyName','like', $like)
+                    ->orWhere('p.productName','like', $like)
+                    ->orWhere('db.location',  'like', $like);
+                });
+            })
 
-    // ---------- TABLE QUERY ----------
-    $orders = DB::table('products as p')
-        ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
-        ->leftJoin('delivery_breakdowns as db', 'db.ProductID', '=', 'p.ProductID')
+            // ARTIST filter
+            ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', $artist))
 
-        // EXCLUDE archived/rejected orders (status = 1)
-        ->where(function ($w) {
-            $w->whereNull('o.status')->orWhere('o.status', 0);
-        })
-        ->where(function ($w) {
-            $w->whereNull('o.orderStatus')
-            ->orWhere('o.orderStatus', '!=', 'awaiting_keyin');
-        })
-        ->where(function ($w) {
-            $w->where('p.editable', '=', 0)  // ✅ bypass check if editable = 0
-            ->orWhere(function ($w2) {
-                $w2->whereNull('o.orderStatus')
-                    ->orWhere('o.orderStatus', '!=', 'in_progress');
-            });
-        })
-        // EXCLUDE products with NULL/blank taskType
-        ->whereNotNull('p.taskType')
-        ->whereRaw("TRIM(p.taskType) <> ''")
+            // TASK TYPE & STATUS filter
+            ->when($taskType !== '', function ($qb) use ($taskType) {
+                $t = strtolower($taskType);
 
-        ->selectRaw("
-            p.ProductID,
-            p.productName                                     as product_name,
-            p.taskType                                        as task_type,
-            p.status                                          as status,
-
-            DATE_FORMAT(COALESCE(o.deadline, p.updated_at), '%Y-%m-%d') as deadline,
-            DATE_FORMAT(db.date, '%Y-%m-%d')                  as delivery_date,
-            db.location                                       as delivery_location,
-            p.installation_task_type,
-            db.method                                         as delivery_method, 
-            db.deliver_install_type                           as deliver_install_type,
-            o.id                                              as order_id,
-            o.orderTitle,
-            o.companyName,
-            o.artist_id,
-
-            -- Code: #ORD-YYYY-<baseOrderId>-P<baseProductId>[R]
-            CONCAT(
-                '#ORD-',
-                LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
-                '-',
-                LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
-                '-P',
-                LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
-                CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
-            ) as product_code
-        ")
-
-        // PRODUCT ID / CODE search (works across all pages)
-        ->when($pid !== '', function ($qb) use ($pid) {
-            $like = "%{$pid}%";
-            $qb->where(function ($w) use ($pid, $like) {
-                // numeric convenience
-                if (ctype_digit($pid)) {
-                    $w->where('p.ProductID', (int)$pid)
-                      ->orWhere('o.id', (int)$pid);
-                } else {
-                    $w->where('p.ProductID', 'like', $like)
-                      ->orWhere('o.id', 'like', $like);
+                // Treat "installation" / "delivery & installation"
+                if (in_array($t, ['installation', 'delivery_installation'], true)) {
+                    $qb->where(function ($w) {
+                        $w->whereRaw('LOWER(p.taskType) = "installation"')
+                        ->orWhere(function ($q) {
+                            $q->whereRaw('LOWER(p.taskType) = "delivery"')
+                                ->where('p.installation_task_type', 1)
+                                ->whereRaw("LOWER(db.method) = 'delivery_installation'");
+                        });
+                    });
+                    return;
                 }
 
-                // also match the formatted product code with base ids + optional R
-                $w->orWhereRaw("
-                    CONCAT(
-                        '#ORD-',
-                        LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
-                        '-',
-                        LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
-                        '-P',
-                        LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
-                        CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
-                    ) LIKE ?
-                ", [$like]);
-            });
-        })
-
-        // KEYWORD: order title / company name / product name / delivery location
-        ->when($q !== '', function ($qb) use ($q) {
-            $like = "%{$q}%";
-            $qb->where(function ($w) use ($like) {
-                $w->where('o.orderTitle',   'like', $like)
-                  ->orWhere('o.companyName','like', $like)
-                  ->orWhere('p.productName','like', $like)
-                  ->orWhere('db.location',  'like', $like);
-            });
-        })
-
-        // ARTIST filter
-        ->when($artist !== '', fn($qb) => $qb->where('o.artist_id', $artist))
-
-        // TASK TYPE & STATUS filter
-        ->when($taskType !== '', function ($qb) use ($taskType) {
-            $t = strtolower($taskType);
-
-            // Treat "installation" / "delivery & installation"
-            if (in_array($t, ['installation', 'delivery_installation'], true)) {
-                $qb->where(function ($w) {
-                    $w->whereRaw('LOWER(p.taskType) = "installation"')
-                    ->orWhere(function ($q) {
-                        $q->whereRaw('LOWER(p.taskType) = "delivery"')
-                            ->where('p.installation_task_type', 1)
-                            ->whereRaw("LOWER(db.method) = 'delivery_installation'");
+                // Treat "dispatch control" / pure delivery
+                if (in_array($t, ['delivery', 'dispatch_control'], true)) {
+                    $qb->where(function ($w) {
+                        $w->whereRaw('LOWER(p.taskType) = "delivery"')
+                        ->where(function ($q) {
+                            $q->whereNull('p.installation_task_type')
+                                ->orWhere('p.installation_task_type', '!=', 1)
+                                ->orWhereRaw("LOWER(db.method) <> 'delivery_installation'");
+                        });
                     });
-                });
-                return;
-            }
+                    return;
+                }
 
-            // Treat "dispatch control" / pure delivery
-            if (in_array($t, ['delivery', 'dispatch_control'], true)) {
-                $qb->where(function ($w) {
-                    $w->whereRaw('LOWER(p.taskType) = "delivery"')
-                    ->where(function ($q) {
-                        $q->whereNull('p.installation_task_type')
-                            ->orWhere('p.installation_task_type', '!=', 1)
-                            ->orWhereRaw("LOWER(db.method) <> 'delivery_installation'");
-                    });
-                });
-                return;
-            }
+                // Default: printing, furnishing, etc.
+                $qb->whereRaw('LOWER(p.taskType) = ?', [$t]);
+            })
+            ->when($status   !== '', fn($qb) => $qb->where('p.status', $status));
 
-            // Default: printing, furnishing, etc.
-            $qb->whereRaw('LOWER(p.taskType) = ?', [$t]);
-        })
-        ->when($status   !== '', fn($qb) => $qb->where('p.status', $status));
+        // SORTING: nearest/furthest by date, or default latest updated
+        if (in_array($sortBy, ['deadline', 'delivery_date'], true)) {
+            $colSql = $sortBy === 'deadline'
+                ? 'COALESCE(o.deadline, p.updated_at)'
+                : 'db.date';
 
-    // SORTING: nearest/furthest by date, or default latest updated
-    if (in_array($sortBy, ['deadline', 'delivery_date'], true)) {
-        $colSql = $sortBy === 'deadline'
-            ? 'COALESCE(o.deadline, p.updated_at)'
-            : 'db.date';
+            $dir = ($sortMode === 'far') ? 'DESC' : 'ASC';
 
-        $dir = ($sortMode === 'far') ? 'DESC' : 'ASC';
+            $orders->orderByRaw("CASE WHEN {$colSql} IS NULL THEN 1 ELSE 0 END ASC")
+                ->orderByRaw("ABS(DATEDIFF({$colSql}, CURDATE())) {$dir}");
+        } else {
+            $orders->orderByDesc('p.updated_at');
+        }
 
-        $orders->orderByRaw("CASE WHEN {$colSql} IS NULL THEN 1 ELSE 0 END ASC")
-               ->orderByRaw("ABS(DATEDIFF({$colSql}, CURDATE())) {$dir}");
-    } else {
-        $orders->orderByDesc('p.updated_at');
+        // PAGINATION
+        $orders = $orders->paginate(10)->appends($request->query());
+
+        $orders->getCollection()->transform(function ($r) {
+            $r->details_url = route('dispatchcontrol.job.show', $r->ProductID);
+            return $r;
+        });
+
+        return view('dispatchcontrol.job-order', [
+            'stats'      => $stats,
+            'orders'     => $orders,
+            'q'          => $q,
+            'pid'        => $pid,
+            'artist'     => $artist,
+            'task_type'  => $taskType,
+            'status'     => $status,
+            'artists'    => $artists,
+            'sort_by'    => $sortBy,
+            'sort_mode'  => $sortMode,
+        ]);
     }
-
-    // PAGINATION
-    $orders = $orders->paginate(10)->appends($request->query());
-
-    $orders->getCollection()->transform(function ($r) {
-        $r->details_url = route('dispatchcontrol.job.show', $r->ProductID);
-        return $r;
-    });
-
-    return view('dispatchcontrol.job-order', [
-        'stats'      => $stats,
-        'orders'     => $orders,
-        'q'          => $q,
-        'pid'        => $pid,
-        'artist'     => $artist,
-        'task_type'  => $taskType,
-        'status'     => $status,
-        'artists'    => $artists,
-        'sort_by'    => $sortBy,
-        'sort_mode'  => $sortMode,
-    ]);
-}
 
 
     private function countByType(string $type): int
@@ -842,6 +844,29 @@ class DispatchControlController extends Controller
             'installation' => 'Delivery & Installation',
             default        => \Illuminate\Support\Str::title((string)$raw),
         };
+    }
+
+    public function completePackaging(Request $request, int $product)
+    {
+        $updated = DB::table('products')
+            ->where('ProductID', $product)
+            ->where(function ($q) {
+                $q->whereNull('packaging')->orWhere('packaging', 0);
+            })
+            ->update([
+                'packaging'  => 1,
+                'updated_at' => now(),
+            ]);
+
+        if (!$updated) {
+            // already completed OR product not found
+            return response()->json([
+                'ok' => false,
+                'message' => 'Packaging already completed or product not found.',
+            ], 422);
+        }
+
+        return response()->json(['ok' => true]);
     }
 
 }

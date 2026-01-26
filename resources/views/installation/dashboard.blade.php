@@ -45,7 +45,7 @@
   }
 
   .table-progress col.col-id {
-    width: 170px
+    width: 140px
   }
 
   .table-progress col.col-stage {
@@ -53,15 +53,17 @@
   }
 
   .table-progress col.col-date {
-    width: 140px
+    width: 110px
   }
 
   .table-progress col.col-deadline {
-    width: 140px
+    width: 120px
   }
 
+  .table-progress col.col-packaging { width: 110px; }
+
   .table-progress col.col-actions {
-    width: 120px
+    width: 95px
   }
 
   .table-progress thead th {
@@ -292,7 +294,6 @@
     border-color:#bfc6ff; box-shadow:0 0 0 .15rem rgba(99,91,255,.12);
   }
 
-  /* ====== ADD-ON: 顶部按钮 + 下方输入区（保留原有样式不改动） ====== */
   .filter-actions-top{
     display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px;
   }
@@ -302,7 +303,6 @@
   .filter-actions-top .btn-outline-secondary{ color:#1f2544; border-color:#cdd3df; }
   .filter-actions-top .btn-outline-secondary:hover{ background:#f4f6fa; }
 
-  /* 下方输入区保持一排紧凑 */
   .filters-row{ display:flex; flex-wrap:wrap; align-items:end; gap:12px; }
   .filters-row .form-label{ font-size:13px; font-weight:600; color:#475467; margin-bottom:6px; }
   .filters-row .input-group-text{ background:#fff; border-right:0; }
@@ -319,7 +319,6 @@
     .filter-actions-top{ justify-content:flex-end; }
   }
 
-  /* 标题与按钮同一排 */
 .filter-head{
   display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;
 }
@@ -332,7 +331,6 @@
 .filter-head .actions .btn-outline-secondary{color:#1f2544;border-color:#cdd3df;}
 .filter-head .actions .btn-outline-secondary:hover{background:#f4f6fa;}
 
-/* 下方输入区：一排紧凑 */
 .filters-row{display:flex;flex-wrap:wrap;align-items:end;gap:12px;}
 .filters-row .form-label{font-size:13px;font-weight:600;color:#475467;margin-bottom:6px;}
 .filters-row .input-group-text{background:#fff;border-right:0;}
@@ -364,9 +362,7 @@
 
 /* ========= Mobile Add-on (append only, non-destructive) ========= */
 
-/* 平板及以下：更紧凑的布局与可读性 */
 @media (max-width: 992px) {
-  /* KPI 卡片：允许换行、字号略降 */
   .stat-card {
     padding: 14px 16px;
     gap: 12px;
@@ -378,7 +374,6 @@
   .stat-card .num   { font-size: 28px; }
   .stat-card .label { font-size: 12px; }
 
-  /* 过滤区：标题与按钮可换行，输入控件更灵活 */
   .filter-head { flex-wrap: wrap; gap: 10px; }
   .filter-head .actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .filters-row { gap: 10px; }
@@ -387,7 +382,6 @@
   .fx-artist { flex: 1 1 200px; max-width: 100%; }
   .fx-date   { flex: 1 1 160px; max-width: 100%; }
 
-  /* 表格：允许横向滚动，避免挤爆 */
   .table-progress {
     display: block;
     overflow-x: auto;
@@ -398,20 +392,45 @@
   .table-progress thead th,
   .table-progress tbody td { white-space: nowrap; }
 
-  /* 操作按钮触控优化 */
   .action-btn { width: 36px; height: 36px; }
   .pagination { gap: 4px; }
   .pagination .page-link { padding: 8px 10px; font-size: 12px; }
 
-  /* 弹窗：边距更贴合小屏 */
   .cx-wrap  { padding: 12px; }
   .cx-modal { max-width: 92vw; border-radius: 10px; }
   .cx-header, .cx-body, .cx-footer { padding-left: 14px; padding-right: 14px; }
 }
 
-/* 手机：更激进堆叠与全宽按钮 */
 @media (max-width: 576px) {
-  /* KPI 卡片：上下布局 */
+  .table-progress{
+    min-width: 1180px !important;   /* increase if still tight */
+  }
+
+  .table-progress col.col-stage{
+    width: 190px !important;        /* was too small after adding Packaging */
+  }
+
+  .table-progress thead th:nth-child(2),
+  .table-progress thead th:nth-child(3),
+  .table-progress thead th:nth-child(4),
+  .table-progress thead th:nth-child(5),
+  .table-progress tbody td:nth-child(2),
+  .table-progress tbody td:nth-child(3),
+  .table-progress tbody td:nth-child(4),
+  .table-progress tbody td:nth-child(5){
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    text-align: center;
+  }
+
+  .table-progress tbody td:nth-child(2) .pipeline,
+  .table-progress tbody td:nth-child(3) .pipeline,
+  .table-progress tbody td:nth-child(4) .pipeline,
+  .table-progress tbody td:nth-child(5) .pipeline{
+    min-width: 170px;               /* make sure dots have enough space */
+    margin: 0 auto;
+  }
+  
   .stat-card {
     flex-direction: row;
     align-items: center;
@@ -421,34 +440,35 @@
   .stat-card .num { font-size: 24px; }
   .kpi-icon { width: 34px; height: 34px; }
 
-  /* 过滤区输入：单列铺满 */
   .filters-row { gap: 8px; }
   .filters-row > * { flex: 1 1 100%; max-width: 100%; }
   .filter-actions-top { justify-content: stretch; gap: 8px; }
   .filter-actions-top .btn,
   .filter-head .actions .btn { width: 100%; }
 
-  /* 表格：进一步压缩列宽（colgroup 固定宽度在小屏上不友好，这里以滚动为主） */
   .table-progress { white-space: nowrap; }
   .table-progress td, .table-progress th { padding: 12px 12px; }
 
-  /* 流程条/节点：更细、更小的点位，避免遮挡 */
   .pipeline { height: 16px; }
   .pipeline .track { height: 5px; }
   .pipeline .fill  { height: 5px; }
   .dot { width: 10px; height: 10px; }
-  /* 统一移动端的节点位置（覆盖你上面的重复定义） */
-  .dot.p1 { left: 10%; }
-  .dot.p2 { left: 38%; }
-  .dot.p3 { left: 66%; }
-  .dot.p4 { left: 92%; }
+  .dot.p1 { left: 8% !important; }
+  .dot.p2 { left: 35% !important; }
+  .dot.p3 { left: 60% !important; }
+  .dot.p4 { left: 87.5% !important; }
 
-  /* 分页：自动换行不挤压 */
+  /* make pipeline wide enough so dots don’t feel cramped */
+  .table-progress tbody td[colspan="4"] .pipeline{
+    width: 100%;
+    min-width: 220px;      /* increase if needed */
+    margin: 0 auto;
+  }
+
   .pagination { flex-wrap: wrap; }
   .pagination .page-link { padding: 8px 10px; min-width: 38px; text-align: center; }
 }
 
-/* 极小屏保底（<=360px） */
 @media (max-width: 360px) {
   .stat-card { padding: 12px 12px; }
   .stat-card .num { font-size: 22px; }
@@ -458,7 +478,6 @@
   .dot { width: 9px; height: 9px; }
 }
 
-/* --------- 可选：更丝滑的表格滚动阴影提示（不影响功能） --------- */
 @media (max-width: 992px) {
   .table-progress {
     background:
@@ -606,6 +625,7 @@
             <col class="col-stage">
             <col class="col-date">
             <col class="col-deadline">
+            <col class="col-packaging">
             <col class="col-actions">
           </colgroup>
 
@@ -654,6 +674,7 @@
                     ? ($sort === 'accepted_last' ? 'last' : 'first')
                     : '';
               @endphp
+              <th>PACKAGING</th>
               <th class="col-actions">
                 <a class="th-sort {{ str_starts_with($sort,'accepted_') ? 'is-active' : '' }}"
                   href="{{ $urlWith(['sort' => $acNext]) }}" style="color: rgb(43, 44, 64);">
@@ -771,6 +792,19 @@
                     <span class="badge bg-danger-subtle text-danger ms-2">Expired</span>
                   @elseif($isDueSoon)
                     <span class="badge bg-warning-subtle text-warning ms-2">Near</span>
+                  @endif
+                </td>
+                  @php
+                  $packagingVal  = data_get($r, 'packaging');         // may be null/0/1
+                  $packagingDone = (int)($packagingVal ?? 0) === 1;   // ✅ null/0 -> Pending, 1 -> Completed
+                @endphp
+                <td class="text-center">
+                  @if($packagingDone)
+                    <span class="fw-semibold text-success">Completed</span>
+                  @else
+                    <span class="fw-semibold text-primary">
+                      Pending
+                    </span>
                   @endif
                 </td>
                 <td class="text-center">

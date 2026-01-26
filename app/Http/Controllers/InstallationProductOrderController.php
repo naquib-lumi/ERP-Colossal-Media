@@ -109,6 +109,7 @@ class InstallationProductOrderController extends Controller
                 'o.orderAttachment',
                 'o.status as orderStatus',
                 'p.accepted',
+                'p.packaging',
                 // 🔹 NEW: installation fields
                 'p.installation_task_type',
                 'p.installation_accepted',
@@ -154,6 +155,7 @@ class InstallationProductOrderController extends Controller
             'artist_name'  => $headerRow->artist_name,
             'orderStatus'   => $headerRow->orderStatus,
             'accepted'      => $headerRow->accepted,
+            'packaging'    => $headerRow->packaging,
             'data_entry_name' => $headerRow->data_entry_name,
             // 🔹 NEW: pass installation info to view
             'installation_task_type' => $headerRow->installation_task_type,

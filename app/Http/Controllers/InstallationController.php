@@ -142,6 +142,7 @@ class InstallationController extends Controller
                 'p.installation_task_type',
                 'p.installation_status',
                 'p.installation_accepted',
+                'p.packaging',
                 'o.order_number',
                 'o.orderDate',
                 'o.deadline',
@@ -208,6 +209,7 @@ class InstallationController extends Controller
                     'current_stage'   => $curStage  ? strtolower($curStage)  : null,
                     'current_status'  => $curStatus ? strtolower($curStatus) : null,
                     'accepted'        => (int)($r->accepted ?? 0),
+                    'packaging' => (int)($r->packaging ?? 0),
                     // NEW
                     'installation_task_type' => $r->installation_task_type ?? null,
                     'installation_status'     => $r->installation_status ? strtolower($r->installation_status) : null,

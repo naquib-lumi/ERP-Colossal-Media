@@ -83,6 +83,7 @@
           <option value="to_assign"   {{ $statusVal === 'to_assign' ? 'selected' : '' }}>To Assign</option>
           <option value="assigned"    {{ $statusVal === 'assigned' ? 'selected' : '' }}>Assigned</option>
           <option value="pending"     {{ $statusVal === 'pending' ? 'selected' : '' }}>Pending</option>
+          <option value="draft"       {{ $statusVal === 'draft' ? 'selected' : '' }}>Draft</option>
           <option value="in_progress" {{ $statusVal === 'in_progress' ? 'selected' : '' }}>In Progress</option>
           <option value="completed"   {{ $statusVal === 'completed' ? 'selected' : '' }}>Completed</option>
           <option value="rejected"    {{ $statusVal === 'rejected' ? 'selected' : '' }}>Rejected</option>

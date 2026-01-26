@@ -67,6 +67,7 @@ class DispatchControlProductOrderController extends Controller
                 'o.orderAttachment',
                 'o.status as orderStatus',
                 'p.accepted',
+                'p.packaging',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
                 DB::raw('COALESCE(de.name, "") as data_entry_name'),
             ])
@@ -109,6 +110,7 @@ class DispatchControlProductOrderController extends Controller
             'artist_name'  => $headerRow->artist_name,
             'orderStatus'   => $headerRow->orderStatus,
             'accepted'      => $headerRow->accepted,
+            'packaging'    => $headerRow->packaging,
             'data_entry_name' => $headerRow->data_entry_name,
         ];
 

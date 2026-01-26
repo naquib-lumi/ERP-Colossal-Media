@@ -376,9 +376,9 @@ Route::get('/dashboard', function () {
         Route::put('/dispatchcontrol/profile', [DispatchControlProfileController::class, 'update'])->name('dispatchcontrol.user.update');
 
         Route::patch('/dispatchcontrol/jobs/{product}/complete', [DispatchControlController::class, 'completeWithProof'])->name('dispatchcontrol.jobs.complete');
-
-        // NEW – upload more proofs from history lightbox
         Route::post('/dispatchcontrol/history/{product}/proofs', [DispatchControlHistoryController::class, 'storeProofs'])->name('dispatchcontrol.history.proofs.store');
+
+        Route::patch('/dispatchcontrol/products/{product}/packaging-complete', [DispatchControlController::class, 'completePackaging'])->name('dispatchcontrol.packaging.complete');
     });
 
 

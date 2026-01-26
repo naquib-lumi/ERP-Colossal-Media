@@ -52,24 +52,24 @@
     table-layout: fixed
   }
 
-  .table-progress col.col-id {
-    width: 170px
-  }
+  .table-progress col.col-id { width: 140px; } 
 
   .table-progress col.col-stage {
     width: 18%
   }
 
   .table-progress col.col-date {
-    width: 140px
+    width: 110px
   }
 
   .table-progress col.col-deadline {
-    width: 140px
+    width: 120px
   }
 
+  .table-progress col.col-packaging { width: 110px; }
+
   .table-progress col.col-actions {
-    width: 120px
+    width: 95px
   }
 
   .table-progress thead th {
@@ -416,11 +416,11 @@
     -webkit-overflow-scrolling:touch;
   }
   .table-progress{
-    min-width: 720px; /* 保持列结构，交给 .table-responsive 横滚 */
+    /* min-width: 720px;  */
     font-size:.92rem;
   }
   .table-progress col.col-id{ width:140px; }
-  .table-progress col.col-stage{ width: 28%; }
+  /* .table-progress col.col-stage{ width: 28%; } */
   .table-progress col.col-date,
   .table-progress col.col-deadline{ width:120px; }
   .table-progress col.col-actions{ width:96px; }
@@ -474,10 +474,79 @@
   nav[role="navigation"]{ margin:0 !important; }
 }
 
-/* ----------- 可选辅助工具类（无需改HTML也可用） ---------- */
-/* 在不改结构的情况下，你也可以按需要在列上加这些类：
-   .sm-hide（≤576 隐藏），.sm-shrink（≤576 更小字号/内边距） */
 @media (max-width:576px){
+   /* DEADLINE cell: stack date + badge */
+  .table-progress td:nth-child(7){
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    white-space: normal !important;   /* allow wrapping inside */
+  }
+
+  /* PACKAGING cell: keep status separated, no overlap */
+  .table-progress td:nth-child(8){
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    white-space: normal !important;
+  }
+
+  /* make badges behave nicely (no collision) */
+  .table-progress td:nth-child(7) .badge,
+  .table-progress td:nth-child(7) .status-badge,
+  .table-progress td:nth-child(8) .badge{
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+  /* packaging button/text should not sit on same baseline as badge */
+  .js-packaging-pending,
+  .text-success{
+    line-height: 1.2;
+  }
+
+  /* Give table more room → scroll instead of stacking text */
+  .table-progress{
+    min-width: 1100px !important;   /* KEY: more space */
+  }
+
+  /* Product ID: slightly smaller */
+  .table-progress col.col-id{
+    width: 130px !important;
+  }
+
+  /* STAGES: force proper readable width */
+  .table-progress col.col-stage{
+    width: 180px !important;        /* KEY: fixes vertical letters */
+  }
+
+  /* Date In / Deadline: tighter */
+  .table-progress col.col-date{
+    width: 100px !important;
+  }
+  .table-progress col.col-deadline{
+    width: 110px !important;
+  }
+
+  /* Packaging: compact */
+  .table-progress col.col-packaging{
+    width: 95px !important;
+  }
+
+  /* Actions: smallest usable */
+  .table-progress col.col-actions{
+    width: 85px !important;
+  }
+
+  /* Keep headers in one line */
+  .table-progress thead th{
+    white-space: nowrap !important;
+    word-break: normal !important;
+  }
+
   .sm-hide{ display:none !important; }
   .sm-shrink{ font-size:.85em !important; }
 }
@@ -617,7 +686,8 @@
           <colgroup>
             <col class="col-id">
             <col class="col-stage"><col class="col-stage"><col class="col-stage"><col class="col-stage">
-            <col class="col-date"><col class="col-deadline"><col class="col-actions">
+            <col class="col-date"><col class="col-deadline"><col class="col-packaging"><col class="col-actions">
+
           </colgroup>
 
           <thead>
@@ -664,6 +734,7 @@
                   ? ($sort === 'accepted_last' ? 'last' : 'first')
                   : '';
             @endphp
+            <th>PACKAGING</th>
             <th class="col-actions">
               <a class="th-sort {{ str_starts_with($sort,'accepted_') ? 'is-active' : '' }}"
                 href="{{ $urlWith(['sort' => $acNext]) }}" style="color: rgb(43, 44, 64);">
@@ -770,6 +841,25 @@
                   <span class="badge bg-warning-subtle text-warning ms-2">Near</span>
                 @endif
               </td>
+              @php
+                $packagingVal  = data_get($r, 'packaging');         // may be null/0/1
+                $packagingDone = (int)($packagingVal ?? 0) === 1;   // ✅ null/0 -> Pending, 1 -> Completed
+              @endphp
+              <td class="text-center">
+                @if($packagingDone)
+                  <span class="fw-semibold text-success">Completed</span>
+                @else
+                  <button
+                    type="button"
+                    class="btn btn-link p-0 fw-semibold text-primary js-packaging-pending"
+                    data-id="{{ $pid }}"
+                    data-url="{{ route('dispatchcontrol.packaging.complete', ['product' => $pid]) }}"
+                    style="text-decoration:none;"
+                  >
+                    Pending
+                  </button>
+                @endif
+              </td>
               <td class="text-center">
                 <div class="d-inline-flex gap-1">
                   @if (!$accepted || $isdeliveryCompleted || !$isdelivery)
@@ -791,7 +881,7 @@
               </td>
             </tr>
           @empty
-            <tr><td colspan="8" class="text-center text-muted py-4">No data.</td></tr>
+            <tr><td colspan="9" class="text-center text-muted py-4">No data.</td></tr>
           @endforelse
           </tbody>
         </table>
@@ -824,6 +914,32 @@
       <div class="cx-footer">
         <button type="button" class="btn btn-back" data-close="proofModal">Cancel</button>
         <button type="button" id="confirmProof" class="btn btn-accept">Confirm & Complete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form id="packagingForm" method="POST" action="" style="display:none;">
+  @csrf
+  @method('PATCH')
+</form>
+
+<div id="packagingModal" class="cx-mask" aria-hidden="true">
+  <div class="cx-wrap">
+    <div class="cx-modal" role="dialog" aria-modal="true" style="max-width:520px">
+      <div class="cx-header">
+        <i class="bi bi-box-seam text-primary"></i>
+        <div class="cx-title">Complete Packaging</div>
+        <button type="button" class="cx-close" data-close="packagingModal"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="cx-body">
+        <div class="text-muted">Are you sure you want to mark <b>Packaging</b> as completed?</div>
+      </div>
+
+      <div class="cx-footer">
+        <button type="button" class="btn btn-back" data-close="packagingModal">Cancel</button>
+        <button type="button" class="btn btn-accept" id="btnPackagingConfirm">Yes, Complete</button>
       </div>
     </div>
   </div>
@@ -920,5 +1036,93 @@ document.addEventListener('DOMContentLoaded', () => {
     form.submit();
   });
 });
+
+(function () {
+  const modal = document.getElementById('packagingModal');
+  const btnConfirm = document.getElementById('btnPackagingConfirm');
+  const form = document.getElementById('packagingForm'); // ✅ use hidden form token
+  let actionUrl = null;
+
+  function openModal() {
+    if (!modal) return;
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeModal() {
+    if (!modal) return;
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function getCsrfToken() {
+    // A) try meta first (if exists)
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) return meta.getAttribute('content');
+
+    // B) fallback: hidden form _token
+    const tokenInput = form ? form.querySelector('input[name="_token"]') : null;
+    return tokenInput ? tokenInput.value : null;
+  }
+
+  document.addEventListener('click', (e) => {
+    // open modal
+    const btn = e.target.closest('.js-packaging-pending');
+    if (btn) {
+      actionUrl = btn.getAttribute('data-url');
+      openModal();
+      e.preventDefault();
+      return;
+    }
+
+    // close modal
+    const closeBtn = e.target.closest('[data-close="packagingModal"]');
+    if (closeBtn) {
+      closeModal();
+      e.preventDefault();
+      return;
+    }
+  });
+
+  if (btnConfirm) {
+    btnConfirm.addEventListener('click', async () => {
+      if (!actionUrl) return;
+
+      const csrf = getCsrfToken();
+      if (!csrf) {
+        alert('CSRF token not found. Please ensure #packagingForm has @csrf.');
+        return;
+      }
+
+      try {
+        btnConfirm.disabled = true;
+
+        const res = await fetch(actionUrl, {
+          method: 'PATCH',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrf, // ✅ fixed
+            'Accept': 'application/json',
+          },
+          credentials: 'same-origin', // ✅ helps session/cookie
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.ok === false) {
+          throw new Error(json.message || 'Failed to complete packaging.');
+        }
+
+        window.location.reload();
+
+      } catch (err) {
+        console.error(err);
+        alert('Unable to update packaging. Please try again.');
+      } finally {
+        btnConfirm.disabled = false;
+        closeModal();
+      }
+    });
+  }
+})();
 </script>
 @endsection

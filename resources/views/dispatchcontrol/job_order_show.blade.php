@@ -1301,6 +1301,8 @@
       $isAccepted = isset($header->accepted) && (int)$header->accepted === 1;
       $isPending  = !isset($header->accepted) || $header->accepted === null;
 
+      $packagingDone = (int)($header->packaging ?? 0) === 1;
+
       $isCompleted = strtolower((string)($header->status ?? '')) === 'completed';
 
       use Illuminate\Support\Facades\DB;
@@ -1325,20 +1327,29 @@
           @endif
           
           @if ($isPending && $canSeeDecision)
-            <button type="button" id="btnAccept" class="btn btn-accept">
-              <i class="bi bi-check2"></i> Accept
-            </button>
-            <button type="button"
-                    id="btnReject"
-                    class="btn btn-reject"
-                    @if($hasRedoBefore)
-                        disabled 
-                        style="opacity:0.4; cursor:not-allowed;"
-                        title="Cannot reject a product that has already been redone"
-                    @endif>
-                <i class="bi bi-x-lg"></i> Reject
-            </button>
-            <a href="{{ route('dispatchcontrol.dashboard') }}" class="btn btn-back">Back</a>
+            @if ($packagingDone)
+              <button type="button" id="btnAccept" class="btn btn-accept">
+                <i class="bi bi-check2"></i> Accept
+              </button>
+              <button type="button"
+                      id="btnReject"
+                      class="btn btn-reject"
+                      @if($hasRedoBefore)
+                          disabled 
+                          style="opacity:0.4; cursor:not-allowed;"
+                          title="Cannot reject a product that has already been redone"
+                      @endif>
+                  <i class="bi bi-x-lg"></i> Reject
+              </button>
+              <a href="{{ route('dispatchcontrol.dashboard') }}" class="btn btn-back">Back</a>
+
+            @else
+              <div class="alert alert-info mb-2" style="font-weight:500;">
+                Please wait for <strong>Packaging</strong> complete before accepting/rejecting this product.
+              </div>
+
+              <a href="{{ route('dispatchcontrol.dashboard') }}" class="btn btn-back">Back</a>
+            @endif
           @endif
 
           @if ($isAccepted && $canEditThisStage && !$isCompleted)
