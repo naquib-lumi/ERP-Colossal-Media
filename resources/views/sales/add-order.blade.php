@@ -370,11 +370,18 @@
 
   
 
-        <div class="col-12">
-            <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
-                <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Order</button>
-            </div>
+        <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
+            <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
+
+            {{-- ✅ Save Draft --}}
+            <button type="submit" name="save_type" value="draft" class="btn btn-outline-primary">
+                Save Draft
+            </button>
+
+            {{-- ✅ Save Order --}}
+            <button type="submit" name="save_type" value="final" class="btn btn-primary">
+                Save Order
+            </button>
         </div>
     </div>
 </form>
@@ -1129,6 +1136,16 @@ var isDirty = false;
 @endif
 
         $('#order-form').on('submit', function(e) {
+            // ✅ Detect which button was clicked
+            const submitter = e.originalEvent?.submitter || document.activeElement;
+            const saveType = submitter?.value;
+
+
+            // ✅ If Save Draft → skip validation
+            if (saveType === 'draft') {
+            isDirty = false;
+            return true; // allow submit
+            }
             clearValidationErrors();
             const errors = [];
 

@@ -157,7 +157,7 @@
     @csrf
     @method('PUT')
     <input type="hidden" name="from" value="{{ request('from') }}">
-    <input type="hidden" name="lead_id" value="{{ $order->lead_id }}">
+    <input type="hidden" name="lead_id" id="lead_id" value="{{ $order->lead_id }}">
     <input type="hidden" id="from_csv" name="from_csv" value="{{ old('from_csv', 0) }}">
 
     <div class="row g-4">
@@ -178,22 +178,39 @@
                                     <h5 mb-0>Lead Information</h5>
                                 </div>
                                 <div class="card-body">
+                                    @if($order->orderStatus === 'in_progress' && is_null($order->artist_id) && $order->draft == 1)
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Search Lead <span class="text-danger">*</span></label>
+
+                                        <select id="leadSelect" class="form-select" style="width:100%;">
+                                            @if($order->lead_id && $order->lead)
+                                            <option value="{{ $order->lead_id }}" selected>
+                                                {{ $order->lead->company_name }} - {{ $order->lead->name }}
+                                            </option>
+                                            @else
+                                                <option value="" selected>Search for a lead</option>
+                                            @endif
+                                        </select>
+
+                                        <div id="lead-error" class="validation-msg"></div>
+                                    </div>
+                                    @endif
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label">Company Name</label>
-                                            <input id="companyDisplay" type="text" class="form-control" value="{{ $order->lead->company_name ?? '' }}" readonly>
+                                            <input id="companyDisplay" type="text" class="form-control" value="{{ $order->lead->company_name ?? $order->companyName ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Lead Name</label>
-                                            <input id="leadNameDisplay" type="text" class="form-control" value="{{ $order->lead->name ?? '' }}" readonly>
+                                            <input id="leadNameDisplay" type="text" class="form-control" value="{{ $order->lead->name ?? $order->leadName ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Phone</label>
-                                            <input id="phoneDisplay" type="text" class="form-control" value="{{ $order->lead->phone ?? '' }}" readonly>
+                                            <input id="phoneDisplay" type="text" class="form-control" value="{{ $order->lead->phone ?? $order->leadPhone ?? '' }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Email</label>
-                                            <input id="emailDisplay" type="text" class="form-control" value="{{ $order->lead->email ?? '' }}" readonly>
+                                            <input id="emailDisplay" type="text" class="form-control" value="{{ $order->lead->email ?? $order->leadEmail ?? '' }}" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -215,11 +232,11 @@
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Created Date</label>
-                                            <input type="text" class="form-control" value="{{ $order->orderDate->format('d/m/Y') }}" readonly>
+                                            <input type="text" class="form-control" value="{{ optional($order->orderDate)->format('d/m/Y') }}" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Deadline <span class="text-danger">*</span></label>
-                                            <input name="deadline" type="date" class="form-control" value="{{ old('deadline', $order->deadline->format('Y-m-d')) }}">
+                                            <input name="deadline" type="date" class="form-control" value="{{ old('deadline', optional($order->deadline)->format('Y-m-d')) }}">
                                             <div id="deadline-error" class="validation-msg"></div>
                                         </div>
                                         <div class="col-md-6 mb-4">
@@ -421,11 +438,26 @@
             </div>
         </div>
 
-        <div class="col-12">
-            <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index: 10">
-                <button type="button" class="btn btn-outline-secondary" onclick="cancelOrder()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Update Order</button>
-            </div>
+        <div class="bg-body position-sticky bottom-0 border-top py-3 d-flex gap-2 justify-content-end" style="z-index:10">
+            <button type="button" class="btn btn-outline-secondary" onclick="cancelOrder()">Cancel</button>
+
+            @if($order->orderStatus === 'in_progress' && is_null($order->artist_id) && $order->draft == 1)
+            {{-- Save Draft (skip validation) --}}
+            <button type="submit" name="save_type" value="draft" class="btn btn-outline-primary">
+            Save Draft
+            </button>
+
+
+            {{-- Update Order (full validation) --}}
+            <button type="submit" name="save_type" value="final" class="btn btn-primary">
+            Update Order
+            </button>
+            @else
+            {{-- Normal Update --}}
+            <button type="submit" name="save_type" value="final" class="btn btn-primary">
+            Update Order
+            </button>
+            @endif
         </div>
     </div>
 </form>
@@ -472,6 +504,58 @@
     </div>
 </div>
 @push('scripts')
+@if($order->orderStatus === 'in_progress' && is_null($order->artist_id) && $order->draft == 1)
+
+<script>
+$(document).ready(function() {
+    var leadSelect = $('#leadSelect');
+
+    leadSelect.select2({
+        placeholder: 'Search for a lead',
+        dropdownParent: leadSelect.parent(),
+        minimumInputLength: 2,
+        ajax: {
+            url: '{{ route('orders.leads.search') }}',
+            dataType: 'json',
+            delay: 250,
+            data: function(params) {
+                return {
+                    query: params.term,
+                    _token: '{{ csrf_token() }}'
+                };
+            },
+            processResults: function(data) {
+                return {
+                    results: data.map(lead => ({
+                        id: lead.id,
+                        text: lead.text
+                    }))
+                };
+            },
+            cache: true
+        }
+    });
+
+    leadSelect.on('select2:select', function(e) {
+        var data = e.params.data;
+        var getLeadBase = "{{ route('orders.leads.get', ':id') }}";
+
+        $.ajax({
+            url: getLeadBase.replace(':id', data.id),
+            type: 'GET',
+            success: function(lead) {
+                $('#companyDisplay').val(lead.company_name);
+                $('#leadNameDisplay').val(lead.name);
+                $('#phoneDisplay').val(lead.phone);
+                $('#emailDisplay').val(lead.email);
+                $('#lead_id').val(lead.id).trigger('change');
+            }
+        });
+    });
+});
+</script>
+
+@endif
 <script>
     var isDirty = false;
     let productIndex = $('#product-table tbody tr').length;
@@ -882,85 +966,135 @@
             clearValidationErrors();
             const errors = [];
 
+
+            // ✅ detect which submit button clicked (draft / final)
+            const submitter = e.originalEvent?.submitter || document.activeElement;
+            const saveType = (submitter && submitter.name === 'save_type')
+            ? submitter.value
+            : 'final';
+
+
+            const isDraftClick = (saveType === 'draft');
+
+
+            // ✅ only allow skipping validation if this order is the "draft-state" you defined
+            const canSkipValidation = @json($order->orderStatus === 'in_progress' && is_null($order->artist_id) && (int)$order->draft === 1);
+
+
+            if (isDraftClick && canSkipValidation) {
+            isDirty = false; // allow submit
+            return true; // ✅ skip everything
+            }
+
+
+            // ==========================
+            // ✅ Normal validation (Update Order)
+            // ==========================
+            const leadId = $('#lead_id').val();
+            if (!leadId) {
+            $('#lead-error').text('Lead selection is required').show();
+            errors.push('Lead selection is required');
+            }
+
+
             if (!$('input[name="orderTitle"]').val().trim()) {
-                errors.push('Job title is required');
-                $('input[name="orderTitle"]').addClass('is-invalid');
+            errors.push('Job title is required');
+            $('input[name="orderTitle"]').addClass('is-invalid');
             }
+
+
             if (!$('input[name="deadline"]').val()) {
-                errors.push('Deadline is required');
-                $('input[name="deadline"]').addClass('is-invalid');
+            errors.push('Deadline is required');
+            $('input[name="deadline"]').addClass('is-invalid');
             }
+
+
             if (!$('input[name="approval"]:checked').length) {
-                errors.push('Approval selection is required');
-                $('input[name="approval"]').addClass('is-invalid');
+            errors.push('Approval selection is required');
+            $('input[name="approval"]').addClass('is-invalid');
             }
+
 
             const products = $('#product-table tbody tr');
             if (products.length === 0) {
-                $('#products-error').text('At least one product is required').show();
-                errors.push('At least one product is required');
+            $('#products-error').text('At least one product is required').show();
+            errors.push('At least one product is required');
             } else {
-                products.each(function(idx) {
-                    const productErrors = [];
-                    const productName = $(this).find('input[name$="[product_name]"]').val().trim();
-                    const quantityInput = $(this).find('input[name$="[quantity]"]');
-                    const quantityStr = quantityInput.val().trim();
-                    const quantity = parseInt(quantityStr, 10);
-                    if (!productName) {
-                        $(this).find('input[name$="[product_name]"]').addClass('is-invalid');
-                        productErrors.push('Product name is required');
-                    }
-                    if (!quantityStr || isNaN(quantity) || quantity < 1) {
-                        quantityInput.addClass('is-invalid');
-                        productErrors.push('Quantity must be at least 1');
-                    }
-                    const remarks = $(this).find('.remark-row');
-                    const operations = [];
-                    remarks.each(function() {
-                        const select = $(this).find('select');
-                        const input = $(this).find('input');
-                        const operation = select.val();
-                        const remark = input.val().trim();
-                        const opText = select.find('option:selected').text();
-                        if (operation && !remark) {
-                            input.addClass('is-invalid');
-                            productErrors.push(`Remark text required for "${opText}"`);
-                        }
-                        if (operation) {
-                            if (operations.includes(operation)) {
-                                select.addClass('is-invalid');
-                                productErrors.push(`Duplicate operation: "${opText}"`);
-                            }
-                            operations.push(operation);
-                        }
-                    });
-                    if (productErrors.length > 0) {
-                        errors.push(`Product ${idx + 1}: ${productErrors.join(', ')}`);
-                    }
-                });
-            }   
+            products.each(function (idx) {
+            const productErrors = [];
+            const productName = $(this).find('input[name$="[product_name]"]').val().trim();
+            const quantityInput = $(this).find('input[name$="[quantity]"]');
+            const quantityStr = quantityInput.val().trim();
+            const quantity = parseInt(quantityStr, 10);
+
+
+            if (!productName) {
+            $(this).find('input[name$="[product_name]"]').addClass('is-invalid');
+            productErrors.push('Product name is required');
+            }
+
+
+            if (!quantityStr || isNaN(quantity) || quantity < 1) {
+            quantityInput.addClass('is-invalid');
+            productErrors.push('Quantity must be at least 1');
+            }
+
+
+            const remarks = $(this).find('.remark-row');
+            const operations = [];
+            remarks.each(function () {
+            const select = $(this).find('select');
+            const input = $(this).find('input');
+            const operation = select.val();
+            const remark = input.val().trim();
+            const opText = select.find('option:selected').text();
+
+
+            if (operation && !remark) {
+            input.addClass('is-invalid');
+            productErrors.push(`Remark text required for "${opText}"`);
+            }
+
+
+            if (operation) {
+            if (operations.includes(operation)) {
+            select.addClass('is-invalid');
+            productErrors.push(`Duplicate operation: "${opText}"`);
+            }
+            operations.push(operation);
+            }
+            });
+
+
+            if (productErrors.length > 0) {
+            errors.push(`Product ${idx + 1}: ${productErrors.join(', ')}`);
+            }
+            });
+            }
+
 
             // Attachment validation
             const hasExisting = $('.existing-attachment').length > 0;
 
+
             if (!hasExisting && selectedFiles.length === 0) {
-       
-                errors.push('At least one attachment is required');
-                attZone.classList.add('border-danger');
-                setTimeout(() => attZone.classList.remove('border-danger'), 3000);
+            errors.push('At least one attachment is required');
+            attZone.classList.add('border-danger');
+            setTimeout(() => attZone.classList.remove('border-danger'), 3000);
             }
 
+
             if (errors.length) {
-                e.preventDefault();
-                Swal.fire({
-                    title: 'Please fix the following errors',
-                    html: '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>',
-                    icon: 'error'
-                });
+            e.preventDefault();
+            Swal.fire({
+            title: 'Please fix the following errors',
+            html: '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>',
+            icon: 'error'
+            });
             } else {
-                isDirty = false; // Allow normal submit
+            isDirty = false;
             }
-        });
+            });
 
         function clearValidationErrors() {
             $('.is-invalid').removeClass('is-invalid');
