@@ -117,14 +117,41 @@
     }
 
     .remark-row {
-        display: flex;
+        flex-direction: column;
         gap: 1rem;
         align-items: flex-start;
         margin-bottom: 0.5rem;
     }
 
-    .remark-row select {
-        flex: 0 0 160px;
+    .remarks-container{
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .remark-card{
+        position: relative;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+        background: #fff;
+    }
+
+    .remark-card .btn-del{
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        padding: 0;
+    }
+
+    .remark-card .remark-body{
+        padding-right: 28px; /* give space so delete icon doesn't overlap */
+    }
+
+    .remark-card .form-label.small{
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
     }
 
     .remark-row input {
@@ -149,6 +176,36 @@
         color: #dc3545;
         font-size: 0.875em;
         margin-top: 0.25rem;
+    }
+
+    .delivery-card, .remark-card{
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #fff;
+    position: relative;
+    }
+
+
+    .delivery-card .btn-del, .remark-card .btn-del{
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    padding: 0;
+    }
+
+
+    .delivery-card input, .remark-card input, .delivery-card select, .remark-card select{
+    margin-top: 6px;
+    }
+
+
+    .small-label{
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
     }
 </style>
 @endpush
@@ -286,6 +343,7 @@
                                             <th>Product Name</th>
                                             <th>Quantity</th>
                                             <th>Material Remark</th>
+                                            <th style="width: 260px;">Delivery Breakdown</th>
                                             <th>Remarks</th>
                                             <th>Action</th>
                                         </tr>
@@ -306,28 +364,94 @@
                                                     <input type="text" name="products[{{ $productIndex }}][material_remark]" class="form-control" value="{{ old("products.{$productIndex}.material_remark", $product->materialRemark ?? '') }}">
                                                 </td>
                                                 <td>
-                                                    <div id="remarks-container-{{ $productIndex }}">
-                                                        @foreach ($product->remarks as $rindex => $remark)
-                                                            <div class="remark-row">
-                                                                <select name="products[{{ $productIndex }}][remarks][{{ $rindex }}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                                                    <option value="artist" {{ $remark->operation == 'artist' ? 'selected' : '' }}>To Artist</option>
-                                                                    <option value="printing" {{ $remark->operation == 'printing' ? 'selected' : '' }}>To Printing</option>
-                                                                    <option value="furnishing" {{ $remark->operation == 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
-                                                                    <option value="installation" {{ $remark->operation == 'installation' ? 'selected' : '' }}>To Installation</option>
-                                                                    <option value="self_pickup" {{ $remark->operation == 'self_pickup' ? 'selected' : '' }}>To Self Pickup</option>
-                                                                    <option value="courier" {{ $remark->operation == 'courier' ? 'selected' : '' }}>To Courier</option>
-                                                                </select>
-                                                                <input type="text" name="products[{{ $productIndex }}][remarks][{{ $rindex }}][remark]" class="form-control" value="{{ old("products.{$productIndex}.remarks.{$rindex}.remark", $remark->remark ?? '') }}" placeholder="Write a note…">
-                                                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
+                                                    <div id="deliveries-container-{{ $productIndex }}">
+                                                        @foreach ($product->deliveries ?? [] as $dindex => $d)
+                                                            @php
+                                                                $method = data_get($d, 'method', '');
+                                                                $location = data_get($d, 'location', '');
+                                                                $dtRaw = data_get($d, 'datetime', '');
+                                                                $dtVal = '';
+                                                                try {
+                                                                    if ($dtRaw) $dtVal = \Carbon\Carbon::parse($dtRaw)->format('Y-m-d\TH:i');
+                                                                } catch (\Exception $e) {
+                                                                    $dtVal = '';
+                                                                }
+                                                            @endphp
+
+                                                            <div class="delivery-card delivery-row">
+                                                                <button type="button" class="btn btn-link text-danger btn-del remove-delivery" title="Delete">
                                                                     <i class="bx bx-trash fs-5"></i>
                                                                 </button>
+
+                                                                <select name="products[{{ $productIndex }}][deliveries][{{ $dindex }}][method]" class="form-select w-auto" style="min-width:160px;">
+                                                                    <option value="">— Select —</option>
+                                                                    <option value="courier" {{ $method==='courier'?'selected':'' }}>Courier</option>
+                                                                    <option value="self_pickup" {{ $method==='self_pickup'?'selected':'' }}>Self Pickup</option>
+                                                                    <option value="delivery" {{ $method==='delivery'?'selected':'' }}>Delivery</option>
+                                                                    <option value="installation" {{ $method==='installation'?'selected':'' }}>Installation</option>
+                                                                </select>
+
+                                                                <input type="text"
+                                                                    name="products[{{ $productIndex }}][deliveries][{{ $dindex }}][location]"
+                                                                    class="form-control"
+                                                                    placeholder="Location"
+                                                                    value="{{ $location }}">
+
+                                                                <input type="datetime-local"
+                                                                    name="products[{{ $productIndex }}][deliveries][{{ $dindex }}][datetime]"
+                                                                    class="form-control"
+                                                                    value="{{ $dtVal }}">
                                                             </div>
                                                         @endforeach
                                                     </div>
-                                                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $productIndex }}">Add Remark</button>
+
+                                                    <button type="button" class="btn btn-secondary btn-sm add-delivery mt-2" data-index="{{ $productIndex }}">
+                                                        Add Delivery
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $productIndex }}">Delete</button>
+                                                    <div id="remarks-container-{{ $productIndex }}">
+                                                        @foreach ($product->remarks ?? [] as $rindex => $r)
+                                                            @php
+                                                                $op = data_get($r, 'operation', '');
+                                                                $txt = data_get($r, 'remark', '');
+                                                            @endphp
+
+                                                            <div class="remark-card remark-row">
+                                                                <button type="button" class="btn btn-link text-danger btn-del remove-remark" title="Delete">
+                                                                    <i class="bx bx-trash fs-5"></i>
+                                                                </button>
+
+                                                                <div class="small-label">Operation</div>
+                                                                <select name="products[{{ $productIndex }}][remarks][{{ $rindex }}][operation]" class="form-select">
+                                                                    <option value="">— Select —</option>
+                                                                    <option value="artist" {{ $op==='artist'?'selected':'' }}>To Artist</option>
+                                                                    <option value="printing" {{ $op==='printing'?'selected':'' }}>To Printing</option>
+                                                                    <option value="furnishing" {{ $op==='furnishing'?'selected':'' }}>To Furnishing</option>
+                                                                    <option value="installation" {{ $op==='installation'?'selected':'' }}>To Installation</option>
+                                                                    <option value="self_pickup" {{ $op==='self_pickup'?'selected':'' }}>To Self Pickup</option>
+                                                                    <option value="courier" {{ $op==='courier'?'selected':'' }}>To Courier</option>
+                                                                </select>
+
+                                                                <div class="small-label mt-2">Remark</div>
+                                                                <input type="text"
+                                                                    name="products[{{ $productIndex }}][remarks][{{ $rindex }}][remark]"
+                                                                    class="form-control"
+                                                                    placeholder="Write a note…"
+                                                                    value="{{ $txt }}">
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+
+                                                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="{{ $productIndex }}">
+                                                        Add Remark
+                                                    </button>
+                                                </td>
+
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-danger remove-product" data-index="{{ $productIndex }}">
+                                                        Delete
+                                                    </button>
                                                 </td>
                                             </tr>
                                             @php $productIndex++; @endphp
@@ -488,18 +612,27 @@
                             <textarea id="material_remark" class="form-control"></textarea>
                         </div>
                         <div class="col-12">
-                            <label>Remarks</label>
+                            <label style="margin-bottom: 5px;">Delivery Breakdown (Optional)</label>
+                            <div id="modal-deliveries-container"></div>
+                                <button type="button" class="btn btn-secondary btn-sm mt-2" id="addDeliveryRowBtn">
+                                    Add Delivery
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label style="margin-top:10px;">Remarks</label>
                             <div id="remarks-container"></div>
                             <button type="button" id="addRemarkBtn" class="btn btn-secondary btn-sm mt-2">Add Remark</button>
                             <div id="remarks-error" class="validation-msg"></div>
                         </div>
                     </div>
                 </form>
-            </div>
-            <div class="modal-footer">
+                <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-primary" id="saveProduct">Save</button>
             </div>
+            </div>
+            
         </div>
     </div>
 </div>
@@ -712,26 +845,38 @@ $(document).ready(function() {
         });
 
         function addRemarkRow(op = '', rem = '') {
-            const idx = $('#remarks-container .remark-row').length;
+            const rIdx = $('#remarks-container .remark-row').length;
+
             const html = `
-                <div class="remark-row mb-2">
-                    <select class="form-select" style="min-width:160px;">
+                <div class="remark-row mb-2 d-flex align-items-center gap-2" style="flex-direction:unset;">
+                    <select class="form-select w-auto" style="min-width:200px;">
                         <option value="">— Select —</option>
-                        <option value="artist" ${op==='artist'?'selected':''}>To Artist</option>
-                        <option value="printing" ${op==='printing'?'selected':''}>To Printing</option>
-                        <option value="furnishing" ${op==='furnishing'?'selected':''}>To Furnishing</option>
-                        <option value="installation" ${op==='installation'?'selected':''}>To Installation</option>
-                        <option value="self_pickup" ${op==='self_pickup'?'selected':''}>To Self Pickup</option>
-                        <option value="courier" ${op==='courier'?'selected':''}>To Courier</option>
+                        <option value="artist" ${op === 'artist' ? 'selected' : ''}>To Artist</option>
+                        <option value="printing" ${op === 'printing' ? 'selected' : ''}>To Printing</option>
+                        <option value="furnishing" ${op === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
+                        <option value="installation" ${op === 'installation' ? 'selected' : ''}>To Installation</option>
+                        <option value="self_pickup" ${op === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
+                        <option value="courier" ${op === 'courier' ? 'selected' : ''}>To Courier</option>
                     </select>
-                    <input type="text" class="form-control" placeholder="Write a note…" value="${escapeHtml(rem)}">
-                    <button type="button" class="btn btn-link text-danger remove-remark"><i class="bx bx-trash"></i></button>
-                </div>`;
+
+                    <input type="text"
+                        class="form-control"
+                        placeholder="Write a note…"
+                        value="${escapeHtml(rem || '')}"
+                        style="min-width:320px;">
+
+                    <button type="button" class="btn btn-link text-danger p-0 remove-modal-remark" title="Delete">
+                        <i class="bx bx-trash fs-5"></i>
+                    </button>
+                </div>
+            `;
+
             $('#remarks-container').append(html);
         }
 
         $(document).on('click', '.remove-remark', function () {
             $(this).closest('.remark-row').remove();
+            isDirty = true;
         });
 
         $('#saveProduct').on('click', function () {
@@ -761,12 +906,30 @@ $(document).ready(function() {
                 product_name: $('#product_name').val().trim(),
                 quantity: ltrim($('#quantity').val()),
                 material_remark: $('#material_remark').val(),
+                deliveries: [],
                 remarks: []
             };
+            // collect deliveries (save if any field filled)
+            $('#modal-deliveries-container .delivery-row').each(function () {
+                const method = $(this).find('select').val() || '';
+                const loc    = ($(this).find('input[type="text"]').val() || '').trim();
+                const dtVal  = $(this).find('input[type="datetime-local"]').val() || '';
+
+                // only skip if ALL empty
+                if (!method && !loc && !dtVal) return;
+
+                data.deliveries.push({
+                    method: method,
+                    location: loc,
+                    datetime: dtVal
+                });
+            });
             $('#remarks-container .remark-row').each(function () {
                 const op = $(this).find('select').val();
-                const rem = $(this).find('input').val().trim();
-                if (op && rem) data.remarks.push({ operation: op, remark: rem });
+                const rem = $(this).find('input[type="text"]').val().trim();
+                if (op || rem) { // allow partial save if you want; change to (op && rem) if you want strict
+                    data.remarks.push({ operation: op, remark: rem });
+                }
             });
 
             const idx = $('#product_index').val();
@@ -786,72 +949,237 @@ $(document).ready(function() {
 
         function addProductRow(data, idx) {
             const row = `
-                <tr data-index="${idx}">
-                    <td class="product-number">${idx + 1}</td>
-                    <td><input type="text" name="products[${idx}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
-                    <td><input type="number" name="products[${idx}][quantity]" class="form-control" value="${data.quantity}" min="1"></td>
-                    <td><input type="text" name="products[${idx}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}"></td>
-                    <td>
-                        <div id="remarks-container-${idx}">
-                            ${data.remarks.map((r, i) => `
-                                <div class="remark-row">
-                                    <select name="products[${idx}][remarks][${i}][operation]" class="form-select" style="min-width:160px;">
-                                        <option value="artist" ${r.operation==='artist'?'selected':''}>To Artist</option>
-                                        <option value="printing" ${r.operation==='printing'?'selected':''}>To Printing</option>
-                                        <option value="furnishing" ${r.operation==='furnishing'?'selected':''}>To Furnishing</option>
-                                        <option value="installation" ${r.operation==='installation'?'selected':''}>To Installation</option>
-                                        <option value="self_pickup" ${r.operation==='self_pickup'?'selected':''}>To Self Pickup</option>
-                                        <option value="courier" ${r.operation==='courier'?'selected':''}>To Courier</option>
-                                    </select>
-                                    <input type="text" name="products[${idx}][remarks][${i}][remark]" class="form-control" value="${escapeHtml(r.remark)}">
-                                    <button type="button" class="btn btn-link text-danger remove-remark"><i class="bx bx-trash"></i></button>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${idx}">Add Remark</button>
-                    </td>
-                    <td><button type="button" class="btn btn-sm btn-danger remove-product" data-index="${idx}">Delete</button></td>
-                </tr>`;
+            <tr data-index="${idx}">
+            <td class="product-number">${idx + 1}</td>
+
+
+            <td>
+            <input type="text" name="products[${idx}][product_name]" class="form-control"
+            value="${escapeHtml(data.product_name)}">
+            </td>
+
+
+            <td>
+            <input type="number" name="products[${idx}][quantity]" class="form-control"
+            value="${data.quantity}" min="1">
+            </td>
+
+
+            <td>
+            <input type="text" name="products[${idx}][material_remark]" class="form-control"
+            value="${escapeHtml(data.material_remark)}">
+            </td>
+
+
+            <td>
+            <div id="deliveries-container-${idx}">
+            ${(data.deliveries || []).map((d, i) => renderDeliveryCard(idx, d, i)).join('')}
+            </div>
+
+
+            <button type="button" class="btn btn-secondary btn-sm mt-2 add-delivery" data-index="${idx}">
+            Add Delivery
+            </button>
+            </td>
+
+
+            <td class="remarks-td">
+                <div id="remarks-container-${idx}" class="remarks-container">
+                ${(data.remarks || []).map((r, i) => renderRemarkCard(idx, r, i)).join('')}
+                </div>
+
+
+                <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${idx}">
+                Add Remark
+                </button>
+            </td>
+
+
+            <td>
+            <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${idx}">
+            Delete
+            </button>
+            </td>
+            </tr>
+            `;
             $('#product-table tbody').append(row);
         }
 
         function updateProductRow(idx, data) {
             const row = $(`tr[data-index="${idx}"]`);
+
+
             row.find('input[name$="[product_name]"]').val(data.product_name);
             row.find('input[name$="[quantity]"]').val(data.quantity);
             row.find('input[name$="[material_remark]"]').val(data.material_remark);
-            const container = row.find(`#remarks-container-${idx}`).empty();
-            data.remarks.forEach((r, i) => {
-                container.append(`
-                    <div class="remark-row">
-                        <select name="products[${idx}][remarks][${i}][operation]" class="form-select" style="min-width:160px;">
-                            <option value="artist" ${r.operation==='artist'?'selected':''}>To Artist</option>
-                            <option value="printing" ${r.operation==='printing'?'selected':''}>To Printing</option>
-                            <option value="furnishing" ${r.operation==='furnishing'?'selected':''}>To Furnishing</option>
-                            <option value="installation" ${r.operation==='installation'?'selected':''}>To Installation</option>
-                            <option value="self_pickup" ${r.operation==='self_pickup'?'selected':''}>To Self Pickup</option>
-                            <option value="courier" ${r.operation==='courier'?'selected':''}>To Courier</option>
-                        </select>
-                        <input type="text" name="products[${idx}][remarks][${i}][remark]" class="form-control" value="${escapeHtml(r.remark)}">
-                        <button type="button" class="btn btn-link text-danger remove-remark"><i class="bx bx-trash"></i></button>
-                    </div>
-                `);
-            });
+
+
+            // deliveries
+            const dCon = row.find(`#deliveries-container-${idx}`).empty();
+            (data.deliveries || []).forEach((d, i) => dCon.append(renderDeliveryCard(idx, d, i)));
+            
+
+            // remarks
+            const rCon = row.find(`#remarks-container-${idx}`).empty();
+            (data.remarks || []).forEach((r, i) => rCon.append(renderRemarkCard(idx, r, i)));
+
+
             renumberProducts();
+        }
+
+        function renderDeliveryCard(idx, d, i) {
+            return `
+            <div class="delivery-card delivery-row">
+            <button type="button" class="btn btn-link text-danger btn-del remove-delivery" title="Delete">
+            <i class="bx bx-trash fs-5"></i>
+            </button>
+
+
+            <select name="products[${idx}][deliveries][${i}][method]" class="form-select w-auto" style="min-width:160px;">
+            <option value="">— Select —</option>
+            <option value="courier" ${d.method === 'courier' ? 'selected' : ''}>Courier</option>
+            <option value="self_pickup" ${d.method === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
+            <option value="delivery" ${d.method === 'delivery' ? 'selected' : ''}>Delivery</option>
+            <option value="installation" ${d.method === 'installation' ? 'selected' : ''}>Installation</option>
+            </select>
+
+
+            <input type="text"
+            name="products[${idx}][deliveries][${i}][location]"
+            class="form-control"
+            placeholder="Location"
+            value="${escapeHtml(d.location || '')}">
+
+
+            <input type="datetime-local"
+            name="products[${idx}][deliveries][${i}][datetime]"
+            class="form-control"
+            value="${escapeHtml(d.datetime || '')}">
+            </div>
+            `;
+        }
+
+        function addModalDeliveryRow(method = '', location = '', datetime = '') {
+            const html = `
+            <div class="delivery-row mb-2 d-flex align-items-center gap-2">
+            <select class="form-select w-auto" style="min-width:160px;">
+            <option value="">— Select —</option>
+            <option value="courier" ${method === 'courier' ? 'selected' : ''}>Courier</option>
+            <option value="self_pickup" ${method === 'self_pickup' ? 'selected' : ''}>Self Pickup</option>
+            <option value="delivery" ${method === 'delivery' ? 'selected' : ''}>Delivery</option>
+            <option value="installation" ${method === 'installation' ? 'selected' : ''}>Installation</option>
+            </select>
+
+
+            <input type="text" class="form-control" placeholder="Location"
+            value="${escapeHtml(location)}" style="min-width:220px;">
+
+
+            <input type="datetime-local" class="form-control"
+            value="${escapeHtml(datetime)}" style="min-width:220px;">
+
+
+            <button type="button" class="btn btn-link text-danger p-0 remove-modal-delivery" title="Delete">
+            <i class="bx bx-trash fs-5"></i>
+            </button>
+            </div>
+            `;
+            $('#modal-deliveries-container').append(html);
+            }
+
+
+            $(document).on('click', '.remove-modal-delivery', function () {
+            $(this).closest('.delivery-row').remove();
+        });
+
+        function renderRemarkCard(idx, r, i) {
+            return `
+                <div class="remark-card">
+                    <button type="button" class="btn btn-link text-danger btn-del remove-remark" title="Delete">
+                        <i class="bx bx-trash fs-5"></i>
+                    </button>
+
+                    <div class="remark-body">
+                        <div class="form-group">
+                            <label class="form-label small mb-1">Operation</label>
+                            <select name="products[${idx}][remarks][${i}][operation]" class="form-select">
+                                <option value="">— Select —</option>
+                                <option value="artist" ${r.operation==='artist'?'selected':''}>To Artist</option>
+                                <option value="printing" ${r.operation==='printing'?'selected':''}>To Printing</option>
+                                <option value="furnishing" ${r.operation==='furnishing'?'selected':''}>To Furnishing</option>
+                                <option value="installation" ${r.operation==='installation'?'selected':''}>To Installation</option>
+                                <option value="self_pickup" ${r.operation==='self_pickup'?'selected':''}>To Self Pickup</option>
+                                <option value="courier" ${r.operation==='courier'?'selected':''}>To Courier</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group mt-2">
+                            <label class="form-label small mb-1">Remark</label>
+                            <input type="text"
+                                name="products[${idx}][remarks][${i}][remark]"
+                                class="form-control"
+                                placeholder="Write a note…"
+                                value="${escapeHtml(r.remark || '')}">
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         function renumberProducts() {
             $('#product-table tbody tr').each(function (i) {
-                $(this).attr('data-index', i).find('.product-number').text(i + 1);
-                $(this).find('.add-remark, .remove-product').attr('data-index', i);
-                $(this).find('[id^="remarks-container-"]').attr('id', 'remarks-container-' + i);
-                $(this).find('input[name], select[name]').each(function () {
-                    ['product_name', 'quantity', 'material_remark'].forEach(field => {
-                        this.name = this.name.replace(/\[\d+\]/, '[' + i + ']');
-                    });
-                });
+            $(this).attr('data-index', i).find('.product-number').text(i + 1);
+
+
+            $(this).find('.add-remark, .add-delivery, .remove-product').attr('data-index', i);
+
+
+            $(this).find('[id^="remarks-container-"]').attr('id', 'remarks-container-' + i);
+            $(this).find('[id^="deliveries-container-"]').attr('id', 'deliveries-container-' + i);
+
+
+            $(this).find('input[name], select[name]').each(function () {
+            // replace ONLY the first "products[x]" part, keep the nested indices
+            this.name = this.name.replace(/^products\[\d+\]/, 'products[' + i + ']');
+            });
             });
         }
+
+        // table: add delivery
+        $(document).on('click', '.add-delivery', function () {
+        const idx = $(this).data('index');
+        const container = $(`#deliveries-container-${idx}`);
+
+
+        if (container.find('.delivery-row').length >= 6) {
+        Swal.fire('Warning', 'Maximum 6 deliveries per product.', 'warning');
+        return;
+        }
+
+
+        const dIdx = container.find('.delivery-row').length;
+        container.append(renderDeliveryCard(idx, { method:'', location:'', datetime:'' }, dIdx));
+        isDirty = true;
+        });
+
+
+        // table: remove delivery
+        $(document).on('click', '.remove-delivery', function () {
+        $(this).closest('.delivery-row').remove();
+        isDirty = true;
+        });
+
+
+        // modal: add delivery row
+        $('#addDeliveryRowBtn').on('click', function () {
+        addModalDeliveryRow('', '', '');
+        });
+
+
+        // modal: remove delivery row
+        $(document).on('click', '.remove-modal-delivery', function () {
+        $(this).closest('.delivery-row').remove();
+        });
 
         $(document).on('click', '.remove-product', function () {
             $(this).closest('tr').remove();
@@ -870,18 +1198,29 @@ $(document).ready(function() {
             }
             const rIdx = container.find('.remark-row').length;
             container.append(`
-                <div class="remark-row">
-                    <select name="products[${idx}][remarks][${rIdx}][operation]" class="form-select" style="min-width:160px;">
-                        <option value="">— Select —</option>
-                        <option value="artist">To Artist</option>
-                        <option value="printing">To Printing</option>
-                        <option value="furnishing">To Furnishing</option>
-                        <option value="installation">To Installation</option>
-                        <option value="self_pickup">To Self Pickup</option>
-                        <option value="courier">To Courier</option>
-                    </select>
-                    <input type="text" name="products[${idx}][remarks][${rIdx}][remark]" class="form-control" placeholder="Write a note…">
-                    <button type="button" class="btn btn-link text-danger remove-remark"><i class="bx bx-trash"></i></button>
+                <div class="remark-card">
+                    <button type="button" class="btn btn-link text-danger btn-del remove-remark" title="Delete">
+                        <i class="bx bx-trash fs-5"></i>
+                    </button>
+
+                    <div class="remark-body">
+                        <div class="form-group">
+                            <label class="form-label small mb-1">Operation</label>
+                            <select name="products[${idx}][remarks][${rIdx}][operation]" class="form-select">
+                                <option value="">— Select —</option>
+                                <option value="artist">To Artist</option>
+                                <option value="printing">To Printing</option>
+                                <option value="furnishing">To Furnishing</option>
+                                <option value="installation">To Installation</option>
+                                <option value="self_pickup">To Self Pickup</option>
+                                <option value="courier">To Courier</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group mt-2">
+                            <label class="form-label small mb-1">Remark</label>
+                            <input type="text" name="products[${idx}][remarks][${rIdx}][remark]" class="form-control" placeholder="Write a note…">
+                        </div>
                 </div>
             `);
             isDirty = true;
