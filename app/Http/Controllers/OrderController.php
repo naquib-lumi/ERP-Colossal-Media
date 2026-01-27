@@ -14,6 +14,7 @@ use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use App\Helpers\Helpers;
 use Illuminate\Support\Str;
 
@@ -546,6 +547,46 @@ class OrderController extends Controller
                             'user_id'   => $user->id,
                         ]);
                     }
+
+                    // ✅ Create delivery breakdowns (optional)
+                    foreach (($productData['deliveries'] ?? []) as $deliveryData) {
+                        $method   = trim((string)($deliveryData['method'] ?? ''));
+                        $location = trim((string)($deliveryData['location'] ?? ''));
+                        $dtRaw    = trim((string)($deliveryData['datetime'] ?? ''));
+
+                        if ($method === '' && $location === '' && $dtRaw === '') {
+                            continue;
+                        }
+
+                        $date = null;
+                        $time = null;
+
+                        if ($dtRaw !== '') {
+                            try {
+                                $dt = \Illuminate\Support\Carbon::parse($dtRaw);
+                                $date = $dt->toDateString();
+                                $time = $dt->format('H:i:s');
+                            } catch (\Throwable $e) {
+                                // ignore parse error, keep nulls
+                                $date = null;
+                                $time = null;
+                            }
+                        }
+
+                        \DB::table('delivery_breakdowns')->insert([
+                            'ProductID'            => $product->ProductID,
+                            'method'               => $method !== '' ? $method : null,
+                            'location'             => $location !== '' ? $location : null,
+                            'date'                 => $date,
+                            'time'                 => $time,
+                            'deliver_install_type' => null,
+                            'outsource_cost'       => null,
+                            'quantity'             => null,
+                            'created_at'           => now(),
+                            'updated_at'           => now(),
+                        ]);
+                    }
+
                 }
 
                 // ✅ Notify head-artist ONLY for final save
@@ -629,6 +670,36 @@ class OrderController extends Controller
 
         $order = Order::with(['lead', 'salesperson', 'products.remarks'])->findOrFail($id);
 
+        // ✅ Attach deliveries from delivery_breakdowns for each product
+        $productIds = $order->products->pluck('ProductID')->toArray();
+
+        $deliveryRowsByProduct = DB::table('delivery_breakdowns')
+        ->whereIn('ProductID', $productIds)
+        ->orderBy('BreakdownID', 'asc')
+        ->get()
+        ->groupBy('ProductID');
+
+
+        foreach ($order->products as $p) {
+        $rows = $deliveryRowsByProduct[$p->ProductID] ?? collect();
+
+
+        $p->deliveries = $rows->map(function ($r) {
+        $datetime = '';
+        if (!empty($r->date) && !empty($r->time)) {
+        // datetime-local needs: YYYY-MM-DDTHH:MM
+        $datetime = Carbon::parse($r->date . ' ' . $r->time)->format('Y-m-d\TH:i');
+        }
+
+
+        return [
+        'method' => $r->method ?? '',
+        'location' => $r->location ?? '',
+        'datetime' => $datetime,
+        ];
+        })->values();
+        }
+
         // Ownership (salesperson can only see their own lead's orders; head can see all)
         if (!$user->hasRole('head-salesperson')) {
             if (!$order->lead || (int)$order->lead->salesperson_id !== (int)$user->id) {
@@ -702,6 +773,10 @@ class OrderController extends Controller
             'products.*.remarks.*.operation' => 'required_with:products.*.remarks|in:printing,furnishing,installation,courier,self_pickup,artist',
             'products.*.remarks.*.remark' => 'nullable|string',
             'csv_file' => 'nullable|file|mimes:csv,txt',
+            'products.*.deliveries' => 'nullable|array',
+            'products.*.deliveries.*.method' => 'nullable|in:courier,self_pickup,delivery,installation',
+            'products.*.deliveries.*.location' => 'nullable|string|max:255',
+            'products.*.deliveries.*.datetime' => 'nullable|date',
 
             // ✅ attachments required only for final update (and only if no existing)
             'attachments' => [
@@ -757,7 +832,7 @@ class OrderController extends Controller
                 }
             }
 
-            $productsData = $request->products;
+            $productsData = $request->input('products', []);
 
             if ($request->hasFile('csv_file')) {
                 $path = $request->file('csv_file')->getPathname();
@@ -806,6 +881,7 @@ class OrderController extends Controller
 
             if (!empty($deletedProductIds)) {
                 ProductRemark::whereIn('ProductID', $deletedProductIds)->delete();
+                DB::table('delivery_breakdowns')->whereIn('ProductID', $deletedProductIds)->delete();
                 Product::destroy($deletedProductIds);
             }
 
@@ -835,6 +911,51 @@ class OrderController extends Controller
                         'operation' => $remarkData['operation'],
                         'remark' => $remarkData['remark'] ?? null,
                         'user_id' => $user->id,
+                    ]);
+                }
+
+                // ✅ Sync delivery breakdowns
+                DB::table('delivery_breakdowns')
+                    ->where('ProductID', $product->ProductID)
+                    ->delete();
+
+
+                    foreach (($productData['deliveries'] ?? []) as $delivery) {
+                    $method = $delivery['method'] ?? null;
+                    $location = $delivery['location'] ?? null;
+                    $dtInput = $delivery['datetime'] ?? null;
+
+
+                    // skip totally empty row
+                    if (empty($method) && empty($location) && empty($dtInput)) {
+                    continue;
+                    }
+
+
+                    $date = null;
+                    $time = null;
+
+
+                    if (!empty($dtInput)) {
+                    try {
+                    $dt = Carbon::parse($dtInput);
+                    $date = $dt->toDateString(); // YYYY-MM-DD
+                    $time = $dt->format('H:i:s'); // HH:MM:SS
+                    } catch (\Exception $e) {
+                    $date = null;
+                    $time = null;
+                    }
+                    }
+
+
+                    DB::table('delivery_breakdowns')->insert([
+                    'ProductID' => $product->ProductID,
+                    'method' => $method,
+                    'location' => $location,
+                    'date' => $date,
+                    'time' => $time,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                     ]);
                 }
             }
