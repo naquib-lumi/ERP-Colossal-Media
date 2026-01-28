@@ -733,6 +733,7 @@ class InstallationController extends Controller
             ->selectRaw("
                 p.ProductID,
                 p.productName                                     as product_name,
+                o.orderTitle                                      as order_title,
                 p.taskType                                        as task_type,
                 p.status                                          as status,
 

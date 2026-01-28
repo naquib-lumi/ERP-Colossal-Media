@@ -440,7 +440,7 @@ $taskLabel = function (?string $raw) {
         <thead>
           <tr>
             <th>PRODUCT ID</th>
-            <th>PRODUCT NAME</th>
+            <th>ORDER TITLE</th>
             <th>TASK TYPE</th>
 
             {{-- DEADLINE sort (nearest / furthest) --}}
@@ -514,7 +514,7 @@ $taskLabel = function (?string $raw) {
           @endphp
           <tr class="js-row" data-href="{{ $o->details_url }}" style="cursor: pointer;">
             <td class="fw-semibold">{{ $o->product_code ?? $o->product_id ?? '—' }}</td>
-            <td>{{ $o->product_name ?? '—' }}</td>
+            <td>{{ $o->order_title ?? '—' }}</td>
 
             <td>
               <span class="pill {{ $typeCls }}">
