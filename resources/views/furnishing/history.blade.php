@@ -232,7 +232,7 @@
             <thead class="table-light">
               <tr>
                 <th>PRODUCT ID</th>
-                <th>PRODUCT NAME</th>
+                <th>ORDER TITLE</th>
                 <th>
                   <a class="th-sort is-active"
                     href="{{ $urlWith(['sort' => 'completed', 'dir' => $nextDir]) }}">
