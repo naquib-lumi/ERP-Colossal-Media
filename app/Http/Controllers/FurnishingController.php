@@ -169,6 +169,7 @@ class FurnishingController extends Controller
                 'p.editable',
                 DB::raw("$sqExpr as sq_inch"),
                 DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.cutter, '')), ''), '—') as cutter"),
+                DB::raw("COALESCE(NULLIF(MAX(o.orderTitle), ''), '—') as order_title"),
                 DB::raw('MAX(r.ProductID) as redo_product_id'),
 
                 // deadline flags for UI
