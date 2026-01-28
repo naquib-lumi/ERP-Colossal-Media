@@ -179,6 +179,7 @@ class InstallationProductOrderController extends Controller
             'code'     => $displayProductCode,
             'qty'      => (int)($headerRow->totalQuantity ?? 0),
             'material' => trim((string)($headerRow->materialRemark ?? '')),
+            'packaging' => $headerRow->packaging,
             'is_redo'  => $selectedIsRedo,
         ];
 
@@ -437,6 +438,7 @@ class InstallationProductOrderController extends Controller
                 'code'     => $code,
                 'qty'      => (int)($p->totalQuantity ?? 0),
                 'material' => (string)($p->materialRemark ?? ''),
+                'packaging' => $p->packaging,
                 'is_redo'  => $isRedoBlock,
             ];
             $its = $buildItems((int)$pid);

@@ -384,6 +384,16 @@
               <div>
                 <div class="fw-semibold" style="font-size:1rem;">
                   Product @if(!empty($block['product_header']['name'])) — {{ $block['product_header']['name'] }} @endif
+
+                  @php
+                  $pkg = (int) data_get($block, 'product_header.packaging', 0);
+                  @endphp
+
+                  @if($pkg === 1)
+                  <span class="badge bg-success" style="margin-left: 5px; font-size:12px; margin-bottom:5px;">Completed Packaging</span>
+                  @else
+                  <span class="badge bg-primary" style="margin-left: 5px; font-size:12px; margin-bottom:5px;">Pending Packaging</span>
+                  @endif
                 </div>
                 <div class="meta">
                   ID: {{ $block['product_header']['code'] ?? '—' }}

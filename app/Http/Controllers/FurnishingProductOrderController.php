@@ -111,7 +111,7 @@ class FurnishingProductOrderController extends Controller
                 'p.materialRemark','p.redoOf as redo_product_of','p.editable',
                 'o.redo as redo_order','o.order_number','o.orderTitle','o.companyName','o.orderDetail',
                 'o.orderDate','o.deadline','o.artist_id','o.orderAttachment',
-                'o.status as orderStatus','p.accepted',
+                'o.status as orderStatus','p.accepted', 'p.packaging',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
                 DB::raw('COALESCE(de.name, "") as data_entry_name'),
             ])
@@ -150,6 +150,7 @@ class FurnishingProductOrderController extends Controller
             'artist_name'     => $headerRow->artist_name,
             'orderStatus'     => $headerRow->orderStatus,
             'data_entry_name' => $headerRow->data_entry_name,
+            'packaging'    => $headerRow->packaging,
         ];
 
         $canEdit = ((int)($headerRow->accepted ?? 0) === 1)
@@ -165,6 +166,7 @@ class FurnishingProductOrderController extends Controller
             'code'     => $displayProductCode,
             'qty'      => (int)($headerRow->totalQuantity ?? 0),
             'material' => trim((string)($headerRow->materialRemark ?? '')),
+            'packaging' => $headerRow->packaging,
             'is_redo'  => $selectedIsRedo,
         ];
 
@@ -356,6 +358,7 @@ class FurnishingProductOrderController extends Controller
                 'code'     => $code,
                 'qty'      => (int)($p->totalQuantity ?? 0),
                 'material' => (string)($p->materialRemark ?? ''),
+                'packaging' => $p->packaging,
                 'is_redo'  => $isRedoBlock,
             ];
             $its = $buildItems((int)$pid);
