@@ -279,7 +279,7 @@
             <thead class="table-light">
               <tr>
                 <th>PRODUCT ID</th>
-                <th>PRODUCT NAME</th>
+                <th>ORDER TITLE</th>
                 <th>
                   
                   <a class="text-decoration-none text-dark"

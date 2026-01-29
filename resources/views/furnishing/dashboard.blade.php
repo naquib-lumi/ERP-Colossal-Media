@@ -268,7 +268,7 @@
         <thead>
         <tr>
           <th>PRODUCT ID</th>
-          <th>CUTTER</th>
+          <th>ORDER TITLE</th>
           <th>SQ INCH</th>
           <th>
             <a class="th-sort {{ str_starts_with($sort,'deadline_') ? 'is-active' : '' }}"
@@ -329,7 +329,7 @@
               data-href="{{ $viewUrl }}"
               style="cursor:pointer;">
             <td class="whitespace-nowrap font-medium">{{ $j->display_product_id }}</td>
-            <td>{{ ($j->cutter ?? '-') === '-' ? '—' : $j->cutter }}</td>
+            <td>{{ $j->order_title ?? '—' }}</td>
             <td>{{ number_format((float)($j->sq_inch ?? 0), 4) }} sq in</td>
 
             <td class="td-deadline {{ $dlClass }}" data-date="{{ $j->deadline ?: '' }}">

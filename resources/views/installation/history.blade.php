@@ -263,7 +263,7 @@
             <thead class="table-light">
   <tr>
     <th>PRODUCT ID</th>
-    <th>PRODUCT NAME</th>
+    <th>ORDER TITLE</th>
     <th>
       @php
         $isCompleted = request('sort_by') === 'completed';
@@ -284,7 +284,7 @@
 @forelse($orders as $row)
   @php
     $code      = $row->product_code ?? (($row->order_number ?: ('ORD'.$row->order_id)).'-P'.str_pad((string)$row->ProductID, 4, '0', STR_PAD_LEFT));
-    $prodName  = $row->productName ?? '—';
+    $prodName  = $row->product_name ?? '—';
     $completed = $row->completed_date ? \Carbon\Carbon::parse($row->completed_date)->format('M d, Y') : '—';
     $remarks   = $row->materialRemark ?: '–';
       $pid     = $row->ProductID ?? $row['ProductID'];

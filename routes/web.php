@@ -5,6 +5,7 @@ use App\Http\Controllers\SalesController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdminOrderController;
 use App\Http\Controllers\AdminManageUserController;
 use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\MaterialsController;
@@ -403,7 +404,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::patch('/admin/user/{user}/resetpassword', [AdminManageUserController::class, 'resetPassword'])->name('admin.user.resetpassword');
 
     Route::get('/admin/orders', [AdminController::class, 'orders'])->name('admin.orders');
-    Route::get('/admin/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
+    // Route::get('/admin/orders/{id}', [AdminController::class, 'showOrder'])->name('admin.orders.show');
     Route::post('/admin/orders/data', [AdminController::class, 'getOrders'])->name('admin.orders.data');
 
     Route::get('/admin/calendar', [AdminController::class, 'calendar'])->name('admin.calendar');
@@ -442,6 +443,42 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     // Profile
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
+
+    // Admin Order function
+    Route::get('/admin/orders', [AdminOrderController::class, 'orders'])->name('admin.orders');
+    Route::get('/admin/orders/{order}/edit', [AdminOrderController::class, 'edit'])->name('admin.orders.edit');
+    Route::put('/admin/orders/{order}', [AdminOrderController::class, 'update'])->name('admin.orders.update');
+    Route::post('/admin/orders/{order}/pass-to-data-entry', [AdminOrderController::class, 'passToDataEntry'])->name('admin.orders.passToDataEntry');
+
+    Route::post('/admin/orders/{order}/attachments/upload', [AdminOrderController::class, 'uploadAttachment'])->name('admin.orders.attachments.upload');
+    Route::post('/admin/orders/{order}/attachments/delete', [AdminOrderController::class, 'deleteAttachment'])->name('admin.orders.attachments.delete');
+    Route::delete('/admin/orders/{order}/items/{item}', [AdminOrderController::class, 'destroyItem'])->name('admin.orders.items.destroy');
+    Route::delete('/admin/orders/{order}/delivery/{delivery}', [AdminOrderController::class, 'deleteDelivery'])->name('admin.orders.delivery.destroy');
+    Route::get('/admin/orders/{order}/assign', [AdminOrderController::class, 'showAssign'])->name('admin.orders.assign.show');
+    Route::post('/admin/orders/{order}/assign', [AdminOrderController::class, 'storeAssign'])->middleware('role:admin')->name('admin.orders.assign.store');
+    Route::get('/admin/orders/{order}', [AdminOrderController::class, 'show'])->name('admin.orders.shows');
+    Route::post('/admin/orders/{order}/products', [AdminOrderController::class, 'storeProduct'])->name('admin.orders.products.store');
+    Route::delete('/admin/orders/{order}/products/{product}', [AdminOrderController::class, 'destroyProduct'])->name('admin.orders.products.destroy');
+    Route::delete('/admin/orders/{order}/remarks/{remark}', [AdminOrderController::class, 'destroyRemark'])->name('admin.orders.remarks.destroy');
+    Route::delete('/admin/orders/{order}/attachments', [AdminOrderController::class, 'destroyAttachment'])->name('admin.orders.attachments.destroy');
+    Route::get('/admin/orders/{order}/redo',  [AdminOrderController::class, 'redoCreate'])->name('admin.orders.redo.create');
+    Route::post('/admin/orders/{order}/redo', [AdminOrderController::class, 'redoStore'])->name('admin.orders.redo.store');
+
+    Route::pattern('id', '\d+');
+    Route::pattern('order', '\d+');
+    Route::get('/admin/orders/leads/search', [AdminOrderController::class, 'searchLeads'])->name('admin.orders.leads.search');        
+    Route::get('/admin/orders/leads/{id}', [AdminOrderController::class, 'getLead'])->name('admin.orders.leads.get');
+    Route::get('/admin/orders/create/{lead_id?}', [AdminOrderController::class, 'create'])->name('admin.orders.create');
+    Route::post('/admin/orders', [AdminOrderController::class, 'store'])->name('admin.orders.store');        
+    Route::post('/admin/orders/get', [AdminOrderController::class, 'getOrders'])->name('admin.orders.get');
+    
+    Route::get('/admin/orders/csv-template', [AdminOrderController::class, 'csvTemplate'])->name('admin.orders.csv_template');
+    // Route::get('/admin/orders/{order}', [AdminOrderController::class, 'orderShow'])->name('admin.orders.shows')->whereNumber('order');
+
+    Route::get('/admin/orders/assignees/search', [AdminOrderController::class, 'searchOrderArtists'])->name('admin.orders.assignees.search');
+    Route::post('/admin/orders/{order}/edit', [AdminOrderController::class, 'assign'])->name('admin.orders.assigns');
+
+    Route::get('/admin/data-entry/users', [AdminOrderController::class, 'bossDataEntryUsers'])->name('admin.dataEntry.users');
 });
 
     Route::get('/admin/dispatch-control', [AdminController::class, 'dispatchControl'])->name('admin.dispatch');

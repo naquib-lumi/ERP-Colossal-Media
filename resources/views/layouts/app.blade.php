@@ -121,6 +121,12 @@ $configData = \App\Helpers\Helpers::appClasses();
               </li>
             @endif
             @if (auth()->user()->role === 'admin')
+            <li class="menu-item {{ request()->routeIs('admin.orders') ? 'active' : '' }}">
+                <a href="{{ route('admin.orders') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-file"></i>
+                    <div data-i18n="Job Order">Job Order</div>
+                </a>
+            </li>
             <li class="menu-item {{ request()->routeIs('admin.manageuser') ? 'active' : '' }}">
                 <a href="{{ route('admin.manageuser') }}" class="menu-link">
                     <i class="menu-icon icon-base bx bx-group"></i>

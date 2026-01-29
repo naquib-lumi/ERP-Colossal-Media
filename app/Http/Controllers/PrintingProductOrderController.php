@@ -125,6 +125,7 @@ class PrintingProductOrderController extends Controller
                 'o.orderAttachment',
                 'o.status as orderStatus',
                 'p.accepted',
+                'p.packaging',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
                 DB::raw('COALESCE(de.name, "") as data_entry_name'),
             ])
@@ -174,6 +175,7 @@ class PrintingProductOrderController extends Controller
             'artist_name'  => $headerRow->artist_name,
             'orderStatus'   => $headerRow->orderStatus,
             'accepted'      => $headerRow->accepted,
+            'packaging'    => $headerRow->packaging,
             'data_entry_name' => $headerRow->data_entry_name,
         ];
 
@@ -195,6 +197,7 @@ class PrintingProductOrderController extends Controller
             'code'     => $displayProductCode,   // ← use redo-aware code
             'qty'      => (int)($headerRow->totalQuantity ?? 0),
             'material' => trim((string)($headerRow->materialRemark ?? '')),
+            'packaging' => $headerRow->packaging,
             'is_redo'  => $selectedIsRedo,
         ];
 
@@ -408,6 +411,7 @@ class PrintingProductOrderController extends Controller
                 'code'     => $code,
                 'qty'      => (int)($p->totalQuantity ?? 0),
                 'material' => (string)($p->materialRemark ?? ''),
+                'packaging' => $p->packaging,
                 'is_redo'  => $isRedoBlock,
             ];
             $its = $buildItems((int)$pid);

@@ -105,7 +105,7 @@ class PrintingHistoryController extends Controller
             })
             ->select([
                 'p.ProductID',
-                'p.productName as product_name',
+                'o.orderTitle as product_name',
                 'p.materialRemark',
                 'p.status',
                 DB::raw('fpx.completed_date'),

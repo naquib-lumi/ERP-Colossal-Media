@@ -9,37 +9,27 @@ $col         = $isPaginator ? $orders->getCollection() : collect($orders);
 
 $deadlineKey = fn($o) => $o->deadline ? Carbon::parse($o->deadline) : Carbon::parse('2100-01-01');
 
-// hide: artist_id is null + in_progress + draft=1
-$hideUnassignedDraftInProgress = fn($o) =>
-empty($o->artist_id)
-&& strtolower((string)($o->orderStatus ?? '')) === 'in_progress'
-&& (int)($o->draft ?? 0) === 1;
-
-
 if ($isDashboard) {
-$col = $col
-->reject($hideUnassignedDraftInProgress) // ✅ NEW
-->reject(fn($o) => strtolower((string)$o->orderStatus) === 'completed')
-->sortByDesc($deadlineKey)
-->take(5)
-->values();
+  $col = $col
+    ->reject(fn($o) => strtolower((string)$o->orderStatus) === 'completed')
+    ->sortByDesc($deadlineKey)   // Dashboard keeps your DESC
+    ->take(5)
+    ->values();
 } else {
-// Orders page: keep controller's ordering (do not override)
-$col = $col
-->reject($hideUnassignedDraftInProgress) // ✅ NEW
-->values();
+  // Orders page: keep controller's ordering (do not override)
+  $col = $col->values();
 }
 
 $orders = $isPaginator ? $orders->setCollection($col) : $col;
 
-$isHead = auth()->user()->role === 'head-artist';
+$isHead = auth()->user()->role === 'admin';
 @endphp
 @php
   $currentSort = request('deadline_sort');
   $nextSort    = $currentSort === 'nearest' ? 'furthest' : 'nearest';
   $sortIcon    = $currentSort === 'nearest' ? 'bx-sort-up'
                 : ($currentSort === 'furthest' ? 'bx-sort-down' : 'bx-sort');
-  $deadlineSortUrl = route('artist.orders', array_merge(request()->query(), ['deadline_sort' => $nextSort]));
+  $deadlineSortUrl = route('admin.orders', array_merge(request()->query(), ['deadline_sort' => $nextSort]));
 @endphp
 <style>
   .bg-amber {
@@ -103,7 +93,7 @@ $isHead = auth()->user()->role === 'head-artist';
     $canEdit       = !($isCompleted) && !$isArchived; // archived → no edit
   @endphp
 
-  <tr data-href="{{ route('artist.orders.show', $order->id) }}" style="cursor:pointer;">
+  <tr data-href="{{ route('admin.orders.shows', $order->id) }}" style="cursor:pointer;">
     <td>
       <div class="d-flex align-items-center gap-2">
         <span>{{ $displayOrderNo }}</span>
@@ -122,12 +112,12 @@ $isHead = auth()->user()->role === 'head-artist';
       @if($isHead)
         @php $needsAssign = ($order->orderStatus === 'to_assign') && empty($order->artist_id); @endphp
         <span class="me-2">{{ optional($order->artist)->name ?? '—' }}</span>
-        @if($needsAssign && !$isArchived)
-          <a href="{{ route('artist.orders.assign.show', $order->id) }}"
+        <!-- @if($needsAssign && !$isArchived)
+          <a href="{{ route('admin.orders.assign.show', $order->id) }}"
              class="btn btn-outline-primary btn-sm align-middle" title="Assign this order">
             <i class="bx bx-user-plus"></i>
           </a>
-        @endif
+        @endif -->
       @else
         {{ optional($order->salesperson)->name ?? '-' }}
       @endif
@@ -144,13 +134,13 @@ $isHead = auth()->user()->role === 'head-artist';
     <td class="text-end">
       <div class="d-inline-flex align-items-center gap-3">
         {{-- View (always enabled) --}}
-        <a href="{{ route('artist.orders.show', $order->id) }}" class="text-secondary fw-bold" title="View">
+        <a href="{{ route('admin.orders.shows', $order->id) }}" class="text-secondary fw-bold" title="View">
           <i class="bx bx-show fs-5"></i>
         </a>
 
-        {{-- Edit (disabled for completed/rejected/archived) --}}
+        <!-- {{-- Edit (disabled for completed/rejected/archived) --}}
         @if($canEdit)
-          <a href="{{ route('artist.orders.edit', $order->id) }}" class="text-secondary fw-bold" title="Edit">
+          <a href="{{ route('admin.orders.edit', $order->id) }}" class="text-secondary fw-bold" title="Edit">
             <i class="bx bx-edit-alt fs-5"></i>
           </a>
         @else
@@ -163,7 +153,7 @@ $isHead = auth()->user()->role === 'head-artist';
 
         {{-- Report (never for archived; also blocked for other statuses per your rule) --}}
         @if(!$isArchived && !$reportBlocked)
-          <a href="{{ route('artist.orders.redo.create', $order->id) }}" class="text-secondary fw-bold" title="Report">
+          <a href="{{ route('admin.orders.redo.create', $order->id) }}" class="text-secondary fw-bold" title="Report">
             <i class="bx bx-error-alt fs-5"></i>
           </a>
         @else
@@ -172,7 +162,7 @@ $isHead = auth()->user()->role === 'head-artist';
                 style="cursor:not-allowed;">
             <i class="bx bx-error-alt fs-5"></i>
           </span>
-        @endif
+        @endif -->
       </div>
     </td>
   </tr>

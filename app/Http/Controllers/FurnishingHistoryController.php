@@ -102,7 +102,7 @@ class FurnishingHistoryController extends Controller
             })
             ->select([
                 'p.ProductID',
-                'p.productName as product_name',
+                'o.orderTitle as product_name',
                 'p.materialRemark',
                 DB::raw('fpx.completed_date'),
                 'o.id as order_id',

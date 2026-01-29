@@ -183,6 +183,7 @@ class PrintingController extends Controller
                 'p.editable',
                 DB::raw("$sqExpr as sq_inch"),
                 DB::raw("COALESCE(NULLIF(MAX(NULLIF(s.printer, '')), ''), '—') as printer"),
+                DB::raw("COALESCE(NULLIF(MAX(o.orderTitle), ''), '—') as order_title"),
                 DB::raw('MAX(r.ProductID) as redo_product_id'),
 
                 // deadline flags for UI
