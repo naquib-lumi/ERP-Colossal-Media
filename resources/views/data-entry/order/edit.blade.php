@@ -2041,37 +2041,63 @@
         });
       }
 
-      function buildList() {
+      function buildList(query = '') {
         if (isReadonly) {
           dd.style.display = 'none';
           return;
         }
-        const avail = suggestions.filter(s => !selected.has(s));
+
+        const q = (query || '').trim().toLowerCase();
+
+        // available options = not selected yet
+        let avail = suggestions.filter(s => !selected.has(s));
+
+        // filter by search keyword
+        if (q) {
+          avail = avail.filter(v => String(v).toLowerCase().includes(q));
+        }
+
         dd.innerHTML = '';
+
         if (!avail.length) {
           dd.style.display = 'none';
           return;
         }
+
         avail.forEach((v) => {
           const it = document.createElement('div');
           it.className = 'ti-dd-item';
           it.textContent = v;
+
           it.addEventListener('click', () => {
             if (selected.size >= maxTags) {
               if (window.Swal) {
-                Swal.fire({ icon: 'warning', title: 'Limit reached', text: `You can select up to ${maxTags} materials.`, timer: 1500, showConfirmButton: false });
+                Swal.fire({
+                  icon: 'warning',
+                  title: 'Limit reached',
+                  text: `You can select up to ${maxTags} materials.`,
+                  timer: 1500,
+                  showConfirmButton: false
+                });
               }
               dd.style.display = 'none';
               enforceLimit();
               return;
             }
+
             selected.add(v);
+
+            // clear search after pick
+            input.value = '';
+
             renderChips();
-            buildList();
+            buildList('');     // rebuild full list (minus selected)
             enforceLimit();
           });
+
           dd.appendChild(it);
         });
+
         dd.style.display = 'block';
       }
 
@@ -2083,6 +2109,16 @@
         input.addEventListener('focus', () => {
           buildList();
           dd.style.display = 'block';
+        });
+        // live search as you type
+        input.addEventListener('input', () => {
+          buildList(input.value);
+          dd.style.display = 'block';
+        });
+
+        // optional: ESC closes dropdown
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') dd.style.display = 'none';
         });
         document.addEventListener('click', (e) => {
           if (!wrap.contains(e.target)) dd.style.display = 'none';
