@@ -9,15 +9,25 @@ $col         = $isPaginator ? $orders->getCollection() : collect($orders);
 
 $deadlineKey = fn($o) => $o->deadline ? Carbon::parse($o->deadline) : Carbon::parse('2100-01-01');
 
+// hide: artist_id is null + in_progress + draft=1
+$hideUnassignedDraftInProgress = fn($o) =>
+empty($o->artist_id)
+&& strtolower((string)($o->orderStatus ?? '')) === 'in_progress'
+&& (int)($o->draft ?? 0) === 1;
+
+
 if ($isDashboard) {
-  $col = $col
-    ->reject(fn($o) => strtolower((string)$o->orderStatus) === 'completed')
-    ->sortByDesc($deadlineKey)   // Dashboard keeps your DESC
-    ->take(5)
-    ->values();
+$col = $col
+->reject($hideUnassignedDraftInProgress) // ✅ NEW
+->reject(fn($o) => strtolower((string)$o->orderStatus) === 'completed')
+->sortByDesc($deadlineKey)
+->take(5)
+->values();
 } else {
-  // Orders page: keep controller's ordering (do not override)
-  $col = $col->values();
+// Orders page: keep controller's ordering (do not override)
+$col = $col
+->reject($hideUnassignedDraftInProgress) // ✅ NEW
+->values();
 }
 
 $orders = $isPaginator ? $orders->setCollection($col) : $col;

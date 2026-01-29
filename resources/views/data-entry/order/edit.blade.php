@@ -1884,6 +1884,32 @@
   </div>
 </div>
 
+<!-- NEW: Missing Details Modal -->
+<div class="modal fade" id="modal-missing-details" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3">
+      <div class="modal-header">
+        <h5 class="modal-title">Missing Required Info</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="text-body-secondary mb-2">
+          Some required fields are incomplete. Please review the missing fields below.
+        </div>
+
+        <div id="missing-details-list" class="mt-2"></div>
+      </div>
+
+      <div class="modal-footer flex-column gap-2">
+        <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">
+          ← Back to Order Page
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {{-- Template for one remark row --}}
 <script type="text/template" id="remarkRowTpl">
   <div class="remark-row d-flex gap-2 align-items-start">
@@ -3369,6 +3395,156 @@
       return requiredOK();
     }
 
+    function getLabelFor(el) {
+      // Try: closest column -> label
+      const wrap = el.closest('.col-12, .col-md-1, .col-md-2, .col-md-3, .col-md-4, .col-md-6, .col-xl-3, .col-xl-6, .mb-3, .row, .col-md-12');
+      const lbl = wrap ? wrap.querySelector('label.form-label') : null;
+      if (lbl && lbl.textContent) return lbl.textContent.trim();
+
+      // Fallback: aria-label / placeholder / name
+      return (el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || 'Field').toString().trim();
+    }
+
+    function parseNamePath(name) {
+      // products[0][items][2][sizeWidth]
+      let m = name.match(/^products\[(\d+)\]\[items\]\[(\d+)\]\[(.+?)\]$/);
+      if (m) return { kind: 'item', pIndex: +m[1], iIndex: +m[2], field: m[3] };
+
+      // products[0][deliveries][1][quantity]  (if you have this pattern)
+      m = name.match(/^products\[(\d+)\]\[deliveries\]\[(\d+)\]\[(.+?)\]$/);
+      if (m) return { kind: 'delivery', pIndex: +m[1], dIndex: +m[2], field: m[3] };
+
+      // deliveries[IDX][quantity] (your template shows this global pattern) :contentReference[oaicite:4]{index=4}
+      m = name.match(/^deliveries\[(\d+)\]\[(.+?)\]$/);
+      if (m) return { kind: 'delivery_global', dIndex: +m[1], field: m[2] };
+
+      // products[0][name], products[0][qty_total], etc.
+      m = name.match(/^products\[(\d+)\]\[(.+?)\]$/);
+      if (m) return { kind: 'product', pIndex: +m[1], field: m[2] };
+
+      return { kind: 'other', field: name };
+    }
+
+    function isEmptyRequired(el) {
+      if (el.type === 'checkbox' || el.type === 'radio') {
+        const group = document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`);
+        return !Array.from(group).some(x => x.checked);
+      }
+      const v = (el.value || '').toString().trim();
+      return v.length === 0;
+    }
+
+    function productTitle(pIndex) {
+      // Try to grab product name input: products[pIndex][name]
+      const input = document.querySelector(`input[name="products[${pIndex}][name]"]`);
+      const name = (input?.value || '').trim();
+      return name ? `Product ${pIndex + 1} — ${name}` : `Product ${pIndex + 1}`;
+    }
+
+    function itemTitle(pIndex, iIndex) {
+      // Try to get visible item number from DOM (best effort)
+      const itemNode = document.querySelector(`#item${pIndex}_${iIndex} .item-number`);
+      const n = (itemNode?.textContent || '').trim();
+      return n ? `Item ${n}` : `Item ${iIndex + 1}`;
+    }
+
+    function collectMissingRequired() {
+      const missing = [];
+
+      requiredElements().forEach(el => {
+        if (!isEmptyRequired(el)) return;
+
+        const info = parseNamePath(el.name || '');
+        missing.push({
+          el,
+          label: getLabelFor(el),
+          info
+        });
+      });
+
+      return missing;
+    }
+
+    function renderMissingDetails(missing) {
+      const root = document.getElementById('missing-details-list');
+      if (!root) return;
+
+      if (!missing.length) {
+        root.innerHTML = `<div class="text-success">No missing required fields detected.</div>`;
+        return;
+      }
+
+      // Group: Product -> (Item/Delivery) -> fields
+      const grouped = new Map();
+
+      for (const x of missing) {
+        const { info } = x;
+
+        let pKey = 'Product information';
+        if (typeof info.pIndex === 'number') pKey = productTitle(info.pIndex);
+
+        let subKey = 'Product information';
+        if (info.kind === 'item') subKey = itemTitle(info.pIndex, info.iIndex);
+        if (info.kind === 'delivery') subKey = `Delivery ${info.dIndex + 1}`;
+        if (info.kind === 'delivery_global') subKey = `Delivery ${info.dIndex + 1}`;
+
+        if (!grouped.has(pKey)) grouped.set(pKey, new Map());
+        const sub = grouped.get(pKey);
+        if (!sub.has(subKey)) sub.set(subKey, []);
+        sub.get(subKey).push(x);
+      }
+
+      // Build HTML
+      let html = '';
+      for (const [pTitle, subMap] of grouped.entries()) {
+        html += `<div class="border rounded p-3 mb-3">
+          <div class="fw-semibold mb-2">${pTitle}</div>`;
+
+        for (const [subTitle, arr] of subMap.entries()) {
+          html += `<div class="ms-2 mb-2">
+            <div class="text-body-secondary fw-semibold">${subTitle}</div>
+            <ul class="mb-2">`;
+
+          for (const entry of arr) {
+            // clicking scrolls + focuses field
+            const id = `miss_${Math.random().toString(16).slice(2)}`;
+            entry.el.dataset.missingId = id;
+
+            html += `<li>
+              <a href="javascript:void(0)" data-jump-missing="${id}" class="text-decoration-none">
+                ${entry.label}
+              </a>
+            </li>`;
+          }
+
+          html += `</ul></div>`;
+        }
+
+        html += `</div>`;
+      }
+
+      root.innerHTML = html;
+
+      // Wire jump links
+      root.querySelectorAll('[data-jump-missing]').forEach(a => {
+        a.addEventListener('click', () => {
+          const key = a.getAttribute('data-jump-missing');
+          const target = document.querySelector(`[data-missing-id="${CSS.escape(key)}"]`);
+          if (!target) return;
+
+          // Close modal before jump so the screen can scroll
+          bootstrap.Modal.getInstance(document.getElementById('modal-missing-details'))?.hide();
+
+          setTimeout(() => {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.focus?.();
+            target.classList.add('is-invalid');
+            setTimeout(() => target.classList.remove('is-invalid'), 1600);
+          }, 250);
+        });
+      });
+    }
+
     // Returns true if this element is inside the given root node
     function inside(el, root) {
       let p = el;
@@ -3428,7 +3604,9 @@
         return;
       }
       if (!strictComplete && hasAttach) {
-        new bootstrap.Modal(document.getElementById('modal-submit-incomplete')).show();
+        const missing = collectMissingRequired();
+        renderMissingDetails(missing);
+        new bootstrap.Modal(document.getElementById('modal-missing-details')).show();
         return;
       }
       if (!hasAttach) {
@@ -3461,32 +3639,45 @@
       });
 
     // “Pass to Data Entry” → open picker modal and lazy-load users
+    async function openChooseDE() {
+    const sel = document.getElementById('de-user-select');
+    sel.innerHTML = `<option value="">Loading...</option>`;
+
+
+    try {
+    const r = await fetch(@json(route('dataEntry.users')), {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    const data = await r.json();
+    sel.innerHTML = `<option value="">Please select a user</option>`;
+    (data?.users || []).forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = u.name;
+    sel.appendChild(opt);
+    });
+    } catch {
+    sel.innerHTML = `<option value="">Failed to load users</option>`;
+    }
+
+
+    new bootstrap.Modal(document.getElementById('modal-choose-de-user')).show();
+    }
+
+
     document.getElementById('btn-open-choose-de')
-      ?.addEventListener('click', async () => {
-        bootstrap.Modal.getInstance(document.getElementById('modal-submit-incomplete'))?.hide();
+    ?.addEventListener('click', async () => {
+    bootstrap.Modal.getInstance(document.getElementById('modal-submit-incomplete'))?.hide();
+    await openChooseDE();
+    });
 
-        const sel = document.getElementById('de-user-select');
-        sel.innerHTML = `<option value="">Loading...</option>`;
-        try {
-          const r = await fetch(@json(route('dataEntry.users')), {
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest'
-            }
-          });
-          const data = await r.json();
-          sel.innerHTML = `<option value="">Please select a user</option>`;
-          (data?.users || []).forEach(u => {
-            const opt = document.createElement('option');
-            opt.value = u.id;
-            opt.textContent = u.name;
-            sel.appendChild(opt);
-          });
-        } catch {
-          sel.innerHTML = `<option value="">Failed to load users</option>`;
-        }
 
-        new bootstrap.Modal(document.getElementById('modal-choose-de-user')).show();
-      });
+    // NEW: from Missing Details modal
+    document.getElementById('btn-missing-pass-de')
+    ?.addEventListener('click', async () => {
+    bootstrap.Modal.getInstance(document.getElementById('modal-missing-details'))?.hide();
+    await openChooseDE();
+    });
 
     // Confirm & Assign → POST to server then redirect
     document.getElementById('btn-confirm-assign')
