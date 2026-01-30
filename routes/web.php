@@ -211,6 +211,11 @@ Route::get('/dashboard', function () {
         return 'Route is working';
     });
 
+    Route::fallback(function () {
+        return response()
+            ->view('errors.404', [], 404);
+    });
+
     // Artist 
     Route::middleware(['web','auth','role:artist,head-artist'])->group(function () {
         Route::get('/artist/dashboard', [ArtistController::class, 'dashboard'])->name('artist.dashboard');
