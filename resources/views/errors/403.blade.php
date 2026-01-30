@@ -21,10 +21,6 @@
             <a href="{{ url('/dashboard') }}" class="btn btn-primary px-4">
                 <i class="bi bi-house-door"></i> Home
             </a>
-
-            <button onclick="history.back()" class="btn btn-outline-secondary px-4">
-                <i class="bi bi-arrow-left"></i> Go Back
-            </button>
         </div>
     </div>
 </div>
