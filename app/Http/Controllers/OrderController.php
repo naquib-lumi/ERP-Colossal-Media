@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Helpers\Helpers;
 use Illuminate\Support\Str;
+use App\Models\OrderRecord;
 
 class OrderController extends Controller
 {
@@ -444,6 +445,15 @@ class OrderController extends Controller
                     'orderDate'      => now(),
                 ]);
 
+                // ✅ Record first created time ONLY for final save (not draft)
+                if (!$isDraft) {
+                    OrderRecord::firstOrCreate(['order_id' => $order->id]);
+
+                    OrderRecord::where('order_id', $order->id)
+                        ->whereNull('first_created_at')
+                        ->update(['first_created_at' => $order->created_at ?? now()]);
+                }
+
                 // ✅ Attachments (optional for draft, required already enforced for final)
                 if ($request->hasFile('attachments')) {
                     foreach ($request->file('attachments') as $file) {
@@ -730,6 +740,8 @@ class OrderController extends Controller
 
         $order = Order::with(['lead', 'products', 'attachments'])->findOrFail($id);
 
+        $wasDraft = (int)($order->draft ?? 0) === 1;
+
         $lead = $order->lead;
 
         if (!$user->hasRole('head-salesperson')) {
@@ -968,14 +980,23 @@ class OrderController extends Controller
 
             // After editing a draft in_progress order (no artist yet), mark it as non-draft
             if (
-            !$isDraft &&
-            $order->orderStatus === 'in_progress'
-            && (int)$order->draft === 1
-            && is_null($order->artist_id)
-            ) {
-            $order->draft = 0;
-            $order->orderStatus = "to_assign";
-            $order->save();
+                !$isDraft &&
+                $order->orderStatus === 'in_progress'
+                && (int)$order->draft === 1
+                && is_null($order->artist_id)
+                ) {
+                $order->draft = 0;
+                $order->orderStatus = "to_assign";
+                $order->save();
+
+                // ✅ record create time ONLY when converting from draft → final
+                if ($wasDraft) {
+                    OrderRecord::firstOrCreate(['order_id' => $order->id]);
+
+                    OrderRecord::where('order_id', $order->id)
+                    ->whereNull('first_created_at')
+                    ->update(['first_created_at' => $order->created_at ?? now()]);
+                }
             }
 
             if ($isDraft) {

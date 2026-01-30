@@ -27,6 +27,7 @@ use Illuminate\Validation\Rule;
 use App\Helpers\Helpers;
 use App\Notifications\GenericNotification;
 use App\Models\OrderAttachment;
+use App\Models\OrderRecord;
 
 class ArtistController extends Controller
 {
@@ -563,6 +564,16 @@ class ArtistController extends Controller
             }
 
             $order->save();
+
+            // record first edit time (only once)
+            OrderRecord::firstOrCreate(
+                ['order_id' => $order->id],
+                ['first_created_at' => $order->created_at] // optional seed
+            );
+
+            OrderRecord::where('order_id', $order->id)
+                ->whereNull('first_edited_at')
+                ->update(['first_edited_at' => now()]);
         }
 
         // Load relations AFTER any status/ownership changes
@@ -1107,6 +1118,15 @@ class ArtistController extends Controller
 
                 
                 $order->save();
+
+                // ✅ Record submitted time ONLY when submit=true (exclude drafts)
+                if ($submitted) {
+                    OrderRecord::firstOrCreate(['order_id' => $order->id]);
+
+                    OrderRecord::where('order_id', $order->id)
+                        ->whereNull('submitted_at')
+                        ->update(['submitted_at' => now()]);
+                }
 
                 // ----- 2) Attachments -----
                 $existing = collect($this->getOrderAttachments($order));
