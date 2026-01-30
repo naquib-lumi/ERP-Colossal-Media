@@ -149,14 +149,10 @@
           <a href="{{ url('/dashboard') }}" class="btn btn-purple">
             <i class="bi bi-house-door me-2"></i> Back to Home
           </a>
-
-          <button type="button" class="btn btn-soft" onclick="history.back()">
-            <i class="bi bi-arrow-left me-2"></i> Go Back
-          </button>
         </div>
 
         <div class="nf-hint">
-          Tip: If you believe this is an error, please share the URL with admin/support.
+          Tip: If you believe this is an error, please share the URL with support.
         </div>
       </div>
 
