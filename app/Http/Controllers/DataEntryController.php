@@ -27,6 +27,7 @@ use Illuminate\Validation\Rule;
 use App\Helpers\Helpers;
 use App\Notifications\GenericNotification;
 use App\Models\OrderAttachment;
+use App\Models\OrderRecord;
 
 class DataEntryController extends Controller
 {
@@ -814,6 +815,15 @@ class DataEntryController extends Controller
 
                 
                 $order->save();
+
+                // ✅ Record submitted time ONLY when submit=true (exclude drafts)
+                if ($submitted) {
+                    OrderRecord::firstOrCreate(['order_id' => $order->id]);
+
+                    OrderRecord::where('order_id', $order->id)
+                        ->whereNull('submitted_at')
+                        ->update(['submitted_at' => now()]);
+                }
 
                 // ----- 2) Attachments -----
                 $existing = collect($this->getOrderAttachments($order));

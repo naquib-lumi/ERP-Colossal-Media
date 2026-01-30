@@ -48,6 +48,25 @@ $redoReason = $redoRecord->reason ?? null;
 // helper: whether a product is the selected redo copy
 $isRedoOrder = (bool) $order->redo;
 @endphp
+
+@php
+$orderRecord = \App\Models\OrderRecord::where('order_id', $order->id)->first();
+
+
+$fmtMini = function ($dt) {
+if (empty($dt)) return null;
+try {
+return \Carbon\Carbon::parse($dt)->timezone('Asia/Kuala_Lumpur')->format('d M Y');
+} catch (\Throwable $e) {
+return (string) $dt;
+}
+};
+
+
+$fc = $fmtMini(optional($orderRecord)->first_created_at);
+$fe = $fmtMini(optional($orderRecord)->first_edited_at);
+$fs = $fmtMini(optional($orderRecord)->submitted_at);
+@endphp
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
 <style>
@@ -117,6 +136,56 @@ $isRedoOrder = (bool) $order->redo;
     .redo-offset {
         margin-left: .5rem;
     }
+
+    .order-timeline {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    .ot-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        padding: .35rem .65rem;
+        border-radius: 999px;
+        font-size: .8rem;
+        font-weight: 700;
+        border: 1px solid rgba(0,0,0,.08);
+        background: #fff;
+        box-shadow: 0 6px 14px rgba(0,0,0,.06);
+    }
+
+    .ot-chip .ot-label {
+        color: #6c757d;
+        font-weight: 800;
+        letter-spacing: .02em;
+    }
+
+    .ot-chip .ot-value {
+        color: #111827;
+        font-weight: 800;
+    }
+
+    .ot-chip.is-missing {
+        background: #f8f9fa;
+        color: #6c757d;
+        border-style: dashed;
+        box-shadow: none;
+    }
+
+    .ot-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #6C5CE7;
+        flex: 0 0 auto;
+        box-shadow: 0 0 0 3px rgba(108,92,231,.18);
+    }
+
+    .ot-dot.edit { background:#00AEEF; box-shadow:0 0 0 3px rgba(0,174,239,.18); }
+    .ot-dot.submit { background:#198754; box-shadow:0 0 0 3px rgba(25,135,84,.18); }
 </style>
 <div class="container-xxl py-3">
 
@@ -139,6 +208,27 @@ $isRedoOrder = (bool) $order->redo;
             Job Order Details – {{ $order->order_number }}
             @endif
         </h4>
+        <div class="order-timeline">
+        <span class="ot-chip {{ $fc ? '' : 'is-missing' }}" title="First Created">
+        <span class="ot-dot"></span>
+        <span class="ot-label">Created</span>
+        <span class="ot-value">{{ $fc ?? '—' }}</span>
+        </span>
+
+
+        <span class="ot-chip {{ $fe ? '' : 'is-missing' }}" title="First Edited">
+        <span class="ot-dot edit"></span>
+        <span class="ot-label">Edited</span>
+        <span class="ot-value">{{ $fe ?? '—' }}</span>
+        </span>
+
+
+        <span class="ot-chip {{ $fs ? '' : 'is-missing' }}" title="First Submitted">
+        <span class="ot-dot submit"></span>
+        <span class="ot-label">Submitted</span>
+        <span class="ot-value">{{ $fs ?? '—' }}</span>
+        </span>
+        </div>
 
         <div class="d-flex align-items-center gap-2">
    

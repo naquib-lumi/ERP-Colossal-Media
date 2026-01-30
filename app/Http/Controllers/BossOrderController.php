@@ -25,6 +25,7 @@ use App\Notifications\GenericNotification;
 use App\Models\OrderAttachment;
 use App\Models\Lead;
 use Yajra\DataTables\Facades\DataTables;
+use App\Models\OrderRecord;
 
 class BossOrderController extends Controller
 {
@@ -910,6 +911,15 @@ class BossOrderController extends Controller
 
                 
                 $order->save();
+
+                // ✅ Record submitted time ONLY when submit=true (exclude drafts)
+                if ($submitted) {
+                    OrderRecord::firstOrCreate(['order_id' => $order->id]);
+
+                    OrderRecord::where('order_id', $order->id)
+                        ->whereNull('submitted_at')
+                        ->update(['submitted_at' => now()]);
+                }
 
                 // ----- 2) Attachments -----
                 $existing = collect($this->getOrderAttachments($order));
@@ -1862,6 +1872,32 @@ class BossOrderController extends Controller
             }
 
             $order->save();
+
+            // ✅ Order record timestamps
+            OrderRecord::firstOrCreate(['order_id' => $order->id]);
+
+            // Use order created timestamp (more accurate than now())
+            $createdTs = $order->created_at ?? now();
+
+            // Always stamp first_created_at once
+            OrderRecord::where('order_id', $order->id)
+                ->whereNull('first_created_at')
+                ->update(['first_created_at' => $createdTs]);
+
+            // Extra rule: if created by normal artist OR head-artist assigned to head-artist,
+            // then first edit time = first create time
+            $creatorRole = strtolower((string)($user->role ?? ''));
+            $assigneeRole = strtolower((string)($assignee->role ?? '')); // $assignee may be null
+
+            $shouldAutoFirstEdit =
+                ($creatorRole === 'artist')
+                || ($creatorRole === 'boss' && $assignee && $assigneeRole === 'head-artist');
+
+            if ($shouldAutoFirstEdit) {
+                OrderRecord::where('order_id', $order->id)
+                    ->whereNull('first_edited_at')
+                    ->update(['first_edited_at' => $createdTs]);
+            }
 
             // ----- Save attachments into order_attachments table -----
             $attachmentPaths = [];
