@@ -180,6 +180,11 @@ class ArtistOrderController extends Controller
                 'csv_file'    => 'nullable|file|mimes:csv,txt',
                 'attachments' => 'required|array',
                 'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps|max:20480',
+
+                // 'products.*.deliveries' => ['nullable','array'],
+                // 'products.*.deliveries.*.location' => ['required_with:products.*.deliveries.*.date_time,products.*.deliveries.*.qty','string','max:255'],
+                // 'products.*.deliveries.*.date_time' => ['required_with:products.*.deliveries.*.location,products.*.deliveries.*.qty','string','max:255'],
+                // 'products.*.deliveries.*.qty' => ['required_with:products.*.deliveries.*.location,products.*.deliveries.*.date_time','integer','min:1'],
             ]);
 
             $lead = $request->filled('lead_id') ? Lead::find($request->lead_id) : null;
@@ -365,6 +370,52 @@ class ArtistOrderController extends Controller
                     }
                     if ($rows) {
                         DB::table('product_remarks')->insert($rows);
+                    }
+                }
+
+                // Save deliveries into delivery_breakdowns (YOUR REAL TABLE)
+                if (!empty($p['deliveries']) && is_array($p['deliveries'])) {
+                    $rows = [];
+                    $now  = now();
+
+                    foreach ($p['deliveries'] as $d) {
+                        // delivery is optional: skip only if totally empty
+                        $method   = $d['method'] ?? null;
+                        $location = $d['location'] ?? null;
+                        $dt       = $d['date_time'] ?? null;
+
+                        if (empty($method) && empty($location) && empty($dt)) {
+                            continue;
+                        }
+
+                        // Split datetime-local into DATE + TIME (your DB uses separate columns)
+                        $date = null;
+                        $time = null;
+                        if (!empty($dt)) {
+                            try {
+                                $c = \Carbon\Carbon::parse($dt);
+                                $date = $c->toDateString();     // YYYY-MM-DD
+                                $time = $c->format('H:i:s');    // HH:MM:SS
+                            } catch (\Throwable $e) {
+                                // ignore parse error, keep null
+                            }
+                        }
+
+                        $rows[] = [
+                            'ProductID'   => $product->getKey(),
+                            'method'      => $method,
+                            'location'    => $location,
+                            'date'        => $date,
+                            'time'        => $time,
+                            // quantity is optional too (because your UI currently doesn’t collect it)
+                            'quantity'    => !empty($d['quantity']) ? (int)$d['quantity'] : null,
+                            'created_at'  => $now,
+                            'updated_at'  => $now,
+                        ];
+                    }
+
+                    if ($rows) {
+                        DB::table('delivery_breakdowns')->insert($rows);
                     }
                 }
             }
@@ -727,17 +778,36 @@ class ArtistOrderController extends Controller
     public function assign(Request $request, \App\Models\Order $order)
     {
         try {
-            // Only head-artist can assign
             if (auth()->user()->role !== 'head-artist') {
                 return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
             }
 
-            // If you want to allow unassign (user_id = null), use nullable
             $validated = $request->validate([
                 'user_id' => ['nullable','integer','exists:users,id'],
             ]);
 
-            $assignee = isset($validated['user_id']) ? User::find($validated['user_id']) : null;
+            $assignee = isset($validated['user_id'])
+                ? User::find($validated['user_id'])
+                : null;
+
+            /**
+             * ✅ Record first edit time ONLY IF:
+             * 1) current orderStatus is 'to_assign'
+             * 2) assignee is head-artist
+             */
+            if ($order->orderStatus === 'to_assign' && $assignee && $assignee->role === 'head-artist') {
+
+                // ensure record exists
+                OrderRecord::firstOrCreate(
+                    ['order_id' => $order->id],
+                    ['first_created_at' => $order->created_at] // optional seed
+                );
+
+                // stamp only once
+                OrderRecord::where('order_id', $order->id)
+                    ->whereNull('first_edited_at')
+                    ->update(['first_edited_at' => now()]);
+            }
 
             // defaults
             $newStatus = 'to_assign';
@@ -745,17 +815,15 @@ class ArtistOrderController extends Controller
 
             if ($assignee) {
                 if ($assignee->role === 'head-artist') {
-                    // assigning to a head-artist → they can start work immediately
                     $newStatus = 'in_progress';
                     $pending   = 0;
                 } else {
-                    // assigning to a normal artist → mark as pending until they pick up
                     $newStatus = 'assigned';
                     $pending   = 1;
                 }
-            } // else keep to_assign + pending=0 for unassign
+            }
 
-            $order->artist_id   = $assignee?->id;   // allow unassign (null)
+            $order->artist_id   = $assignee?->id;
             $order->orderStatus = $newStatus;
             $order->pending     = $pending;
             $order->save();
@@ -768,7 +836,6 @@ class ArtistOrderController extends Controller
                 'assigneeRole' => $assignee?->role,
             ]);
         } catch (\Throwable $e) {
-            // For bad input, 422 is more appropriate than 500
             if ($request->expectsJson()) {
                 return response()->json([
                     'ok' => false,

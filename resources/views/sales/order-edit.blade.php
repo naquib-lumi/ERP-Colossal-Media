@@ -342,7 +342,7 @@
                                             <th>#</th>
                                             <th>Product Name</th>
                                             <th>Quantity</th>
-                                            <th>Material Remark</th>
+                                            <th>Material Remark <span class="text-danger">*</span></th>
                                             <th style="width: 260px;">Delivery Breakdown</th>
                                             <th>Remarks</th>
                                             <th>Action</th>
@@ -361,7 +361,7 @@
                                                     <input type="number" name="products[{{ $productIndex }}][quantity]" class="form-control" value="{{ old("products.{$productIndex}.quantity", ltrim($product->totalQuantity, '0') ?: '') }}" min="1">
                                                 </td>
                                                 <td>
-                                                    <input type="text" name="products[{{ $productIndex }}][material_remark]" class="form-control" value="{{ old("products.{$productIndex}.material_remark", $product->materialRemark ?? '') }}">
+                                                    <input type="text" name="products[{{ $productIndex }}][material_remark]" class="form-control material-remark" value="{{ old("products.{$productIndex}.material_remark", $product->materialRemark ?? '') }}">
                                                 </td>
                                                 <td>
                                                     <div id="deliveries-container-{{ $productIndex }}">
@@ -462,7 +462,7 @@
                                                     <td class="product-number">{{ $index + 1 }}</td>
                                                     <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
                                                     <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ ltrim($product['quantity'] ?? '', '0') ?: '' }}" min="1"></td>
-                                                    <td><input type="text" name="products[{{ $index }}][material_remark]" class="form-control" value="{{ $product['material_remark'] ?? '' }}"></td>
+                                                    <td><input type="text" name="products[{{ $index }}][material_remark]" class="form-control material-remark" value="{{ $product['material_remark'] ?? '' }}"></td>
                                                     <td>
                                                         <div id="remarks-container-{{ $index }}">
                                                             @foreach ($product['remarks'] ?? [] as $rindex => $remark)
@@ -520,7 +520,7 @@
 
 <!-- Unified Attachment Section -->
 <div class="mt-4">
-    <label class="form-label">Attachments</label>
+    <label class="form-label">Attachments <span class="text-danger">*required</span></label>
     
    
 
@@ -608,8 +608,9 @@
                             <div id="quantity-error" class="validation-msg"></div>
                         </div>
                         <div class="col-12">
-                            <label>Material Remark</label>
-                            <textarea id="material_remark" class="form-control"></textarea>
+                            <label>Material Remark <span class="text-danger">*</span></label>
+                            <textarea id="material_remark" class="form-control" required></textarea>
+                            <div id="material_remark-error" class="validation-msg"></div>
                         </div>
                         <div class="col-12">
                             <label style="margin-bottom: 5px;">Delivery Breakdown (Optional)</label>
@@ -874,10 +875,33 @@ $(document).ready(function() {
             $('#remarks-container').append(html);
         }
 
-        $(document).on('click', '.remove-remark', function () {
-            $(this).closest('.remark-row').remove();
+        $(document).on('click', '.remove-remark', function (e) {
+            e.preventDefault();
+
+            const $tr = $(this).closest('tr');
+            const idx = $tr.data('index');
+
+            // remove either structure
+            $(this).closest('.remark-card, .remark-row').remove();
+
+            // reindex remark names so backend receives clean arrays
+            renumberRemarks(idx);
+
             isDirty = true;
         });
+
+        function renumberRemarks(productIdx) {
+            const $container = $(`#remarks-container-${productIdx}`);
+
+            $container.find('.remark-card, .remark-row').each(function (rIdx) {
+                $(this).find('input[name], select[name]').each(function () {
+                    this.name = this.name.replace(
+                        new RegExp(`^products\\[${productIdx}\\]\\[remarks\\]\\[\\d+\\]`),
+                        `products[${productIdx}][remarks][${rIdx}]`
+                    );
+                });
+            });
+        }
 
         $('#saveProduct').on('click', function () {
             const errors = validateProductForm();
@@ -966,7 +990,7 @@ $(document).ready(function() {
 
 
             <td>
-            <input type="text" name="products[${idx}][material_remark]" class="form-control"
+            <input type="text" name="products[${idx}][material_remark]" class="form-control material-remark"
             value="${escapeHtml(data.material_remark)}">
             </td>
 
@@ -1192,13 +1216,16 @@ $(document).ready(function() {
         $(document).on('click', '.add-remark', function () {
             const idx = $(this).data('index');
             const container = $(`#remarks-container-${idx}`);
-            if (container.find('.remark-row').length >= 6) {
+
+            if (container.find('.remark-card, .remark-row').length >= 6) {
                 Swal.fire('Warning', 'Maximum 6 remarks per product.', 'warning');
                 return;
             }
-            const rIdx = container.find('.remark-row').length;
+
+            const rIdx = container.find('.remark-card, .remark-row').length;
+
             container.append(`
-                <div class="remark-card">
+                <div class="remark-card remark-row">
                     <button type="button" class="btn btn-link text-danger btn-del remove-remark" title="Delete">
                         <i class="bx bx-trash fs-5"></i>
                     </button>
@@ -1219,10 +1246,15 @@ $(document).ready(function() {
 
                         <div class="form-group mt-2">
                             <label class="form-label small mb-1">Remark</label>
-                            <input type="text" name="products[${idx}][remarks][${rIdx}][remark]" class="form-control" placeholder="Write a note…">
+                            <input type="text"
+                                name="products[${idx}][remarks][${rIdx}][remark]"
+                                class="form-control"
+                                placeholder="Write a note…">
                         </div>
+                    </div>
                 </div>
             `);
+
             isDirty = true;
         });
 
@@ -1378,6 +1410,13 @@ $(document).ready(function() {
             productErrors.push('Quantity must be at least 1');
             }
 
+            const materialInput = $(this).find('input[name$="[material_remark]"]');
+            const materialRemark = (materialInput.val() || '').trim();
+
+            if (!materialRemark) {
+                materialInput.addClass('is-invalid');
+                productErrors.push('Material remark is required');
+            }
 
             const remarks = $(this).find('.remark-row');
             const operations = [];
@@ -1443,8 +1482,23 @@ $(document).ready(function() {
         function validateProductForm() {
             clearValidationErrors();
             const errors = [];
-            if (!$('#product_name').val().trim()) errors.push('Product name is required');
-            if (!$('#quantity').val() || $('#quantity').val() < 1) errors.push('Quantity must be ≥ 1');
+
+            if (!$('#product_name').val().trim()) {
+                errors.push('Product name is required');
+                $('#product_name').addClass('is-invalid');
+            }
+
+            if (!$('#quantity').val() || $('#quantity').val() < 1) {
+                errors.push('Quantity must be ≥ 1');
+                $('#quantity').addClass('is-invalid');
+            }
+
+            if (!$('#material_remark').val().trim()) {
+                errors.push('Material remark is required');
+                $('#material_remark').addClass('is-invalid');
+                $('#material_remark-error').text('Material remark is required').show();
+            }
+
             return errors;
         }
     });

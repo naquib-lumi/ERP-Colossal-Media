@@ -377,26 +377,41 @@ class ArtistController extends Controller
             'artist_id' => ['required', 'exists:users,id'],
         ]);
 
-        $assignee = User::select('id', 'role')->find($data['artist_id']);
+        $assignee = User::select('id', 'role', 'name')->find($data['artist_id']);
 
         if (!$assignee) {
             return back()->with('error', 'Selected artist not found.');
         }
 
         if ($assignee->role === 'head-artist') {
+
+            // ✅ Record first edit time (only once)
+            OrderRecord::firstOrCreate(
+                ['order_id' => $order->id],
+                ['first_created_at' => $order->created_at]
+            );
+
+            OrderRecord::where('order_id', $order->id)
+                ->whereNull('first_edited_at')
+                ->update([
+                    'first_edited_at' => now()
+                ]);
+
             $order->orderStatus = 'in_progress';
             $order->pending     = 0;
+
         } else {
+
             $order->orderStatus = 'assigned';
             $order->pending     = 1;
         }
 
-        $order->artist_id   = $data['artist_id'];
+        $order->artist_id = $data['artist_id'];
         $order->save();
 
         return redirect()
-        ->route('artist.dashboard')
-        ->with('ok', "Order assigned to {$assignee->name} ({$assignee->role}) successfully.");
+            ->route('artist.dashboard')
+            ->with('ok', "Order assigned to {$assignee->name} ({$assignee->role}) successfully.");
     }
 
     public function show(Order $order)

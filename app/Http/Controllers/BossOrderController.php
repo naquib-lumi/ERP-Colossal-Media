@@ -2004,6 +2004,52 @@ class BossOrderController extends Controller
                         DB::table('product_remarks')->insert($rows);
                     }
                 }
+
+               // Save deliveries into delivery_breakdowns (YOUR REAL TABLE)
+                if (!empty($p['deliveries']) && is_array($p['deliveries'])) {
+                    $rows = [];
+                    $now  = now();
+
+                    foreach ($p['deliveries'] as $d) {
+                        // delivery is optional: skip only if totally empty
+                        $method   = $d['method'] ?? null;
+                        $location = $d['location'] ?? null;
+                        $dt       = $d['date_time'] ?? null;
+
+                        if (empty($method) && empty($location) && empty($dt)) {
+                            continue;
+                        }
+
+                        // Split datetime-local into DATE + TIME (your DB uses separate columns)
+                        $date = null;
+                        $time = null;
+                        if (!empty($dt)) {
+                            try {
+                                $c = \Carbon\Carbon::parse($dt);
+                                $date = $c->toDateString();     // YYYY-MM-DD
+                                $time = $c->format('H:i:s');    // HH:MM:SS
+                            } catch (\Throwable $e) {
+                                // ignore parse error, keep null
+                            }
+                        }
+
+                        $rows[] = [
+                            'ProductID'   => $product->getKey(),
+                            'method'      => $method,
+                            'location'    => $location,
+                            'date'        => $date,
+                            'time'        => $time,
+                            // quantity is optional too (because your UI currently doesn’t collect it)
+                            'quantity'    => !empty($d['quantity']) ? (int)$d['quantity'] : null,
+                            'created_at'  => $now,
+                            'updated_at'  => $now,
+                        ];
+                    }
+
+                    if ($rows) {
+                        DB::table('delivery_breakdowns')->insert($rows);
+                    }
+                } 
             }
 
             /**
@@ -2285,6 +2331,25 @@ class BossOrderController extends Controller
             ]);
 
             $assignee = isset($validated['user_id']) ? User::find($validated['user_id']) : null;
+
+            /**
+             * ✅ Record first edit time ONLY IF:
+             * 1) current orderStatus is 'to_assign'
+             * 2) assignee is head-artist
+             */
+            if ($order->orderStatus === 'to_assign' && $assignee && $assignee->role === 'head-artist') {
+
+                // ensure record exists
+                OrderRecord::firstOrCreate(
+                    ['order_id' => $order->id],
+                    ['first_created_at' => $order->created_at] // optional seed
+                );
+
+                // stamp only once
+                OrderRecord::where('order_id', $order->id)
+                    ->whereNull('first_edited_at')
+                    ->update(['first_edited_at' => now()]);
+            }
 
             // defaults
             $newStatus = 'to_assign';
