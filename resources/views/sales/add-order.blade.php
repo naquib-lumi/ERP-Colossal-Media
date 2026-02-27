@@ -328,7 +328,7 @@
                                             <th>#</th>
                                             <th>Product Name</th>
                                             <th>Quantity</th>
-                                            <th>Material Remark</th>
+                                            <th>Material Remark <span class="text-danger">*</span></th>
                                             <th style="width: 260px;">Delivery Breakdown</th>
                                             <th>Remarks</th>
                                             <th>Action</th>
@@ -340,7 +340,13 @@
                                                 <td class="product-number">{{ $loop->iteration }}</td>
                                                 <td><input type="text" name="products[{{ $index }}][product_name]" class="form-control" value="{{ $product['product_name'] ?? '' }}"></td>
                                                 <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control" value="{{ ltrim($product['quantity'] ?? '', '0') ?: '' }}" min="1"></td>
-                                                <td><input type="text" name="products[{{ $index }}][material_remark]" class="form-control" value="{{ $product['material_remark'] ?? '' }}"></td>
+                                                <td>
+                                                <input type="text"
+                                                        name="products[{{ $index }}][material_remark]"
+                                                        class="form-control material-remark"
+                                                        value="{{ $product['material_remark'] ?? '' }}"
+                                                        required>
+                                                </td>
                                                 <td>
                                                     <div id="deliveries-container-{{ $index }}">
                                                         @foreach ($product['deliveries'] ?? [] as $dindex => $d)
@@ -442,7 +448,7 @@
                                                     <ul id="preview" class="mt-3 space-y-2"></ul>
 
                                         <div class="mt-4">
-                            <label class="form-label">Order Attachments (Optional)</label>
+                            <label class="form-label">Order Attachments <span class="text-danger">*required</span></label>
                             <div id="attachment-dropzone" class="attach-box">
                                 <div class="attach-inner">
                                     <div class="attach-icon"><i class="bx bx-upload display-6"></i></div>
@@ -512,8 +518,9 @@
                             <div id="quantity-error" class="validation-msg"></div>
                         </div>
                         <div class="col-12">
-                            <label>Material Remark</label>
-                            <textarea id="material_remark" class="form-control"></textarea>
+                            <label>Material Remark <span class="text-danger">*</span></label>
+                            <textarea id="material_remark" class="form-control" required></textarea>
+                            <div id="material_remark-error" class="validation-msg"></div>
                         </div>
 
                         <div class="col-12">
@@ -976,7 +983,7 @@ var isDirty = false;
                     <td class="product-number">${index + 1}</td>
                     <td><input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required></td>
                     <td><input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1" required></td>
-                    <td><input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}"></td>
+                    <td><input type="text" name="products[${index}][material_remark]" class="form-control material-remark" value="${escapeHtml(data.material_remark)}" required></td>
                     <td>
                         <div id="deliveries-container-${index}">
                             ${data.deliveries.map((d, dindex) => `
@@ -1064,7 +1071,7 @@ var isDirty = false;
             const row = $(`#product-table tbody tr[data-index="${index}"]`);
             row.find('td:eq(1)').html(`<input type="text" name="products[${index}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}" required>`);
             row.find('td:eq(2)').html(`<input type="number" name="products[${index}][quantity]" class="form-control" value="${escapeHtml(data.quantity)}" min="1" required>`);
-            row.find('td:eq(3)').html(`<input type="text" name="products[${index}][material_remark]" class="form-control" value="${escapeHtml(data.material_remark)}">`);
+            row.find('td:eq(3)').html(`<input type="text" name="products[${index}][material_remark]" class="form-control material-remark" value="${escapeHtml(data.material_remark)}" required>`);
             row.find('td:eq(4)').html(`
                 <div id="deliveries-container-${index}">
                     ${data.deliveries.map((d, dindex) => `
@@ -1447,6 +1454,12 @@ placeholder="Remark">
                 errors.push('Quantity must be at least 1');
             }
 
+            const materialRemark = $('#material_remark').val().trim();
+            if (!materialRemark) {
+                showValidationError('#material_remark', 'Material remark is required');
+                errors.push('Material remark is required');
+            }
+
             const remarks = $('#remarks-container .remark-row');
             const operations = [];
             remarks.each(function() {
@@ -1551,6 +1564,15 @@ placeholder="Remark">
                         quantityInput.addClass('is-invalid');
                         productErrors.push('Quantity must be at least 1');
                     }
+
+                    const materialInput = $(this).find('input[name$="[material_remark]"]');
+                    const materialVal = (materialInput.val() || '').trim();
+
+                    if (!materialVal) {
+                        materialInput.addClass('is-invalid');
+                        productErrors.push('Material remark is required');
+                    }
+
                     const remarks = $(this).find('.remark-row');
                     const operations = [];
                     remarks.each(function() {

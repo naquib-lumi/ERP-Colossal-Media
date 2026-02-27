@@ -381,7 +381,7 @@ class OrderController extends Controller
                     'products' => 'required|array|min:1',
                     'products.*.product_name' => 'required|string|max:255',
                     'products.*.quantity' => 'required|integer|min:1',
-                    'products.*.material_remark' => 'nullable|string',
+                    'products.*.material_remark' => 'required|string',
                     'products.*.remarks' => 'nullable|array',
                     'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
                     'products.*.remarks.*.remark' => 'nullable|string',

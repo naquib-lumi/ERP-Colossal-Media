@@ -5,6 +5,72 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
 
 <style>
+    /* ========= TABLE (Product Details) ========= */
+.delivery-box-table,
+.remark-box-table{
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  position: relative;
+  margin-bottom: 10px;
+  min-width: 320px;
+}
+
+.delivery-box-table .delete-delivery,
+.remark-box-table .delete-remark{
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  color: #dc3545;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.delivery-box-table label,
+.remark-box-table label{
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.delivery-box-table .stack,
+.remark-box-table .stack{
+  display: grid;
+  gap: 10px;
+}
+
+/* ========= MODAL (keep 3 fields one row) ========= */
+.delivery-row-modal{
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  margin-bottom: .5rem;
+}
+
+.delivery-row-modal select{ flex: 0 0 180px; }
+.delivery-row-modal input{ flex: 1; }
+.delivery-row-modal .delete-delivery{
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: #dc3545;
+}
+
+/* Modal remark can stay as row (your current modal layout is fine) */
+.remark-row-modal{
+  display:flex;
+  gap:1rem;
+  align-items:center;
+  margin-bottom:.5rem;
+}
+.remark-row-modal select{ flex: 0 0 160px; }
+.remark-row-modal input{ flex: 1; }
+
     .swal2-container { z-index: 200000 !important; }
 
     .alert.alert-danger,
@@ -173,7 +239,7 @@
                                 <div class="card-body">
                                     @if(!$lead)
                                     <div class="mb-3">
-                                        <label for="lead_id" class="form-label">Search lead...</label>
+                                        <label for="lead_id" class="form-label">Search lead <span class="text-danger">*</span></label>
                                         <select id="lead_id" class="form-control js-lead-select" name="lead_id" style="width:100%"></select>
                                         <div class="form-text">Type at least 2 characters. Matches: name, company, phone, email.</div>
                                     </div>
@@ -209,7 +275,7 @@
                                 <div class="card-body">
                                     <div class="row g-3">
                                         <div class="col-md-6">
-                                            <label class="form-label">Job Title</label>
+                                            <label class="form-label">Job Title <span class="text-danger">*</span></label>
                                             <input name="orderTitle" type="text" class="form-control" value="{{ old('orderTitle') }}">
                                             @error('orderTitle')
                                                 <span class="text-danger">{{ $message }}</span>
@@ -221,7 +287,7 @@
                                             <input type="hidden" name="orderDate" value="{{ now() }}">
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label">Deadline</label>
+                                            <label class="form-label">Deadline <span class="text-danger">*</span></label>
                                             <input name="deadline" type="date" class="form-control" value="{{ old('deadline') }}">
                                             @error('deadline')
                                                 <span class="text-danger">{{ $message }}</span>
@@ -280,6 +346,7 @@
                                             <th>Product Name</th>
                                             <th>Quantity</th>
                                             <th>Material Remarks</th>
+                                            <th>Delivery Breakdown</th>
                                             <th>Remark</th>
                                             <th>Actions</th>
                                         </tr>
@@ -292,21 +359,80 @@
                                                 <td><input type="number" name="products[{{ $index }}][quantity]" class="form-control qty-input" min="1" step="1" value="{{ $product['quantity'] ?? '' }}"></td>
                                                 <td><input type="text" name="products[{{ $index }}][material_info]" class="form-control" value="{{ $product['material_info'] ?? '' }}"></td>
                                                 <td>
+                                                    <div id="deliveries-container-{{ $index }}">
+                                                        @foreach ($product['deliveries'] ?? [] as $dindex => $del)
+                                                            <div class="delivery-box" data-delivery-box>
+                                                                <button type="button" class="delete-delivery remove-delivery" title="Delete">
+                                                                <i class="bx bx-trash fs-5"></i>
+                                                                </button>
+
+                                                                <div class="mb-2">
+                                                                <label>Delivery Method</label>
+                                                                <select name="products[{{ $index }}][deliveries][{{ $dindex }}][method]" class="form-select">
+                                                                    <option value="">— Select —</option>
+                                                                    <option value="self_pickup" {{ ($del['method'] ?? '') === 'self_pickup' ? 'selected' : '' }}>Self Pickup</option>
+                                                                    <option value="courier" {{ ($del['method'] ?? '') === 'courier' ? 'selected' : '' }}>Courier</option>
+                                                                    <option value="installation" {{ ($del['method'] ?? '') === 'installation' ? 'selected' : '' }}>Installation</option>
+                                                                </select>
+                                                                </div>
+
+                                                                <div class="mb-2">
+                                                                <label>Location Address</label>
+                                                                <input type="text"
+                                                                    name="products[{{ $index }}][deliveries][{{ $dindex }}][location]"
+                                                                    class="form-control"
+                                                                    placeholder="Location"
+                                                                    value="{{ $del['location'] ?? '' }}">
+                                                                </div>
+
+                                                                <div>
+                                                                <label>Date & Time</label>
+                                                                <input type="datetime-local"
+                                                                    name="products[{{ $index }}][deliveries][{{ $dindex }}][date_time]"
+                                                                    class="form-control"
+                                                                    value="{{ $del['date_time'] ?? '' }}">
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+
+                                                    <button type="button"
+                                                        class="btn btn-secondary btn-sm mt-2 add-delivery"
+                                                        data-index="{{ $index }}">
+                                                        Add Delivery Breakdown
+                                                    </button>
+                                                </td>
+                                                <td>
                                                     <div id="remarks-container-{{ $index }}">
                                                         @foreach ($product['remarks'] ?? [] as $rindex => $remark)
-                                                            <div class="remark-row">
-                                                                <select name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                                                    <option value="artist" {{ $remark['operation'] == 'artist' ? 'selected' : '' }}>To Artist</option>
-                                                                    <option value="printing" {{ $remark['operation'] == 'printing' ? 'selected' : '' }}>To Printing</option>
-                                                                    <option value="furnishing" {{ $remark['operation'] == 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
-                                                                    <option value="installation" {{ $remark['operation'] == 'installation' ? 'selected' : '' }}>To Installation</option>
-                                                                    <option value="self_pickup" {{ $remark['operation'] == 'self_pickup' ? 'selected' : '' }}>To Self Pickup</option>
-                                                                    <option value="courier" {{ $remark['operation'] == 'courier' ? 'selected' : '' }}>To Courier</option>
+                                                            <div class="remark-box-table" data-remark-box>
+                                                            <button type="button" class="delete-remark remove-remark" title="Delete">
+                                                                <i class="bx bx-trash fs-5"></i>
+                                                            </button>
+
+                                                            <div class="stack">
+                                                                <div>
+                                                                <label>Remark Type</label>
+                                                                <select name="products[{{ $index }}][remarks][{{ $rindex }}][operation]" class="form-select">
+                                                                    <option value="">— Select —</option>
+                                                                    <option value="artist" {{ ($remark['operation'] ?? '') === 'artist' ? 'selected' : '' }}>To Artist</option>
+                                                                    <option value="printing" {{ ($remark['operation'] ?? '') === 'printing' ? 'selected' : '' }}>To Printing</option>
+                                                                    <option value="furnishing" {{ ($remark['operation'] ?? '') === 'furnishing' ? 'selected' : '' }}>To Furnishing</option>
+                                                                    <option value="installation" {{ ($remark['operation'] ?? '') === 'installation' ? 'selected' : '' }}>To Installation</option>
+                                                                    <option value="self_pickup" {{ ($remark['operation'] ?? '') === 'self_pickup' ? 'selected' : '' }}>To Self Pickup</option>
+                                                                    <option value="courier" {{ ($remark['operation'] ?? '') === 'courier' ? 'selected' : '' }}>To Courier</option>
                                                                 </select>
-                                                                <input type="text" name="products[{{ $index }}][remarks][{{ $rindex }}][remark]" class="form-control" value="{{ $remark['remark'] ?? '' }}" placeholder="Write a note…">
-                                                                <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                                                    <i class="bx bx-trash fs-5"></i>
-                                                                </button>
+                                                                </div>
+
+                                                                <div>
+                                                                <label>Remark</label>
+                                                                <input type="text"
+                                                                    name="products[{{ $index }}][remarks][{{ $rindex }}][remark]"
+                                                                    class="form-control"
+                                                                    value="{{ $remark['remark'] ?? '' }}"
+                                                                    placeholder="Write a note…">
+                                                                </div>
+                                                            </div>
                                                             </div>
                                                         @endforeach
                                                     </div>
@@ -497,16 +623,21 @@
                     <input type="hidden" id="product_index">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label>Product Name</label>
+                            <label>Product Name <span class="text-danger">*</span></label>
                             <input id="product_name" class="form-control">
                         </div>
                         <div class="col-md-6">
-                            <label>Quantity</label>
+                            <label>Quantity <span class="text-danger">*</span></label>
                             <input id="quantity" type="number" class="form-control qty-input" inputmode="numeric" pattern="[1-9]\d*" min="1" step="1" autocomplete="off">
                         </div>
                         <div class="col-12">
-                            <label>Material Remark</label>
+                            <label>Material Remark <span class="text-danger">*</span></label>
                             <textarea id="material_info" class="form-control"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="fw-semibold">Delivery Breakdown <span class="text-muted">(Optional)</span></label>
+                            <div id="deliveries-modal-container"></div>
+                            <button type="button" id="addDeliveryBtn" class="btn btn-secondary btn-sm mt-2">Add Delivery</button>
                         </div>
                         <div class="col-12">
                             <label>Remarks</label>
@@ -601,11 +732,100 @@ $(function () {
     set($leadNm,''); set($company,''); set($phone,''); set($email,'');
   });
 
+  // delete delivery box content (keep UI, clear fields)
+    $(document).on('click', '.delete-delivery', function() {
+    const $box = $(this).closest('.delivery-box');
+    $box.find('select, input').val('');
+    });
+
   /**************************
  * PRODUCTS (+ REMARKS) UI
  **************************/
         function escapeHtml(str) {
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        /**************************
+         * B) JS helpers
+         **************************/
+        function renderDeliveryBlock(index, dindex, d = {}) {
+        const method    = d.method || '';
+        const location  = d.location || '';
+        const date_time = d.date_time || '';
+
+        return `
+            <div class="delivery-box-table" data-delivery-box>
+            <button type="button" class="delete-delivery remove-delivery" title="Delete">
+                <i class="bx bx-trash fs-5"></i>
+            </button>
+
+            <div class="stack">
+                <div>
+                <label>Delivery Method</label>
+                <select name="products[${index}][deliveries][${dindex}][method]" class="form-select">
+                    <option value="">— Select —</option>
+                    <option value="self_pickup" ${method==='self_pickup'?'selected':''}>Self Pickup</option>
+                    <option value="courier" ${method==='courier'?'selected':''}>Courier</option>
+                    <option value="installation" ${method==='installation'?'selected':''}>Installation</option>
+                </select>
+                </div>
+
+                <div>
+                <label>Location Address</label>
+                <input type="text"
+                    name="products[${index}][deliveries][${dindex}][location]"
+                    class="form-control"
+                    placeholder="Location"
+                    value="${escapeHtml(location)}">
+                </div>
+
+                <div>
+                <label>Date & Time</label>
+                <input type="datetime-local"
+                    name="products[${index}][deliveries][${dindex}][date_time]"
+                    class="form-control"
+                    value="${escapeHtml(date_time)}">
+                </div>
+            </div>
+            </div>
+        `;
+        }
+
+                function renderRemarkRow(index, rindex, r = {}) {
+        const op     = r.operation || '';
+        const remark = r.remark || '';
+
+        return `
+            <div class="remark-box-table" data-remark-box>
+            <button type="button" class="delete-remark remove-remark" title="Delete">
+                <i class="bx bx-trash fs-5"></i>
+            </button>
+
+            <div class="stack">
+                <div>
+                <label>Remark Type</label>
+                <select name="products[${index}][remarks][${rindex}][operation]" class="form-select">
+                    <option value="">— Select —</option>
+                    <option value="artist" ${op==='artist'?'selected':''}>To Artist</option>
+                    <option value="printing" ${op==='printing'?'selected':''}>To Printing</option>
+                    <option value="furnishing" ${op==='furnishing'?'selected':''}>To Furnishing</option>
+                    <option value="installation" ${op==='installation'?'selected':''}>To Installation</option>
+                    <option value="self_pickup" ${op==='self_pickup'?'selected':''}>To Self Pickup</option>
+                    <option value="courier" ${op==='courier'?'selected':''}>To Courier</option>
+                </select>
+                </div>
+
+                <div>
+                <label>Remark</label>
+                <input type="text"
+                    name="products[${index}][remarks][${rindex}][remark]"
+                    class="form-control"
+                    value="${escapeHtml(remark)}"
+                    placeholder="Write a note…">
+                </div>
+            </div>
+            </div>
+        `;
         }
 
         let productIndex = $('#product-table tbody tr').length;
@@ -620,6 +840,7 @@ $(function () {
             $('#productForm')[0].reset();
             $('#product_index').val('');
             $('#remarks-container').empty();
+            $('#deliveries-modal-container').empty();
             $('#productModalTitle').text('Add Product');
 
             if (mode === 'edit' && index !== undefined) {
@@ -673,6 +894,47 @@ $(function () {
             $(this).closest('.remark-row').remove();
         });
 
+        /**************************
+         * DELIVERIES (UI HELPERS)
+         **************************/
+        function addDeliveryRowModal(method = '', location = '', date_time = '') {
+        const html = `
+            <div class="delivery-row-modal">
+            <select class="form-select" name="delivery_method">
+                <option value="">— Select —</option>
+                <option value="self_pickup" ${method==='self_pickup'?'selected':''}>Self Pickup</option>
+                <option value="courier" ${method==='courier'?'selected':''}>Courier</option>
+                <option value="installation" ${method==='installation'?'selected':''}>Installation</option>
+            </select>
+
+            <input type="text" class="form-control" name="delivery_location"
+                placeholder="Location" value="${escapeHtml(location)}">
+
+            <input type="datetime-local" class="form-control" name="delivery_date_time"
+                value="${escapeHtml(date_time)}">
+
+            <button type="button" class="delete-delivery text-danger" title="Delete">
+                <i class="bx bx-trash fs-5"></i>
+            </button>
+            </div>
+        `;
+        $('#deliveries-modal-container').append(html);
+        }
+
+        // Add delivery row in modal
+        $(document).on('click', '#addDeliveryBtn', function() {
+            addDeliveryRowModal();
+        });
+
+        // Remove delivery row (modal or table)
+        $(document).on('click', '.remove-delivery', function() {
+        $(this).closest('[data-delivery-box]').remove();
+        });
+
+        $(document).on('click', '.remove-remark', function() {
+        $(this).closest('[data-remark-box]').remove();
+        });
+
         $('#saveProduct').on('click', function() {
             const nameEl = $('#product_name');
             const qtyEl  = $('#quantity');
@@ -714,8 +976,20 @@ $(function () {
                 product_name: $('#product_name').val() || '',
                 quantity: $('#quantity').val() || '',
                 material_info: $('#material_info').val() || '',
+                deliveries: [],
                 remarks: []
             };
+
+            // collect deliveries from modal
+            data.deliveries = [];
+            $('#deliveries-modal-container .delivery-row-modal').each(function() {
+            const method = $(this).find('select[name="delivery_method"]').val() || '';
+            const location = $(this).find('input[name="delivery_location"]').val() || '';
+            const date_time = $(this).find('input[name="delivery_date_time"]').val() || '';
+            if (method || location || date_time) {
+                data.deliveries.push({ method, location, date_time });
+            }
+            });
 
             $('#remarks-container .remark-row').each(function() {
                 const operation = $(this).find('select').val();
@@ -776,34 +1050,37 @@ $(function () {
 
                 const html = `
                     <tr data-index="${productIndex}">
-                        <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
-                        <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
-                        <td><input type="number" name="products[${productIndex}][quantity]" class="form-control qty-input" min="1" step="1" value="${escapeHtml(data.quantity)}"></td>
-                        <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}"></td>
-                        <td>
-                            <div id="remarks-container-${productIndex}">
-                                ${data.remarks.map((r, rindex) => `
-                                    <div class="remark-row">
-                                        <select name="products[${productIndex}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                                            <option value="artist" ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                                            <option value="printing" ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                                            <option value="furnishing" ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                                            <option value="installation" ${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                                            <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                                            <option value="courier" ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
-                                        </select>
-                                        <input type="text" name="products[${productIndex}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
-                                        <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                                            <i class="bx bx-trash fs-5"></i>
-                                        </button>
-                                    </div>
-                                `).join('')}
-                            </div>
-                            <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">Add Remark</button>
-                        </td>
-                        <td>
-                            <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">Delete</button>
-                        </td>
+                    <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
+
+                    <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(data.product_name)}"></td>
+
+                    <td><input type="number" name="products[${productIndex}][quantity]" class="form-control qty-input" min="1" step="1" value="${escapeHtml(data.quantity)}"></td>
+
+                    <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(data.material_info)}"></td>
+
+                    <td>
+                        <div id="deliveries-container-${productIndex}">
+                        ${(data.deliveries || []).map((d, dindex) => renderDeliveryBlock(productIndex, dindex, d)).join('')}
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm mt-2 add-delivery" data-index="${productIndex}">
+                        Add Delivery
+                        </button>
+                    </td>
+
+                    <td>
+                        <div id="remarks-container-${productIndex}">
+                        ${data.remarks.map((r, rindex) => renderRemarkRow(productIndex, rindex, r)).join('')}
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">
+                        Add Remark
+                        </button>
+                    </td>
+
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">
+                        Delete
+                        </button>
+                    </td>
                     </tr>
                 `;
                 $('#product-table tbody').append(html);
@@ -860,28 +1137,19 @@ $(function () {
         });
 
         $(document).on('click', '.add-remark', function() {
+        const index = $(this).data('index');
+        const container = $(`#remarks-container-${index}`);
+        const rindex = container.find('[data-remark-box]').length;
+        container.append(renderRemarkRow(index, rindex));
+        });
+
+        // Add delivery row on table product row
+        $(document).on('click', '.add-delivery', function() {
             const index = $(this).data('index');
-            const container = $(`#remarks-container-${index}`);
-            const remarks = container.find('.remark-row');
-            const rindex = remarks.length;
-            const html = `
-                <div class="remark-row">
-                    <select name="products[${index}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                        <option value="">— Select —</option>
-                        <option value="artist">To Artist</option>
-                        <option value="printing">To Printing</option>
-                        <option value="furnishing">To Furnishing</option>
-                        <option value="installation">To Installation</option>
-                        <option value="self_pickup">To Self Pickup</option>
-                        <option value="courier">To Courier</option>
-                    </select>
-                    <input type="text" name="products[${index}][remarks][${rindex}][remark]" class="form-control" placeholder="Write a note…">
-                    <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                        <i class="bx bx-trash fs-5"></i>
-                    </button>
-                </div>
-            `;
-            container.append(html);
+            const container = $(`#deliveries-container-${index}`);
+            const dindex = container.find('[data-delivery-box]').length;
+
+            container.append(renderDeliveryBlock(index, dindex));
         });
 
         $(document).on('click', '.remove-remark', function() {
@@ -1010,32 +1278,33 @@ $(function () {
             const rowHtml = `
                 <tr data-index="${productIndex}">
                 <td class="row-no align-middle fw-semibold text-muted">${nextNo}</td>
-                <td><input type="text"  name="products[${productIndex}][product_name]"  class="form-control" value="${escapeHtml(product.product_name)}"></td>
-                <td><input type="number" name="products[${productIndex}][quantity]"      class="form-control qty-input" min="1" step="1" value="${escapeHtml(product.quantity)}"></td>
-                <td><input type="text"  name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(product.material_info)}"></td>
+
+                <td><input type="text" name="products[${productIndex}][product_name]" class="form-control" value="${escapeHtml(product.product_name)}"></td>
+
+                <td><input type="number" name="products[${productIndex}][quantity]" class="form-control qty-input" min="1" step="1" value="${escapeHtml(product.quantity)}"></td>
+
+                <td><input type="text" name="products[${productIndex}][material_info]" class="form-control" value="${escapeHtml(product.material_info)}"></td>
+
+                <td>
+                    <div id="deliveries-container-${productIndex}"></div>
+                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-delivery" data-index="${productIndex}">
+                    Add Delivery
+                    </button>
+                </td>
+
                 <td>
                     <div id="remarks-container-${productIndex}">
-                    ${product.remarks.map((r, rindex) => `
-                        <div class="remark-row">
-                        <select name="products[${productIndex}][remarks][${rindex}][operation]" class="form-select w-auto" style="min-width:160px;">
-                            <option value="artist"      ${r.operation === 'artist' ? 'selected' : ''}>To Artist</option>
-                            <option value="printing"    ${r.operation === 'printing' ? 'selected' : ''}>To Printing</option>
-                            <option value="furnishing"  ${r.operation === 'furnishing' ? 'selected' : ''}>To Furnishing</option>
-                            <option value="installation"${r.operation === 'installation' ? 'selected' : ''}>To Installation</option>
-                            <option value="self_pickup" ${r.operation === 'self_pickup' ? 'selected' : ''}>To Self Pickup</option>
-                            <option value="courier"     ${r.operation === 'courier' ? 'selected' : ''}>To Courier</option>
-                        </select>
-                        <input type="text" name="products[${productIndex}][remarks][${rindex}][remark]" class="form-control" value="${escapeHtml(r.remark)}" placeholder="Write a note…">
-                        <button type="button" class="btn btn-link text-danger p-0 remove-remark" title="Delete">
-                            <i class="bx bx-trash fs-5"></i>
-                        </button>
-                        </div>
-                    `).join('')}
+                    ${product.remarks.map((r, rindex) => renderRemarkRow(productIndex, rindex, r)).join('')}
                     </div>
-                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">Add Remark</button>
+                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-remark" data-index="${productIndex}">
+                    Add Remark
+                    </button>
                 </td>
+
                 <td>
-                    <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">Delete</button>
+                    <button type="button" class="btn btn-sm btn-danger remove-product" data-index="${productIndex}">
+                    Delete
+                    </button>
                 </td>
                 </tr>
             `;
