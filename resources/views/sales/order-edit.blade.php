@@ -529,9 +529,9 @@
         <div class="attach-inner">
             <div class="attach-icon"><i class="bx bx-upload display-6"></i></div>
             <div class="attach-title">Drop files here or click to upload</div>
-            <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD · Max 50MB each</div>
+            <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD, XLSX · Max 50MB each</div>
         </div>
-        <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.eps,.svg,.tiff,.indd" class="file-overlay">
+        <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.eps,.svg,.tiff,.indd,.xls,.xlsx,.csv" class="file-overlay">
     </div>
      <div id="attachment-preview" class="mt-3">
         <!-- Existing attachments (rendered on page load) -->
@@ -613,7 +613,9 @@
                             <div id="material_remark-error" class="validation-msg"></div>
                         </div>
                         <div class="col-12">
-                            <label style="margin-bottom: 5px;">Delivery Breakdown (Optional)</label>
+                            <label style="margin-bottom: 5px;">
+                            Delivery Breakdown <span class="text-danger">*</span>
+                            </label>
                             <div id="modal-deliveries-container"></div>
                                 <button type="button" class="btn btn-secondary btn-sm mt-2" id="addDeliveryRowBtn">
                                     Add Delivery
@@ -834,6 +836,10 @@ $(document).ready(function() {
                 $('#material_remark').val(modalData.material_remark || '');
                 modalData.remarks.forEach(r => addRemarkRow(r.operation, r.remark));
                 modalData = {};
+            }
+
+            if ($('#modal-deliveries-container .delivery-row').length === 0) {
+                addModalDeliveryRow('', '', '');
             }
         });
 
@@ -1309,7 +1315,7 @@ $(document).ready(function() {
         function handleNewFiles(files) {
             [...files].forEach(file => {
                 const ext = file.name.split('.').pop().toLowerCase();
-                const allowed = ['pdf','jpg','jpeg','png','ai','psd','eps','svg','tiff','indd'];
+                const allowed = ['pdf','jpg','jpeg','png','ai','psd','eps','svg','tiff','indd', 'xls', 'xlsx', 'csv'];
                 if (file.size > 50*1024*1024) return Swal.fire('Error', `${file.name} > 50MB`, 'error');
                 if (!allowed.includes(ext)) return Swal.fire('Error', `${file.name} not allowed`, 'error');
 
@@ -1418,6 +1424,25 @@ $(document).ready(function() {
                 productErrors.push('Material remark is required');
             }
 
+            // ✅ Delivery breakdown validation
+            const deliveries = $(this).find('.delivery-row');
+
+            if (deliveries.length === 0) {
+                productErrors.push('Delivery breakdown is required');
+            } else {
+                deliveries.each(function(i){
+
+                    const method = $(this).find('select').val();
+                    const location = $(this).find('input[name$="[location]"]').val().trim();
+                    const datetime = $(this).find('input[name$="[datetime]"]').val();
+
+                    if (!method || !location || !datetime) {
+                        productErrors.push(`Delivery ${i+1} requires Method, Location and Date & Time`);
+                    }
+
+                });
+            }
+
             const remarks = $(this).find('.remark-row');
             const operations = [];
             remarks.each(function () {
@@ -1496,7 +1521,25 @@ $(document).ready(function() {
             if (!$('#material_remark').val().trim()) {
                 errors.push('Material remark is required');
                 $('#material_remark').addClass('is-invalid');
-                $('#material_remark-error').text('Material remark is required').show();
+            }
+
+            // ✅ Delivery Breakdown Validation
+            const deliveries = $('#modal-deliveries-container .delivery-row');
+
+            if (deliveries.length === 0) {
+                errors.push('At least one delivery breakdown is required');
+            } else {
+                deliveries.each(function(i){
+
+                    const method = $(this).find('select').val();
+                    const location = $(this).find('input[type="text"]').val().trim();
+                    const datetime = $(this).find('input[type="datetime-local"]').val();
+
+                    if (!method || !location || !datetime) {
+                        errors.push(`Delivery ${i+1}: Method, Location and Date & Time are required`);
+                    }
+
+                });
             }
 
             return errors;

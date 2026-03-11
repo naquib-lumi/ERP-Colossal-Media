@@ -453,9 +453,9 @@
                                 <div class="attach-inner">
                                     <div class="attach-icon"><i class="bx bx-upload display-6"></i></div>
                                     <div class="attach-title">Drop files here or click to upload</div>
-                                <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD · Max 50MB each</div>
+                                <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD, XLSX · Max 50MB each</div>
                                 </div>
-                                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.ai" class="file-overlay">
+                                <input type="file" name="attachments[]" multiple accept="..pdf,.jpg,.jpeg,.png,.ai,.psd,.eps,.svg,.tiff,.indd,.xls,.xlsx,.csv" class="file-overlay">
                             </div>
                             <div id="attachment-preview" class="mt-3"></div>
                         </div>
@@ -524,7 +524,7 @@
                         </div>
 
                         <div class="col-12">
-                            <label class="fw-semibold">Delivery Breakdown (Optional)</label>
+                            <label class="fw-semibold">Delivery Breakdown <span class="text-danger">*</span></label>
                             <div id="modal-deliveries-container" class="mt-2"></div>
                             <button type="button" id="addDeliveryBtn" class="btn btn-secondary btn-sm mt-2">Add Delivery</button>
                         </div>
@@ -575,7 +575,7 @@ attInput.onchange = () => handleNewFiles(attInput.files);
 function handleNewFiles(newFiles) {
     [...newFiles].forEach(file => {
         const ext = file.name.split('.').pop().toLowerCase();
-       const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'eps', 'svg', 'tiff', 'indd'];
+       const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'eps', 'svg', 'tiff', 'indd', 'xls', 'xlsx', 'csv'];
         const maxSize = 50 * 1024 * 1024; // 50MB
 
         if (file.size > maxSize) {
@@ -583,7 +583,7 @@ function handleNewFiles(newFiles) {
             return;
         }
         if (!allowed.includes(ext)) {
-            Swal.fire('Error', `${file.name} not allowed. Only PDF, JPG, PNG, AI`, 'error');
+            Swal.fire('Error', `${file.name} not allowed. Only PDF, JPG, PNG, AI, XLSX`, 'error');
             return;
         }
 
@@ -737,6 +737,10 @@ var isDirty = false;
                     setTimeout(() => addModalDeliveryRow(d.method, d.location, d.datetime), idx * 50);
                 });
                 modalData = {};
+            }
+
+            if ($('#modal-deliveries-container .delivery-row').length === 0) {
+                addModalDeliveryRow('', '', '');
             }
         });
 
@@ -1481,6 +1485,23 @@ placeholder="Remark">
                 }
             });
 
+            // ✅ Delivery breakdown required
+            const deliveries = $('#modal-deliveries-container .delivery-row');
+
+            if (deliveries.length === 0) {
+                errors.push('At least one delivery breakdown is required');
+            } else {
+                deliveries.each(function(i){
+                    const method = $(this).find('select').val();
+                    const location = $(this).find('input[type="text"]').val().trim();
+                    const datetime = $(this).find('input[type="datetime-local"]').val();
+
+                    if (!method || !location || !datetime) {
+                        errors.push(`Delivery ${i+1}: Method, Location and Date & Time are required`);
+                    }
+                });
+            }
+
             return errors;
         }
 
@@ -1571,6 +1592,23 @@ placeholder="Remark">
                     if (!materialVal) {
                         materialInput.addClass('is-invalid');
                         productErrors.push('Material remark is required');
+                    }
+
+                    // ✅ Delivery breakdown validation
+                    const deliveries = $(this).find('.delivery-row');
+
+                    if (deliveries.length === 0) {
+                        productErrors.push('Delivery breakdown is required');
+                    } else {
+                        deliveries.each(function(i){
+                            const method = $(this).find('select').val();
+                            const location = $(this).find('input[name$="[location]"]').val().trim();
+                            const datetime = $(this).find('input[name$="[datetime]"]').val();
+
+                            if (!method || !location || !datetime) {
+                                productErrors.push(`Delivery ${i+1} requires Method, Location and Date & Time`);
+                            }
+                        });
                     }
 
                     const remarks = $(this).find('.remark-row');

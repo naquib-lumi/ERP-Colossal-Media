@@ -635,7 +635,9 @@
                             <textarea id="material_info" class="form-control"></textarea>
                         </div>
                         <div class="col-12">
-                            <label class="fw-semibold">Delivery Breakdown <span class="text-muted">(Optional)</span></label>
+                            <label class="fw-semibold">
+                            Delivery Breakdown <span class="text-danger">*</span>
+                            </label>
                             <div id="deliveries-modal-container"></div>
                             <button type="button" id="addDeliveryBtn" class="btn btn-secondary btn-sm mt-2">Add Delivery</button>
                         </div>
@@ -862,6 +864,10 @@ $(function () {
                     }
                 });
             }
+
+            if ($('#deliveries-modal-container .delivery-row-modal').length === 0) {
+                addDeliveryRowModal();
+            }
         });
 
         $('#addRemarkBtn').on('click', function() {
@@ -949,6 +955,23 @@ $(function () {
             const q = parseInt(qtyVal, 10);
             if (!qtyVal || isNaN(q) || q < 1) errs.push('Quantity (in modal) must be an integer ≥ 1.');
             if (!matVal) errs.push('Material Remark (in modal) is required.');
+
+            // ===== Delivery validation =====
+            const deliveryRows = $('#deliveries-modal-container .delivery-row-modal');
+
+            if (deliveryRows.length === 0) {
+                errs.push('At least one Delivery Breakdown is required.');
+            } else {
+                deliveryRows.each(function(i){
+                    const method = $(this).find('select[name="delivery_method"]').val();
+                    const location = $(this).find('input[name="delivery_location"]').val().trim();
+                    const datetime = $(this).find('input[name="delivery_date_time"]').val();
+
+                    if (!method || !location || !datetime) {
+                        errs.push(`Delivery ${i+1}: Method, Location and Date & Time are required.`);
+                    }
+                });
+            }
 
             if (errs.length) {
                 if (typeof Swal !== 'undefined') {
@@ -1526,6 +1549,29 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!matEl || !matEl.value.trim()) {
         err(`Product ${idx}: Material Remark is required.`);
         firstBad = firstBad || matEl;
+    }
+
+    // ===== Delivery validation =====
+    const deliveryMethods = row.querySelectorAll('select[name*="[deliveries]"][name$="[method]"]');
+    const deliveryLocations = row.querySelectorAll('input[name*="[deliveries]"][name$="[location]"]');
+    const deliveryTimes = row.querySelectorAll('input[name*="[deliveries]"][name$="[date_time]"]');
+
+    const deliveryCount = Math.max(deliveryMethods.length, deliveryLocations.length, deliveryTimes.length);
+
+    if (deliveryCount === 0) {
+        err(`Product ${idx}: At least one Delivery Breakdown is required.`);
+    } else {
+        for (let d = 0; d < deliveryCount; d++) {
+
+            const method = deliveryMethods[d]?.value?.trim();
+            const location = deliveryLocations[d]?.value?.trim();
+            const dt = deliveryTimes[d]?.value?.trim();
+
+            if (!method || !location || !dt) {
+                err(`Product ${idx}: Delivery ${d+1} requires Method, Location and Date & Time.`);
+                firstBad = firstBad || deliveryMethods[d] || deliveryLocations[d] || deliveryTimes[d];
+            }
+        }
     }
 
     // ======= Remarks rule (OP chosen → text required; other combos allowed) =======

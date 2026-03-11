@@ -58,7 +58,7 @@ $orderRecord = \App\Models\OrderRecord::where('order_id', $order->id)->first();
 $fmtMini = function ($dt) {
 if (empty($dt)) return null;
 try {
-return \Carbon\Carbon::parse($dt)->timezone('Asia/Kuala_Lumpur')->format('d M Y');
+return \Carbon\Carbon::parse($dt)->timezone('Asia/Kuala_Lumpur')->format('d M Y H:i');
 } catch (\Throwable $e) {
 return (string) $dt;
 }

@@ -538,7 +538,7 @@
 
     const file = files[idx];
     img.src = file.url;
-    cap.textContent = file.name || '';
+    cap.textContent = `${file.name || ''} — uploaded by ${file.uploader || ''}`;
 
     // show uploaded datetime
     if (uploadedEl) {

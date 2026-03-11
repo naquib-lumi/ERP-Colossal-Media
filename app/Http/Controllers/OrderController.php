@@ -366,7 +366,7 @@ class OrderController extends Controller
                     'products.*.remarks.*.remark' => 'nullable|string',
 
                     'attachments'   => 'nullable|array',
-                    'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+                    'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd,xls,xlsx,csv|max:51200',
                 ];
             } else {
                 // Final: strict
@@ -382,6 +382,10 @@ class OrderController extends Controller
                     'products.*.product_name' => 'required|string|max:255',
                     'products.*.quantity' => 'required|integer|min:1',
                     'products.*.material_remark' => 'required|string',
+                    'products.*.deliveries' => 'required|array|min:1',
+                    'products.*.deliveries.*.method' => 'required|in:courier,self_pickup,delivery,installation',
+                    'products.*.deliveries.*.location' => 'required|string|max:255',
+                    'products.*.deliveries.*.datetime' => 'required|date',
                     'products.*.remarks' => 'nullable|array',
                     'products.*.remarks.*.operation' => 'required|in:printing,furnishing,installation,courier,self_pickup,artist',
                     'products.*.remarks.*.remark' => 'nullable|string',
