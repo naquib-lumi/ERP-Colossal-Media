@@ -181,10 +181,23 @@ class ArtistOrderController extends Controller
                 'attachments' => 'required|array',
                 'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps|max:20480',
 
-                // 'products.*.deliveries' => ['nullable','array'],
-                // 'products.*.deliveries.*.location' => ['required_with:products.*.deliveries.*.date_time,products.*.deliveries.*.qty','string','max:255'],
-                // 'products.*.deliveries.*.date_time' => ['required_with:products.*.deliveries.*.location,products.*.deliveries.*.qty','string','max:255'],
-                // 'products.*.deliveries.*.qty' => ['required_with:products.*.deliveries.*.location,products.*.deliveries.*.date_time','integer','min:1'],
+                'products.*.deliveries' => ['required','array','min:1'],
+
+                'products.*.deliveries.*.method' => [
+                    'required',
+                    Rule::in(['self_pickup','courier','installation'])
+                ],
+
+                'products.*.deliveries.*.location' => [
+                    'required',
+                    'string',
+                    'max:255'
+                ],
+
+                'products.*.deliveries.*.date_time' => [
+                    'required',
+                    'date'
+                ],
             ]);
 
             $lead = $request->filled('lead_id') ? Lead::find($request->lead_id) : null;

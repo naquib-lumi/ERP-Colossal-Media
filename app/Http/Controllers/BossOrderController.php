@@ -1816,6 +1816,24 @@ class BossOrderController extends Controller
                 'csv_file'    => 'nullable|file|mimes:csv,txt',
                 'attachments' => 'required|array',
                 'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx,ai,ps|max:20480',
+
+                'products.*.deliveries' => ['required','array','min:1'],
+
+                'products.*.deliveries.*.method' => [
+                    'required',
+                    Rule::in(['self_pickup','courier','installation'])
+                ],
+
+                'products.*.deliveries.*.location' => [
+                    'required',
+                    'string',
+                    'max:255'
+                ],
+
+                'products.*.deliveries.*.date_time' => [
+                    'required',
+                    'date'
+                ],
             ]);
 
             $lead = $request->filled('lead_id') ? Lead::find($request->lead_id) : null;
