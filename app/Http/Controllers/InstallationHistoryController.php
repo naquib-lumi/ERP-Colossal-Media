@@ -196,10 +196,21 @@ class InstallationHistoryController extends Controller
 
     public function proofs(Request $request, int $product)
     {
-        $rows = DB::table('installation_proofs')
-            ->where('ProductID', $product)
-            ->orderByDesc('id')
-            ->get(['id','ProductID','OrderID','file_path','original_name','mime','size','created_at']);
+        $rows = DB::table('installation_proofs as p')
+            ->leftJoin('users as u', 'p.uploaded_by', '=', 'u.id')
+            ->where('p.ProductID', $product)
+            ->orderByDesc('p.id')
+            ->get([
+                'p.id',
+                'p.ProductID',
+                'p.OrderID',
+                'p.file_path',
+                'p.original_name',
+                'p.mime',
+                'p.size',
+                'p.created_at',
+                'u.name as uploader_name'
+            ]);
 
         $files = $rows->map(function ($r) {
             return [
@@ -208,6 +219,7 @@ class InstallationHistoryController extends Controller
                 'url'  => Storage::disk('public')->url($r->file_path),
                 'mime' => $r->mime,
                 'size' => (int)$r->size,
+                'uploader' => $r->uploader_name ?? 'Unknown',
                 'uploaded_at' => $r->created_at ? \Carbon\Carbon::parse($r->created_at)->timezone('Asia/Kuala_Lumpur')->format('M d, Y H:i') : null,
             ];
         });
