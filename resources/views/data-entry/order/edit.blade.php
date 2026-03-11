@@ -766,7 +766,7 @@
                                   </div>
 
                                   @php
-                                  $units = ['mm' => 'mm', 'cm' => 'cm', 'inch' => 'inch', 'ft' => 'ft'];
+                                  $units = ['mm' => 'mm', 'cm' => 'cm', 'inch' => 'inch', 'ft' => 'ft', 'piece' => 'piece'];
                                   $unit = old("items.$i.sizeUnit", data_get($it,'sizeUnit', 'mm'));
                                   $bleedUnit = old("items.$i.bleedUnit", data_get($it,'bleedUnit', 'mm'));
                                   @endphp
@@ -1026,6 +1026,7 @@
                                       <option value="cm">cm</option>
                                       <option value="inch">inch</option>
                                       <option value="ft">ft</option>
+                                      <option value="piece">piece</option>
                                     </select>
                                   </div>
 
@@ -1053,6 +1054,7 @@
                                       <option value="cm">cm</option>
                                       <option value="inch">inch</option>
                                       <option value="ft">ft</option>
+                                      <option value="piece">piece</option>
                                     </select>
                                   </div>
                                   <div class="col-12 col-md-2">
