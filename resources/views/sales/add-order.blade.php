@@ -453,9 +453,9 @@
                                 <div class="attach-inner">
                                     <div class="attach-icon"><i class="bx bx-upload display-6"></i></div>
                                     <div class="attach-title">Drop files here or click to upload</div>
-                                <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD · Max 50MB each</div>
+                                <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD, XLSX · Max 50MB each</div>
                                 </div>
-                                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.ai" class="file-overlay">
+                                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.ai,.xls,.xlsx,.csv" class="file-overlay">
                             </div>
                             <div id="attachment-preview" class="mt-3"></div>
                         </div>
@@ -575,7 +575,7 @@ attInput.onchange = () => handleNewFiles(attInput.files);
 function handleNewFiles(newFiles) {
     [...newFiles].forEach(file => {
         const ext = file.name.split('.').pop().toLowerCase();
-       const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'eps', 'svg', 'tiff', 'indd'];
+       const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'ai', 'psd', 'eps', 'svg', 'tiff', 'indd', 'xls', 'xlsx', 'csv'];
         const maxSize = 50 * 1024 * 1024; // 50MB
 
         if (file.size > maxSize) {
@@ -583,7 +583,7 @@ function handleNewFiles(newFiles) {
             return;
         }
         if (!allowed.includes(ext)) {
-            Swal.fire('Error', `${file.name} not allowed. Only PDF, JPG, PNG, AI`, 'error');
+            Swal.fire('Error', `${file.name} not allowed. Only PDF, JPG, PNG, AI, XLSX`, 'error');
             return;
         }
 

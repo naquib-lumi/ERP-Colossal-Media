@@ -366,7 +366,7 @@ class OrderController extends Controller
                     'products.*.remarks.*.remark' => 'nullable|string',
 
                     'attachments'   => 'nullable|array',
-                    'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+                    'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd,xls,xlsx,csv|max:51200',
                 ];
             } else {
                 // Final: strict
