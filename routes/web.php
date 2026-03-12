@@ -275,6 +275,8 @@ Route::get('/dashboard', function () {
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])
             ->name('artists.search');
 
+        Route::delete('/artist/orders/{id}', [ArtistOrderController::class, 'destroyOrder'])->name('artist.orders.destroy');
+
     });
 
     Route::middleware(['web','auth','role:data-entry'])->group(function () {
