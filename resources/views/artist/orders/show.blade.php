@@ -302,31 +302,6 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                     </div>
                 </div>
                 @endif
-
-                <!-- <div class="col-md-6 col-lg-6">
-                    <small class="text-muted d-block mb-1">Attachment from Lead</small>
-
-                    @php
-                    $leadFiles = \App\Models\LeadAttachment::where('lead_id', $order->lead_id)
-                    ->latest()->get();
-
-                    @endphp
-
-                    <div class="fw-medium">
-                        @if($leadFiles->isNotEmpty())
-                        @foreach ($leadFiles as $att)
-                        <a href="{{ asset('storage/' . ltrim($att->file_location, '/')) }}"
-                            target="_blank"
-                            class="d-inline-flex align-items-center text-decoration-underline me-3 mb-1">
-                            {{ basename($att->file_location) }}
-                            <i class="bx bx-download ms-1"></i>
-                        </a>
-                        @endforeach
-                        @else
-                        -
-                        @endif
-                    </div>
-                </div> -->
             </div>
 
             {{-- ===== Non-artist attachments (Sales etc.) at the top ===== --}}
@@ -429,6 +404,15 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                 if ($rejectRecord && $rejectRecord->user_id) {
                     $rejectBy = \App\Models\User::find($rejectRecord->user_id)?->name;
                 }
+
+                // Permit display value (product-level)
+                $permitRaw = $product->permit ?? null;
+                $permitDisplay = is_null($permitRaw)
+                    ? "Haven't Decided"
+                    : ((int)$permitRaw === 1 ? 'Yes' : 'No');
+                $permitColor = is_null($permitRaw)
+                    ? '#6c757d'
+                    : ((int)$permitRaw === 1 ? '#198754' : '#dc3545');
                 @endphp
 
                 <div class="accordion-item mb-2">
@@ -584,10 +568,22 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                                                     <small class="text-muted d-block">Cutter</small>
                                                     <span class="text-body fw-semibold">{{ $specification->cutter ?? '-' }}</span>
                                                 </div>
-                                                <div class="col-12">
+
+                                                {{-- Assemble + Permit side by side (Permit is product-level) --}}
+                                                <div class="col-md-4">
                                                     <small class="text-muted d-block">Assemble</small>
                                                     <span class="text-body fw-semibold">{{ data_get($item,'finishing','-') }}</span>
                                                 </div>
+                                                @if($ii === 0)
+                                                {{-- Only show Permit once, on the first item row --}}
+                                                <div class="col-md-4">
+                                                    <small class="text-muted d-block">Permit</small>
+                                                    <span class="fw-semibold" style="color: {{ $permitColor }}">
+                                                        {{ $permitDisplay }}
+                                                    </span>
+                                                </div>
+                                                @endif
+
                                             </div>
 
                                         </div>

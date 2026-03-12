@@ -660,10 +660,38 @@
                   {{-- Product block --}}
                   <fieldset {{ $locked ? 'disabled' : '' }}>
                     <div class="card mb-6">
-                      <div class="card-header">
+                      {{-- Permit toggle data --}}
+                      @php $permitVal = old("products.$pIndex.permit", isset($product->permit) ? (string)$product->permit : null); @endphp
+                      <input type="hidden" name="products[{{ $pIndex }}][permit]"
+                             value="{{ $permitVal !== null ? $permitVal : '' }}">
+
+                      <div class="card-header d-flex align-items-center justify-content-between">
                         <h5 class="mb-0">
                           <i class="bx bx-package me-2"></i>Product
                         </h5>
+                        {{-- Permit toggle in header --}}
+                        <div class="d-flex align-items-center gap-2">
+                          <span class="text-body-secondary" style="font-size:.85rem;">Permit</span>
+                          <div class="form-check form-switch mb-0">
+                            <input class="form-check-input permit-toggle"
+                                   type="checkbox"
+                                   role="switch"
+                                   id="permit_{{ $product->ProductID }}"
+                                   data-pindex="{{ $pIndex }}"
+                                   data-product-id="{{ $product->ProductID }}"
+                                   data-permit-required="1"
+                                   data-permit-label="Permit"
+                                   {{ $permitVal === '1' ? 'checked' : '' }}
+                                   {{ $disabled }}
+                                   style="cursor:{{ $isSubmitted ? 'default' : 'pointer' }};width:2.5em;height:1.25em;">
+                          </div>
+                          <span id="permit-label-{{ $product->ProductID }}"
+                                class="fw-semibold"
+                                style="font-size:.85rem;min-width:1.8rem;
+                                  color:{{ $permitVal === '1' ? '#28a745' : ($permitVal === '0' ? '#dc3545' : '#6c757d') }}">
+                            {{ $permitVal === '1' ? 'Yes' : ($permitVal === '0' ? 'No' : '—') }}
+                          </span>
+                        </div>
                       </div>
 
                       <div class="card-body p-4">
@@ -3381,7 +3409,21 @@
     }
 
     function requiredOK() {
-      return requiredElements().every(el => el.checkValidity());
+      const baseOK = requiredElements().every(el => el.checkValidity());
+      if (!baseOK) return false;
+
+      // Every permit toggle must have a committed value (not empty string)
+      const permitOK = Array.from(
+        document.querySelectorAll('.permit-toggle[data-permit-required]')
+      ).every(toggle => {
+        const pIndex = toggle.dataset.pindex;
+        const hidden = document.querySelector(
+          `input[type="hidden"][name="products[${pIndex}][permit]"]`
+        );
+        return hidden && hidden.value !== '';
+      });
+
+      return permitOK;
     }
 
     function formComplete() {
@@ -3505,13 +3547,24 @@
     }
 
     function requiredOK() {
-      return requiredElements().every(el => {
+      const baseOK = requiredElements().every(el => {
         if (el.type === 'checkbox' || el.type === 'radio') {
           const group = document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`);
           return Array.from(group).some(x => x.checked);
         }
         const v = (el.value || '').toString().trim();
         return v.length > 0;
+      });
+      if (!baseOK) return false;
+
+      // Permit toggles must have a committed value ('0' or '1', never '')
+      return Array.from(
+        document.querySelectorAll('.permit-toggle[data-permit-required]')
+      ).every(toggle => {
+        const hidden = document.querySelector(
+          `input[type="hidden"][name="products[${toggle.dataset.pindex}][permit]"]`
+        );
+        return hidden && hidden.value !== '';
       });
     }
 
@@ -3587,6 +3640,24 @@
           label: getLabelFor(el),
           info
         });
+      });
+
+      // ── Permit toggle required check ──────────────────────────────────────
+      // A permit toggle is "missing" when its hidden sibling value is still ''
+      document.querySelectorAll('.permit-toggle[data-permit-required]').forEach(toggle => {
+        const pIndex = toggle.dataset.pindex;
+        const hidden = document.querySelector(
+          `input[type="hidden"][name="products[${pIndex}][permit]"]`
+        );
+        // value '' means neither Yes nor No has been committed
+        if (hidden && hidden.value === '') {
+          const info = parseNamePath(`products[${pIndex}][permit]`);
+          missing.push({
+            el: toggle,
+            label: toggle.dataset.permitLabel || 'Permit',
+            info
+          });
+        }
       });
 
       return missing;
@@ -4523,6 +4594,30 @@
     productForm.submit();
   });
 })();
+// ── Permit toggle ──────────────────────────────────────────────────────────
+document.addEventListener('change', function (e) {
+  const toggle = e.target.closest('.permit-toggle');
+  if (!toggle) return;
+
+  const pIndex    = toggle.dataset.pindex;
+  const productId = toggle.dataset.productId;
+  const isChecked = toggle.checked;
+
+  // Commit value: '1' = Yes, '0' = No (never leave as '' once touched)
+  const hidden = document.querySelector(`input[type="hidden"][name="products[${pIndex}][permit]"]`);
+  if (hidden) hidden.value = isChecked ? '1' : '0';
+
+  // Update the label text + colour
+  const label = document.getElementById(`permit-label-${productId}`);
+  if (label) {
+    label.textContent = isChecked ? 'Yes' : 'No';
+    label.style.color = isChecked ? '#28a745' : '#dc3545';
+  }
+
+  // Remove missing highlight if it was flagged
+  toggle.classList.remove('is-invalid');
+});
+
 function restrict2dp(e) {
   const el = e.target;
   const v  = el.value;
