@@ -20,7 +20,7 @@
   .toolbar .input-group{height:38px}
 
   .card-ft nav {
-    gap: 20px; /* spacing between selector and navigator */
+    gap: 20px;
   }
   @media (max-width: 768px) {
     .card-ft nav {
@@ -98,7 +98,6 @@
     gap: .35rem;
   }
 
-  /* Compact, centered Bootstrap paginator */
   .pagination {
     justify-content: center;
     gap: .25rem;
@@ -113,7 +112,6 @@
     box-shadow: 0 0 0 .15rem rgba(13, 110, 253, .15);
   }
 
-  /* Fix blown-up SVG chevrons from Tailwind paginator or global styles */
   .pagination svg {
     width: 16px !important;
     height: 16px !important;
@@ -126,7 +124,6 @@
     gap: .35rem;
   }
 
-  /* Per-page selector spacing */
   .per-page-wrap {
     display: flex;
     align-items: center;
@@ -147,7 +144,6 @@
     --warn: #F59E0B;
   }
 
-  /* ==== 防止侧栏打开时整页被横向撑开 ==== */
   html,
   body {
     max-width: 100%;
@@ -165,7 +161,6 @@
     box-sizing: border-box;
   }
 
-  /* title */
   .h2 {
     font-weight: 800;
     color: var(--text);
@@ -173,7 +168,6 @@
     margin: 0 0 14px
   }
 
-  /* metric cards */
   .metrics {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -217,7 +211,6 @@
     font-size: 20px
   }
 
-  /* toolbar */
   .toolbar {
     background: var(--card);
     border: 1px solid var(--border);
@@ -292,7 +285,6 @@
     margin-right: 8px
   }
 
-  /* table card */
   .card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -306,7 +298,6 @@
     font-weight: 700
   }
 
-  /* ✅ 仅卡片内部可横向滚动 */
   .table-responsive {
     padding: 10px 12px;
     overflow-x: auto;
@@ -319,9 +310,7 @@
     border-spacing: 0 8px;
     table-layout: auto;
     font-size: 14px;
-    /* ✅ 防止列过多被过度压缩，造成再次撑出页面 */
     min-width: 980px;
-    /* 可按需要微调 */
   }
 
   thead th {
@@ -357,52 +346,21 @@
     border-bottom-right-radius: 10px
   }
 
-  /* col widths */
-  .w-id {
-    width: 120px
-  }
-
-  .w-name {
-    width: 240px
-  }
-
-  .w-task {
-    width: 120px
-  }
-
-  .w-dead {
-    width: 120px
-  }
-
-  .w-status {
-    width: 130px
-  }
-
-  .w-date {
-    width: 120px
-  }
-
-  .w-loc {
-    width: 260px
-  }
-
-  .w-inst {
-    width: 130px
-  }
-
-  .w-cost {
-    width: 90px
-  }
-
-  .w-act {
-    width: 96px
-  }
+  .w-id { width: 120px }
+  .w-name { width: 240px }
+  .w-task { width: 120px }
+  .w-dead { width: 120px }
+  .w-status { width: 130px }
+  .w-date { width: 120px }
+  .w-loc { width: 260px }
+  .w-inst { width: 130px }
+  .w-cost { width: 90px }
+  .w-act { width: 96px }
 
   .nowrap {
     white-space: nowrap
   }
 
-  /* badge */
   .badge {
     padding: 6px 10px;
     border-radius: 999px;
@@ -430,12 +388,10 @@
     color: #EA580C
   }
 
-  /* ✅ Action buttons (compact gray style) */
   .actions {
     display: flex;
     justify-content: flex-end;
     gap: 6px;
-    /* 缩小间距 */
   }
 
   .act {
@@ -451,23 +407,18 @@
   .act i {
     font-size: 18px;
     color: #3180e7ff;
-    /* 浅灰色 */
     transition: color 0.2s ease, transform 0.2s ease;
   }
 
   .act:hover i {
     color: #475569;
-    /* hover 时变深 */
     transform: scale(1.15);
   }
 
   .act:active i {
     color: #334155;
-    /* 点击时更深 */
   }
 
-
-  /* footer */
   .table-ft {
     display: flex;
     justify-content: space-between;
@@ -527,7 +478,6 @@
 
 {{-- Toolbar --}}
 @php
-  // keep current values in the form
   $filters = [
     'order_id' => request('order_id',''),
     'q'        => request('q',''),
@@ -538,7 +488,6 @@
     'to'       => request('to',''),
   ];
 
-  // task list (labels)
   $tasks = [
     ''             => 'All Task Types',
     'printing'     => 'Printing',
@@ -547,7 +496,6 @@
     'installation' => 'Delivery & Installation',
   ];
 
-  // if controller didn’t pass $statuses, provide a sane fallback
   $statuses = $statuses ?? ['pending','in_progress','completed','rejected'];
 @endphp
 
@@ -555,7 +503,6 @@
   <div class="card-body toolbar">
     <form id="ff-filter-form" method="GET" action="{{ route('admin.fulfillment') }}" class="row g-2 align-items-center">
 
-      {{-- ===== Title + date + buttons ===== --}}
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <h4 class="mb-0">Fulfillment Overview</h4>
 
@@ -570,9 +517,6 @@
         </div>
       </div>
 
-      {{-- ===== Filter row ===== --}}
-
-      {{-- Product / Order / ID (short) --}}
       <div class="col-12 col-lg-2">
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-hash"></i></span>
@@ -584,7 +528,6 @@
         </div>
       </div>
 
-      {{-- Search job title, company or product (long) --}}
       <div class="col-12 col-lg-4">
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-search"></i></span>
@@ -597,7 +540,6 @@
         </div>
       </div>
 
-      {{-- All assignees (artist) --}}
       <div class="col-12 col-lg-2">
         <select name="artist" class="form-select">
           <option value="">All assignees</option>
@@ -609,7 +551,6 @@
         </select>
       </div>
 
-      {{-- Status --}}
       <div class="col-6 col-lg-2">
         @php
           $statusOptions = ['' => 'All Statuses'];
@@ -627,17 +568,16 @@
         </select>
       </div>
 
-      {{-- Task types --}}
       <div class="col-6 col-lg-2">
         <select name="task" class="form-select">
-    <option value="">All Task Types</option>
-    <option value="printing" {{ request('task') === 'printing' ? 'selected' : '' }}>Printing</option>
-    <option value="furnishing" {{ request('task') === 'furnishing' ? 'selected' : '' }}>Furnishing</option>
-    <option value="delivery" {{ request('task') === 'delivery' ? 'selected' : '' }}>Dispatch Control</option>
-    <option value="delivery_installation" {{ request('task') === 'delivery_installation' ? 'selected' : '' }}>
-        Delivery &amp; Installation
-    </option>
-</select>
+          <option value="">All Task Types</option>
+          <option value="printing" {{ request('task') === 'printing' ? 'selected' : '' }}>Printing</option>
+          <option value="furnishing" {{ request('task') === 'furnishing' ? 'selected' : '' }}>Furnishing</option>
+          <option value="delivery" {{ request('task') === 'delivery' ? 'selected' : '' }}>Dispatch Control</option>
+          <option value="delivery_installation" {{ request('task') === 'delivery_installation' ? 'selected' : '' }}>
+              Delivery &amp; Installation
+          </option>
+        </select>
       </div>
 
     </form>
@@ -662,11 +602,10 @@
             <th>Location</th>
             <th>Install Type</th>
             @php
-              $q = request()->except('page'); // keep filters
+              $q = request()->except('page');
               $currentSort = request('sort','');
               $currentDir  = request('dir','asc');
 
-              // toggle: first click => asc (missing first), second click => desc (uploaded first)
               $nextDir = ($currentSort === 'permit' && $currentDir === 'asc') ? 'desc' : 'asc';
 
               $permitUrl = route('admin.fulfillment', array_merge($q, [
@@ -691,7 +630,6 @@
         <tbody>
           @forelse($rows as $r)
           @php
-          // Decide which status field to use based on task
           $taskLabel  = $r->task_label ?? '-';
           $taskLower  = strtolower($taskLabel);
 
@@ -713,10 +651,10 @@
           : '-';
 
           $taskClass  = match ($taskLower) {
-            'printing'                 => 'bg-secondary text-white',   // gray
-            'furnishing'               => 'bg-purple text-white',      // custom purple (see CSS note below)
-            'dispatch control'         => 'bg-warning text-dark',      // yellow
-            'delivery & installation'  => 'bg-primary text-white',     // blue
+            'printing'                 => 'bg-secondary text-white',
+            'furnishing'               => 'bg-purple text-white',
+            'dispatch control'         => 'bg-warning text-dark',
+            'delivery & installation'  => 'bg-primary text-white',
             default                    => 'bg-light text-dark',
           };
           @endphp
@@ -741,7 +679,6 @@
               </span>
             </td>
 
-            {{-- Deadline (from orders.deadline) --}}
             <td>
               @if(!empty($r->deadline))
                 {{ $r->deadline }}
@@ -750,7 +687,6 @@
               @endif
             </td>
 
-            {{-- Delivery date: show exclamation if missing --}}
             <td>
               @if($r->delivery_dt)
                 {{ $r->delivery_dt }}
@@ -759,7 +695,6 @@
               @endif
             </td>
 
-            {{-- Location: show exclamation if missing --}}
             <td>
               @if($r->delivery_loc !== '')
               {{ $r->delivery_loc }}
@@ -778,21 +713,35 @@
             @endphp
             <td>{{ $installLabel }}</td>
 
-            {{-- Permit upload trigger (ensure icon visible) --}}
+            {{-- ── PERMIT CELL ─────────────────────────────────────────────
+                 permit == 1  → permit required
+                   • file uploaded   → download button
+                   • not yet uploaded → upload button
+                 permit == 0 or null → not required → "No Need Permit" text
+            ──────────────────────────────────────────────────────────────── --}}
             <td class="text-center">
-              @if(!empty($r->permit_url))
-                <a href="{{ route('admin.permits.download', $r->product_id) }}"
-                  class="btn btn-icon btn-soft btn-soft-secondary"
-                  title="Download permit" data-bs-toggle="tooltip">
-                  <i class="bi bi-file-earmark-arrow-down"></i>
-                </a>
+              @if((int)($r->permit ?? 0) === 1)
+                @if(!empty($r->permit_url))
+                  {{-- Already uploaded: download --}}
+                  <a href="{{ route('admin.permits.download', $r->product_id) }}"
+                    class="btn btn-icon btn-soft btn-soft-secondary"
+                    title="Download permit" data-bs-toggle="tooltip">
+                    <i class="bi bi-file-earmark-arrow-down"></i>
+                  </a>
+                @else
+                  {{-- Not yet uploaded: upload trigger --}}
+                  <button type="button"
+                          class="btn btn-icon btn-soft btn-soft-primary js-permit"
+                          data-bs-toggle="modal"
+                          data-bs-target="#permitModal"
+                          data-product="{{ $r->product_id }}"
+                          title="Upload permit">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                  </button>
+                @endif
               @else
-                <button type="button" class="btn btn-icon btn-soft btn-soft-primary js-permit"
-                        data-bs-toggle="modal" data-bs-target="#permitModal"
-                        data-product="{{ $r->product_id }}" title="Upload permit"
-                        data-bs-toggle="tooltip">
-                  <i class="bi bi-cloud-arrow-up"></i>
-                </button>
+                {{-- permit = 0 or null: no permit needed --}}
+                <span class="text-muted" style="font-size:.78rem;white-space:nowrap;">No Need Permit</span>
               @endif
             </td>
 
@@ -808,10 +757,8 @@
                   title="{{ $isCompleted ? 'View' : 'Edit' }}"
                   data-bs-toggle="tooltip">
                   @if($isCompleted)
-                    {{-- Completed ⇒ view icon --}}
                     <i class="bi bi-eye"></i>
                   @else
-                    {{-- Not completed ⇒ edit icon (current behaviour) --}}
                     <i class="bi bi-pencil"></i>
                   @endif
                 </a>
@@ -829,7 +776,6 @@
 
     <div class="card-ft" style="padding: 20px;">
   <nav class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-    {{-- Per Page Selector --}}
     <div class="per-page-wrap">
       <form method="GET" class="d-inline-flex align-items-center gap-2 mb-0">
         @foreach(request()->except('per_page') as $k => $v)
@@ -845,9 +791,7 @@
       </form>
     </div>
 
-    {{-- Page Navigator --}}
     <ul class="pagination pill-pager mb-0">
-      {{-- Previous --}}
       @if ($rows->onFirstPage())
         <li class="page-item disabled"><span class="page-link">Previous</span></li>
       @else
@@ -861,7 +805,6 @@
         $to = min($last, $current + 1);
       @endphp
 
-      {{-- First page + leading dots --}}
       @if ($from > 1)
         <li class="page-item"><a class="page-link" href="{{ $rows->url(1) }}">1</a></li>
         @if ($from > 2)
@@ -869,7 +812,6 @@
         @endif
       @endif
 
-      {{-- Main window --}}
       @for ($p = $from; $p <= $to; $p++)
         @if ($p == $current)
           <li class="page-item active"><span class="page-link">{{ $p }}</span></li>
@@ -878,7 +820,6 @@
         @endif
       @endfor
 
-      {{-- Trailing dots + last page --}}
       @if ($to < $last)
         @if ($to < $last - 1)
           <li class="page-item disabled"><span class="page-link">…</span></li>
@@ -886,7 +827,6 @@
         <li class="page-item"><a class="page-link" href="{{ $rows->url($last) }}">{{ $last }}</a></li>
       @endif
 
-      {{-- Next --}}
       @if ($rows->hasMorePages())
         <li class="page-item"><a class="page-link" href="{{ $rows->nextPageUrl() }}">Next</a></li>
       @else
@@ -898,7 +838,7 @@
   </div>
 </div>
 
-{{-- Permit upload modal (front-end only) --}}
+{{-- Permit upload modal --}}
 <div class="modal fade" id="permitModal" tabindex="-1" aria-labelledby="permitModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-md modal-dialog-centered">
     <div class="modal-content">
@@ -927,7 +867,6 @@
   </div>
 </div>
 
-{{-- 日期区间 --}}
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
 <script src="https://cdn.jsdelivr.net/npm/moment@2.30.1/min/moment.min.js"></script>
@@ -954,20 +893,17 @@
     .forEach(el => new bootstrap.Tooltip(el));
   });
 
-  // Keep your existing modal-fill logic
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-permit');
     if (!btn) return;
-    document.getElementById('pmProduct').textContent = btn.dataset.product || '-';
-    document.getElementById('pmBreakdown').textContent = btn.dataset.breakdown || '-';
+    document.getElementById('pmProduct') && (document.getElementById('pmProduct').textContent = btn.dataset.product || '-');
+    document.getElementById('pmBreakdown') && (document.getElementById('pmBreakdown').textContent = btn.dataset.breakdown || '-');
   });
 
   document.addEventListener('DOMContentLoaded', () => {
-    // tooltips
     [...document.querySelectorAll('[data-bs-toggle="tooltip"]')]
       .forEach(el => new bootstrap.Tooltip(el));
 
-    // Fill modal with product id
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('.js-permit');
       if (!btn) return;
@@ -976,7 +912,6 @@
       document.getElementById('pmSubmit').disabled = true;
     });
 
-    // enable submit when a file is chosen
     const pmFile = document.getElementById('pmFile');
     if (pmFile) {
       pmFile.addEventListener('change', () => {
@@ -1017,12 +952,12 @@
   });
 
   document.addEventListener('dblclick', function(e) {
-  const tr = e.target.closest('tr.js-row-open');
-  if (!tr) return;
-  const tag = (e.target.tagName || '').toLowerCase();
-  if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
-  const url = tr.dataset.href;
-  if (url) window.location.href = url;
-});
+    const tr = e.target.closest('tr.js-row-open');
+    if (!tr) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['a','button','input','select','textarea','label','svg','path','i'].includes(tag)) return;
+    const url = tr.dataset.href;
+    if (url) window.location.href = url;
+  });
 </script>
 @endsection
