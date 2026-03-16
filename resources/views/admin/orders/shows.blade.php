@@ -571,6 +571,7 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                                                         {{ $permitDisplay }}
                                                     </span>
                                                 </div>
+                                                @endif
                                             </div>
 
                                         </div>
