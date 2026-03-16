@@ -947,6 +947,7 @@ class ArtistController extends Controller
             'product.name'      => ['nullable','string','max:255'],
             'product.qty_total' => ['nullable','integer','min:0'],
             'product.material'  => ['nullable','string','max:255'],
+            'products.*.permit' => ['nullable','in:0,1'],
 
             // nested products[*]
             'products'                          => ['array'],
@@ -1254,6 +1255,10 @@ class ArtistController extends Controller
                     }
                     if (array_key_exists('material', $group)) {
                         $productRow->materialRemark = $group['material'] === '' ? null : $group['material'];
+                    }
+                    if (array_key_exists('permit', $group)) {
+                        $raw = $group['permit'];
+                        $productRow->permit = ($raw === '' || $raw === null) ? null : (int) $raw;
                     }
 
                     $productRow->save();

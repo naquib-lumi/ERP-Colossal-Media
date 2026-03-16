@@ -778,21 +778,35 @@
             @endphp
             <td>{{ $installLabel }}</td>
 
-            {{-- Permit upload trigger (ensure icon visible) --}}
+            {{-- ── PERMIT CELL ─────────────────────────────────────────────
+                 permit == 1  → permit required
+                   • file uploaded   → download button
+                   • not yet uploaded → upload button
+                 permit == 0 or null → not required → "No Need Permit" text
+            ──────────────────────────────────────────────────────────────── --}}
             <td class="text-center">
-              @if(!empty($r->permit_url))
-                <a href="{{ route('boss.permits.download', $r->product_id) }}"
-                  class="btn btn-icon btn-soft btn-soft-secondary"
-                  title="Download permit" data-bs-toggle="tooltip">
-                  <i class="bi bi-file-earmark-arrow-down"></i>
-                </a>
+              @if((int)($r->permit ?? 0) === 1)
+                @if(!empty($r->permit_url))
+                  {{-- Already uploaded: download --}}
+                  <a href="{{ route('admin.permits.download', $r->product_id) }}"
+                    class="btn btn-icon btn-soft btn-soft-secondary"
+                    title="Download permit" data-bs-toggle="tooltip">
+                    <i class="bi bi-file-earmark-arrow-down"></i>
+                  </a>
+                @else
+                  {{-- Not yet uploaded: upload trigger --}}
+                  <button type="button"
+                          class="btn btn-icon btn-soft btn-soft-primary js-permit"
+                          data-bs-toggle="modal"
+                          data-bs-target="#permitModal"
+                          data-product="{{ $r->product_id }}"
+                          title="Upload permit">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                  </button>
+                @endif
               @else
-                <button type="button" class="btn btn-icon btn-soft btn-soft-primary js-permit"
-                        data-bs-toggle="modal" data-bs-target="#permitModal"
-                        data-product="{{ $r->product_id }}" title="Upload permit"
-                        data-bs-toggle="tooltip">
-                  <i class="bi bi-cloud-arrow-up"></i>
-                </button>
+                {{-- permit = 0 or null: no permit needed --}}
+                <span class="text-muted" style="font-size:.78rem;white-space:nowrap;">No Need Permit</span>
               @endif
             </td>
 
@@ -962,8 +976,8 @@
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.js-permit');
     if (!btn) return;
-    document.getElementById('pmProduct').textContent = btn.dataset.product || '-';
-    document.getElementById('pmBreakdown').textContent = btn.dataset.breakdown || '-';
+    document.getElementById('pmProduct') && (document.getElementById('pmProduct').textContent = btn.dataset.product || '-');
+    document.getElementById('pmBreakdown') && (document.getElementById('pmBreakdown').textContent = btn.dataset.breakdown || '-');
   });
 
   document.addEventListener('DOMContentLoaded', () => {

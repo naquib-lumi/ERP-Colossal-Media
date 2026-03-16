@@ -302,31 +302,6 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                     </div>
                 </div>
                 @endif
-
-                <!-- <div class="col-md-6 col-lg-6">
-                    <small class="text-muted d-block mb-1">Attachment from Lead</small>
-
-                    @php
-                    $leadFiles = \App\Models\LeadAttachment::where('lead_id', $order->lead_id)
-                    ->latest()->get();
-
-                    @endphp
-
-                    <div class="fw-medium">
-                        @if($leadFiles->isNotEmpty())
-                        @foreach ($leadFiles as $att)
-                        <a href="{{ asset('storage/' . ltrim($att->file_location, '/')) }}"
-                            target="_blank"
-                            class="d-inline-flex align-items-center text-decoration-underline me-3 mb-1">
-                            {{ basename($att->file_location) }}
-                            <i class="bx bx-download ms-1"></i>
-                        </a>
-                        @endforeach
-                        @else
-                        -
-                        @endif
-                    </div>
-                </div> -->
             </div>
 
             {{-- ===== Non-artist attachments (Sales etc.) at the top ===== --}}
@@ -429,6 +404,15 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                 if ($rejectRecord && $rejectRecord->user_id) {
                     $rejectBy = \App\Models\User::find($rejectRecord->user_id)?->name;
                 }
+
+                // Permit display value (product-level)
+                $permitRaw = $product->permit ?? null;
+                $permitDisplay = is_null($permitRaw)
+                    ? "Haven't Decided"
+                    : ((int)$permitRaw === 1 ? 'Yes' : 'No');
+                $permitColor = is_null($permitRaw)
+                    ? '#6c757d'
+                    : ((int)$permitRaw === 1 ? '#198754' : '#dc3545');
                 @endphp
 
                 <div class="accordion-item mb-2">
@@ -584,10 +568,22 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                                                     <small class="text-muted d-block">Cutter</small>
                                                     <span class="text-body fw-semibold">{{ $specification->cutter ?? '-' }}</span>
                                                 </div>
-                                                <div class="col-12">
+
+                                                {{-- Assemble + Permit side by side (Permit is product-level) --}}
+                                                <div class="col-md-4">
                                                     <small class="text-muted d-block">Assemble</small>
                                                     <span class="text-body fw-semibold">{{ data_get($item,'finishing','-') }}</span>
                                                 </div>
+                                                @if($ii === 0)
+                                                {{-- Only show Permit once, on the first item row --}}
+                                                <div class="col-md-4">
+                                                    <small class="text-muted d-block">Permit</small>
+                                                    <span class="fw-semibold" style="color: {{ $permitColor }}">
+                                                        {{ $permitDisplay }}
+                                                    </span>
+                                                </div>
+                                                @endif
+
                                             </div>
 
                                         </div>
@@ -962,14 +958,38 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
         </div>
         @if($order->orderStatus != "completed")
         @if(!$isArchived)
-        <div class="d-flex justify-content-end mt-4">
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+
+            {{-- Edit --}}
             <a href="{{ route('artist.orders.edit', $order->id) }}"
                 class="btn d-flex align-items-center gap-2 px-4 py-2 fw-semibold shadow-sm"
                 style="background:#6C5CE7; border:none; color:white; border-radius:8px;">
                 <i class="bx bx-edit-alt fs-5"></i>
                 <span>Edit Order</span>
             </a>
+
+            {{-- Delete --}}
+            @if(
+                auth()->user()->role === 'head-artist'
+                && in_array($order->orderStatus, ['to_assign','in_progress'])
+            )
+            <button
+                class="btn btn-danger px-4 py-2 fw-semibold shadow-sm"
+                id="deleteOrderBtn"
+                data-order-id="{{ $order->id }}"
+                data-title="{{ $order->orderTitle }}"
+                data-company="{{ $order->companyName }}"
+                data-created="{{ optional($order->salesperson)->name }}"
+                data-deadline="{{ $order->deadline }}"
+            >
+                <i class="bx bx-trash"></i>
+                Delete Order
+            </button>
+            @endif
+
         </div>
+
         @endif
         @endif
 </div>
@@ -1002,6 +1022,55 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="deleteOrderModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" style="color: white;">Delete Order Confirmation</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <p class="text-danger fw-semibold">
+        ⚠ This action will permanently delete the order.
+        </p>
+
+        <div class="border rounded p-3 bg-light">
+
+            <div><strong>Job Title:</strong> <span id="delTitle"></span></div>
+            <div><strong>Company:</strong> <span id="delCompany"></span></div>
+            <div><strong>Created By:</strong> <span id="delCreated"></span></div>
+            <div><strong>Deadline:</strong> <span id="delDeadline"></span></div>
+
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+
+        <form id="deleteOrderForm" method="POST">
+            @csrf
+            @method('DELETE')
+
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+            </button>
+
+            <button type="submit" class="btn btn-danger">
+                Confirm Delete
+            </button>
+
+        </form>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
 @push('scripts')
 <script>
     // enable Bootstrap tooltips if not already
@@ -1056,6 +1125,27 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
     if (a && a.classList.contains('js-reason-banner')) a.click();
   });
 })();
+
+document.addEventListener('click', function(e){
+
+    const btn = e.target.closest('#deleteOrderBtn');
+    if(!btn) return;
+
+    const id = btn.dataset.orderId;
+
+    document.getElementById('delTitle').textContent = btn.dataset.title || '-';
+    document.getElementById('delCompany').textContent = btn.dataset.company || '-';
+    document.getElementById('delCreated').textContent = btn.dataset.created || '-';
+    document.getElementById('delDeadline').textContent = btn.dataset.deadline || '-';
+
+    const form = document.getElementById('deleteOrderForm');
+    form.action = `/artist/orders/${id}`;
+
+    bootstrap.Modal.getOrCreateInstance(
+        document.getElementById('deleteOrderModal')
+    ).show();
+
+});
 </script>
 @endpush
 @endsection

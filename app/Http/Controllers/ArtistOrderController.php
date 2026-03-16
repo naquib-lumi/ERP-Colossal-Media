@@ -859,4 +859,66 @@ class ArtistOrderController extends Controller
         }
     }
 
+    public function destroyOrder($id)
+    {
+        if(auth()->user()->role !== 'head-artist'){
+            abort(403, 'Unauthorized action.');
+        }
+
+        $order = Order::findOrFail($id);
+
+        // Only allow delete for allowed status
+        if (!in_array($order->orderStatus, ['to_assign','in_progress'])) {
+            return back()->with('error','This order cannot be deleted.');
+        }
+
+        DB::transaction(function () use ($order) {
+
+            // Get product ids first
+            $productIds = DB::table('products')
+                ->where('OrderID', $order->id)
+                ->pluck('ProductID');
+
+            if ($productIds->count()) {
+
+                // Delete product items
+                DB::table('product_items')
+                    ->whereIn('ProductID', $productIds)
+                    ->delete();
+
+                // Delete product remarks
+                DB::table('product_remarks')
+                    ->whereIn('ProductID', $productIds)
+                    ->delete();
+
+                // Delete delivery breakdowns
+                DB::table('delivery_breakdowns')
+                    ->whereIn('ProductID', $productIds)
+                    ->delete();
+            }
+
+            // Delete products
+            DB::table('products')
+                ->where('OrderID', $order->id)
+                ->delete();
+
+            // Delete attachments
+            DB::table('order_attachments')
+                ->where('order_id', $order->id)
+                ->delete();
+
+            // Delete order record log
+            DB::table('order_records')
+                ->where('order_id', $order->id)
+                ->delete();
+
+            // Finally delete the order
+            $order->delete();
+        });
+
+        return redirect()
+            ->route('artist.orders')
+            ->with('success','Order deleted successfully.');
+    }
+
 }

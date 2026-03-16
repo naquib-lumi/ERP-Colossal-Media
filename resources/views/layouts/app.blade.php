@@ -159,6 +159,12 @@ $configData = \App\Helpers\Helpers::appClasses();
             </li>
         @endif
             @if (in_array(auth()->user()->role, ['operations-printing']))
+              <li class="menu-item {{ request()->routeIs('printing.progress') ? 'active' : '' }}">
+                <a href="{{ route('printing.progress') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-bar-chart-alt"></i>
+                  <div data-i18n="Fullfilment">Fullfilment</div>
+                </a>
+              </li>
               <li class="menu-item {{ request()->routeIs('printing.history') ? 'active' : '' }}">
                 <a href="{{ route('printing.history') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-history"></i>
@@ -167,6 +173,12 @@ $configData = \App\Helpers\Helpers::appClasses();
               </li>
             @endif
             @if (in_array(auth()->user()->role, ['operations-furnishing']))
+              <li class="menu-item {{ request()->routeIs('furnishing.progress') ? 'active' : '' }}">
+                <a href="{{ route('furnishing.progress') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-bar-chart-alt"></i>
+                  <div data-i18n="Fullfilment">Fullfilment</div>
+                </a>
+              </li>
               <li class="menu-item {{ request()->routeIs('furnishing.history') ? 'active' : '' }}">
                 <a href="{{ route('furnishing.history') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-history"></i>

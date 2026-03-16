@@ -275,6 +275,8 @@ Route::get('/dashboard', function () {
         Route::get('/artists/search', [ArtistController::class, 'searchArtists'])
             ->name('artists.search');
 
+        Route::delete('/artist/orders/{id}', [ArtistOrderController::class, 'destroyOrder'])->name('artist.orders.destroy');
+
     });
 
     Route::middleware(['web','auth','role:data-entry'])->group(function () {
@@ -311,6 +313,7 @@ Route::get('/dashboard', function () {
             Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
             Route::post('/update-printers', [PrintingController::class, 'updatePrinters'])->name('update.printers');
             Route::get('/history/{product}', [PrintingHistoryController::class, 'show'])->name('history.show');
+            Route::get('/progress', [PrintingController::class, 'progress'])->name('progress');
 
         });
     });
@@ -332,6 +335,7 @@ Route::get('/dashboard', function () {
         Route::post('/furnishing/job/{product}/reject', [\App\Http\Controllers\FurnishingProductOrderController::class, 'reject'])->name('furnishing.orders.reject');
         Route::post('/furnishing/job/{product}/save', [\App\Http\Controllers\FurnishingProductOrderController::class, 'save'])->name('furnishing.jobs.save');
         Route::get('/furnishing/history/{product}', [FurnishingHistoryController::class, 'show'])->name('furnishing.history.show');
+        Route::get('/furnishing/progress', [FurnishingController::class, 'progress'])->name('furnishing.progress');
     });
 
     // Delivery and installation

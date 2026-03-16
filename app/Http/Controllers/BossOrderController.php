@@ -756,6 +756,7 @@ class BossOrderController extends Controller
             'product.name'      => ['nullable','string','max:255'],
             'product.qty_total' => ['nullable','integer','min:0'],
             'product.material'  => ['nullable','string','max:255'],
+            'products.*.permit' => ['nullable','in:0,1'],
 
             // nested products[*]
             'products'                          => ['array'],
@@ -768,12 +769,12 @@ class BossOrderController extends Controller
             'products.*.items.*.quantity'       => ['nullable','integer','min:0'],
             'products.*.items.*.sizeWidth'      => ['nullable','numeric'],
             'products.*.items.*.sizeHeight'     => ['nullable','numeric'],
-            'products.*.items.*.sizeUnit'       => ['nullable','in:mm,cm,inch,ft'],
+            'products.*.items.*.sizeUnit'       => ['nullable','in:mm,cm,inch,ft,piece'],
             'products.*.items.*.bleedTop'       => ['nullable','numeric'],
             'products.*.items.*.bleedBottom'    => ['nullable','numeric'],
             'products.*.items.*.bleedLeft'      => ['nullable','numeric'],
             'products.*.items.*.bleedRight'     => ['nullable','numeric'],
-            'products.*.items.*.bleedUnit'      => ['nullable','in:mm,cm,inch,ft'],
+            'products.*.items.*.bleedUnit'      => ['nullable','in:mm,cm,inch,ft,piece'],
             'products.*.items.*.finishing'      => ['nullable','string','max:255'],
             'products.*.items.*.renderTime'     => ['nullable','integer','min:0'],
             'products.*.items.*.material'       => ['nullable'],
@@ -1032,6 +1033,10 @@ class BossOrderController extends Controller
                     }
                     if (array_key_exists('material', $group)) {
                         $productRow->materialRemark = $group['material'] === '' ? null : $group['material'];
+                    }
+                    if (array_key_exists('permit', $group)) {
+                        $raw = $group['permit'];
+                        $productRow->permit = ($raw === '' || $raw === null) ? null : (int) $raw;
                     }
 
                     $productRow->save();

@@ -506,7 +506,8 @@ $inProgressProducts = Product::from('products as p')
                 'o.orderDate','o.deadline as order_deadline','o.created_at as order_created_at',
                 'd.BreakdownID as breakdown_id','d.date as delivery_date','d.time as delivery_time',
                 'd.location as delivery_location','d.deliver_install_type',
-                'pf.permit_file', 
+                'pf.permit_file',
+                'p.permit',
                 'p.installation_task_type','p.installation_status as product_installation_status','p.installation_accepted',
                 'd.method as delivery_method',
             ]);
@@ -813,6 +814,7 @@ $inProgressProducts = Product::from('products as p')
                     'install_type'   => $installLabel,
                     // 'outsource_cost' => is_null($r->outsource_cost) ? null : (float)$r->outsource_cost,
                     'permit_url'     => $permitUrl,
+                    'permit'         => $r->permit,
                 ];
             })
         );
