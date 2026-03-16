@@ -398,6 +398,15 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                 if ($rejectRecord && $rejectRecord->user_id) {
                     $rejectBy = \App\Models\User::find($rejectRecord->user_id)?->name;
                 }
+
+                // Permit display value (product-level)
+                $permitRaw = $product->permit ?? null;
+                $permitDisplay = is_null($permitRaw)
+                    ? "Haven't Decided"
+                    : ((int)$permitRaw === 1 ? 'Yes' : 'No');
+                $permitColor = is_null($permitRaw)
+                    ? '#6c757d'
+                    : ((int)$permitRaw === 1 ? '#198754' : '#dc3545');
                 @endphp
 
                 <div class="accordion-item mb-2">
@@ -549,13 +558,18 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                                                     <small class="text-muted d-block">Printer</small>
                                                     <span class="text-body fw-semibold">{{ $specification->printer ?? '-' }}</span>
                                                 </div>
-                                                <div class="col-md-4 mb-2">
-                                                    <small class="text-muted d-block">Cutter</small>
-                                                    <span class="text-body fw-semibold">{{ $specification->cutter ?? '-' }}</span>
-                                                </div>
-                                                <div class="col-12">
+                                                {{-- Assemble + Permit side by side (Permit is product-level) --}}
+                                                <div class="col-md-4">
                                                     <small class="text-muted d-block">Assemble</small>
                                                     <span class="text-body fw-semibold">{{ data_get($item,'finishing','-') }}</span>
+                                                </div>
+                                                @if($ii === 0)
+                                                {{-- Only show Permit once, on the first item row --}}
+                                                <div class="col-md-4">
+                                                    <small class="text-muted d-block">Permit</small>
+                                                    <span class="fw-semibold" style="color: {{ $permitColor }}">
+                                                        {{ $permitDisplay }}
+                                                    </span>
                                                 </div>
                                             </div>
 
