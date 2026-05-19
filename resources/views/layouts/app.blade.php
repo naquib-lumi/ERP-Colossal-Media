@@ -126,7 +126,7 @@ $configData = \App\Helpers\Helpers::appClasses();
               <li class="menu-item {{ request()->routeIs('artist.progress') ? 'active' : '' }}">
                 <a href="{{ route('artist.progress') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-bar-chart-alt"></i>
-                  <div data-i18n="Progress">Order Progress</div>
+                  <div data-i18n="Order Progress">Order Progress</div>
                 </a>
               </li>
             @endif
