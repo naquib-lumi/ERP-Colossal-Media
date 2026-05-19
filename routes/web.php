@@ -148,6 +148,7 @@ Route::get('/dashboard', function () {
         Route::patch('/sales/profile', [SalesController::class, 'ProfileUpdate'])->name('sales.profile.update');
         Route::get('/sales/dashboard', [SalesController::class, 'dashboard'])->name('sales.dashboard');
         Route::get('/sales/orders', [OrderController::class, 'index'])->name('sales.orders');
+        Route::get('/sales/progress', [SalesController::class, 'progress'])->name('sales.progress');
         Route::get('/sales/calendar', [CalendarController::class, 'index'])->name('sales.calendar');
         Route::get('/calendar/events', [CalendarController::class, 'events'])->name('calendar.events');
         Route::post('/calendar/reminders', [ReminderController::class, 'store'])->name('calendar.reminders.store');
@@ -205,6 +206,8 @@ Route::get('/dashboard', function () {
 
         Route::get('/meetings/{id}', [MeetingController::class, 'show'])->name('meetings.show');  // Add for edit fetch
         Route::post('/meetings/{id}/status', [MeetingController::class, 'updateStatus'])->name('meetings.update.status');
+
+
     });
 
     Route::get('/test-route', function () {
@@ -276,6 +279,7 @@ Route::get('/dashboard', function () {
             ->name('artists.search');
 
         Route::delete('/artist/orders/{id}', [ArtistOrderController::class, 'destroyOrder'])->name('artist.orders.destroy');
+        Route::get('/artist/progress', [ArtistController::class, 'progress'])->name('artist.progress');
 
     });
 
