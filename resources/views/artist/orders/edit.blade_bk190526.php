@@ -336,11 +336,13 @@
 {{-- Validation errors (client-side 422) --}}
 <div id="form-errors" class="text-danger small mb-2"></div>
 
-<form id="order-form" action="{{ route('boss.orders.update', $order) }}" method="POST" enctype="multipart/form-data">
+<form id="order-form" action="{{ route('artist.orders.update', $order) }}" method="POST" enctype="multipart/form-data">
   @csrf
   @method('PUT')
 
   <input type="hidden" id="is_draft" name="is_draft" value="0">
+  <input type="hidden" id="products-items-json" name="products_items_json" value="">
+
   @php
   $isSubmitted = isset($isSubmitted) ? (bool)$isSubmitted : ((int)($order->submit ?? 0) === 1);
 
@@ -575,7 +577,7 @@
               <div class="accordion-item {{ $locked ? 'opacity-75' : '' }}"
                   data-product-row
                   data-product-id="{{ $product->ProductID }}"
-                  data-url="{{ route('boss.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
+                  data-url="{{ route('artist.orders.products.destroy', ['order' => $order->id, 'product' => $product->ProductID]) }}">
                 <h2 class="accordion-header" id="pHead{{ $pIndex }}">
                   <div class="d-flex justify-content-between align-items-center w-100">
                     <button
@@ -658,61 +660,37 @@
                   {{-- Product block --}}
                   <fieldset {{ $locked ? 'disabled' : '' }}>
                     <div class="card mb-6">
-                      {{-- Permit radio data --}}
-                      @php
-                        $permitVal = old("products.$pIndex.permit", isset($product->permit) ? (string) $product->permit : null);
-                      @endphp
+                      {{-- Permit toggle data --}}
+                      @php $permitVal = old("products.$pIndex.permit", isset($product->permit) ? (string)$product->permit : null); @endphp
+                      <input type="hidden" name="products[{{ $pIndex }}][permit]"
+                             value="{{ $permitVal !== null ? $permitVal : '' }}">
 
                       <div class="card-header d-flex align-items-center justify-content-between">
                         <h5 class="mb-0">
                           <i class="bx bx-package me-2"></i>Product
                         </h5>
-
-                        {{-- Permit radio in header --}}
-                        <div class="d-flex align-items-center gap-3">
-                          <span class="text-body-secondary" style="font-size:.85rem;">
-                            Permit <span class="text-danger">*</span>
-                          </span>
-
-                          <div class="d-flex align-items-center gap-3">
-                            <div class="form-check mb-0">
-                              <input
-                                class="form-check-input permit-radio"
-                                type="radio"
-                                name="products[{{ $pIndex }}][permit]"
-                                id="permit_yes_{{ $product->ProductID }}"
-                                value="1"
-                                data-pindex="{{ $pIndex }}"
-                                data-product-id="{{ $product->ProductID }}"
-                                data-permit-required="1"
-                                data-permit-label="Permit"
-                                {{ $permitVal === '1' ? 'checked' : '' }}
-                                {{ $disabled }}>
-
-                              <label class="form-check-label" for="permit_yes_{{ $product->ProductID }}">
-                                Yes
-                              </label>
-                            </div>
-
-                            <div class="form-check mb-0">
-                              <input
-                                class="form-check-input permit-radio"
-                                type="radio"
-                                name="products[{{ $pIndex }}][permit]"
-                                id="permit_no_{{ $product->ProductID }}"
-                                value="0"
-                                data-pindex="{{ $pIndex }}"
-                                data-product-id="{{ $product->ProductID }}"
-                                data-permit-required="1"
-                                data-permit-label="Permit"
-                                {{ $permitVal === '0' ? 'checked' : '' }}
-                                {{ $disabled }}>
-
-                              <label class="form-check-label" for="permit_no_{{ $product->ProductID }}">
-                                No
-                              </label>
-                            </div>
+                        {{-- Permit toggle in header --}}
+                        <div class="d-flex align-items-center gap-2">
+                          <span class="text-body-secondary" style="font-size:.85rem;">Permit</span>
+                          <div class="form-check form-switch mb-0">
+                            <input class="form-check-input permit-toggle"
+                                   type="checkbox"
+                                   role="switch"
+                                   id="permit_{{ $product->ProductID }}"
+                                   data-pindex="{{ $pIndex }}"
+                                   data-product-id="{{ $product->ProductID }}"
+                                   data-permit-required="1"
+                                   data-permit-label="Permit"
+                                   {{ $permitVal === '1' ? 'checked' : '' }}
+                                   {{ $disabled }}
+                                   style="cursor:{{ $isSubmitted ? 'default' : 'pointer' }};width:2.5em;height:1.25em;">
                           </div>
+                          <span id="permit-label-{{ $product->ProductID }}"
+                                class="fw-semibold"
+                                style="font-size:.85rem;min-width:1.8rem;
+                                  color:{{ $permitVal === '1' ? '#28a745' : ($permitVal === '0' ? '#dc3545' : '#6c757d') }}">
+                            {{ $permitVal === '1' ? 'Yes' : ($permitVal === '0' ? 'No' : '—') }}
+                          </span>
                         </div>
                       </div>
 
@@ -810,7 +788,7 @@
                                   title="Delete this item from DB"
                                   data-action="delete-item"
                                   data-item-id="{{ data_get($it,'ItemID') }}"
-                                  data-url="{{ route('boss.orders.items.destroy', [$order, data_get($it,'ItemID')]) }}">
+                                  data-url="{{ route('artist.orders.items.destroy', [$order, data_get($it,'ItemID')]) }}">
                                   <i class="bx bx-trash fs-5"></i>
                                 </button>
                                 @endif
@@ -971,7 +949,6 @@
 
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
-                                      <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($laminationMachines ?? [] as $m)
                                           @continue(isset($m->active) && !$m->active)  {{-- skip deactivated machines --}}
@@ -1195,7 +1172,6 @@
                                     <select name="products[__PINDEX__][items][__INDEX__][lamination]" class="form-select" {{ $disabled }}>
                                       <option value="">-</option>
                                       <option value="no" {{ (isset($item->lamination) && $item->lamination === 'no') ? 'selected' : '' }}>No</option>
-                                      <option value="TBC" {{ (isset($item->lamination) && $item->lamination === 'TBC') ? 'selected' : '' }}>TBC</option>
 
                                       @foreach($laminationMachines ?? [] as $m)
                                           @continue(isset($m->active) && !$m->active)  {{-- skip deactivated machines --}}
@@ -1311,7 +1287,7 @@
                           <div class="card mb-3"
                             data-delivery
                             data-id="{{ $d->getKey() }}"
-                            data-url="{{ route('boss.orders.delivery.destroy', ['order' => $order, 'delivery' => $d->getKey()]) }}">
+                            data-url="{{ route('artist.orders.delivery.destroy', ['order' => $order, 'delivery' => $d->getKey()]) }}">
                             <div class="card-body">
                               <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="fw-semibold">Delivery <span class="delivery-index">{{ $i + 1 }}</span></div>
@@ -1541,7 +1517,7 @@
                             @endphp
                             @php $errKey = "products.$pIndex.remarks.$loop->index.operation"; @endphp
                             @forelse($rowsSorted as $r)
-                            <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('boss.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
+                            <div class="d-flex align-items-center gap-2 mb-2 remark-row" data-remark data-id="{{ $r->RemarkID }}" data-url="{{ route('artist.orders.remarks.destroy', [$order, $r->RemarkID]) }}">
                               <input type="hidden" name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][id]" value="{{ $r->RemarkID }}">
                               <select name="products[{{ $pIndex }}][remarks][{{ $loop->index }}][operation]"
                                       class="form-select w-auto" style="min-width:160px;" {{$disabled}} data-optional="true">
@@ -1653,7 +1629,7 @@
             <button type="button"
                     class="btn btn-sm btn-outline-danger delete-order-file"
                     title="Delete"
-                    data-url="{{ route('boss.orders.attachments.destroy', $order) }}"
+                    data-url="{{ route('artist.orders.attachments.destroy', $order) }}"
                     data-path="{{ $f['path'] }}">
               <i class="bx bx-trash"></i>
             </button>
@@ -1929,7 +1905,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
-      <form id="productForm" method="POST" action="{{ route('boss.orders.products.store', ['order' => $order]) }}" autocomplete="off">
+      <form id="productForm" method="POST" action="{{ route('artist.orders.products.store', ['order' => $order]) }}" autocomplete="off">
         @csrf
         <div class="modal-body">
           <div class="row g-3">
@@ -1951,14 +1927,7 @@
 
           <hr class="my-4">
 
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <label class="form-label m-0">Product Remarks</label>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="addRemarkRow">+ Add Remarks</button>
-          </div>
-
-          <div id="remarkRows" class="vstack gap-2">
-            {{-- rows injected by JS --}}
-          </div>
+         
         </div>
 
         <div class="modal-footer">
@@ -3154,7 +3123,7 @@
     const isDraftEl = document.getElementById('is_draft');
     const overlay = document.getElementById('loading-overlay');
 
-    const action = @json(route('boss.orders.update', $order));
+    const action = @json(route('artist.orders.update', $order));
     const csrf = @json(csrf_token());
 
     function getSelectedFiles() {
@@ -3169,19 +3138,136 @@
 
     // Build FormData but include values from disabled inputs by temporarily enabling them.
     function buildFormDataIncludingDisabled(formEl) {
-      const disabled = Array.from(formEl.querySelectorAll('[disabled]'));
-      // Temporarily enable everything disabled so FormData sees them
-      disabled.forEach(el => el.removeAttribute('disabled'));
+      // Only temporarily re-enable fields that are disabled
+      // for UI reasons, not the ones we explicitly skip
+      const disabled = Array.from(
+        formEl.querySelectorAll('[disabled]:not([data-skip-enable="1"])')
+      );
+
+      disabled.forEach(el => {
+        el.dataset._wasDisabled = '1';
+        el.disabled = false;
+      });
+
       const fd = new FormData(formEl);
-      // Restore the disabled state
-      disabled.forEach(el => el.setAttribute('disabled', 'disabled'));
+
+      disabled.forEach(el => {
+        if (el.dataset._wasDisabled === '1') {
+          el.disabled = true;
+          delete el.dataset._wasDisabled;
+        }
+      });
+
       return fd;
+    }
+
+    /**
+     * Collect all item rows for each product into a compact JSON structure:
+     *   [{ product_id: 123, items: [ {itemName: '...', ...}, ...] }, ...]
+     * and store it in the hidden <input name="products_items_json">.
+     * Then mark all original item inputs with data-skip-enable="1" and disable them
+     * so they are NOT included in the normal FormData payload (avoids max_input_vars).
+     */
+    function prepareItemsJson(formEl) {
+      // productsIndexed[index] = { items: [...] }
+      const productsIndexed = {};
+
+      // Find all item-related fields in the form
+      formEl
+        .querySelectorAll('input[name^="products["][name*="[items]"], select[name^="products["][name*="[items]"], textarea[name^="products["][name*="[items]"]')
+        .forEach(field => {
+          const name = field.name;
+          if (!name) return;
+
+          // Match patterns like:
+          // products[0][items][3][itemName]
+          // products[1][items][10][material][]
+          const m = name.match(/^products\[(\d+)]\[items]\[(\d+)]\[(.+?)](\[\])?$/);
+          if (!m) return;
+
+          const productIndex = parseInt(m[1], 10); // 0, 1, 2, ...
+          const itemIndex    = parseInt(m[2], 10); // 0, 1, 2, ...
+          const key          = m[3];              // e.g. itemName, quantity, material
+          const isArray      = !!m[4];            // material[]
+
+          // Initialize structures
+          if (!productsIndexed[productIndex]) {
+            productsIndexed[productIndex] = { items: [] };
+          }
+          if (!productsIndexed[productIndex].items[itemIndex]) {
+            productsIndexed[productIndex].items[itemIndex] = {};
+          }
+
+          let value = field.value;
+
+          // Handle checkbox / radio
+          if (field.type === 'checkbox' || field.type === 'radio') {
+            if (!field.checked) return;
+          }
+
+          if (value === '' || value === null || typeof value === 'undefined') {
+            return;
+          }
+
+          const item = productsIndexed[productIndex].items[itemIndex];
+
+          if (isArray) {
+            if (!Array.isArray(item[key])) item[key] = [];
+            item[key].push(value);
+          } else {
+            item[key] = value;
+          }
+        });
+
+      // Apply the same "empty row" filter as backend:
+      for (const pIndex in productsIndexed) {
+        const product = productsIndexed[pIndex];
+        const filteredItems = [];
+
+        (product.items || []).forEach(row => {
+          if (!row) return;
+
+          const clone = { ...row };
+          delete clone.id;
+          delete clone.material;
+
+          const hasNonEmpty = Object.values(clone).some(
+            v => v !== '' && v !== null && typeof v !== 'undefined'
+          );
+
+          const hasMaterial =
+            Array.isArray(row.material) ? row.material.length > 0 : !!row.material;
+
+          if (hasNonEmpty || hasMaterial) {
+            filteredItems.push(row);
+          }
+        });
+
+        product.items = filteredItems;
+      }
+
+      // Store as JSON in hidden field
+      const hidden = formEl.querySelector('#products-items-json');
+      if (hidden) {
+        hidden.value = JSON.stringify(productsIndexed);
+      }
+
+      // IMPORTANT: Disable all original item inputs so they don't count toward max_input_vars
+      formEl
+        .querySelectorAll('[name^="products["][name*="[items]"]')
+        .forEach(el => {
+          el.dataset.skipEnable = '1';
+          el.disabled = true;
+        });
     }
 
     async function send(isDraft, options = {}) {
       const silent = !!options.silent;
-      
+
       isDraftEl.value = isDraft ? 1 : 0;
+
+      // 🔴 NEW: build items JSON and disable original item inputs
+      prepareItemsJson(form);
 
       const fd = buildFormDataIncludingDisabled(form);
       fd.set('is_draft', isDraftEl.value);
@@ -3208,21 +3294,19 @@
           credentials: 'same-origin',
           headers: {
             'X-CSRF-TOKEN': csrf,
-            'X-Requested-With': 'XMLHttpRequest' // tell Laravel to return JSON
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
           }
         });
 
         if (res.status === 422) {
-          data = await res.json().catch(() => ({}));
-          // 2) hide loading BEFORE showing SweetAlert
-          loading(false);
+          const data = await res.json().catch(() => ({}));
           const msg = Object.values(data.errors || {}).flat().join(' • ') || 'Validation failed.';
           await Swal.fire({
             icon: 'error',
             title: 'Validation error',
             text: msg
           });
-          return false;
         }
 
         data = await res.json().catch(() => ({}));
@@ -3230,7 +3314,8 @@
         // 2) hide loading BEFORE showing SweetAlert
         loading(false);
 
-        if (res.ok && data?.ok) {
+        // Treat any HTTP 2xx as success; use JSON message only if available
+        if (res.ok) {
           if (!silent) {
             await Swal.fire({
               icon: 'success',
@@ -3242,21 +3327,22 @@
             if (isDraft) {
               window.location.reload();
             } else {
-              // ✅ Redirect to boss.orders when submitted
-              window.location.href = '/boss/orders';
+              // ✅ Redirect to artist.orders when submitted
+              window.location.href = '/artist/orders';
             }
           }
-          return true; // allow caller to know it succeeded
-        } else {
-          if (!silent) {
-            await Swal.fire({
-              icon: 'error',
-              title: 'Save failed',
-              text: data?.message || `HTTP ${res.status} — please try again`
-            });
-          }
-          return false;
-        }
+          return true;
+        } 
+        // else {
+          // if (!silent) {
+          //  await Swal.fire({
+          //    icon: 'error',
+          //    title: 'Save failed',
+          //    text: data.message || `HTTP ${res.status} — please try again`
+          //  });
+          // }
+          // return false;
+        // }
       } catch (e) {
         console.error(e);
         loading(false); // be sure to hide on network errors too
@@ -3278,41 +3364,29 @@
     ]);
 
     function isOptional(el) {
-      if (!el) return true;
-
-      // Skip non-editable / system fields
-      if (el.disabled) return true;
-      if (el.readOnly) return true;
-      if (el.type === 'hidden') return true;
-      if (el.type === 'file') return true;
-
-      // Permit radio is handled separately, not by general required logic
-      if (el.classList.contains('permit-radio')) return true;
-      if (el.hasAttribute('data-permit-required')) return true;
-
       if (el.hasAttribute('data-optional')) return true;
 
       const name = (el.getAttribute('name') || '').toLowerCase();
 
-      // Product hidden/system fields
-      if (name.includes('[product_id]')) return true;
-      if (name.includes('[id]')) return true;
+      // Whitelist by plain name
+      for (const k of OPTIONAL_NAME_WHITELIST) {
+        if (name.endsWith(`[${k}]`) || name === k) return true;
+      }
 
-      // Job order read-only/system fields
-      if (
-        name === 'company_name' ||
-        name === 'order_title' ||
-        name === 'created_date' ||
-        name === 'deadline' ||
-        name === 'created_by' ||
-        name === 'is_draft' ||
-        name === 'products_items_json'
-      ) return true;
+      // Items: lamination / printer / cutter are optional
+      // if (name.includes('[items]') && (
+      //  name.includes('[lamination]') ||
+      //  name.includes('[printer]') ||
+      //  name.includes('[cutter]')
+      //)) return true;
 
-      // Remarks optional
-      if (name.includes('[remarks]')) return true;
+      // Remarks: free text is optional
+      if (name.includes('[remarks]') && (
+        name.includes('[remark]') ||
+        name.includes('[operation]')
+      )) return true;
 
-      // Delivery optional fields
+      // Deliveries: install type / outsource cost / location / datetime are optional
       if (name.includes('[deliveries]') && (
         name.includes('[deliver_install_type]') ||
         name.includes('[outsource_cost]') ||
@@ -3338,17 +3412,15 @@
       const baseOK = requiredElements().every(el => el.checkValidity());
       if (!baseOK) return false;
 
-      const permitGroups = new Map();
-
-      document.querySelectorAll('.permit-radio[data-permit-required]').forEach(radio => {
-        if (!permitGroups.has(radio.name)) {
-          permitGroups.set(radio.name, radio);
-        }
-      });
-
-      const permitOK = Array.from(permitGroups.keys()).every(name => {
-        const group = document.querySelectorAll(`input[name="${CSS.escape(name)}"]`);
-        return Array.from(group).some(radio => radio.checked);
+      // Every permit toggle must have a committed value (not empty string)
+      const permitOK = Array.from(
+        document.querySelectorAll('.permit-toggle[data-permit-required]')
+      ).every(toggle => {
+        const pIndex = toggle.dataset.pindex;
+        const hidden = document.querySelector(
+          `input[type="hidden"][name="products[${pIndex}][permit]"]`
+        );
+        return hidden && hidden.value !== '';
       });
 
       return permitOK;
@@ -3383,7 +3455,7 @@
         const sel = document.getElementById('de-user-select');
         sel.innerHTML = `<option value="">Loading…</option>`;
         try {
-          const r = await fetch(@json(route('boss.dataEntry.users')), { headers: { 'X-Requested-With':'XMLHttpRequest' }});
+          const r = await fetch(@json(route('dataEntry.users')), { headers: { 'X-Requested-With':'XMLHttpRequest' }});
           const data = await r.json();
           sel.innerHTML = `<option value="">Please select a user</option>`;
           (data?.users || []).forEach(u => {
@@ -3416,7 +3488,7 @@
       }
 
       try {
-        const res = await fetch(@json(route('boss.orders.passToDataEntry', $order)), {
+        const res = await fetch(@json(route('artist.orders.passToDataEntry', $order)), {
           method: 'POST',
           headers: {
             'X-CSRF-TOKEN': @json(csrf_token()),
@@ -3428,7 +3500,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data?.ok) {
-          window.location.href = @json(route('boss.orders.show', $order));
+          window.location.href = @json(route('artist.orders.show', $order));
         } else {
           // const msg = data?.message || `HTTP ${res.status}`;
           // (window.Swal ? Swal.fire({icon:'error', title:'Assign failed', text: msg}) : alert(msg));
@@ -3485,15 +3557,14 @@
       });
       if (!baseOK) return false;
 
-      // Permit radio must be selected for each product
-      const permitGroups = new Set(
-        Array.from(document.querySelectorAll('.permit-radio'))
-          .map(radio => radio.name)
-      );
-
-      return Array.from(permitGroups).every(name => {
-        const group = document.querySelectorAll(`input[name="${CSS.escape(name)}"]`);
-        return Array.from(group).some(radio => radio.checked);
+      // Permit toggles must have a committed value ('0' or '1', never '')
+      return Array.from(
+        document.querySelectorAll('.permit-toggle[data-permit-required]')
+      ).every(toggle => {
+        const hidden = document.querySelector(
+          `input[type="hidden"][name="products[${toggle.dataset.pindex}][permit]"]`
+        );
+        return hidden && hidden.value !== '';
       });
     }
 
@@ -3571,26 +3642,19 @@
         });
       });
 
-      // ── Permit radio required check ──────────────────────────────────────
-      const permitGroups = new Map();
-
-      document.querySelectorAll('.permit-radio[data-permit-required]').forEach(radio => {
-        if (!permitGroups.has(radio.name)) {
-          permitGroups.set(radio.name, radio);
-        }
-      });
-
-      permitGroups.forEach((radio, name) => {
-        const group = document.querySelectorAll(`input[name="${CSS.escape(name)}"]`);
-        const checked = Array.from(group).some(r => r.checked);
-
-        if (!checked) {
-          const pIndex = radio.dataset.pindex;
+      // ── Permit toggle required check ──────────────────────────────────────
+      // A permit toggle is "missing" when its hidden sibling value is still ''
+      document.querySelectorAll('.permit-toggle[data-permit-required]').forEach(toggle => {
+        const pIndex = toggle.dataset.pindex;
+        const hidden = document.querySelector(
+          `input[type="hidden"][name="products[${pIndex}][permit]"]`
+        );
+        // value '' means neither Yes nor No has been committed
+        if (hidden && hidden.value === '') {
           const info = parseNamePath(`products[${pIndex}][permit]`);
-
           missing.push({
-            el: radio,
-            label: radio.dataset.permitLabel || 'Permit',
+            el: toggle,
+            label: toggle.dataset.permitLabel || 'Permit',
             info
           });
         }
@@ -3820,7 +3884,7 @@
 
 
     try {
-    const r = await fetch(@json(route('boss.dataEntry.users')), {
+    const r = await fetch(@json(route('dataEntry.users')), {
     headers: { 'X-Requested-With': 'XMLHttpRequest' }
     });
     const data = await r.json();
@@ -3868,7 +3932,7 @@
 
         loading(true);
         try {
-          const res = await fetch(@json(route('boss.orders.passToDataEntry', $order)), {
+          const res = await fetch(@json(route('artist.orders.passToDataEntry', $order)), {
             method: 'POST',
             headers: {
               'X-CSRF-TOKEN': @json(csrf_token()),
@@ -3882,7 +3946,7 @@
           });
           const data = await res.json().catch(() => ({}));
           if (res.ok && data?.ok) {
-            window.location.href = @json(route('boss.orders.show', $order));
+            window.location.href = @json(route('artist.orders.show', $order));
           } else {
             // const msg = data?.message || `HTTP ${res.status}`;
             // if (window.Swal) await Swal.fire({
@@ -4056,56 +4120,14 @@
   // safety: before opening any modal, clear leftovers (optional)
   function openModalSafe(sel) { forceEnableScroll(); (bootstrap.Modal.getInstance(sel) || new bootstrap.Modal(sel)).show(); }
 
-  (function () {
-    const $rows = document.getElementById('remarkRows');
-    const tpl   = document.getElementById('remarkRowTpl').innerHTML;
-    let rIdx    = 0;
-
-    function addRemarkRow() {
-      const html = tpl.replaceAll('__IDX__', rIdx++);
-      const wrap = document.createElement('div');
-      wrap.innerHTML = html.trim();
-      $rows.appendChild(wrap.firstElementChild);
-    }
-
-    document.getElementById('addRemarkRow').addEventListener('click', addRemarkRow);
-    $rows.addEventListener('click', function (e) {
-      if (e.target.closest('.remove-remark')) {
-        e.target.closest('.remark-row').remove();
-      }
-    });
-
-    // Ensure modal starts with one blank row
-    document.getElementById('addProductModal').addEventListener('shown.bs.modal', function () {
-      if (!$rows.querySelector('.remark-row')) addRemarkRow();
-    });
-
-    // Reset on close (optional)
-    document.getElementById('addProductModal').addEventListener('hidden.bs.modal', function () {
-      $rows.innerHTML = '';
-      rIdx = 0;
-      document.getElementById('p_name').value     = '';
-      document.getElementById('p_qty').value      = '';
-      document.getElementById('p_material').value = '';
-    });
-
-    function toInt(v){ v=String(v??'').trim(); const n=parseInt(v,10); return isNaN(n)?0:n; }
-
-    // Parse pIndex and delivery row index from the input name
-    function parseName(name){
-      const m = name.match(/^products\[(\d+)\]\[deliveries\]\[(\d+)\]\[quantity\]$/);
-      return m ? { pIndex: m[1], dIndex: m[2] } : null;
-    }
-
-
-  })();
+  
 
   document.addEventListener('DOMContentLoaded', () => {
   const sel = document.getElementById('assignee_artist_id');
   const btn = document.getElementById('btn-assign-artist');
   if (!sel || !btn) return;
 
-  const searchUrl = @json(route('boss.orders.assignees.search'));
+  const searchUrl = @json(route('artist.orders.assignees.search'));
 
   // ---------- Plain SELECT fallback (no Select2) ----------
   function initPlainSelect() {
@@ -4180,7 +4202,7 @@
 
     btn.disabled = true;
     try {
-      const res = await fetch(@json(route('boss.orders.assigns', $order)), {
+      const res = await fetch(@json(route('artist.orders.assigns', $order)), {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': @json(csrf_token()),
@@ -4572,16 +4594,28 @@
     productForm.submit();
   });
 })();
-// ── Permit radio ──────────────────────────────────────────────────────────
+// ── Permit toggle ──────────────────────────────────────────────────────────
 document.addEventListener('change', function (e) {
-  const radio = e.target.closest('.permit-radio');
-  if (!radio) return;
+  const toggle = e.target.closest('.permit-toggle');
+  if (!toggle) return;
 
-  const group = document.querySelectorAll(
-    `input[name="${CSS.escape(radio.name)}"]`
-  );
+  const pIndex    = toggle.dataset.pindex;
+  const productId = toggle.dataset.productId;
+  const isChecked = toggle.checked;
 
-  group.forEach(el => el.classList.remove('is-invalid'));
+  // Commit value: '1' = Yes, '0' = No (never leave as '' once touched)
+  const hidden = document.querySelector(`input[type="hidden"][name="products[${pIndex}][permit]"]`);
+  if (hidden) hidden.value = isChecked ? '1' : '0';
+
+  // Update the label text + colour
+  const label = document.getElementById(`permit-label-${productId}`);
+  if (label) {
+    label.textContent = isChecked ? 'Yes' : 'No';
+    label.style.color = isChecked ? '#28a745' : '#dc3545';
+  }
+
+  // Remove missing highlight if it was flagged
+  toggle.classList.remove('is-invalid');
 });
 
 function restrict2dp(e) {
@@ -4640,8 +4674,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const pName     = document.getElementById('p_name');
   const pQty      = document.getElementById('p_qty');
   const pMaterial = document.getElementById('p_material');
-  const remarksBox= document.getElementById('remarkRows');
-  const addBtn    = document.getElementById('addRemarkRow');
   const modalEl   = document.getElementById('addProductModal');
 
   // disable initially
@@ -4653,19 +4685,7 @@ document.addEventListener('DOMContentLoaded', () => {
                        pQty.value.trim()  !== '' &&
                        pMaterial.value.trim() !== '';
 
-    // remark validation: at least 1 row, each row must have operation + remark
-    const rows = Array.from(remarksBox.querySelectorAll('.remark-row'));
-    const hasRows = rows.length > 0;
-
-    const eachValid = rows.every(row => {
-      const op = row.querySelector('select[name^="remarks"]');
-      const tx = row.querySelector('input[name^="remarks"]');
-      const opOk = !!(op && op.value && op.value.trim() !== '');
-      const txOk = !!(tx && tx.value && tx.value.trim() !== '');
-      return opOk && txOk;
-    });
-
-    saveBtn.disabled = !(baseFilled && hasRows && eachValid);
+    saveBtn.disabled = !(baseFilled);
   }
 
   // base fields listeners
@@ -4673,27 +4693,6 @@ document.addEventListener('DOMContentLoaded', () => {
     el.addEventListener('input', checkAllFilled);
     el.addEventListener('change', checkAllFilled);
   });
-
-  // delegate changes inside remark rows (selects & inputs)
-  remarksBox.addEventListener('input', checkAllFilled);
-  remarksBox.addEventListener('change', checkAllFilled);
-
-  // handle remove buttons via delegation
-  remarksBox.addEventListener('click', (e) => {
-    const btn = e.target.closest('.remove-remark');
-    if (!btn) return;
-    const row = btn.closest('.remark-row');
-    if (row) row.remove();
-    checkAllFilled();
-  });
-
-  // if you create rows via the "+ Add Remarks" button, revalidate after adding
-  if (addBtn) {
-    addBtn.addEventListener('click', () => {
-      // if your own code injects the row, just delay-validate
-      setTimeout(checkAllFilled, 0);
-    });
-  }
 
   // re-check when modal opens (in case fields were cleared)
   modalEl.addEventListener('shown.bs.modal', checkAllFilled);
