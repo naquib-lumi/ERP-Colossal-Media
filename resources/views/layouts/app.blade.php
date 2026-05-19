@@ -175,6 +175,12 @@ $configData = \App\Helpers\Helpers::appClasses();
                     <div data-i18n="Fulfillment">Fulfillment</div>
                 </a>
             </li>
+            <li class="menu-item {{ request()->routeIs('admin.progress') ? 'active' : '' }}">
+                  <a href="{{ route('admin.progress') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-bar-chart-alt"></i>
+                    <div data-i18n="Order Progress">Order Progress</div>
+                  </a>
+                </li>
         @endif
             @if (in_array(auth()->user()->role, ['operations-printing']))
               <li class="menu-item {{ request()->routeIs('printing.progress') ? 'active' : '' }}">
@@ -271,7 +277,12 @@ $configData = \App\Helpers\Helpers::appClasses();
                     <div data-i18n="Fulfillment">Fulfillment</div>
                   </a>
                  </li>
-
+                <li class="menu-item {{ request()->routeIs('boss.progress') ? 'active' : '' }}">
+                  <a href="{{ route('boss.progress') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-bar-chart-alt"></i>
+                    <div data-i18n="Order Progress">Order Progress</div>
+                  </a>
+                </li>
                  <li class="menu-item {{ request()->routeIs('boss.manageuser') ? 'active' : '' }}">
                 <a href="{{ route('boss.manageuser') }}" class="menu-link">
                   <i class="menu-icon icon-base bx bx-group"></i>

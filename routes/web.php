@@ -457,6 +457,8 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/profile', [AdminController::class, 'ProfileShow'])->name('admin.profile.show');
     Route::patch('/admin/profile', [AdminController::class, 'ProfileUpdate'])->name('admin.profile.update');
 
+    Route::get('/admin/progress', [AdminController::class, 'progress'])->name('admin.progress');
+
     // Admin Order function
     Route::get('/admin/orders', [AdminOrderController::class, 'orders'])->name('admin.orders');
     Route::get('/admin/orders/{order}/edit', [AdminOrderController::class, 'edit'])->name('admin.orders.edit');
@@ -640,6 +642,8 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::post('/boss/orders/{order}/edit', [BossOrderController::class, 'assign'])->name('boss.orders.assigns');
 
         Route::get('/boss/data-entry/users', [BossOrderController::class, 'bossDataEntryUsers'])->name('boss.dataEntry.users');
+        Route::get('/boss/progress', [BossController::class, 'progress'])->name('boss.progress');
+
     });
  
 });
