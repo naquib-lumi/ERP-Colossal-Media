@@ -1061,7 +1061,7 @@ class BossFulfillmentController extends Controller
                     : url("/admin");
 
                 User::where('role', 'admin')->get()->each(function ($u) use ($adminMsg, $adminUrl, $baseKey) {
-                    Helpers::notifyOnce($u, $adminMsg, $adminUrl, ['database'], $baseKey.':admin');
+                    Helpers::notifyOnce($u, $adminMsg, $adminUrl, ['database', 'mail'], $baseKey.':admin');
                 });
             }
 
@@ -1073,7 +1073,7 @@ class BossFulfillmentController extends Controller
                 User::whereRaw('LOWER(role) = ?', ['operations-dispatch-control'])
                     ->get()
                     ->each(function ($u) use ($dispatchMsg, $dispatchUrl, $baseKey) {
-                        Helpers::notifyOnce($u, $dispatchMsg, $dispatchUrl, ['database'], $baseKey.':dispatch');
+                        Helpers::notifyOnce($u, $dispatchMsg, $dispatchUrl, ['database', 'mail'], $baseKey.':dispatch');
                     });
             }
 
@@ -1085,7 +1085,7 @@ class BossFulfillmentController extends Controller
                 User::whereRaw('LOWER(role) = ?', ['operations-delivery-installation'])
                     ->get()
                     ->each(function ($u) use ($installMsg, $installUrl, $baseKey) {
-                        Helpers::notifyOnce($u, $installMsg, $installUrl, ['database'], $baseKey.':install');
+                        Helpers::notifyOnce($u, $installMsg, $installUrl, ['database', 'mail'], $baseKey.':install');
                     });
             }
 

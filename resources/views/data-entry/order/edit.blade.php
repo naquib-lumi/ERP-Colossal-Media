@@ -3261,7 +3261,7 @@
               window.location.reload();
             } else {
               // ✅ Redirect to artist.orders when submitted
-              window.location.href = '/artist/orders';
+              window.location.href = '/data-entry/orders';
             }
           }
           return true;

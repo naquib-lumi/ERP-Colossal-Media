@@ -476,7 +476,7 @@ class ArtistOrderController extends Controller
             $recipients = collect();
 
             // 1) Always include these roles
-            $baseRoles = ['admin', 'boss', 'head-artist', 'head-salesperson']; // head-salesperson is optional in your DB
+            $baseRoles = ['admin', 'boss', 'head-artist']; // head-salesperson is optional in your DB
             $recipients = $recipients->merge(
                 User::whereIn('role', $baseRoles)->get()
             );

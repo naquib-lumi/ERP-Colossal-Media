@@ -630,7 +630,7 @@ class PrintingProductOrderController extends Controller
 
         if (!empty($targetIds)) {
             User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
-                Helpers::notify($u, $message, $urlFor($u), ['database']);
+                Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
             });
         }
 
@@ -638,13 +638,13 @@ class PrintingProductOrderController extends Controller
         // Head roles (if they exist in your enum)
         User::whereIn('role', ['head-salesperson','head-artist'])->get()
             ->each(function (User $u) use ($message, $urlFor) {
-                Helpers::notify($u, $message, $urlFor($u), ['database']);
+                Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
             });
 
         // Admin + Boss (broadcast)
         User::whereIn('role', ['admin','boss'])->get()
             ->each(function (User $u) use ($message, $urlFor) {
-                Helpers::notify($u, $message, $urlFor($u), ['database']);
+                Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
             });
 
         return back()->with('ok', 'Product accepted for printing.');
@@ -764,12 +764,12 @@ class PrintingProductOrderController extends Controller
     $targetIds = array_filter([$o->salesperson_id ?? null, $o->artist_id ?? null]);
     if ($targetIds) {
         \App\Models\User::whereIn('id', $targetIds)->get()
-            ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database']));
+            ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']));
     }
     \App\Models\User::whereIn('role', ['head-salesperson','head-artist'])->get()
-        ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database']));
+        ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']));
     \App\Models\User::whereIn('role', ['admin','boss'])->get()
-        ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database']));
+        ->each(fn($u) => \App\Helpers\Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']));
 
     return back()->with('ok', 'Product rejected; editable flags updated correctly.');
 }
@@ -1005,19 +1005,19 @@ class PrintingProductOrderController extends Controller
 
             if (!empty($targetIds)) {
                 User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
-                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                    Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
                 });
             }
 
             // Optional broadcasts
             User::whereIn('role', ['head-salesperson','head-artist'])->get()
                 ->each(function (User $u) use ($message, $urlFor) {
-                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                    Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
                 });
 
             User::whereIn('role', ['admin','boss'])->get()
                 ->each(function (User $u) use ($message, $urlFor) {
-                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                    Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
                 });
         }
 
