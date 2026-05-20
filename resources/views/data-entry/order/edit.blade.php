@@ -614,37 +614,61 @@
                   {{-- Product block --}}
                   <fieldset {{ $locked ? 'disabled' : '' }}>
                     <div class="card mb-6">
-                      {{-- Permit toggle data --}}
-                      @php $permitVal = old("products.$pIndex.permit", isset($product->permit) ? (string)$product->permit : null); @endphp
-                      <input type="hidden" name="products[{{ $pIndex }}][permit]"
-                             value="{{ $permitVal !== null ? $permitVal : '' }}">
+                      {{-- Permit radio data --}}
+                      @php
+                        $permitVal = old("products.$pIndex.permit", isset($product->permit) ? (string) $product->permit : null);
+                      @endphp
 
                       <div class="card-header d-flex align-items-center justify-content-between">
                         <h5 class="mb-0">
                           <i class="bx bx-package me-2"></i>Product
                         </h5>
-                        {{-- Permit toggle in header --}}
-                        <div class="d-flex align-items-center gap-2">
-                          <span class="text-body-secondary" style="font-size:.85rem;">Permit</span>
-                          <div class="form-check form-switch mb-0">
-                            <input class="form-check-input permit-toggle"
-                                   type="checkbox"
-                                   role="switch"
-                                   id="permit_{{ $product->ProductID }}"
-                                   data-pindex="{{ $pIndex }}"
-                                   data-product-id="{{ $product->ProductID }}"
-                                   data-permit-required="1"
-                                   data-permit-label="Permit"
-                                   {{ $permitVal === '1' ? 'checked' : '' }}
-                                   {{ $disabled }}
-                                   style="cursor:{{ $isSubmitted ? 'default' : 'pointer' }};width:2.5em;height:1.25em;">
-                          </div>
-                          <span id="permit-label-{{ $product->ProductID }}"
-                                class="fw-semibold"
-                                style="font-size:.85rem;min-width:1.8rem;
-                                  color:{{ $permitVal === '1' ? '#28a745' : ($permitVal === '0' ? '#dc3545' : '#6c757d') }}">
-                            {{ $permitVal === '1' ? 'Yes' : ($permitVal === '0' ? 'No' : '—') }}
+
+                        {{-- Permit radio in header --}}
+                        <div class="d-flex align-items-center gap-3">
+                          <span class="text-body-secondary" style="font-size:.85rem;">
+                            Permit <span class="text-danger">*</span>
                           </span>
+
+                          <div class="d-flex align-items-center gap-3">
+                            <div class="form-check mb-0">
+                              <input
+                                class="form-check-input permit-radio"
+                                type="radio"
+                                name="products[{{ $pIndex }}][permit]"
+                                id="permit_yes_{{ $product->ProductID }}"
+                                value="1"
+                                data-pindex="{{ $pIndex }}"
+                                data-product-id="{{ $product->ProductID }}"
+                                data-permit-required="1"
+                                data-permit-label="Permit"
+                                {{ $permitVal === '1' ? 'checked' : '' }}
+                                {{ $disabled }}>
+
+                              <label class="form-check-label" for="permit_yes_{{ $product->ProductID }}">
+                                Yes
+                              </label>
+                            </div>
+
+                            <div class="form-check mb-0">
+                              <input
+                                class="form-check-input permit-radio"
+                                type="radio"
+                                name="products[{{ $pIndex }}][permit]"
+                                id="permit_no_{{ $product->ProductID }}"
+                                value="0"
+                                data-pindex="{{ $pIndex }}"
+                                data-product-id="{{ $product->ProductID }}"
+                                data-permit-required="1"
+                                data-permit-label="Permit"
+                                {{ $permitVal === '0' ? 'checked' : '' }}
+                                {{ $disabled }}>
+
+                              <label class="form-check-label" for="permit_no_{{ $product->ProductID }}">
+                                No
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -3272,29 +3296,41 @@
     ]);
 
     function isOptional(el) {
+      if (!el) return true;
+
+      // Skip non-editable / system fields
+      if (el.disabled) return true;
+      if (el.readOnly) return true;
+      if (el.type === 'hidden') return true;
+      if (el.type === 'file') return true;
+
+      // Permit radio is handled separately, not by general required logic
+      if (el.classList.contains('permit-radio')) return true;
+      if (el.hasAttribute('data-permit-required')) return true;
+
       if (el.hasAttribute('data-optional')) return true;
 
       const name = (el.getAttribute('name') || '').toLowerCase();
 
-      // Whitelist by plain name
-      for (const k of OPTIONAL_NAME_WHITELIST) {
-        if (name.endsWith(`[${k}]`) || name === k) return true;
-      }
+      // Product hidden/system fields
+      if (name.includes('[product_id]')) return true;
+      if (name.includes('[id]')) return true;
 
-      // Items: lamination / printer / cutter are optional
-      // if (name.includes('[items]') && (
-      //   name.includes('[lamination]') ||
-      //   name.includes('[printer]') ||
-      //   name.includes('[cutter]')
-      // )) return true;
+      // Job order read-only/system fields
+      if (
+        name === 'company_name' ||
+        name === 'order_title' ||
+        name === 'created_date' ||
+        name === 'deadline' ||
+        name === 'created_by' ||
+        name === 'is_draft' ||
+        name === 'products_items_json'
+      ) return true;
 
-      // Remarks: free text is optional
-      if (name.includes('[remarks]') && (
-        name.includes('[remark]') ||
-        name.includes('[operation]')
-      )) return true;
+      // Remarks optional
+      if (name.includes('[remarks]')) return true;
 
-      // Deliveries: install type / outsource cost / location / datetime are optional
+      // Delivery optional fields
       if (name.includes('[deliveries]') && (
         name.includes('[deliver_install_type]') ||
         name.includes('[outsource_cost]') ||
@@ -3320,15 +3356,17 @@
       const baseOK = requiredElements().every(el => el.checkValidity());
       if (!baseOK) return false;
 
-      // Every permit toggle must have a committed value (not empty string)
-      const permitOK = Array.from(
-        document.querySelectorAll('.permit-toggle[data-permit-required]')
-      ).every(toggle => {
-        const pIndex = toggle.dataset.pindex;
-        const hidden = document.querySelector(
-          `input[type="hidden"][name="products[${pIndex}][permit]"]`
-        );
-        return hidden && hidden.value !== '';
+      const permitGroups = new Map();
+
+      document.querySelectorAll('.permit-radio[data-permit-required]').forEach(radio => {
+        if (!permitGroups.has(radio.name)) {
+          permitGroups.set(radio.name, radio);
+        }
+      });
+
+      const permitOK = Array.from(permitGroups.keys()).every(name => {
+        const group = document.querySelectorAll(`input[name="${CSS.escape(name)}"]`);
+        return Array.from(group).some(radio => radio.checked);
       });
 
       return permitOK;
@@ -3468,14 +3506,15 @@
       });
       if (!baseOK) return false;
 
-      // Permit toggles must have a committed value ('0' or '1', never '')
-      return Array.from(
-        document.querySelectorAll('.permit-toggle[data-permit-required]')
-      ).every(toggle => {
-        const hidden = document.querySelector(
-          `input[type="hidden"][name="products[${toggle.dataset.pindex}][permit]"]`
-        );
-        return hidden && hidden.value !== '';
+      // Permit radio must be selected for each product
+      const permitGroups = new Set(
+        Array.from(document.querySelectorAll('.permit-radio'))
+          .map(radio => radio.name)
+      );
+
+      return Array.from(permitGroups).every(name => {
+        const group = document.querySelectorAll(`input[name="${CSS.escape(name)}"]`);
+        return Array.from(group).some(radio => radio.checked);
       });
     }
 
@@ -3553,19 +3592,26 @@
         });
       });
 
-      // ── Permit toggle required check ──────────────────────────────────────
-      // A permit toggle is "missing" when its hidden sibling value is still ''
-      document.querySelectorAll('.permit-toggle[data-permit-required]').forEach(toggle => {
-        const pIndex = toggle.dataset.pindex;
-        const hidden = document.querySelector(
-          `input[type="hidden"][name="products[${pIndex}][permit]"]`
-        );
-        // value '' means neither Yes nor No has been committed
-        if (hidden && hidden.value === '') {
+      // ── Permit radio required check ──────────────────────────────────────
+      const permitGroups = new Map();
+
+      document.querySelectorAll('.permit-radio[data-permit-required]').forEach(radio => {
+        if (!permitGroups.has(radio.name)) {
+          permitGroups.set(radio.name, radio);
+        }
+      });
+
+      permitGroups.forEach((radio, name) => {
+        const group = document.querySelectorAll(`input[name="${CSS.escape(name)}"]`);
+        const checked = Array.from(group).some(r => r.checked);
+
+        if (!checked) {
+          const pIndex = radio.dataset.pindex;
           const info = parseNamePath(`products[${pIndex}][permit]`);
+
           missing.push({
-            el: toggle,
-            label: toggle.dataset.permitLabel || 'Permit',
+            el: radio,
+            label: radio.dataset.permitLabel || 'Permit',
             info
           });
         }
@@ -4458,28 +4504,16 @@
   });
 })();
 
-// ── Permit toggle ──────────────────────────────────────────────────────────
+// ── Permit radio ──────────────────────────────────────────────────────────
 document.addEventListener('change', function (e) {
-  const toggle = e.target.closest('.permit-toggle');
-  if (!toggle) return;
+  const radio = e.target.closest('.permit-radio');
+  if (!radio) return;
 
-  const pIndex    = toggle.dataset.pindex;
-  const productId = toggle.dataset.productId;
-  const isChecked = toggle.checked;
+  const group = document.querySelectorAll(
+    `input[name="${CSS.escape(radio.name)}"]`
+  );
 
-  // Commit value: '1' = Yes, '0' = No (never leave as '' once touched)
-  const hidden = document.querySelector(`input[type="hidden"][name="products[${pIndex}][permit]"]`);
-  if (hidden) hidden.value = isChecked ? '1' : '0';
-
-  // Update the label text + colour
-  const label = document.getElementById(`permit-label-${productId}`);
-  if (label) {
-    label.textContent = isChecked ? 'Yes' : 'No';
-    label.style.color = isChecked ? '#28a745' : '#dc3545';
-  }
-
-  // Remove missing highlight if it was flagged
-  toggle.classList.remove('is-invalid');
+  group.forEach(el => el.classList.remove('is-invalid'));
 });
 
 function restrict2dp(e) {
