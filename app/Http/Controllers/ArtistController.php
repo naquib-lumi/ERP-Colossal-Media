@@ -410,6 +410,58 @@ class ArtistController extends Controller
         $order->artist_id = $data['artist_id'];
         $order->save();
 
+        /**
+         * =======================
+         *  NOTIFICATION
+         * =======================
+         */
+        $actor = auth()->user();
+
+        $actorName = $actor->name ?? 'System';
+        $actorRole = str_replace('-', ' ', strtolower($actor->role ?? 'user'));
+
+        $deadlineTxt = $order->deadline
+            ? \Carbon\Carbon::parse($order->deadline)
+                ->timezone('Asia/Kuala_Lumpur')
+                ->format('Y-m-d')
+            : '-';
+
+        $productCount = \DB::table('products')
+            ->where('OrderID', $order->id)
+            ->count();
+
+        $orderNo = $order->order_number ?? $order->id;
+
+        $message = "You have been assigned a new order {$orderNo} by {$actorName} ({$actorRole}). "
+            . "{$productCount} Product(s). Deadline: {$deadlineTxt}.";
+
+        $url = match (strtolower((string) $assignee->role)) {
+            'artist'      => url("/artist/orders/{$order->id}/edit"),
+            'head-artist' => url("/artist/orders/{$order->id}"),
+            default       => url("/"),
+        };
+
+        \App\Helpers\Helpers::notify(
+            $assignee,
+            $message,
+            $url,
+            ['database', 'mail'],
+            [
+                'subject' => 'New Order Assignment',
+                'title' => 'New Order Assignment',
+                'intro' => 'A job order has been assigned to you.',
+                'cta' => 'View Order',
+                'heroEmoji' => '📌',
+                'details' => [
+                    ['label' => 'Order No', 'value' => $orderNo],
+                    ['label' => 'Assigned By', 'value' => $actorName . ' (' . $actorRole . ')'],
+                    ['label' => 'Assigned To', 'value' => $assignee->name . ' (' . $assignee->role . ')'],
+                    ['label' => 'Product Count', 'value' => $productCount],
+                    ['label' => 'Deadline', 'value' => $deadlineTxt],
+                ],
+            ]
+        );
+
         return redirect()
             ->route('artist.dashboard')
             ->with('ok', "Order assigned to {$assignee->name} ({$assignee->role}) successfully.");
@@ -913,7 +965,7 @@ class ArtistController extends Controller
         // Send
         foreach ($recipients as $u) {
             $msg = ($dataEntryUser && $u->id === $dataEntryUser->id) ? $messageForDE : $messageCommon;
-            Helpers::notify($u, $msg, $urlFor($u), ['database']);
+            Helpers::notify($u, $msg, $urlFor($u), ['database', 'mail']);
         }
 
         return response()->json(['ok' => true]);
@@ -1560,7 +1612,7 @@ class ArtistController extends Controller
                 $businessRecipients = collect();
 
                 // Always include these roles
-                $baseRoles = ['admin','boss','head-artist','head-salesperson'];
+                $baseRoles = ['admin','boss','head-artist'];
                 $businessRecipients = $businessRecipients->merge(
                     \App\Models\User::whereIn('role', $baseRoles)->get()
                 );
@@ -1589,7 +1641,7 @@ class ArtistController extends Controller
                         $u,
                         $orderMsg,
                         $orderUrlFor($u),
-                        ['database'],
+                        ['database', 'mail'],
                         $bizKey // <— same for all business recipients; uniqueness is per-user
                     );
                 }
@@ -1640,7 +1692,7 @@ class ArtistController extends Controller
                                 default                            => url("/"),
                             };
 
-                            \App\Helpers\Helpers::notifyOnce($u, $msg, $url, ['database'], $opsKey);
+                            \App\Helpers\Helpers::notifyOnce($u, $msg, $url, ['database', 'mail'], $opsKey);
                         });
                 }
             }

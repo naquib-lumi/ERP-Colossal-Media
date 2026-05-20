@@ -631,7 +631,7 @@ class PrintingController extends Controller
 
             if (!empty($targetIds)) {
                 User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
-                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                    Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
                 });
             }
 
@@ -646,19 +646,19 @@ class PrintingController extends Controller
                 User::where('role', $opsRole)->get()->each(function (User $u) use ($message, $urlFor) {
                     // add a short directive for ops users
                     $opsMsg = $message . ' Please take over.';
-                    Helpers::notify($u, $opsMsg, $urlFor($u), ['database']);
+                    Helpers::notify($u, $opsMsg, $urlFor($u), ['database', 'mail']);
                 });
             }
 
             // Optional: heads/admin/boss (remove if you only want the above)
             User::whereIn('role', ['head-salesperson','head-artist'])->get()
                 ->each(function (User $u) use ($message, $urlFor) {
-                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                    Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
                 });
 
             User::whereIn('role', ['admin','boss'])->get()
                 ->each(function (User $u) use ($message, $urlFor) {
-                    Helpers::notify($u, $message, $urlFor($u), ['database']);
+                    Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
                 });
 
             return response()->json(['ok' => true]);

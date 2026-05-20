@@ -733,7 +733,7 @@ class BossOrderController extends Controller
         // Send
         foreach ($recipients as $u) {
             $msg = ($dataEntryUser && $u->id === $dataEntryUser->id) ? $messageForDE : $messageCommon;
-            Helpers::notify($u, $msg, $urlFor($u), ['database']);
+            Helpers::notify($u, $msg, $urlFor($u), ['database', 'mail']);
         }
 
         return response()->json(['ok' => true]);
@@ -1366,7 +1366,7 @@ class BossOrderController extends Controller
                         $u,
                         $orderMsg,
                         $orderUrlFor($u),
-                        ['database'],
+                        ['database', 'mail'],
                         $bizKey // <— same for all business recipients; uniqueness is per-user
                     );
                 }
@@ -1417,7 +1417,7 @@ class BossOrderController extends Controller
                                 default                            => url("/"),
                             };
 
-                            \App\Helpers\Helpers::notifyOnce($u, $msg, $url, ['database'], $opsKey);
+                            \App\Helpers\Helpers::notifyOnce($u, $msg, $url, ['database', 'mail'], $opsKey);
                         });
                 }
             }
@@ -2742,7 +2742,7 @@ class BossOrderController extends Controller
 
         // Send to business recipients (deduped by id)
         $businessRecipients->unique('id')->each(function (User $u) use ($businessMsg, $orderUrlFor) {
-            Helpers::notify($u, $businessMsg, $orderUrlFor($u), ['database']);
+            Helpers::notify($u, $businessMsg, $orderUrlFor($u), ['database', 'mail']);
         });
 
         // ------- Assigned operations users (per affected product) -------
@@ -2802,7 +2802,7 @@ class BossOrderController extends Controller
                 . (count($pids) > 1 ? "s (IDs: {$prodList}) have" : " (ID: {$prodList}) has")
                 . " been sent for redo. Deadline: {$deadline}.";
 
-            Helpers::notify($opsUser, $msgOps, $mapOpsUrl($opsUser, $firstPid), ['database']);
+            Helpers::notify($opsUser, $msgOps, $mapOpsUrl($opsUser, $firstPid), ['database', 'mail']);
         }
 
         return redirect()->route('boss.orders')->with('success', 'Redo updated.');

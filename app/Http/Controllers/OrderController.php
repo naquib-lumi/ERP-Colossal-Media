@@ -603,7 +603,7 @@ class OrderController extends Controller
 
                 }
 
-                // ✅ Notify head-artist ONLY for final save
+                // ✅ Notify head-artist, boss, and admin ONLY for final save
                 if (!$isDraft) {
                     $productCount = count($productsData);
                     $actorName = $user->name;
@@ -613,11 +613,25 @@ class OrderController extends Controller
                     $message = "New order '{$order->orderTitle}' (No: {$order->id}) created by {$actorName} ({$actorRole}). "
                         . "Needs assignment to artist. {$productCount} Product(s). Deadline: {$deadline}.";
 
-                    $headArtists = User::where('role', 'head-artist')->get();
                     $url = route('artist.orders.assign.show', $order->id);
 
-                    foreach ($headArtists as $headArtist) {
-                        Helpers::notify($headArtist, $message, $url);
+                    // Include head-artist, boss, admin
+                    $notifyUsers = User::whereIn('role', ['head-artist', 'boss', 'admin'])
+                        ->get()
+                        ->unique('id')
+                        ->values();
+
+                    // Stable key to prevent duplicate notification for same order/user
+                    $notifyKey = "new-order-assignment:order={$order->id}";
+
+                    foreach ($notifyUsers as $notifyUser) {
+                        Helpers::notifyOnce(
+                            $notifyUser,
+                            $message,
+                            $url,
+                            ['database', 'mail'],
+                            $notifyKey
+                        );
                     }
                 }
             });

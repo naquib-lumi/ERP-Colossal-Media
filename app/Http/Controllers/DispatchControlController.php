@@ -576,19 +576,19 @@ class DispatchControlController extends Controller
 
         if (!empty($targetIds)) {
             User::whereIn('id', $targetIds)->get()->each(function (User $u) use ($message, $urlFor) {
-                Helpers::notify($u, $message, $urlFor($u), ['database']);
+                Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
             });
         }
 
         // Optional: heads/admin/boss (remove if you only want the above)
         User::whereIn('role', ['head-salesperson','head-artist'])->get()
             ->each(function (User $u) use ($message, $urlFor) {
-                Helpers::notify($u, $message, $urlFor($u), ['database']);
+                Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
             });
 
         User::whereIn('role', ['admin','boss'])->get()
             ->each(function (User $u) use ($message, $urlFor) {
-            Helpers::notify($u, $message, $urlFor($u), ['database']);
+            Helpers::notify($u, $message, $urlFor($u), ['database', 'mail']);
             });
 
         return back()->with('ok', 'Dispatch Control marked completed with photo proof.');
