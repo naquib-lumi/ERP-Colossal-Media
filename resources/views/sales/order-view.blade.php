@@ -273,6 +273,31 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                     </div>
                 </div>
 
+                @php
+                    // Permit is stored in products table.
+                    // Since all products follow the same permit value, use the first product.
+                    $permitVal = optional($order->products->first())->permit;
+
+                    $permitText = match ((string) $permitVal) {
+                        '1' => 'Yes',
+                        '0' => 'No',
+                        default => '-',
+                    };
+
+                    $permitClass = match ((string) $permitVal) {
+                        '1' => 'text-success',
+                        '0' => 'text-secondary',
+                        default => 'text-muted',
+                    };
+                @endphp
+
+                <div class="col-md-6 col-lg-3">
+                    <small class="text-muted d-block mb-1">Permit</small>
+                    <div class="fw-medium {{ $permitClass }}">
+                        {{ $permitText }}
+                    </div>
+                </div>
+
              @if(!empty($order->orderDetail))
             <div class="col-md-6 col-lg-3">
                 <small class="text-muted d-block mb-1">Sales Remark</small>

@@ -313,6 +313,40 @@
                                             </div>
                                             <div id="approval-error" class="validation-msg"></div>
                                         </div>
+
+                                        @php
+                                            $permitVal = old('permit', optional($order->products->first())->permit);
+                                        @endphp
+
+                                        <div class="col-12">
+                                            <label class="form-label d-block mb-4">
+                                                Permit Required? <span class="text-danger">*</span>
+                                            </label>
+
+                                            <div class="d-flex gap-4">
+                                                <label class="form-check-label">
+                                                    <input
+                                                        class="form-check-input me-1"
+                                                        type="radio"
+                                                        name="permit"
+                                                        value="1"
+                                                        {{ (string) $permitVal === '1' ? 'checked' : '' }}>
+                                                    YES
+                                                </label>
+
+                                                <label class="form-check-label">
+                                                    <input
+                                                        class="form-check-input me-1"
+                                                        type="radio"
+                                                        name="permit"
+                                                        value="0"
+                                                        {{ (string) $permitVal === '0' ? 'checked' : '' }}>
+                                                    NO
+                                                </label>
+                                            </div>
+
+                                            <div id="permit-error" class="validation-msg"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -642,6 +676,22 @@
 @push('scripts')
 @if($order->orderStatus === 'in_progress' && is_null($order->artist_id) && $order->draft == 1)
 
+@if ($errors->any())
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    Swal.fire({
+        title: 'Validation Error',
+        html: `<ul class="text-start mb-0">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>`,
+        icon: 'error'
+    });
+});
+</script>
+@endif
+
 <script>
 $(document).ready(function() {
     var leadSelect = $('#leadSelect');
@@ -849,6 +899,11 @@ $(document).ready(function() {
                 return;
             }
             addRemarkRow();
+        });
+        
+        $(document).on('change', 'input[name="permit"]', function () {
+            $('input[name="permit"]').removeClass('is-invalid');
+            $('#permit-error').text('');
         });
 
         function addRemarkRow(op = '', rem = '') {
@@ -1341,163 +1396,194 @@ $(document).ready(function() {
         // ——————————————————— Form Submit Validation ———————————————————
         $('#order-form').on('submit', function (e) {
             clearValidationErrors();
+
             const errors = [];
 
+            // Detect clicked button: Save Draft / Update Order
+            const submitter = e.originalEvent && e.originalEvent.submitter
+                ? e.originalEvent.submitter
+                : document.activeElement;
 
-            // ✅ detect which submit button clicked (draft / final)
-            const submitter = e.originalEvent?.submitter || document.activeElement;
-            const saveType = (submitter && submitter.name === 'save_type')
-            ? submitter.value
-            : 'final';
+            const saveType = submitter && submitter.name === 'save_type'
+                ? submitter.value
+                : 'final';
 
+            const isDraftClick = saveType === 'draft';
 
-            const isDraftClick = (saveType === 'draft');
+            const canSkipValidation = @json(
+                $order->orderStatus === 'in_progress'
+                && is_null($order->artist_id)
+                && (int) $order->draft === 1
+            );
 
-
-            // ✅ only allow skipping validation if this order is the "draft-state" you defined
-            const canSkipValidation = @json($order->orderStatus === 'in_progress' && is_null($order->artist_id) && (int)$order->draft === 1);
-
-
+            // Save Draft: skip validation
             if (isDraftClick && canSkipValidation) {
-            isDirty = false; // allow submit
-            return true; // ✅ skip everything
+                isDirty = false;
+                return true;
             }
 
+            // ==========================
+            // Update Order validation
+            // ==========================
 
-            // ==========================
-            // ✅ Normal validation (Update Order)
-            // ==========================
-            const leadId = $('#lead_id').val();
+            const leadId = ($('#lead_id').val() || '').trim();
             if (!leadId) {
-            $('#lead-error').text('Lead selection is required').show();
-            errors.push('Lead selection is required');
+                $('#lead-error').text('Lead selection is required').show();
+                errors.push('Lead selection is required');
             }
 
-
-            if (!$('input[name="orderTitle"]').val().trim()) {
-            errors.push('Job title is required');
-            $('input[name="orderTitle"]').addClass('is-invalid');
+            const orderTitle = ($('input[name="orderTitle"]').val() || '').trim();
+            if (!orderTitle) {
+                $('input[name="orderTitle"]').addClass('is-invalid');
+                errors.push('Job title is required');
             }
 
-
-            if (!$('input[name="deadline"]').val()) {
-            errors.push('Deadline is required');
-            $('input[name="deadline"]').addClass('is-invalid');
+            const deadline = ($('input[name="deadline"]').val() || '').trim();
+            if (!deadline) {
+                $('input[name="deadline"]').addClass('is-invalid');
+                errors.push('Deadline is required');
             }
-
 
             if (!$('input[name="approval"]:checked').length) {
-            errors.push('Approval selection is required');
-            $('input[name="approval"]').addClass('is-invalid');
+                $('input[name="approval"]').addClass('is-invalid');
+                $('#approval-error').text('Approval selection is required');
+                errors.push('Approval selection is required');
             }
 
+            if (!$('input[name="permit"]:checked').length) {
+                $('input[name="permit"]').addClass('is-invalid');
+                $('#permit-error').text('Permit selection is required');
+                errors.push('Permit selection is required');
+            }
 
             const products = $('#product-table tbody tr');
+
             if (products.length === 0) {
-            $('#products-error').text('At least one product is required').show();
-            errors.push('At least one product is required');
+                $('#products-error').text('At least one product is required').show();
+                errors.push('At least one product is required');
             } else {
-            products.each(function (idx) {
-            const productErrors = [];
-            const productName = $(this).find('input[name$="[product_name]"]').val().trim();
-            const quantityInput = $(this).find('input[name$="[quantity]"]');
-            const quantityStr = quantityInput.val().trim();
-            const quantity = parseInt(quantityStr, 10);
+                products.each(function (idx) {
+                    const productErrors = [];
+                    const row = $(this);
 
+                    const productNameInput = row.find('input[name$="[product_name]"]');
+                    const quantityInput = row.find('input[name$="[quantity]"]');
+                    const materialInput = row.find('input[name$="[material_remark]"]');
 
-            if (!productName) {
-            $(this).find('input[name$="[product_name]"]').addClass('is-invalid');
-            productErrors.push('Product name is required');
-            }
+                    const productName = (productNameInput.val() || '').trim();
+                    const quantityStr = (quantityInput.val() || '').trim();
+                    const quantity = parseInt(quantityStr, 10);
+                    const materialRemark = (materialInput.val() || '').trim();
 
-
-            if (!quantityStr || isNaN(quantity) || quantity < 1) {
-            quantityInput.addClass('is-invalid');
-            productErrors.push('Quantity must be at least 1');
-            }
-
-            const materialInput = $(this).find('input[name$="[material_remark]"]');
-            const materialRemark = (materialInput.val() || '').trim();
-
-            if (!materialRemark) {
-                materialInput.addClass('is-invalid');
-                productErrors.push('Material remark is required');
-            }
-
-            // ✅ Delivery breakdown validation
-            const deliveries = $(this).find('.delivery-row');
-
-            if (deliveries.length === 0) {
-                productErrors.push('Delivery breakdown is required');
-            } else {
-                deliveries.each(function(i){
-
-                    const method = $(this).find('select').val();
-                    const location = $(this).find('input[name$="[location]"]').val().trim();
-                    const datetime = $(this).find('input[name$="[datetime]"]').val();
-
-                    if (!method || !location || !datetime) {
-                        productErrors.push(`Delivery ${i+1} requires Method, Location and Date & Time`);
+                    if (!productName) {
+                        productNameInput.addClass('is-invalid');
+                        productErrors.push('Product name is required');
                     }
 
+                    if (!quantityStr || isNaN(quantity) || quantity < 1) {
+                        quantityInput.addClass('is-invalid');
+                        productErrors.push('Quantity must be at least 1');
+                    }
+
+                    if (!materialRemark) {
+                        materialInput.addClass('is-invalid');
+                        productErrors.push('Material remark is required');
+                    }
+
+                    // Delivery validation
+                    const deliveries = row.find('.delivery-row');
+
+                    if (deliveries.length === 0) {
+                        productErrors.push('Delivery breakdown is required');
+                    } else {
+                        deliveries.each(function (i) {
+                            const deliveryRow = $(this);
+
+                            const method = (
+                                deliveryRow.find('select[name$="[method]"]').val()
+                                || deliveryRow.find('select').val()
+                                || ''
+                            ).trim();
+
+                            const location = (
+                                deliveryRow.find('input[name$="[location]"]').val()
+                                || deliveryRow.find('input[type="text"]').val()
+                                || ''
+                            ).trim();
+
+                            const datetime = (
+                                deliveryRow.find('input[name$="[datetime]"]').val()
+                                || deliveryRow.find('input[type="datetime-local"]').val()
+                                || ''
+                            ).trim();
+
+                            if (!method || !location || !datetime) {
+                                productErrors.push(`Delivery ${i + 1} requires Method, Location and Date & Time`);
+                            }
+                        });
+                    }
+
+                    // Remarks validation
+                    const remarks = row.find('.remark-row, .remark-card');
+                    const operations = [];
+
+                    remarks.each(function () {
+                        const remarkRow = $(this);
+                        const select = remarkRow.find('select').first();
+                        const input = remarkRow.find('input[type="text"]').first();
+
+                        const operation = (select.val() || '').trim();
+                        const remark = (input.val() || '').trim();
+                        const opText = select.find('option:selected').text() || operation;
+
+                        if (operation && !remark) {
+                            input.addClass('is-invalid');
+                            productErrors.push(`Remark text required for "${opText}"`);
+                        }
+
+                        if (operation) {
+                            if (operations.includes(operation)) {
+                                select.addClass('is-invalid');
+                                productErrors.push(`Duplicate operation: "${opText}"`);
+                            }
+
+                            operations.push(operation);
+                        }
+                    });
+
+                    if (productErrors.length > 0) {
+                        errors.push(`Product ${idx + 1}: ${productErrors.join(', ')}`);
+                    }
                 });
             }
-
-            const remarks = $(this).find('.remark-row');
-            const operations = [];
-            remarks.each(function () {
-            const select = $(this).find('select');
-            const input = $(this).find('input');
-            const operation = select.val();
-            const remark = input.val().trim();
-            const opText = select.find('option:selected').text();
-
-
-            if (operation && !remark) {
-            input.addClass('is-invalid');
-            productErrors.push(`Remark text required for "${opText}"`);
-            }
-
-
-            if (operation) {
-            if (operations.includes(operation)) {
-            select.addClass('is-invalid');
-            productErrors.push(`Duplicate operation: "${opText}"`);
-            }
-            operations.push(operation);
-            }
-            });
-
-
-            if (productErrors.length > 0) {
-            errors.push(`Product ${idx + 1}: ${productErrors.join(', ')}`);
-            }
-            });
-            }
-
 
             // Attachment validation
             const hasExisting = $('.existing-attachment').length > 0;
 
-
             if (!hasExisting && selectedFiles.length === 0) {
-            errors.push('At least one attachment is required');
-            attZone.classList.add('border-danger');
-            setTimeout(() => attZone.classList.remove('border-danger'), 3000);
-            }
+                errors.push('At least one attachment is required');
 
+                if (typeof attZone !== 'undefined' && attZone) {
+                    attZone.classList.add('border-danger');
+                    setTimeout(() => attZone.classList.remove('border-danger'), 3000);
+                }
+            }
 
             if (errors.length) {
-            e.preventDefault();
-            Swal.fire({
-            title: 'Please fix the following errors',
-            html: '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>',
-            icon: 'error'
-            });
-            } else {
-            isDirty = false;
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Please fix the following errors',
+                    html: '<ul class="text-start mb-0">' + errors.map(msg => `<li>${msg}</li>`).join('') + '</ul>',
+                    icon: 'error'
+                });
+
+                return false;
             }
-            });
+
+            isDirty = false;
+            return true;
+        });
 
         function clearValidationErrors() {
             $('.is-invalid').removeClass('is-invalid');

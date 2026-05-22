@@ -313,6 +313,40 @@
                                                 <span class="text-danger">{{ $message }}</span>
                                             @enderror
                                         </div>
+
+                                        <div class="col-12">
+                                          <label class="form-label d-block mb-4">
+                                              Permit Required? <span class="text-danger">*</span>
+                                          </label>
+
+                                          <div class="d-flex gap-4">
+                                              <label class="form-check-label">
+                                                  <input
+                                                      class="form-check-input me-1"
+                                                      type="radio"
+                                                      name="permit"
+                                                      value="1"
+                                                      {{ old('permit') === '1' ? 'checked' : '' }}>
+                                                  YES
+                                              </label>
+
+                                              <label class="form-check-label">
+                                                  <input
+                                                      class="form-check-input me-1"
+                                                      type="radio"
+                                                      name="permit"
+                                                      value="0"
+                                                      {{ old('permit') === '0' ? 'checked' : '' }}>
+                                                  NO
+                                              </label>
+                                          </div>
+
+                                          <div id="permit-error" class="text-danger small mt-1"></div>
+
+                                          @error('permit')
+                                              <span class="text-danger">{{ $message }}</span>
+                                          @enderror
+                                      </div>
                                     </div>
                                 </div>
                             </div>
@@ -662,6 +696,11 @@
 <script>
 window.currentUserRole = '{{ auth()->user()->hasRole("head-artist") ? "head-artist" : "artist" }}';
 $(function () {
+    $(document).on('change', 'input[name="permit"]', function () {
+        $('input[name="permit"]').removeClass('is-invalid');
+        $('#permit-error').text('');
+    });
+
     /***********************
      * LEAD SELECT (Select2)
      ***********************/
@@ -1458,7 +1497,20 @@ document.addEventListener('DOMContentLoaded', function () {
     firstBad = firstBad || leadSelectEl;
     }
 
-    
+    // ===== Permit Required =====
+    const permitChecked = form.querySelector('input[name="permit"]:checked');
+
+    if (!permitChecked) {
+        err('Permit selection is required.');
+
+        const permitError = document.getElementById('permit-error');
+        if (permitError) {
+            permitError.textContent = 'Permit selection is required.';
+        }
+
+        const firstPermit = form.querySelector('input[name="permit"]');
+        firstBad = firstBad || firstPermit;
+    }
 
     // ======= Top-level fields =======
     const titleEl = form.querySelector('[name="orderTitle"]');
