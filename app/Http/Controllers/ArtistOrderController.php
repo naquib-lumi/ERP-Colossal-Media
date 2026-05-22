@@ -164,6 +164,7 @@ class ArtistOrderController extends Controller
                 'orderTitle'  => 'required|string|max:255',
                 'deadline'    => 'required|date|after_or_equal:today',
                 'approval'    => 'required|boolean',
+                'permit'      => ['required', 'boolean'],
                 'orderDetail' => 'nullable|string',
 
                 'products'                       => ['required','array','min:1'],
@@ -353,17 +354,20 @@ class ArtistOrderController extends Controller
 
             // Persist products
             $authorId = (int) auth()->id();
-            foreach ($request->input('products', []) as $p) {
+            $permitValue = $request->has('permit') ? (int) $request->input('permit') : null;
+
+            foreach ($productsData as $p) {
                 if (empty($p['product_name']) || empty($p['quantity'])) {
                     continue;
                 }
 
                 // Save into products table (columns based on your screenshot)
                 $product = \App\Models\Product::create([
-                    'OrderID'       => $order->id,
-                    'productName'   => $p['product_name'],
-                    'totalQuantity' => (int) $p['quantity'],
-                    'materialRemark'=> $p['material_info'] ?? null,
+                    'OrderID'        => $order->id,
+                    'productName'    => $p['product_name'],
+                    'totalQuantity'  => (int) $p['quantity'],
+                    'materialRemark' => $p['material_info'] ?? null,
+                    'permit'         => $permitValue,
                 ]);
 
                 // Save remarks into product_remarks (use model if you have one; else DB::table)

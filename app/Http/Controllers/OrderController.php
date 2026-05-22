@@ -367,6 +367,8 @@ class OrderController extends Controller
 
                     'attachments'   => 'nullable|array',
                     'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd,xls,xlsx,csv|max:51200',
+
+                    'permit' => 'nullable|boolean',
                 ];
             } else {
                 // Final: strict
@@ -392,6 +394,8 @@ class OrderController extends Controller
 
                     'attachments'   => 'required|array|min:1',
                     'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+
+                    'permit'      => 'required|boolean',
                 ];
             }
 
@@ -533,6 +537,8 @@ class OrderController extends Controller
                     }
                 }
 
+                $permitValue = $request->filled('permit') ? (int) $request->input('permit') : null;
+
                 // ✅ Create products + remarks
                 foreach ($productsData as $productData) {
                     $name = trim((string)($productData['product_name'] ?? ''));
@@ -548,6 +554,7 @@ class OrderController extends Controller
                         'productName'    => $name,
                         'totalQuantity'  => $qty,
                         'materialRemark' => $productData['material_remark'] ?? null,
+                        'permit'         => $permitValue,
                     ]);
 
                     foreach (($productData['remarks'] ?? []) as $remarkData) {
@@ -752,6 +759,7 @@ class OrderController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
+
         if (!($user->hasRole('salesperson') || $user->hasRole('head-salesperson'))) {
             return back()->with('error', 'Unauthorized');
         }
@@ -759,20 +767,14 @@ class OrderController extends Controller
         $order = Order::with(['lead', 'products', 'attachments'])->findOrFail($id);
 
         $wasDraft = (int)($order->draft ?? 0) === 1;
-
         $lead = $order->lead;
 
-        if (!$user->hasRole('head-salesperson')) {
-            if ($lead && (int)$lead->salesperson_id !== (int)$user->id) {
-                return back()->with('error', 'Unauthorized for this lead');
-            }
-        }
-
-        if (!$user->hasRole('head-salesperson') && (int)$lead->salesperson_id !== (int)$user->id) {
+        // ✅ Authorization check
+        if (!$user->hasRole('head-salesperson') && $lead && (int)$lead->salesperson_id !== (int)$user->id) {
             return back()->with('error', 'Unauthorized for this lead');
         }
 
-        // ✅ New rule: only editable when in_progress + draft=1 + artist_id is null
+        // ✅ Only editable when to_assign OR draft in_progress with no artist
         $canEdit =
             $order->orderStatus === 'to_assign'
             || (
@@ -789,48 +791,52 @@ class OrderController extends Controller
             $isDraft = $request->input('save_type') === 'draft';
 
             $rules = [
-            'lead_id' => $isDraft ? 'nullable|exists:leads,id' : 'required|exists:leads,id',
-            'orderTitle' => $isDraft ? 'nullable|string|max:255' : 'required|string|max:255',
-            'deadline' => $isDraft ? 'nullable|date' : 'required|date|after_or_equal:today',
-            'approval' => $isDraft ? 'nullable|boolean' : 'required|boolean',
-            'orderDetail'=> 'nullable|string',
-            'products' => $isDraft ? 'nullable|array' : 'required|array|min:1',
-            'products.*.id' => 'nullable|exists:products,ProductID',
-            'products.*.product_name' => $isDraft ? 'nullable|string|max:255' : 'required|string|max:255',
-            'products.*.quantity' => $isDraft ? 'nullable|integer|min:1' : 'required|integer|min:1',
-            'products.*.material_remark' => 'nullable|string',
-            'products.*.remarks' => 'nullable|array',
-            'products.*.remarks.*.operation' => 'required_with:products.*.remarks|in:printing,furnishing,installation,courier,self_pickup,artist',
-            'products.*.remarks.*.remark' => 'nullable|string',
-            'csv_file' => 'nullable|file|mimes:csv,txt',
-            'products.*.deliveries' => 'nullable|array',
-            'products.*.deliveries.*.method' => 'nullable|in:courier,self_pickup,delivery,installation',
-            'products.*.deliveries.*.location' => 'nullable|string|max:255',
-            'products.*.deliveries.*.datetime' => 'nullable|date',
+                'lead_id' => $isDraft ? 'nullable|exists:leads,id' : 'required|exists:leads,id',
+                'orderTitle' => $isDraft ? 'nullable|string|max:255' : 'required|string|max:255',
+                'deadline' => $isDraft ? 'nullable|date' : 'required|date|after_or_equal:today',
+                'approval' => $isDraft ? 'nullable|boolean' : 'required|boolean',
+                'permit' => $isDraft ? 'nullable|boolean' : 'required|boolean',
+                'orderDetail' => 'nullable|string',
 
-            // ✅ attachments required only for final update (and only if no existing)
-            'attachments' => [
-            $isDraft ? 'nullable' : 'array',
-            function ($attribute, $value, $fail) use ($order, $isDraft) {
-            if (!$isDraft && $order->attachments->isEmpty() && empty($value)) {
-            $fail('At least one attachment is required.');
-            }
-            },
-            ],
-            'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd|max:51200',
+                'products' => $isDraft ? 'nullable|array' : 'required|array|min:1',
+                'products.*.id' => 'nullable|exists:products,ProductID',
+                'products.*.product_name' => $isDraft ? 'nullable|string|max:255' : 'required|string|max:255',
+                'products.*.quantity' => $isDraft ? 'nullable|integer|min:1' : 'required|integer|min:1',
+                'products.*.material_remark' => $isDraft ? 'nullable|string' : 'required|string',
+
+                'products.*.remarks' => 'nullable|array',
+                'products.*.remarks.*.operation' => 'required_with:products.*.remarks|in:printing,furnishing,installation,courier,self_pickup,artist',
+                'products.*.remarks.*.remark' => 'nullable|string',
+
+                'products.*.deliveries' => $isDraft ? 'nullable|array' : 'required|array|min:1',
+                'products.*.deliveries.*.method' => $isDraft ? 'nullable|in:courier,self_pickup,delivery,installation' : 'required|in:courier,self_pickup,delivery,installation',
+                'products.*.deliveries.*.location' => $isDraft ? 'nullable|string|max:255' : 'required|string|max:255',
+                'products.*.deliveries.*.datetime' => $isDraft ? 'nullable|date' : 'required|date',
+
+                'csv_file' => 'nullable|file|mimes:csv,txt',
+
+                // ✅ Attachments required only for final update if no existing attachments
+                'attachments' => [
+                    $isDraft ? 'nullable' : 'array',
+                    function ($attribute, $value, $fail) use ($order, $isDraft) {
+                        if (!$isDraft && $order->attachments->isEmpty() && empty($value)) {
+                            $fail('At least one attachment is required.');
+                        }
+                    },
+                ],
+                'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,ai,psd,eps,svg,tiff,indd,xls,xlsx,csv|max:51200',
             ];
-
 
             $request->validate($rules);
 
+            // ✅ Update basic order info
             $order->orderTitle = $request->filled('orderTitle') ? $request->orderTitle : $order->orderTitle;
             $order->deadline = $request->filled('deadline') ? $request->deadline : $order->deadline;
-            $order->approval = $request->has('approval') ? $request->approval : $order->approval;
+            $order->approval = $request->has('approval') ? (int) $request->approval : $order->approval;
             $order->orderDetail = $request->orderDetail;
-
             $order->save();
 
-            // If user selected a new lead in draft edit page, update lead_id + snapshot fields
+            // ✅ If user selected a new lead in draft edit page, update lead snapshot fields
             if ($request->filled('lead_id') && (int)$request->lead_id !== (int)$order->lead_id) {
                 $newLead = Lead::findOrFail($request->lead_id);
 
@@ -840,30 +846,33 @@ class OrderController extends Controller
                 $order->leadPhone = $newLead->phone;
                 $order->leadEmail = $newLead->email;
 
-                $order->save(); 
+                $order->save();
             }
 
+            // ✅ Upload new attachments
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
                     $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
                     $extension = $file->getClientOriginalExtension();
                     $timestamp = now()->format('Ymd_His');
                     $newName = $originalName . '_' . $timestamp . '.' . $extension;
+
                     $path = $file->storeAs('orders/' . $order->id, $newName, 'public');
 
                     OrderAttachment::create([
-                        'order_id'       => $order->id,
-                        'user_id'        => $user->id,
-                        'file_path'      => $path,
-                        'original_name'  => $file->getClientOriginalName(),
-                        'mime_type'      => $file->getMimeType(),
-                        'size'           => $file->getSize(),
+                        'order_id'      => $order->id,
+                        'user_id'       => $user->id,
+                        'file_path'     => $path,
+                        'original_name' => $file->getClientOriginalName(),
+                        'mime_type'     => $file->getMimeType(),
+                        'size'          => $file->getSize(),
                     ]);
                 }
             }
 
             $productsData = $request->input('products', []);
 
+            // ✅ Merge CSV products into productsData
             if ($request->hasFile('csv_file')) {
                 $path = $request->file('csv_file')->getPathname();
                 $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
@@ -871,42 +880,69 @@ class OrderController extends Controller
                 $sheet = $spreadsheet->getActiveSheet();
                 $rows = $sheet->toArray();
 
-                $headers = array_map('trim', $rows[0]);
-                array_shift($rows); // Remove header row
+                if (!empty($rows)) {
+                    $headers = array_map('trim', $rows[0]);
+                    array_shift($rows);
 
-                foreach ($rows as $row) {
-                    if (empty(array_filter($row))) continue; // Skip empty rows
-                    $rowData = array_map(function($value) { return trim($value, '"'); }, $row);
-                    $product = [
-                        'product_name' => $rowData[array_search('Product Name', $headers)] ?? '',
-                        'quantity' => $rowData[array_search('Quantity', $headers)] ?? '',
-                        'material_remark' => $rowData[array_search('Material Info', $headers)] ?? '',
-                        'remarks' => [],
-                    ];
-                    // Map remarks based on exact header names
                     $remarkMappings = [
-                        'Printing Remark' => 'printing',
-                        'Furnishing Remark' => 'furnishing',
+                        'Printing Remark'     => 'printing',
+                        'Furnishing Remark'   => 'furnishing',
                         'Installation Remark' => 'installation',
-                        'Courier Remark' => 'courier',
-                        'Artist Remark' => 'artist',
-                        'Self Pickup Remark' => 'self_pickup',
+                        'Courier Remark'      => 'courier',
+                        'Artist Remark'       => 'artist',
+                        'Self Pickup Remark'  => 'self_pickup',
                     ];
-                    foreach ($remarkMappings as $header => $operation) {
-                        $index = array_search($header, $headers);
-                        if ($index !== false && isset($rowData[$index]) && !empty(trim($rowData[$index]))) {
-                            $product['remarks'][] = [
-                                'operation' => $operation,
-                                'remark' => $rowData[$index],
-                            ];
+
+                    foreach ($rows as $row) {
+                        if (empty(array_filter($row))) {
+                            continue;
                         }
+
+                        $rowData = array_map(function ($value) {
+                            return trim((string) $value, '"');
+                        }, $row);
+
+                        $productNameIndex = array_search('Product Name', $headers);
+                        $qtyIndex = array_search('Quantity', $headers);
+                        $matIndex = array_search('Material Info', $headers);
+
+                        $product = [
+                            'product_name' => $productNameIndex !== false ? ($rowData[$productNameIndex] ?? '') : '',
+                            'quantity' => $qtyIndex !== false ? ($rowData[$qtyIndex] ?? '') : '',
+                            'material_remark' => $matIndex !== false ? ($rowData[$matIndex] ?? '') : '',
+                            'remarks' => [],
+                            'deliveries' => [],
+                        ];
+
+                        foreach ($remarkMappings as $header => $operation) {
+                            $index = array_search($header, $headers);
+
+                            if ($index !== false && isset($rowData[$index]) && trim($rowData[$index]) !== '') {
+                                $product['remarks'][] = [
+                                    'operation' => $operation,
+                                    'remark' => $rowData[$index],
+                                ];
+                            }
+                        }
+
+                        $productsData[] = $product;
                     }
-                    $productsData[] = $product;
                 }
             }
 
+            // ✅ Permit value from order-level radio
+            $permitValue = $request->has('permit') ? (int) $request->input('permit') : null;
+
+            // ✅ Delete removed products
             $currentProductIds = $order->products->pluck('ProductID')->toArray();
-            $submittedProductIds = collect($productsData)->pluck('id')->filter()->unique()->values()->toArray();
+
+            $submittedProductIds = collect($productsData)
+                ->pluck('id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray();
+
             $deletedProductIds = array_diff($currentProductIds, $submittedProductIds);
 
             if (!empty($deletedProductIds)) {
@@ -915,32 +951,47 @@ class OrderController extends Controller
                 Product::destroy($deletedProductIds);
             }
 
+            // ✅ Update / Create products
             foreach ($productsData as $productData) {
-                $product = (isset($productData['id']) && $productData['id'])
-                    ? Product::where('OrderID', $order->id)->where('ProductID', $productData['id'])->firstOrFail()
-                    : Product::create([
-                        'OrderID' => $order->id,
-                        'productName' => $productData['product_name'],
-                        'totalQuantity' => $productData['quantity'],
-                        'materialRemark' => $productData['material_remark'] ?? null,
-                    ]);
+                $name = trim((string)($productData['product_name'] ?? ''));
+                $qty = (int)($productData['quantity'] ?? 0);
 
-                if (isset($productData['id'])) {
-                    $product->update([
-                        'productName' => $productData['product_name'],
-                        'totalQuantity' => $productData['quantity'],
-                        'materialRemark' => $productData['material_remark'] ?? null,
-                    ]);
+                // Draft can skip empty product rows
+                if ($name === '' || $qty <= 0) {
+                    continue;
                 }
 
+                $productPayload = [
+                    'OrderID'        => $order->id,
+                    'productName'    => $name,
+                    'totalQuantity'  => $qty,
+                    'materialRemark' => $productData['material_remark'] ?? null,
+                    'permit'         => $permitValue,
+                ];
+
+                if (!empty($productData['id'])) {
+                    $product = Product::where('OrderID', $order->id)
+                        ->where('ProductID', $productData['id'])
+                        ->firstOrFail();
+
+                    $product->update($productPayload);
+                } else {
+                    $product = Product::create($productPayload);
+                }
+
+                // ✅ Sync remarks
                 ProductRemark::where('ProductID', $product->ProductID)->delete();
 
                 foreach ($productData['remarks'] ?? [] as $remarkData) {
+                    if (empty($remarkData['operation'])) {
+                        continue;
+                    }
+
                     ProductRemark::create([
                         'ProductID' => $product->ProductID,
                         'operation' => $remarkData['operation'],
-                        'remark' => $remarkData['remark'] ?? null,
-                        'user_id' => $user->id,
+                        'remark'    => $remarkData['remark'] ?? null,
+                        'user_id'   => $user->id,
                     ]);
                 }
 
@@ -949,81 +1000,87 @@ class OrderController extends Controller
                     ->where('ProductID', $product->ProductID)
                     ->delete();
 
+                foreach (($productData['deliveries'] ?? []) as $delivery) {
+                    $method = trim((string)($delivery['method'] ?? ''));
+                    $location = trim((string)($delivery['location'] ?? ''));
+                    $dtInput = trim((string)($delivery['datetime'] ?? ''));
 
-                    foreach (($productData['deliveries'] ?? []) as $delivery) {
-                    $method = $delivery['method'] ?? null;
-                    $location = $delivery['location'] ?? null;
-                    $dtInput = $delivery['datetime'] ?? null;
-
-
-                    // skip totally empty row
-                    if (empty($method) && empty($location) && empty($dtInput)) {
-                    continue;
+                    // Skip totally empty delivery row
+                    if ($method === '' && $location === '' && $dtInput === '') {
+                        continue;
                     }
-
 
                     $date = null;
                     $time = null;
 
-
-                    if (!empty($dtInput)) {
-                    try {
-                    $dt = Carbon::parse($dtInput);
-                    $date = $dt->toDateString(); // YYYY-MM-DD
-                    $time = $dt->format('H:i:s'); // HH:MM:SS
-                    } catch (\Exception $e) {
-                    $date = null;
-                    $time = null;
+                    if ($dtInput !== '') {
+                        try {
+                            $dt = Carbon::parse($dtInput);
+                            $date = $dt->toDateString();
+                            $time = $dt->format('H:i:s');
+                        } catch (\Exception $e) {
+                            $date = null;
+                            $time = null;
+                        }
                     }
-                    }
-
 
                     DB::table('delivery_breakdowns')->insert([
-                    'ProductID' => $product->ProductID,
-                    'method' => $method,
-                    'location' => $location,
-                    'date' => $date,
-                    'time' => $time,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                        'ProductID'  => $product->ProductID,
+                        'method'     => $method !== '' ? $method : null,
+                        'location'   => $location !== '' ? $location : null,
+                        'date'       => $date,
+                        'time'       => $time,
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ]);
                 }
             }
 
+            // ✅ If opened from lead page
             if ($request->has('from') && $request->input('from') === 'lead' && $request->has('lead_id')) {
-                return redirect()->route('leads.show', $request->input('lead_id'))
-                                ->withFragment('order-history')
-                                ->with('success', 'Order updated successfully');
+                return redirect()
+                    ->route('leads.show', $request->input('lead_id'))
+                    ->withFragment('order-history')
+                    ->with('success', 'Order updated successfully');
             }
 
-            // After editing a draft in_progress order (no artist yet), mark it as non-draft
+            // ✅ Convert draft to final
             if (
-                !$isDraft &&
-                $order->orderStatus === 'in_progress'
+                !$isDraft
+                && $order->orderStatus === 'in_progress'
                 && (int)$order->draft === 1
                 && is_null($order->artist_id)
-                ) {
+            ) {
                 $order->draft = 0;
-                $order->orderStatus = "to_assign";
+                $order->orderStatus = 'to_assign';
                 $order->save();
 
-                // ✅ record create time ONLY when converting from draft → final
+                // ✅ Record create time only when converting draft → final
                 if ($wasDraft) {
                     OrderRecord::firstOrCreate(['order_id' => $order->id]);
 
                     OrderRecord::where('order_id', $order->id)
-                    ->whereNull('first_created_at')
-                    ->update(['first_created_at' => $order->created_at ?? now()]);
+                        ->whereNull('first_created_at')
+                        ->update(['first_created_at' => $order->created_at ?? now()]);
                 }
             }
 
             if ($isDraft) {
-            return redirect()->route('sales.orders')->with('success', 'Draft saved successfully');
+                return redirect()
+                    ->route('sales.orders')
+                    ->with('success', 'Draft saved successfully');
             }
 
-            return redirect()->route('sales.orders')->with('success', 'Order updated successfully');
+            return redirect()
+                ->route('sales.orders')
+                ->with('success', 'Order updated successfully');
+
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return redirect()->back()->withErrors($e->validator)->withInput();
+            return redirect()
+                ->back()
+                ->withErrors($e->validator)
+                ->withInput();
+
         } catch (\Exception $e) {
             \Log::error('Order update failed', [
                 'order_id' => $id,
@@ -1031,7 +1088,9 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return back()->with('error', 'Something went wrong. Please try again.')->withInput();
+            return back()
+                ->with('error', 'Something went wrong. Please try again.')
+                ->withInput();
         }
     }
 

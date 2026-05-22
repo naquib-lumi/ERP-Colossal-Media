@@ -26,6 +26,7 @@ class Product extends Model
         'productRemark',
         'location',
         'date_time',
+        'permit',
     ];
 
     // ── Relations

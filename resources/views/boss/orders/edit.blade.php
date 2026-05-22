@@ -435,6 +435,24 @@
                   </select>
                 </div>
 
+                @php
+                    $permitVal = optional($order->products->first())->permit;
+
+                    $permitText = match ((string) $permitVal) {
+                        '1' => 'Yes',
+                        '0' => 'No',
+                        default => '-',
+                    };
+                @endphp
+
+                <div class="col-md-4">
+                    <label>Permit Required?</label>
+                    <input type="text"
+                          class="form-control"
+                          value="{{ $permitText }}"
+                          readonly>
+                </div>
+
                 <div class="col-12 col-md-4">
                   <label class="form-label">Created By</label>
                   <input type="text" class="form-control" value="{{ $order->salesperson->name ?? $order->created_by_name ?? '-' }}" readonly>
@@ -667,53 +685,6 @@
                         <h5 class="mb-0">
                           <i class="bx bx-package me-2"></i>Product
                         </h5>
-
-                        {{-- Permit radio in header --}}
-                        <div class="d-flex align-items-center gap-3">
-                          <span class="text-body-secondary" style="font-size:.85rem;">
-                            Permit <span class="text-danger">*</span>
-                          </span>
-
-                          <div class="d-flex align-items-center gap-3">
-                            <div class="form-check mb-0">
-                              <input
-                                class="form-check-input permit-radio"
-                                type="radio"
-                                name="products[{{ $pIndex }}][permit]"
-                                id="permit_yes_{{ $product->ProductID }}"
-                                value="1"
-                                data-pindex="{{ $pIndex }}"
-                                data-product-id="{{ $product->ProductID }}"
-                                data-permit-required="1"
-                                data-permit-label="Permit"
-                                {{ $permitVal === '1' ? 'checked' : '' }}
-                                {{ $disabled }}>
-
-                              <label class="form-check-label" for="permit_yes_{{ $product->ProductID }}">
-                                Yes
-                              </label>
-                            </div>
-
-                            <div class="form-check mb-0">
-                              <input
-                                class="form-check-input permit-radio"
-                                type="radio"
-                                name="products[{{ $pIndex }}][permit]"
-                                id="permit_no_{{ $product->ProductID }}"
-                                value="0"
-                                data-pindex="{{ $pIndex }}"
-                                data-product-id="{{ $product->ProductID }}"
-                                data-permit-required="1"
-                                data-permit-label="Permit"
-                                {{ $permitVal === '0' ? 'checked' : '' }}
-                                {{ $disabled }}>
-
-                              <label class="form-check-label" for="permit_no_{{ $product->ProductID }}">
-                                No
-                              </label>
-                            </div>
-                          </div>
-                        </div>
                       </div>
 
                       <div class="card-body p-4">

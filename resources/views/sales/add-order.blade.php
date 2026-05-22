@@ -299,6 +299,36 @@
                                             </div>
                                             <div id="approval-error" class="validation-msg"></div>
                                         </div>
+
+                                        <div class="col-12">
+                                            <label class="form-label d-block mb-4">
+                                                Permit Required? <span class="text-danger">*</span>
+                                            </label>
+
+                                            <div class="d-flex gap-4">
+                                                <label class="form-check-label">
+                                                    <input
+                                                        class="form-check-input me-1"
+                                                        type="radio"
+                                                        name="permit"
+                                                        value="1"
+                                                        {{ old('permit') === '1' ? 'checked' : '' }}>
+                                                    YES
+                                                </label>
+
+                                                <label class="form-check-label">
+                                                    <input
+                                                        class="form-check-input me-1"
+                                                        type="radio"
+                                                        name="permit"
+                                                        value="0"
+                                                        {{ old('permit') === '0' ? 'checked' : '' }}>
+                                                    NO
+                                                </label>
+                                            </div>
+
+                                            <div id="permit-error" class="validation-msg"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -455,7 +485,7 @@
                                     <div class="attach-title">Drop files here or click to upload</div>
                                 <div class="attach-hint">PDF, JPG, PNG, AI, PSD, EPS, SVG, TIFF, INDD, XLSX · Max 50MB each</div>
                                 </div>
-                                <input type="file" name="attachments[]" multiple accept="..pdf,.jpg,.jpeg,.png,.ai,.psd,.eps,.svg,.tiff,.indd,.xls,.xlsx,.csv" class="file-overlay">
+                                <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,.ai,.psd,.eps,.svg,.tiff,.indd,.xls,.xlsx,.csv" class="file-overlay">
                             </div>
                             <div id="attachment-preview" class="mt-3"></div>
                         </div>
@@ -742,6 +772,11 @@ var isDirty = false;
             if ($('#modal-deliveries-container .delivery-row').length === 0) {
                 addModalDeliveryRow('', '', '');
             }
+        });
+
+        $(document).on('change', 'input[name="permit"]', function() {
+            $('input[name="permit"]').removeClass('is-invalid');
+            $('#permit-error').text('');
         });
 
         $('#addRemarkBtn').on('click', function() {
@@ -1564,6 +1599,13 @@ placeholder="Remark">
             if (!approval) {
                 showValidationError('input[name="approval"]', 'Approval selection is required');
                 errors.push('Approval selection is required');
+            }
+
+            // ✅ Permit required for Save Order only
+            const permit = $('input[name="permit"]:checked').length;
+            if (!permit) {
+                showValidationError('input[name="permit"]', 'Permit selection is required');
+                errors.push('Permit selection is required');
             }
 
             const products = $('#product-table tbody tr');
