@@ -257,6 +257,26 @@
               <dt>Job Order ID</dt><dd>{{ $job_order_code ?? ($header->order_number ?: '—') }}</dd>
               <dt>Job Title</dt><dd>{{ $header->order_title }}</dd>
               <dt>Company Name</dt><dd>{{ $header->companyName ?? '—' }}</dd>
+              @php
+                  $permitVal = $header->permit ?? data_get($header, 'product_permit');
+
+                  $permitText = match ((string) $permitVal) {
+                      '1' => 'Yes',
+                      '0' => 'No',
+                      default => '—',
+                  };
+
+                  $permitBadgeClass = match ((string) $permitVal) {
+                      '1' => 'badge-yes',
+                      '0' => 'badge-no',
+                      default => 'badge-no',
+                  };
+              @endphp
+
+              <dt>Permit</dt>
+              <dd>
+                  <span class="{{ $permitBadgeClass }}">{{ $permitText }}</span>
+              </dd>
               @if(!empty($header->orderDetail))
               <dt>Sales Remark</dt><dd class="fw-medium text-truncate" style="max-height: 4.5em; overflow: hidden;" data-bs-toggle="collapse" data-bs-target="#remarkCollapse" aria-expanded="false">{{ $header->orderDetail ?? '—' }}</dd>
                 <dt></dt><dd id="remarkCollapse" class="collapse mt-1">
