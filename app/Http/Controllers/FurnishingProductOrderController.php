@@ -111,7 +111,7 @@ class FurnishingProductOrderController extends Controller
                 'p.materialRemark','p.redoOf as redo_product_of','p.editable',
                 'o.redo as redo_order','o.order_number','o.orderTitle','o.companyName','o.orderDetail',
                 'o.orderDate','o.deadline','o.artist_id','o.orderAttachment',
-                'o.status as orderStatus','p.accepted', 'p.packaging',
+                'o.status as orderStatus','p.accepted', 'p.packaging', 'p.permit',
                 DB::raw('COALESCE(u.name, "") as artist_name'),
                 DB::raw('COALESCE(de.name, "") as data_entry_name'),
             ])
@@ -147,6 +147,7 @@ class FurnishingProductOrderController extends Controller
             'order_title'     => $headerRow->orderTitle,
             'orderDetail'  => $headerRow->orderDetail,
             'companyName'     => $headerRow->companyName,
+            'permit'       => $headerRow->permit,
             'artist_name'     => $headerRow->artist_name,
             'orderStatus'     => $headerRow->orderStatus,
             'data_entry_name' => $headerRow->data_entry_name,
