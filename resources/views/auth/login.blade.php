@@ -34,6 +34,12 @@
             --error: #ef4444;
         }
 
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         html,
         body {
             height: 100%
@@ -83,7 +89,7 @@
             padding: 32px;
         }
 
-        .card {
+        .login-card {
             width: min(460px, 92vw);
             background: var(--card);
             border: 1px solid var(--card-border);
@@ -138,15 +144,28 @@
         }
 
         .input {
+            display: block;
             width: 100%;
+            max-width: 100%;
             height: 44px;
             border-radius: 10px;
             border: 1px solid #e5e7eb;
             background: #fff;
             color: var(--ink);
             padding: 10px 14px;
+            font: inherit;
             outline: 0;
             transition: box-shadow .15s, border-color .15s, background .2s;
+        }
+
+        .password-input {
+            padding-right: 54px;
+        }
+
+        /* Hide the browser's native password reveal button so only our custom toggle appears */
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear {
+            display: none;
         }
 
         .input::placeholder {
@@ -172,20 +191,42 @@
         .toggle {
             position: absolute;
             top: 50%;
-            right: 10px;
+            right: 6px;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
             transform: translateY(-50%);
             border: 0;
+            border-radius: 8px;
             background: transparent;
             cursor: pointer;
-            padding: 6px;
-            line-height: 0;
+            padding: 0;
+            line-height: 1;
             color: #6b7280;
+        }
+
+        .toggle:hover {
+            background: #f3f4f6;
+            color: #111827;
         }
 
         .toggle:focus {
             outline: none;
             box-shadow: 0 0 0 3px #93c5fd55;
-            border-radius: 8px
+        }
+
+        .toggle svg {
+            display: block;
+            width: 22px;
+            height: 22px;
+            pointer-events: none;
+        }
+
+        .toggle .toggle-icon-hidden {
+            display: none !important;
         }
 
         /* Remember + forgot */
@@ -249,7 +290,7 @@
         @keyframes shake{ 10%,90%{transform:translateX(-1px)} 20%,80%{transform:translateX(2px)} 30%,50%,70%{transform:translateX(-4px)} 40%,60%{transform:translateX(4px)}}
 
         @media (max-width:480px){
-        .card{padding:24px 18px}
+        .login-card{padding:24px 18px}
         .brand img{height:40px}
         }
 
@@ -260,7 +301,7 @@
     <div class="bg" aria-hidden="true"></div>
 
     <div class="wrap">
-        <div id="login-card" class="card">
+        <div id="login-card" class="login-card">
             <div class="brand">
                 <img src="{{ asset('assets/img/branding/login-logo.png') }}" alt="Colossal Xceed" onerror="this.style.display='none'">
             </div>
@@ -298,17 +339,20 @@
                 <div class="field">
                     <label for="password" class="label">Password</label>
                     <div class="control">
-                        <input id="password" name="password" type="password" class="input"
+                        <input id="password" name="password" type="password" class="input password-input"
                             placeholder="••••••••" required autocomplete="current-password" />
-                        <button type="button" class="toggle" aria-label="Show password" id="togglePwd">
-                            <!-- eye icon -->
-                            <svg id="eyeOpen" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.5" />
-                                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5" />
+                        <button type="button" class="toggle" aria-label="Show password" aria-pressed="false" id="togglePwd">
+                            <!-- Hidden password: open eye, click to show password -->
+                            <svg id="eyeShowIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                                <path d="M2.25 12S5.75 5.75 12 5.75 21.75 12 21.75 12 18.25 18.25 12 18.25 2.25 12 2.25 12Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                                <circle cx="12" cy="12" r="2.7" stroke="currentColor" stroke-width="1.7" />
                             </svg>
-                            <svg id="eyeClosed" width="20" height="20" viewBox="0 0 24 24" fill="none" style="display:none">
-                                <path d="M3 3l18 18" stroke="currentColor" stroke-width="1.5" />
-                                <path d="M4.5 6.5C6.5 4.5 9 3 12 3c6 0 10 7 10 7a17 17 0 0 1-4.3 4.9M14 14a3 3 0 0 1-4-4" stroke="currentColor" stroke-width="1.5" />
+
+                            <!-- Visible password: crossed eye, click to hide password -->
+                            <svg id="eyeHideIcon" class="toggle-icon-hidden" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                                <path d="M2.25 12S5.75 5.75 12 5.75 21.75 12 21.75 12 18.25 18.25 12 18.25 2.25 12 2.25 12Z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                                <circle cx="12" cy="12" r="2.7" stroke="currentColor" stroke-width="1.9" />
+                                <path d="M4 4L20 20" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
                             </svg>
                         </button>
                     </div>
@@ -335,15 +379,25 @@
         (function() {
             const pwd = document.getElementById('password');
             const tgl = document.getElementById('togglePwd');
-            const eyeOpen = document.getElementById('eyeOpen');
-            const eyeClosed = document.getElementById('eyeClosed');
+            const eyeShowIcon = document.getElementById('eyeShowIcon');
+            const eyeHideIcon = document.getElementById('eyeHideIcon');
+
+            const setPasswordVisible = (isVisible) => {
+                pwd.type = isVisible ? 'text' : 'password';
+
+                eyeShowIcon.classList.toggle('toggle-icon-hidden', isVisible);
+                eyeHideIcon.classList.toggle('toggle-icon-hidden', !isVisible);
+
+                tgl.setAttribute('aria-pressed', String(isVisible));
+                tgl.setAttribute('aria-label', isVisible ? 'Hide password' : 'Show password');
+            };
+
+            setPasswordVisible(false);
 
             tgl?.addEventListener('click', () => {
-                const isHidden = pwd.type === 'password';
-                pwd.type = isHidden ? 'text' : 'password';
-                eyeOpen.style.display = isHidden ? 'none' : 'block';
-                eyeClosed.style.display = isHidden ? 'block' : 'none';
-                tgl.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+                const shouldShowPassword = pwd.type === 'password';
+                setPasswordVisible(shouldShowPassword);
+
                 pwd.focus({
                     preventScroll: true
                 });
