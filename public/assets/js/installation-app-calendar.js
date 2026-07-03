@@ -405,9 +405,9 @@ document.addEventListener('DOMContentLoaded', function () {
           : '—';
 
       const whenTime = deliveryTime
-        ? moment(`1970-01-01 ${deliveryTime}`).format('h:mm A')
+        ? moment(`1970-01-01 ${deliveryTime}`).format('h:mm a')
         : e.start
-          ? moment(e.start).format('h:mm A')
+          ? moment(e.start).format('h:mm a')
           : '—';
 
       const viewHref = xp.product_id
@@ -585,6 +585,14 @@ document.addEventListener('DOMContentLoaded', function () {
       height: 'auto',
       dayMaxEvents: 2,
       editable: false,
+
+      // Show full lowercase am/pm instead of a/p
+      eventTimeFormat: {
+        hour: 'numeric',
+        minute: '2-digit',
+        meridiem: 'short'
+      },
+
       events: fetchEvents,
       dateClick: null,
 
@@ -688,9 +696,9 @@ document.addEventListener('DOMContentLoaded', function () {
             : '—';
 
         const whenTime = deliveryTime
-          ? moment(`1970-01-01 ${deliveryTime}`).format('h:mm A')
+          ? moment(`1970-01-01 ${deliveryTime}`).format('h:mm a')
           : e.start
-            ? moment(e.start).format('h:mm A')
+            ? moment(e.start).format('h:mm a')
             : '—';
 
         const viewHref = xp.product_id
