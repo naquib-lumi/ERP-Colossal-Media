@@ -7,9 +7,9 @@
 <link rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
-  .modal .btn-close::before {
+  /* .modal .btn-close::before {
     background-color: white !important;
-  }
+  } */
   .app-calendar-wrapper .row.g-0 {
     align-items: flex-start;
   }

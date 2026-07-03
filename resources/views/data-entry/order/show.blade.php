@@ -657,43 +657,46 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
         @php
         $products = $order->relationLoaded('products')
             ? $order->products
-            : \App\Models\Product::with('deliveryBreakdowns')->where('OrderID', $order->id)->get();
+            : \App\Models\Product::where('OrderID', $order->id)
+                ->orderBy('ProductID')
+                ->get();
 
-            // latest reject/redo for THIS order (order-level)
-            $orderReject = DB::table('report_redo')
-                ->where('OrderID', $order->id)
-                ->orderByDesc('ReportID')
-                ->first();
+        // latest reject/redo for THIS order (order-level)
+        $orderReject = DB::table('report_redo')
+            ->where('OrderID', $order->id)
+            ->orderByDesc('ReportID')
+            ->first();
 
-            $orderRejectBy = null;
-            if ($orderReject && $orderReject->user_id) {
-                $orderRejectBy = \App\Models\User::find($orderReject->user_id)?->name;
-            }
+        $orderRejectBy = null;
+        if ($orderReject && $orderReject->user_id) {
+            $orderRejectBy = \App\Models\User::find($orderReject->user_id)?->name;
+        }
 
-            // if this is a redo order we still need that too (you already had this above)
-            $isRedoOrder = (bool) $order->redo;
+        // if this is a redo order we still need that too
+        $isRedoOrder = (bool) $order->redo;
         @endphp
 
         @forelse($products as $pIndex => $p)
         @php
             $origPid = $isRedoOrder && !empty($p->redoOf)
-            ? (int) $p->redoOf
-            : (int) $p->ProductID;
+                ? (int) $p->redoOf
+                : (int) $p->ProductID;
 
             $pidLabel = '#'.str_pad((string)$origPid, 4, '0', STR_PAD_LEFT);
 
             // show R if redo & selected
             $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
             if ($selectedForRedo) {
-            $pidLabel .= 'R';
+                $pidLabel .= 'R';
             }
 
-            // ✅ product-level rejected detection
+            // product-level rejected detection
             $isRejectedSelected = (int)($p->editable ?? 0) === 1
                                 && strtolower((string)$p->status) === 'rejected';
         @endphp
+
         <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
-            Product {{ $pidLabel }} — {{ data_get($product,'productName','-') }}
+            Product {{ $pidLabel }} — {{ $p->productName ?? '-' }}
 
             {{-- existing REDO banner --}}
             @if($selectedForRedo)
@@ -712,7 +715,7 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                 </span>
             @endif
 
-            {{-- ✅ NEW: REJECTED banner (order-level text, product-level flag) --}}
+            {{-- REJECTED banner --}}
             @if($isRejectedSelected)
             <span class="redo-banner redo-offset bg-danger text-white"
                     title="{{ $orderReject->reason ?? '' }}">
@@ -729,35 +732,60 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
             @endif
         </div>
 
-        @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
+        @php
+            $deliveries = DB::table('delivery_breakdowns as d')
+                ->select([
+                    'd.BreakdownID',
+                    'd.ProductID',
+                    'd.method',
+                    'd.deliver_install_type',
+                    'd.outsource_cost',
+                    'd.quantity',
+                    'd.date as breakdown_date',
+                    'd.time as breakdown_time',
+                    'd.location',
+                    'd.created_at',
+                    'd.updated_at',
+                ])
+                ->where('d.ProductID', $p->ProductID)
+                ->orderBy('d.date', 'ASC')
+                ->orderByRaw("COALESCE(d.time, '00:00:00') ASC")
+                ->orderBy('d.BreakdownID', 'ASC')
+                ->get();
+        @endphp
 
         @forelse($deliveries as $d)
             @php
-            $methodRaw = strtolower((string) $d->method);
+            $methodRaw = strtolower(trim((string) $d->method));
+
             $methodLabel = match ($methodRaw) {
-                'courier'               => 'Courier',
+                'delivery' => 'Delivery',
+                'courier' => 'Courier',
                 'self_pickup', 'pickup' => 'Self Pickup',
-                'installation'          => 'Installation',
+                'installation' => 'Installation',
                 'delivery_installation' => 'Delivery & Installation',
-                default                 => ucfirst((string) $d->method),
+                default => ucfirst((string) ($d->method ?: '-')),
             };
 
-            // Build a readable datetime from separate date/time columns
-            $dt = null;
-            $dateStr = trim((string) $d->date);
-            $timeStr = trim((string) $d->time);
+            $dateStr = trim((string) ($d->breakdown_date ?? ''));
+            $timeStr = trim((string) ($d->breakdown_time ?? ''));
+
+            $displayDateTime = '—';
+
             try {
-                if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
-                // time field already contains a full datetime
-                $dt = \Carbon\Carbon::parse($timeStr);
-                } elseif ($dateStr && $timeStr) {
-                $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
-                } elseif ($dateStr) {
-                $dt = \Carbon\Carbon::parse($dateStr);
-                } elseif ($timeStr) {
-                $dt = \Carbon\Carbon::parse($timeStr);
+                if ($dateStr !== '' && $timeStr !== '') {
+                    $displayDateTime = \Carbon\Carbon::parse($dateStr . ' ' . $timeStr)
+                        ->format('M d, Y h:i A');
+                } elseif ($dateStr !== '') {
+                    $displayDateTime = \Carbon\Carbon::parse($dateStr)
+                        ->format('M d, Y');
+                } elseif ($timeStr !== '') {
+                    $displayDateTime = \Carbon\Carbon::parse($timeStr)
+                        ->format('h:i A');
                 }
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+                $displayDateTime = trim($dateStr . ' ' . $timeStr) ?: '—';
+            }
             @endphp
 
             <div class="border rounded p-3 mb-3">
@@ -791,7 +819,7 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
 
                 <div class="col-sm-6 col-lg-4">
                 <small class="text-muted d-block">Date &amp; Time</small>
-                <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
+                <div class="fw-medium">{{ $displayDateTime }}</div>
                 </div>
             </div>
             </div>
