@@ -147,6 +147,13 @@ function modifyToggler(calendar) {
       editable: false,
       dragScroll: false,
       dayMaxEvents: 2,
+
+      // Show full lowercase am/pm instead of a/p
+      eventTimeFormat: {
+        hour: 'numeric',
+        minute: '2-digit',
+        meridiem: 'short'
+      },
       eventResizableFromStart: true,
       showNonCurrentDates: false,
       customButtons: {
@@ -239,9 +246,9 @@ function modifyToggler(calendar) {
   $('#eventLeadDetail_' + safeId).text(info.event.extendedProps.lead_text || 'N/A');
   $('#eventStatusDetail_' + safeId).text(info.event.extendedProps.status ? info.event.extendedProps.status.charAt(0).toUpperCase() + info.event.extendedProps.status.slice(1) : 'N/A');
   if (isReminder) {
-    $('#eventStartTimeDetail_' + safeId).text(info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('MMM DD, YYYY — hh:mm A') : 'N/A');
+    $('#eventStartTimeDetail_' + safeId).text(info.event.extendedProps.remind_at ? moment(info.event.extendedProps.remind_at).format('MMM DD, YYYY — hh:mm a') : 'N/A');
   } else {
-    $('#eventStartTimeDetail_' + safeId).text(moment(info.event.start).format('MMM DD, YYYY — hh:mm A') || 'N/A');
+    $('#eventStartTimeDetail_' + safeId).text(moment(info.event.start).format('MMM DD, YYYY — hh:mm a') || 'N/A');
     const durationMin = moment(info.event.end).diff(moment(info.event.start), 'minutes');
     const durationFormatted = durationMin >= 60 ? `${Math.floor(durationMin / 60)} hr ${durationMin % 60} min` : `${durationMin} min`;
     $('#eventDurationDetail_' + safeId).text(durationFormatted);
@@ -276,6 +283,13 @@ function modifyToggler(calendar) {
       editable: false,
       dragScroll: false,
       dayMaxEvents: 2,
+
+      // Show full lowercase am/pm instead of a/p
+      eventTimeFormat: {
+        hour: 'numeric',
+        minute: '2-digit',
+        meridiem: 'short'
+      },
       eventResizableFromStart: true,
       showNonCurrentDates: false,
       customButtons: {
