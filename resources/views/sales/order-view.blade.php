@@ -647,25 +647,25 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
             $orderRejectBy = \App\Models\User::find($orderReject->user_id)?->name;
         }
 
-        // if this is a redo order we still need that too (you already had this above)
+        // if this is a redo order we still need that too
         $isRedoOrder = (bool) $order->redo;
         @endphp
 
         @forelse($products as $pIndex => $p)
         @php
             $origPid = $isRedoOrder && !empty($p->redoOf)
-            ? (int) $p->redoOf
-            : (int) $p->ProductID;
+                ? (int) $p->redoOf
+                : (int) $p->ProductID;
 
             $pidLabel = '#'.str_pad((string)$origPid, 4, '0', STR_PAD_LEFT);
 
             // show R if redo & selected
             $selectedForRedo = $isRedoOrder && (int)($p->editable ?? 0) === 1;
             if ($selectedForRedo) {
-            $pidLabel .= 'R';
+                $pidLabel .= 'R';
             }
 
-            // ✅ product-level rejected detection
+            // product-level rejected detection
             $isRejectedSelected = (int)($p->editable ?? 0) === 1
                                 && strtolower((string)$p->status) === 'rejected';
         @endphp
@@ -673,47 +673,73 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
         <div class="bg-body-tertiary rounded-2 px-3 py-2 mb-3 fw-semibold">
             Product {{ $pidLabel }} — {{ $p->productName ?? '-' }}
 
-            {{-- REDO banner (existing) --}}
+            {{-- REDO banner --}}
             @if($selectedForRedo)
             <span class="redo-banner redo-offset ms-2 js-reason-banner cursor-pointer"
                 data-type="REDO"
                 data-reason="{{ $redoRecord->reason ?? '' }}"
                 data-by="{{ $redoBy ?? '' }}">
-            <i class="bi bi-exclamation-octagon-fill icon"></i>
-            <span class="tag" style="font-size:12px;">REDO</span>
-            @if(!empty($redoRecord->reason))
-                <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
-            @endif
-            @if($redoBy)
-                <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
-            @endif
+                <i class="bi bi-exclamation-octagon-fill icon"></i>
+                <span class="tag" style="font-size:12px;">REDO</span>
+
+                @if(!empty($redoRecord->reason))
+                    <span style="font-size:12px;" class="reason">{{ Str::limit($redoRecord->reason, 90) }}</span>
+                @endif
+
+                @if($redoBy)
+                    <span class="by" style="font-size:12px;">by {{ $redoBy }}</span>
+                @endif
             </span>
             @endif
 
-            {{-- ✅ NEW: REJECTED banner (order-level text, product-level flag) --}}
+            {{-- REJECTED banner --}}
             @if($isRejectedSelected)
             <span class="redo-banner redo-offset ms-2 bg-danger text-white js-reason-banner cursor-pointer"
                 data-type="REJECTED"
                 data-reason="{{ $rejectRecord->reason ?? '' }}"
                 data-by="{{ $rejectBy ?? '' }}">
-            <i class="bi bi-x-octagon-fill icon"></i>
-            <span class="tag" style="font-size:12px;">REJECTED</span>
-            @if(!empty($rejectRecord->reason))
-                <span style="font-size:12px;" class="reason">{{ Str::limit($rejectRecord->reason, 90) }}</span>
-            @endif
-            @if($rejectBy)
-                <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
-            @endif
+                <i class="bi bi-x-octagon-fill icon"></i>
+                <span class="tag" style="font-size:12px;">REJECTED</span>
+
+                @if(!empty($rejectRecord->reason))
+                    <span style="font-size:12px;" class="reason">{{ Str::limit($rejectRecord->reason, 90) }}</span>
+                @endif
+
+                @if($rejectBy)
+                    <span class="by" style="font-size:12px;">by {{ $rejectBy }}</span>
+                @endif
             </span>
             @endif
         </div>
 
-        @php $deliveries = $p->deliveryBreakdowns ?? collect(); @endphp
+        @php
+            $deliveries = DB::table('delivery_breakdowns as d')
+                ->select([
+                    'd.BreakdownID',
+                    'd.ProductID',
+                    'd.method',
+                    'd.deliver_install_type',
+                    'd.outsource_cost',
+                    'd.quantity',
+                    'd.date as breakdown_date',
+                    'd.time as breakdown_time',
+                    'd.location',
+                    'd.created_at',
+                    'd.updated_at',
+                ])
+                ->where('d.ProductID', $p->ProductID)
+                ->orderBy('d.date', 'ASC')
+                ->orderByRaw('COALESCE(d.time, "00:00:00") ASC')
+                ->orderBy('d.BreakdownID', 'ASC')
+                ->get();
+        @endphp
 
         @forelse($deliveries as $d)
             @php
-            $methodRaw = strtolower((string) $d->method);
+            $methodRaw = strtolower(trim((string) $d->method));
+
             $methodLabel = match ($methodRaw) {
+                'delivery' => 'Delivery',
                 'courier' => 'Courier',
                 'self_pickup', 'pickup' => 'Self Pickup',
                 'installation' => 'Installation',
@@ -721,20 +747,25 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
                 default => ucfirst((string) $d->method),
             };
 
-            $dt = null;
-            $dateStr = trim((string) $d->date);
-            $timeStr = trim((string) $d->time);
+            $dateStr = trim((string) ($d->breakdown_date ?? ''));
+            $timeStr = trim((string) ($d->breakdown_time ?? ''));
+
+            $displayDateTime = '—';
+
             try {
-                if ($timeStr && preg_match('/\d{4}-\d{2}-\d{2}/', $timeStr)) {
-                $dt = \Carbon\Carbon::parse($timeStr);
-                } elseif ($dateStr && $timeStr) {
-                $dt = \Carbon\Carbon::parse($dateStr.' '.$timeStr);
-                } elseif ($dateStr) {
-                $dt = \Carbon\Carbon::parse($dateStr);
-                } elseif ($timeStr) {
-                $dt = \Carbon\Carbon::parse($timeStr);
+                if ($dateStr !== '' && $timeStr !== '') {
+                    $displayDateTime = \Carbon\Carbon::parse($dateStr . ' ' . $timeStr)
+                        ->format('M d, Y h:i A');
+                } elseif ($dateStr !== '') {
+                    $displayDateTime = \Carbon\Carbon::parse($dateStr)
+                        ->format('M d, Y');
+                } elseif ($timeStr !== '') {
+                    $displayDateTime = \Carbon\Carbon::parse($timeStr)
+                        ->format('h:i A');
                 }
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+                $displayDateTime = trim($dateStr . ' ' . $timeStr) ?: '—';
+            }
             @endphp
 
             <div class="border rounded p-3 mb-3">
@@ -745,26 +776,30 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
 
             <div class="row g-3 mt-1">
                 <div class="col-sm-6 col-lg-3">
-                <small class="text-muted d-block">Installation Type</small>
-                <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
+                    <small class="text-muted d-block">Installation Type</small>
+                    <div class="fw-medium">{{ $d->deliver_install_type ?: '—' }}</div>
                 </div>
+
                 <div class="col-sm-6 col-lg-3">
-                <small class="text-muted d-block">Outsource Cost (RM)</small>
-                <div class="fw-medium">
-                    {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
+                    <small class="text-muted d-block">Outsource Cost (RM)</small>
+                    <div class="fw-medium">
+                        {{ ($d->outsource_cost !== null && $d->outsource_cost !== '') ? number_format((float)$d->outsource_cost, 2) : '—' }}
+                    </div>
                 </div>
-                </div>
+
                 <div class="col-sm-6 col-lg-2">
-                <small class="text-muted d-block">Quantity</small>
-                <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
+                    <small class="text-muted d-block">Quantity</small>
+                    <div class="fw-medium">{{ $d->quantity ?? '-' }}</div>
                 </div>
+
                 <div class="col-sm-6 col-lg-4">
-                <small class="text-muted d-block">Location</small>
-                <div class="fw-medium">{{ $d->location ?? '-' }}</div>
+                    <small class="text-muted d-block">Location</small>
+                    <div class="fw-medium">{{ $d->location ?? '-' }}</div>
                 </div>
+
                 <div class="col-sm-6 col-lg-4">
-                <small class="text-muted d-block">Date &amp; Time</small>
-                <div class="fw-medium">{{ $dt ? $dt->format('M d, Y h:i A') : '—' }}</div>
+                    <small class="text-muted d-block">Date &amp; Time</small>
+                    <div class="fw-medium">{{ $displayDateTime }}</div>
                 </div>
             </div>
             </div>
