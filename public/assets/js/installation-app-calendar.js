@@ -232,6 +232,39 @@ document.addEventListener('DOMContentLoaded', function () {
       if (cur) selArtist.value = cur;
     }
 
+    function buildDeliveryEventStart(ev) {
+      const xp = ev?.extendedProps || {};
+
+      const rawDate =
+        xp.delivery_date ??
+        xp.date ??
+        '';
+
+      const rawTime =
+        xp.delivery_time ??
+        xp.time ??
+        '';
+
+      const dateMatch = String(rawDate).match(/\d{4}-\d{2}-\d{2}/);
+      const timeMatch = String(rawTime).match(/\d{1,2}:\d{2}(?::\d{2})?/);
+
+      if (!dateMatch) {
+        return ev.start || null;
+      }
+
+      const datePart = dateMatch[0];
+
+      let timePart = timeMatch
+        ? timeMatch[0]
+        : '00:00:00';
+
+      if (/^\d{1,2}:\d{2}$/.test(timePart)) {
+        timePart += ':00';
+      }
+
+      return `${datePart}T${timePart}`;
+    }
+
     function fetchEvents(info, success, failure) {
       const q = (inputSearch?.value || '').trim().toLowerCase();
       const artistFilter = selArtist?.value || '';
@@ -257,13 +290,70 @@ document.addEventListener('DOMContentLoaded', function () {
 
         success: function (data) {
           let evs = data
-            .map(ev => ({
-              ...ev,
-              allDay: ev.allDay ?? false
-            }))
+            .map(ev => {
+              const xp = ev.extendedProps || {};
+
+              const rawDate =
+                xp.delivery_date ||
+                xp.date ||
+                '';
+
+              const rawTime =
+                xp.delivery_time ||
+                xp.time ||
+                '';
+
+              const dateMatch = String(rawDate).match(/\d{4}-\d{2}-\d{2}/);
+
+              const timeMatch = String(rawTime).match(
+                /\d{1,2}:\d{2}(?::\d{2})?/
+              );
+
+              let correctedStart = ev.start;
+
+              if (dateMatch) {
+                const datePart = dateMatch[0];
+
+                let timePart = timeMatch
+                  ? timeMatch[0]
+                  : '00:00:00';
+
+                if (/^\d{1,2}:\d{2}$/.test(timePart)) {
+                  timePart += ':00';
+                }
+
+                correctedStart = `${datePart}T${timePart}`;
+              }
+
+              return {
+                ...ev,
+
+                // Use the actual delivery_breakdowns date + time
+                start: correctedStart,
+
+                // No database end time
+                end: null,
+
+                allDay: false
+              };
+            })
             .filter(ev => isDeliveryOrInstallationMethod(ev));
 
-          console.log('Calendar events after delivery/installation method filter:', evs);
+          console.table(
+            evs.map(ev => ({
+              id: ev.id,
+              title: ev.title,
+              start: ev.start,
+              end: ev.end,
+              delivery_date: ev.extendedProps?.delivery_date,
+              delivery_time: ev.extendedProps?.delivery_time
+            }))
+          );
+
+          console.log(
+            'Calendar events after delivery/installation method filter:',
+            evs
+          );
 
           if (artistFilter) {
             evs = evs.filter(ev => {
@@ -576,6 +666,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const calendar = new Calendar(calendarEl, {
       initialView: 'dayGridMonth',
+
+      /*
+      * These delivery / installation records are point-in-time tasks.
+      *
+      * FullCalendar normally gives an event without an end time
+      * a visual duration of 1 hour.
+      *
+      * Use only 1 second so a 11:30pm task does not continue
+      * into the next day.
+      */
+      defaultTimedEventDuration: '00:00:01',
+      forceEventDuration: false,
+
       direction,
       plugins: [dayGridPlugin, interactionPlugin, listPlugin, timegridPlugin],
       headerToolbar: {
