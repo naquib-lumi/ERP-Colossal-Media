@@ -60,8 +60,33 @@
                                             <li><strong>Opportunity:</strong> {{ $lead->opportunity ?? 'None' }}</li>
                                             <li><strong>Company Name:</strong> {{ $lead->company_name }}</li>
                                             <li><strong>Company Phone:</strong> {{ $lead->company_phone ?? 'N/A' }}</li>
-                                            <li><strong>Company Website:</strong> <a href="{{ $lead->website }}"
-                                                    target="_blank">{{ $lead->website ?? 'N/A' }}</a></li>
+
+                                            @php
+                                                $website = trim($lead->website ?? '');
+
+                                                $websiteUrl = $website
+                                                    ? (
+                                                        preg_match('/^https?:\/\//i', $website)
+                                                            ? $website
+                                                            : 'https://' . ltrim($website, '/')
+                                                    )
+                                                    : null;
+                                            @endphp
+
+                                            <li>
+                                                <strong>Company Website:</strong>
+
+                                                @if ($websiteUrl)
+                                                    <a href="{{ $websiteUrl }}"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer">
+                                                        {{ $website }}
+                                                    </a>
+                                                @else
+                                                    N/A
+                                                @endif
+                                            </li>
+
                                             <li><strong>Lead Phone:</strong> {{ $lead->phone }}</li>
                                             <li><strong>Lead Email:</strong> <a
                                                     href="mailto:{{ $lead->email }}">{{ $lead->email }}</a></li>
