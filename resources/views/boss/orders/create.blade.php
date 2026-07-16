@@ -406,6 +406,7 @@
                                                                     <option value="">— Select —</option>
                                                                     <option value="self_pickup" {{ ($del['method'] ?? '') === 'self_pickup' ? 'selected' : '' }}>Self Pickup</option>
                                                                     <option value="courier" {{ ($del['method'] ?? '') === 'courier' ? 'selected' : '' }}>Courier</option>
+                                                                    <option value="delivery" {{ ($del['method'] ?? '') === 'delivery' ? 'selected' : '' }}>Delivery</option>
                                                                     <option value="installation" {{ ($del['method'] ?? '') === 'installation' ? 'selected' : '' }}>Installation</option>
                                                                 </select>
                                                                 </div>
@@ -773,12 +774,6 @@ $(function () {
     set($leadNm,''); set($company,''); set($phone,''); set($email,'');
   });
 
-  // delete delivery box content (keep UI, clear fields)
-    $(document).on('click', '.delete-delivery', function() {
-    const $box = $(this).closest('.delivery-box');
-    $box.find('select, input').val('');
-    });
-
   /**************************
  * PRODUCTS (+ REMARKS) UI
  **************************/
@@ -807,6 +802,7 @@ $(function () {
                     <option value="">— Select —</option>
                     <option value="self_pickup" ${method==='self_pickup'?'selected':''}>Self Pickup</option>
                     <option value="courier" ${method==='courier'?'selected':''}>Courier</option>
+                    <option value="delivery" ${method==='delivery'?'selected':''}>Delivery</option>
                     <option value="installation" ${method==='installation'?'selected':''}>Installation</option>
                 </select>
                 </div>
@@ -944,11 +940,12 @@ $(function () {
          **************************/
         function addDeliveryRowModal(method = '', location = '', date_time = '') {
         const html = `
-            <div class="delivery-row-modal">
+            <div class="delivery-row-modal" data-delivery-box>
             <select class="form-select" name="delivery_method">
                 <option value="">— Select —</option>
                 <option value="self_pickup" ${method==='self_pickup'?'selected':''}>Self Pickup</option>
                 <option value="courier" ${method==='courier'?'selected':''}>Courier</option>
+                <option value="delivery" ${method==='delivery'?'selected':''}>Delivery</option>
                 <option value="installation" ${method==='installation'?'selected':''}>Installation</option>
             </select>
 
@@ -958,7 +955,7 @@ $(function () {
             <input type="datetime-local" class="form-control" name="delivery_date_time"
                 value="${escapeHtml(date_time)}">
 
-            <button type="button" class="delete-delivery text-danger" title="Delete">
+            <button type="button" class="delete-delivery remove-delivery text-danger" title="Delete">
                 <i class="bx bx-trash fs-5"></i>
             </button>
             </div>
@@ -971,9 +968,38 @@ $(function () {
             addDeliveryRowModal();
         });
 
-        // Remove delivery row (modal or table)
-        $(document).on('click', '.remove-delivery', function() {
-        $(this).closest('[data-delivery-box]').remove();
+        function reindexDeliveryRows($container, productIndex) {
+            const $rows = $container.find('[data-delivery-box]');
+
+            $rows.each(function(dindex) {
+                $(this).find('[name*="[deliveries]"]').each(function() {
+                    this.name = this.name.replace(
+                        /products\[\d+\]\[deliveries\]\[\d+\]/,
+                        `products[${productIndex}][deliveries][${dindex}]`
+                    );
+                });
+            });
+
+            return $rows.length;
+        }
+
+        // Remove the complete delivery row in both the modal and product table.
+        $(document).on('click', '.delete-delivery', function(e) {
+            e.preventDefault();
+
+            const $row = $(this).closest('[data-delivery-box]');
+            if (!$row.length) return;
+
+            const $container = $row.parent();
+            const containerId = $container.attr('id') || '';
+            const productMatch = containerId.match(/^deliveries-container-(\d+)$/);
+
+            $row.remove();
+
+            // Keep table field indexes consecutive after deleting a middle row.
+            if (productMatch) {
+                reindexDeliveryRows($container, Number(productMatch[1]));
+            }
         });
 
         $(document).on('click', '.remove-remark', function() {
@@ -1207,9 +1233,9 @@ $(function () {
 
         // Add delivery row on table product row
         $(document).on('click', '.add-delivery', function() {
-            const index = $(this).data('index');
+            const index = Number($(this).data('index'));
             const container = $(`#deliveries-container-${index}`);
-            const dindex = container.find('[data-delivery-box]').length;
+            const dindex = reindexDeliveryRows(container, index);
 
             container.append(renderDeliveryBlock(index, dindex));
         });
@@ -1787,9 +1813,16 @@ function updateIndices() {
     $tr.find('.edit-product').attr('data-index', i);
     $tr.find('.remove-product').attr('data-index', i);
     $tr.find('.add-remark').attr('data-index', i);
+    $tr.find('.add-delivery').attr('data-index', i);
 
     const $rc = $tr.find('[id^="remarks-container-"]');
     if ($rc.length) $rc.attr('id', `remarks-container-${i}`);
+
+    const $dc = $tr.find('[id^="deliveries-container-"]');
+    if ($dc.length) {
+      $dc.attr('id', `deliveries-container-${i}`);
+      reindexDeliveryRows($dc, i);
+    }
 
     $tr.find('[name^="products["]').each(function() {
       this.name = this.name.replace(/products\[\d+\]/, `products[${i}]`);
