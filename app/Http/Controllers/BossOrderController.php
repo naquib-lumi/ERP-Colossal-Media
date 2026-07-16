@@ -1827,7 +1827,7 @@ class BossOrderController extends Controller
 
                 'products.*.deliveries.*.method' => [
                     'required',
-                    Rule::in(['self_pickup','courier','installation'])
+                    Rule::in(['self_pickup','courier','delivery','installation'])
                 ],
 
                 'products.*.deliveries.*.location' => [
