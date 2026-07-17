@@ -12,38 +12,89 @@ use Illuminate\Support\Facades\Auth;
 class DispatchControlHistoryController extends Controller
 {
     public function index(Request $request)
-{
-    // --- inputs (same names you used elsewhere)
-    $pid    = trim((string) $request->query('pid', ''));           // Product ID / code
-    $q      = trim((string) $request->query('q', ''));             // Order title / company / product / remarks
-    $artist = (string) $request->query('artist', '');              // orders.artist_id
-    $start  = trim((string) $request->query('start', ''));         // mm/dd/yyyy or yyyy-mm-dd
-    $end    = trim((string) $request->query('end', ''));           // mm/dd/yyyy or yyyy-mm-dd
-    $sort   = strtolower((string) $request->query('sort', 'desc')); // completed date sort: asc|desc
-    $dir  = strtolower((string) $request->get('dir', 'desc'));
-    $dir  = $dir === 'asc' ? 'asc' : 'desc';
+    {
+        // --- inputs (same names you used elsewhere)
+        $pid    = trim((string) $request->query('pid', ''));            // Product ID / code
+        $q      = trim((string) $request->query('q', ''));              // Order title / company / product / remarks
+        $artist = (string) $request->query('artist', '');               // orders.artist_id
+        $start  = trim((string) $request->query('start', ''));          // mm/dd/yyyy or yyyy-mm-dd
+        $end    = trim((string) $request->query('end', ''));            // mm/dd/yyyy or yyyy-mm-dd
+        $sort   = strtolower((string) $request->query('sort', 'desc')); // completed date sort: asc|desc
+        $dir    = strtolower((string) $request->get('dir', 'desc'));
+        $dir    = $dir === 'asc' ? 'asc' : 'desc';
 
-    // normalize date
-    $toYmd = static function (?string $v): ?string {
-        if (!$v) return null;
-        try { return \Carbon\Carbon::parse($v)->toDateString(); } catch (\Throwable $e) {
-            if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $v, $m)) {
-                return $m[3] . '-' . str_pad($m[1],2,'0',STR_PAD_LEFT) . '-' . str_pad($m[2],2,'0',STR_PAD_LEFT);
+        $yearValueExpr = "CAST(COALESCE(
+            YEAR(o.orderDate),
+            YEAR(o.created_at)
+        ) AS CHAR)";
+
+        $orderIdValueExpr = "CAST(COALESCE(o.redo, o.id) AS CHAR)";
+        $productIdValueExpr = "CAST(COALESCE(p.redoOf, p.ProductID) AS CHAR)";
+
+        $yearCodeExpr = "
+            CONCAT(
+                REPEAT('0', GREATEST(0, 4 - CHAR_LENGTH($yearValueExpr))),
+                $yearValueExpr
+            )
+        ";
+
+        $orderCodeExpr = "
+            CONCAT(
+                REPEAT('0', GREATEST(0, 3 - CHAR_LENGTH($orderIdValueExpr))),
+                $orderIdValueExpr
+            )
+        ";
+
+        $productCodeNumberExpr = "
+            CONCAT(
+                REPEAT('0', GREATEST(0, 4 - CHAR_LENGTH($productIdValueExpr))),
+                $productIdValueExpr
+            )
+        ";
+
+        $formattedCodeExpr = "
+            CONCAT(
+                '#ORD-',
+                $yearCodeExpr,
+                '-',
+                $orderCodeExpr,
+                '-P',
+                $productCodeNumberExpr
+            )
+        ";
+
+        // Normalize date.
+        $toYmd = static function (?string $v): ?string {
+            if (!$v) {
+                return null;
             }
-            return null;
-        }
-    };
-    $startYmd = $toYmd($start);
-    $endYmd   = $toYmd($end);
 
-    // artists dropdown: limit to artist + head-artist
-    $artists = DB::table('users')
-        ->whereIn('role', ['artist', 'head-artist'])
-        ->select('id','name')
-        ->orderBy('name')
-        ->get();
+            try {
+                return \Carbon\Carbon::parse($v)->toDateString();
+            } catch (\Throwable $e) {
+                if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $v, $m)) {
+                    return $m[3]
+                        . '-'
+                        . str_pad($m[1], 2, '0', STR_PAD_LEFT)
+                        . '-'
+                        . str_pad($m[2], 2, '0', STR_PAD_LEFT);
+                }
 
-    $fpLatest = DB::table('fulfillment_progress')
+                return null;
+            }
+        };
+
+        $startYmd = $toYmd($start);
+        $endYmd   = $toYmd($end);
+
+        // Artists dropdown: limit to artist + head-artist.
+        $artists = DB::table('users')
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        $fpLatest = DB::table('fulfillment_progress')
             ->selectRaw('ProductID, MAX(completedAt) AS completed_date')
             ->where('stage', 'delivery')
             ->where(function ($w) {
@@ -52,52 +103,55 @@ class DispatchControlHistoryController extends Controller
             })
             ->groupBy('ProductID');
 
-        // editable redo children (for trailing R)
+        // Editable redo children (for trailing R).
         $redoChildren = DB::raw('(
-    SELECT DISTINCT redoOf
-    FROM products
-    WHERE editable = 1 AND redoOf IS NOT NULL
-) rr');
+            SELECT DISTINCT redoOf
+            FROM products
+            WHERE editable = 1
+            AND redoOf IS NOT NULL
+        ) rr');
 
-    // -------- base query (Dispatch Control history = stage 'delivery') --------
-    $base = DB::table('products as p')
+        // -------- base query (Dispatch Control history = stage delivery) --------
+        $base = DB::table('products as p')
             ->joinSub($fpLatest, 'fpx', function ($j) {
                 $j->on('fpx.ProductID', '=', 'p.ProductID');
             })
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
             ->leftJoin($redoChildren, 'rr.redoOf', '=', 'p.ProductID')
             ->where(function ($w) {
-                $w->whereNull('o.status')->orWhere('o.status', '!=', 1);
+                $w->whereNull('o.status')
+                    ->orWhere('o.status', '!=', 1);
             })
-            ->when($pid !== '', function ($qb) use ($pid) {
-                $like = "%{$pid}%";
-                $qb->where(function ($w) use ($pid, $like) {
-                    // numeric fast path
-                    if (ctype_digit($pid)) {
-                        $w->orWhere('o.id', (int)$pid)        // new order id
-                        ->orWhere('o.redo', (int)$pid)      // original order id
-                        ->orWhere('p.ProductID', (int)$pid) // new product id
-                        ->orWhere('p.redoOf', (int)$pid);   // original product id
-                    }
-                    // fuzzy
-                    $w->orWhere('o.id', 'like', $like)
-                    ->orWhere('o.redo', 'like', $like)
-                    ->orWhere('p.ProductID', 'like', $like)
-                    ->orWhere('p.redoOf', 'like', $like)
-                    ->orWhere('o.order_number', 'like', $like)
-                    // formatted code WITHOUT trailing R
-                    ->orWhere(DB::raw("
-                        CONCAT(
-                            '#ORD-',
-                            LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
-                            '-',
-                            LPAD(COALESCE(o.redo, o.id), 3, '0'),
-                            '-P',
-                            LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
-                        )
-                    "), 'like', $like);
-                });
-            })
+            ->when(
+                $pid !== '',
+                function ($qb) use ($pid, $formattedCodeExpr) {
+                    $like = "%{$pid}%";
+
+                    $qb->where(function ($w) use ($pid, $like, $formattedCodeExpr) {
+                        // Exact numeric matches without forcing the value into a PHP integer.
+                        if (ctype_digit($pid)) {
+                            $w->orWhere('o.id', $pid)
+                                ->orWhere('o.redo', $pid)
+                                ->orWhere('p.ProductID', $pid)
+                                ->orWhere('p.redoOf', $pid);
+                        }
+
+                        // Partial/fuzzy matches.
+                        $w->orWhere('o.id', 'like', $like)
+                            ->orWhere('o.redo', 'like', $like)
+                            ->orWhere('p.ProductID', 'like', $like)
+                            ->orWhere('p.redoOf', 'like', $like)
+                            ->orWhere('o.order_number', 'like', $like)
+
+                            // Match the formatted code without the optional trailing R.
+                            ->orWhere(
+                                DB::raw($formattedCodeExpr),
+                                'like',
+                                $like
+                            );
+                    });
+                }
+            )
             ->select([
                 'p.ProductID',
                 'o.orderTitle as product_name',
@@ -106,33 +160,34 @@ class DispatchControlHistoryController extends Controller
                 'o.id as order_id',
                 'o.order_number',
                 DB::raw("
-            CONCAT(
-                '#ORD-',
-                LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
-                '-',
-                LPAD(COALESCE(o.redo, o.id), 3, '0'),
-                '-P',
-                LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
-                CASE
-                    WHEN ((p.redoOf IS NOT NULL AND p.editable = 1) OR rr.redoOf IS NOT NULL) THEN 'R'
-                    ELSE ''
-                END
-            ) AS product_code
-        "),
+                    CONCAT(
+                        $formattedCodeExpr,
+                        CASE
+                            WHEN (
+                                (p.redoOf IS NOT NULL AND p.editable = 1)
+                                OR rr.redoOf IS NOT NULL
+                            ) THEN 'R'
+                            ELSE ''
+                        END
+                    ) AS product_code
+                "),
             ]);
 
-
-    if ($q !== '') {
+        if ($q !== '') {
             $like = "%{$q}%";
-            $base->where(function ($w) use ($q, $like) {
+
+            $base->where(function ($w) use ($q, $like, $formattedCodeExpr) {
                 $w->where('o.orderTitle', 'like', $like)
                     ->orWhere('o.companyName', 'like', $like)
                     ->orWhere('p.productName', 'like', $like)
                     ->orWhere('o.order_number', 'like', $like)
                     ->orWhere('p.materialRemark', 'like', $like);
 
-                if (preg_match('/^\d+$/', $q)) $w->orWhere('p.ProductID', (int)$q);
-                else                           $w->orWhere('p.ProductID', 'like', $like);
+                if (preg_match('/^\d+$/', $q)) {
+                    $w->orWhere('p.ProductID', $q);
+                } else {
+                    $w->orWhere('p.ProductID', 'like', $like);
+                }
 
                 $w->orWhereExists(function ($sub) use ($like) {
                     $sub->from('product_items as pi')
@@ -141,54 +196,52 @@ class DispatchControlHistoryController extends Controller
                         ->where('s.printer', 'like', $like);
                 });
 
-                $w->orWhere(DB::raw("
-            CONCAT(
-                '#ORD-',
-                LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at)), 4, '0'),
-                '-',
-                LPAD(COALESCE(o.redo, o.id), 3, '0'),
-                '-P',
-                LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
-            )
-        "), 'like', $like);
+                $w->orWhere(
+                    DB::raw($formattedCodeExpr),
+                    'like',
+                    $like
+                );
             });
         }
 
-    if ($artist !== '') {
-        $base->where('o.artist_id', $artist);
-    }
+        if ($artist !== '') {
+            $base->where('o.artist_id', $artist);
+        }
 
-    if ($startYmd) $base->whereDate('fpx.completed_date', '>=', $startYmd);
-    if ($endYmd)   $base->whereDate('fpx.completed_date', '<=', $endYmd);
+        if ($startYmd) {
+            $base->whereDate('fpx.completed_date', '>=', $startYmd);
+        }
 
-    // --- sort (default desc) ---
-    // $sort = in_array($sort, ['asc','desc'], true) ? $sort : 'desc';
-    $base->orderByRaw('fpx.completed_date IS NULL')
+        if ($endYmd) {
+            $base->whereDate('fpx.completed_date', '<=', $endYmd);
+        }
+
+        // Sort by completed date; default is descending.
+        $base->orderByRaw('fpx.completed_date IS NULL')
             ->orderBy('fpx.completed_date', $dir)
             ->orderBy('o.id')
             ->orderBy('p.ProductID');
 
-    // paginate
-    $orders = $base->paginate(10)->withQueryString();
+        // Paginate.
+        $orders = $base->paginate(10)->withQueryString();
 
-    // details link (adjust route if yours differs)
-    $orders->getCollection()->transform(function ($row) {
-        $row->details_url = route('dispatchcontrol.history.show', $row->ProductID);
-        return $row;
-    });
+        // Details link.
+        $orders->getCollection()->transform(function ($row) {
+            $row->details_url = route('dispatchcontrol.history.show', $row->ProductID);
+            return $row;
+        });
 
-    return view('dispatchcontrol.history', [
-        'orders' => $orders,
-        // echo filters back to UI
-        'pid'    => $pid,
-        'q'      => $q,
-        'artist' => $artist,
-        'start'  => $start,
-        'end'    => $end,
-        'sort'   => $sort,
-        'artists'=> $artists,
-    ]);
-}
+        return view('dispatchcontrol.history', [
+            'orders'  => $orders,
+            'pid'     => $pid,
+            'q'       => $q,
+            'artist'  => $artist,
+            'start'   => $start,
+            'end'     => $end,
+            'sort'    => $sort,
+            'artists' => $artists,
+        ]);
+    }
 
     public function show($productId)
     {
