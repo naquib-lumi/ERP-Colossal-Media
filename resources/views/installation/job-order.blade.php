@@ -119,6 +119,30 @@
 
   .table tbody tr:hover { background: #FAFBFC }
 
+  /* Product IDs can grow beyond 3/4 digits without wrapping or clipping */
+  .job-order-table {
+    width: 100%;
+    min-width: 1200px;
+    table-layout: auto;
+  }
+
+  .job-order-table .product-id-column,
+  .job-order-table .product-id-cell {
+    width: 1%;
+    min-width: 190px;
+    white-space: nowrap;
+  }
+
+  .dc-toolbar .product-id-filter {
+    width: 190px;
+    min-width: 190px;
+  }
+
+  .dc-toolbar .product-id-filter .form-control {
+    min-width: 0;
+    max-width: none !important;
+  }
+
   .pill {
     display: inline-block;
     padding: .35rem .7rem;
@@ -386,10 +410,10 @@ $taskLabel = function (?string $raw) {
       <input type="hidden" name="method" value="{{ request('method') }}">
 
       {{-- Product ID --}}
-      <div class="input-group">
+      <div class="input-group product-id-filter">
         <span class="input-group-text"><i class="bi bi-hash"></i></span>
         <input type="text" name="pid" value="{{ request('pid', $pid ?? '') }}"
-               class="form-control" placeholder="# Enter Product ID" style="max-width:130px;">
+               class="form-control" placeholder="# Enter Product ID">
       </div>
 
       {{-- Keyword search (grows) --}}
@@ -436,10 +460,10 @@ $taskLabel = function (?string $raw) {
   {{-- Table --}}
   <div class="card card-soft">
     <div class="table-responsive">
-      <table class="table align-middle mb-0">
+      <table class="table align-middle mb-0 job-order-table">
         <thead>
           <tr>
-            <th>PRODUCT ID</th>
+            <th class="product-id-column">PRODUCT ID</th>
             <th>ORDER TITLE</th>
             <th>TASK TYPE</th>
 
@@ -513,7 +537,7 @@ $taskLabel = function (?string $raw) {
               $statCls       = $statusStyles[$status] ?? 'bg-light text-muted';
           @endphp
           <tr class="js-row" data-href="{{ $o->details_url }}" style="cursor: pointer;">
-            <td class="fw-semibold">{{ $o->product_code ?? $o->product_id ?? '—' }}</td>
+            <td class="fw-semibold product-id-cell">{{ $o->product_code ?? $o->product_id ?? '—' }}</td>
             <td>{{ $o->order_title ?? '—' }}</td>
 
             <td>
