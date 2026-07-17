@@ -18,9 +18,10 @@
   .card{background:#fff;border:1px solid #ECEFF3;border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
   .table-card .card-hd{padding:12px 16px;font-weight:700;border-bottom:1px solid #EEF2F7}
   .table-card .card-ft{padding:12px 16px;border-top:1px solid #EEF2F7;background:#fff}
-  .table-wrapper{overflow:hidden}
-  .table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+  .table-wrapper{overflow-x:auto;overflow-y:hidden}
+  .table{width:100%;min-width:100%;border-collapse:separate;border-spacing:0;table-layout:auto}
   .table thead th{background:#F8FAFC;color:#6B7280;font-weight:600;font-size:12px;letter-spacing:.2px;border-bottom:1px solid #EEF2F7;text-align:left;padding:14px 16px}
+  .col-product-id{white-space:nowrap;width:1%;min-width:190px}
   .table td{color:#1F2937;padding:14px 16px;border-top:1px solid #F1F4F8;vertical-align:middle}
   .table tbody tr:hover{background:#FAFBFC}
   .table td:first-child{font-weight:700;color:#111827}
@@ -250,7 +251,7 @@
         @endphp
         <thead>
           <tr>
-            <th>PRODUCT ID</th>
+            <th class="col-product-id">PRODUCT ID</th>
             <th>ORDER TITLE</th>
             <th>SQ INCH</th>
             <th>
@@ -306,7 +307,7 @@
               $editUrl     = route('printing.orders.show', [$row->ProductID, 'edit' => 1]);
             @endphp
             <tr id="job-{{ $row->ProductID }}" class="js-row-open" data-code="{{ $row->display_product_id }}" data-href="{{ $showUrl }}" style="cursor:pointer;">
-              <td class="whitespace-nowrap font-medium">{{ $row->display_product_id }}</td>
+              <td class="col-product-id whitespace-nowrap font-medium">{{ $row->display_product_id }}</td>
               <td>{{ $row->order_title ?? '—' }}</td>
               <td>{{ number_format((float)($row->sq_inch ?? 0), 4) }} sq in</td>
               <td class="td-deadline {{ $dlClass }}" data-date="{{ $deadlineRaw ?? '' }}">

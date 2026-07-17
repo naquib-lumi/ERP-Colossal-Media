@@ -25,6 +25,16 @@ class PrintingController extends Controller
         $sort     = (string) $request->get('sort', 'deadline_nearest');
         $mine = $request->boolean('mine');
 
+        $orderCodeExpr = "CONCAT(
+            REPEAT('0', GREATEST(0, 3 - CHAR_LENGTH(CAST(COALESCE(o.redo, o.id) AS CHAR)))),
+            CAST(COALESCE(o.redo, o.id) AS CHAR)
+        )";
+
+        $productCodeExpr = "CONCAT(
+            REPEAT('0', GREATEST(0, 4 - CHAR_LENGTH(CAST(COALESCE(p.redoOf, p.ProductID) AS CHAR)))),
+            CAST(COALESCE(p.redoOf, p.ProductID) AS CHAR)
+        )";
+
         $readDate = function (?string $v): ?string {
             if (!$v) return null;
             try {
@@ -124,10 +134,10 @@ class PrintingController extends Controller
             ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
 
             // NEW: Product ID / code filter (server-side, all pages)
-            ->when($pid !== '', function ($qb) use ($pid) {
+            ->when($pid !== '', function ($qb) use ($pid, $orderCodeExpr, $productCodeExpr) {
                 $like = '%'.$pid.'%';
 
-                $qb->where(function ($w) use ($pid, $like) {
+                $qb->where(function ($w) use ($pid, $like, $orderCodeExpr, $productCodeExpr) {
                     // Fast exact matches for numeric input
                     if (ctype_digit($pid)) {
                         $w->orWhere('o.id', (int)$pid)         // new order id
@@ -148,8 +158,8 @@ class PrintingController extends Controller
                         CONCAT(
                             '#ORD-',
                             YEAR(o.orderDate), '-',
-                            LPAD(COALESCE(o.redo, o.id), 3, '0'),
-                            '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+                            $orderCodeExpr,
+                            '-P', $productCodeExpr
                         )
                     "), 'like', $like);
                 });
@@ -198,8 +208,8 @@ class PrintingController extends Controller
                 CONCAT(
                     '#ORD-',
                     YEAR(o.orderDate), '-',
-                    LPAD(COALESCE(o.redo, o.id), 3, '0'),
-                    '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                    $orderCodeExpr,
+                    '-P', $productCodeExpr,
                     CASE
                     WHEN ( (p.redoOf IS NOT NULL AND p.editable = 1) OR COUNT(r.ProductID) > 0 )
                         THEN 'R'
