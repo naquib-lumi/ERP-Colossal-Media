@@ -706,6 +706,53 @@ class InstallationController extends Controller
             ->orderBy('name')
             ->get();
 
+        $yearValueExpr = "CAST(COALESCE(
+            YEAR(o.orderDate),
+            YEAR(o.created_at),
+            YEAR(p.updated_at)
+        ) AS CHAR)";
+
+        $orderIdValueExpr = "CAST(COALESCE(o.redo, o.id, 0) AS CHAR)";
+        $productIdValueExpr = "CAST(COALESCE(p.redoOf, p.ProductID) AS CHAR)";
+
+        $yearCodeExpr = "
+            CONCAT(
+                REPEAT('0', GREATEST(0, 4 - CHAR_LENGTH($yearValueExpr))),
+                $yearValueExpr
+            )
+        ";
+
+        $orderCodeExpr = "
+            CONCAT(
+                REPEAT('0', GREATEST(0, 3 - CHAR_LENGTH($orderIdValueExpr))),
+                $orderIdValueExpr
+            )
+        ";
+
+        $productCodeNumberExpr = "
+            CONCAT(
+                REPEAT('0', GREATEST(0, 4 - CHAR_LENGTH($productIdValueExpr))),
+                $productIdValueExpr
+            )
+        ";
+
+        $formattedProductCodeExpr = "
+            CONCAT(
+                '#ORD-',
+                $yearCodeExpr,
+                '-',
+                $orderCodeExpr,
+                '-P',
+                $productCodeNumberExpr,
+                CASE
+                    WHEN p.redoOf IS NOT NULL
+                         AND COALESCE(p.editable, 0) = 1
+                    THEN 'R'
+                    ELSE ''
+                END
+            )
+        ";
+
         // ---------- TABLE QUERY ----------
         $orders = DB::table('products as p')
             ->leftJoin('orders as o', 'o.id', '=', 'p.OrderID')
@@ -749,44 +796,37 @@ class InstallationController extends Controller
                 o.artist_id,
 
                 -- Code: #ORD-YYYY-<baseOrderId>-P<baseProductId>[R]
-                CONCAT(
-                    '#ORD-',
-                    LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
-                    '-',
-                    LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
-                    '-P',
-                    LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
-                    CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
-                ) as product_code
+                {$formattedProductCodeExpr} as product_code
             ")
 
             // PRODUCT ID / CODE search (works across all pages)
-            ->when($pid !== '', function ($qb) use ($pid) {
-                $like = "%{$pid}%";
-                $qb->where(function ($w) use ($pid, $like) {
-                    // numeric convenience
-                    if (ctype_digit($pid)) {
-                        $w->where('p.ProductID', (int)$pid)
-                        ->orWhere('o.id', (int)$pid);
-                    } else {
-                        $w->where('p.ProductID', 'like', $like)
-                        ->orWhere('o.id', 'like', $like);
-                    }
+            ->when(
+                $pid !== '',
+                function ($qb) use ($pid, $formattedProductCodeExpr) {
+                    $like = "%{$pid}%";
 
-                    // also match the formatted product code with base ids + optional R
-                    $w->orWhereRaw("
-                        CONCAT(
-                            '#ORD-',
-                            LPAD(COALESCE(YEAR(o.orderDate), YEAR(o.created_at), YEAR(p.updated_at)), 4, '0'),
-                            '-',
-                            LPAD(COALESCE(o.redo, o.id, 0), 3, '0'),
-                            '-P',
-                            LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
-                            CASE WHEN p.redoOf IS NOT NULL AND COALESCE(p.editable,0) = 1 THEN 'R' ELSE '' END
-                        ) LIKE ?
-                    ", [$like]);
-                });
-            })
+                    $qb->where(function ($w) use ($pid, $like, $formattedProductCodeExpr) {
+                        // Exact numeric matching without forcing the value into a PHP integer.
+                        if (ctype_digit($pid)) {
+                            $w->where('p.ProductID', $pid)
+                                ->orWhere('p.redoOf', $pid)
+                                ->orWhere('o.id', $pid)
+                                ->orWhere('o.redo', $pid);
+                        } else {
+                            $w->where('p.ProductID', 'like', $like)
+                                ->orWhere('p.redoOf', 'like', $like)
+                                ->orWhere('o.id', 'like', $like)
+                                ->orWhere('o.redo', 'like', $like);
+                        }
+
+                        // Also match the complete formatted code, including an optional R.
+                        $w->orWhereRaw(
+                            "({$formattedProductCodeExpr}) LIKE ?",
+                            [$like]
+                        );
+                    });
+                }
+            )
 
             // KEYWORD: order title / company name / product name / delivery location
             ->when($q !== '', function ($qb) use ($q) {
