@@ -21,6 +21,16 @@ class FurnishingController extends Controller
         $pid     = trim((string) $request->get('pid', ''));        // NEW: product id / code (all pages)
         $mine = $request->boolean('mine');
 
+        $orderCodeExpr = "CONCAT(
+            REPEAT('0', GREATEST(0, 3 - CHAR_LENGTH(CAST(COALESCE(o.redo, o.id) AS CHAR)))),
+            CAST(COALESCE(o.redo, o.id) AS CHAR)
+        )";
+
+        $productCodeExpr = "CONCAT(
+            REPEAT('0', GREATEST(0, 4 - CHAR_LENGTH(CAST(COALESCE(p.redoOf, p.ProductID) AS CHAR)))),
+            CAST(COALESCE(p.redoOf, p.ProductID) AS CHAR)
+        )";
+
         $readDate = function (?string $v): ?string {
             if (!$v) return null;
             try { return \Carbon\Carbon::parse($v)->toDateString(); }
@@ -119,16 +129,16 @@ class FurnishingController extends Controller
             ->when($sbStart && !$sbEnd, fn($q) => $q->whereDate('p.updated_at', '>=', $sbStart))
             ->when(!$sbStart && $sbEnd, fn($q) => $q->whereDate('p.updated_at', '<=', $sbEnd))
 
-            ->when($pid !== '', function ($qb) use ($pid) {
+            ->when($pid !== '', function ($qb) use ($pid, $orderCodeExpr, $productCodeExpr) {
                 $like = '%'.$pid.'%';
 
-                $qb->where(function ($w) use ($pid, $like) {
+                $qb->where(function ($w) use ($pid, $like, $orderCodeExpr, $productCodeExpr) {
                     // Fast exact matches for numeric input
                     if (ctype_digit($pid)) {
-                        $w->orWhere('o.id', (int)$pid)         // new order id
-                        ->orWhere('o.redo', (int)$pid)       // original order id
-                        ->orWhere('p.ProductID', (int)$pid)  // new product id
-                        ->orWhere('p.redoOf', (int)$pid);    // original product id
+                        $w->orWhere('o.id', $pid)         // new order id
+                        ->orWhere('o.redo', $pid)         // original order id
+                        ->orWhere('p.ProductID', $pid)    // new product id
+                        ->orWhere('p.redoOf', $pid);      // original product id
                     }
 
                     // Fuzzy matches (strings / partials)
@@ -143,8 +153,8 @@ class FurnishingController extends Controller
                         CONCAT(
                             '#ORD-',
                             YEAR(o.orderDate), '-',
-                            LPAD(COALESCE(o.redo, o.id), 3, '0'),
-                            '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0')
+                            $orderCodeExpr,
+                            '-P', $productCodeExpr
                         )
                     "), 'like', $like);
                 });
@@ -184,8 +194,8 @@ class FurnishingController extends Controller
                 CONCAT(
                     '#ORD-',
                     YEAR(o.orderDate), '-',
-                    LPAD(COALESCE(o.redo, o.id), 3, '0'),
-                    '-P', LPAD(COALESCE(p.redoOf, p.ProductID), 4, '0'),
+                    $orderCodeExpr,
+                    '-P', $productCodeExpr,
                     CASE
                     WHEN ( (p.redoOf IS NOT NULL AND p.editable = 1) OR COUNT(r.ProductID) > 0 )
                         THEN 'R'
