@@ -1458,17 +1458,30 @@ $(function () {
       placeholder: 'Select artist…',
       allowClear: true,
       width: '100%',
-      minimumInputLength: 0,                         // ← allow opening with no typing
+      minimumInputLength: 0,
       dropdownParent: $assignee.closest('.card, .modal, form'),
       ajax: {
         url: @json(route('boss.orders.assignees.search')),
         dataType: 'json',
         delay: 150,
         data: params => ({
-          q: params.term || '',                      // ← empty term triggers “all”
-          roles: ['artist','head-artist']
+          q: params.term || '',
+          roles: ['artist','head-artist'],
+          status: 'active'
         }),
-        processResults: data => ({ results: Array.isArray(data) ? data : (data.results || []) }),
+        processResults: data => {
+          const results = Array.isArray(data) ? data : (data.results || []);
+
+          const activeResults = results.filter(item => {
+            const status = String(item.status ?? item.meta?.status ?? '')
+              .trim()
+              .toLowerCase();
+
+            return status === '' || status === 'active';
+          });
+
+          return { results: activeResults };
+        },
         cache: true
       },
       templateResult: item => {

@@ -18,6 +18,7 @@ use Illuminate\Validation\Rule;
 use App\Models\OrderAttachment;
 use Illuminate\Support\Str;
 use App\Models\OrderRecord;
+use Illuminate\Validation\ValidationException;
 
 class ArtistOrderController extends Controller
 {
@@ -167,6 +168,16 @@ class ArtistOrderController extends Controller
                 'permit'      => ['required', 'boolean'],
                 'orderDetail' => 'nullable|string',
 
+                'assignee_artist_id' => [
+                    Rule::requiredIf(fn () => $user->hasRole('head-artist')),
+                    'nullable',
+                    'integer',
+                    Rule::exists('users', 'id')->where(function ($query) {
+                        $query->whereIn('role', ['artist', 'head-artist'])
+                            ->whereRaw('LOWER(TRIM(status)) = ?', ['active']);
+                    }),
+                ],
+
                 'products'                       => ['required','array','min:1'],
                 'products.*.product_name'        => ['required','string','max:255'],
                 'products.*.quantity'            => ['required','integer','min:1'],
@@ -237,17 +248,28 @@ class ArtistOrderController extends Controller
             
             // Head-artist assigning to a normal artist
             $assignee = null;
-            if (auth()->user()->hasRole('head-artist') && $request->filled('assignee_artist_id')) {
-                $assigneeId        = (int) $request->input('assignee_artist_id');
-                $order->artist_id  = $assigneeId;
-                $assignee          = \App\Models\User::find($assigneeId);
 
-                if ($assignee && $assignee->hasRole('head-artist')) {
-                    // Selected a head-artist → set to in_progress (your requirement)
+            if ($user->hasRole('head-artist')) {
+                $assigneeId = (int) $request->input('assignee_artist_id');
+
+                $assignee = \App\Models\User::query()
+                    ->whereKey($assigneeId)
+                    ->whereIn('role', ['artist', 'head-artist'])
+                    ->whereRaw('LOWER(TRIM(status)) = ?', ['active'])
+                    ->first();
+
+                if (!$assignee) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'assignee_artist_id' => 'The selected artist is inactive or unavailable.',
+                    ]);
+                }
+
+                $order->artist_id = $assignee->id;
+
+                if ($assignee->hasRole('head-artist')) {
                     $order->orderStatus = 'in_progress';
                     $order->pending     = 0;
                 } else {
-                    // Selected a normal artist → keep your previous behavior
                     $order->orderStatus = 'assigned';
                     $order->pending     = 1;
                 }
@@ -691,25 +713,61 @@ class ArtistOrderController extends Controller
         ]);
     }
 
-    public function searchArtists(\Illuminate\Http\Request $request)
+    public function searchArtists(Request $request)
     {
-        $q = trim((string) $request->query('q', ''));
+        $currentUser = auth()->user();
 
-        $base = \App\Models\User::query()
-            ->whereIn('role', ['artist', 'head-artist'])
-            ->orderBy('name');
-
-        if ($q !== '') {
-            $base->where('name', 'like', "%{$q}%");
+        if (!$currentUser || $currentUser->role !== 'head-artist') {
+            return response()->json([
+                'results' => [],
+                'message' => 'Forbidden',
+            ], 403);
         }
 
-        $users = $base->limit(100)->get(['id','name','role']);
+        $q = trim((string) $request->query('q', ''));
+
+        $base = User::query()
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->whereRaw('LOWER(TRIM(status)) = ?', ['active']);
+
+        if ($q !== '') {
+            $base->where(function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%")
+                    ->orWhere('email', 'like', "%{$q}%");
+            });
+        }
+
+        $users = $base
+            ->orderByRaw("
+                CASE
+                    WHEN role = 'head-artist' THEN 0
+                    WHEN role = 'artist' THEN 1
+                    ELSE 2
+                END
+            ")
+            ->orderBy('name')
+            ->limit(100)
+            ->get([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
 
         return response()->json([
-            'results' => $users->map(fn($u) => [
-                'id'   => $u->id,
-                'text' => "{$u->name} ({$u->role})",
-            ]),
+            'results' => $users->map(function (User $user) {
+                return [
+                    'id' => $user->id,
+                    'text' => "{$user->name} ({$user->role})",
+                    'status' => strtolower(trim((string) $user->status)),
+                    'meta' => [
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'status' => strtolower(trim((string) $user->status)),
+                    ],
+                ];
+            })->values(),
         ]);
     }
 
@@ -792,74 +850,133 @@ class ArtistOrderController extends Controller
         // ... proceed to upsert rows ...
     }
 
-    public function assign(Request $request, \App\Models\Order $order)
+    public function assign(Request $request, Order $order)
     {
+        $currentUser = auth()->user();
+
+        if (!$currentUser || $currentUser->role !== 'head-artist') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Forbidden',
+            ], 403);
+        }
+
         try {
-            if (auth()->user()->role !== 'head-artist') {
-                return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+            $validated = $request->validate(
+                [
+                    'user_id' => [
+                        'nullable',
+                        'integer',
+                        Rule::exists('users', 'id')->where(function ($query) {
+                            $query
+                                ->whereIn('role', ['artist', 'head-artist'])
+                                ->whereRaw(
+                                    'LOWER(TRIM(status)) = ?',
+                                    ['active']
+                                );
+                        }),
+                    ],
+                ],
+                [
+                    'user_id.integer' => 'The selected artist is invalid.',
+                    'user_id.exists' => 'The selected artist is inactive or unavailable.',
+                ]
+            );
+
+            $assignee = null;
+
+            if (!empty($validated['user_id'])) {
+                $assigneeId = (int) $validated['user_id'];
+
+                $assignee = User::query()
+                    ->whereKey($assigneeId)
+                    ->whereIn('role', ['artist', 'head-artist'])
+                    ->whereRaw('LOWER(TRIM(status)) = ?', ['active'])
+                    ->first();
+
+                if (!$assignee) {
+                    throw ValidationException::withMessages([
+                        'user_id' => [
+                            'The selected artist is inactive or unavailable.',
+                        ],
+                    ]);
+                }
             }
 
-            $validated = $request->validate([
-                'user_id' => ['nullable','integer','exists:users,id'],
-            ]);
-
-            $assignee = isset($validated['user_id'])
-                ? User::find($validated['user_id'])
-                : null;
-
-            /**
-             * ✅ Record first edit time ONLY IF:
-             * 1) current orderStatus is 'to_assign'
-             * 2) assignee is head-artist
-             */
-            if ($order->orderStatus === 'to_assign' && $assignee && $assignee->role === 'head-artist') {
-
-                // ensure record exists
+            if (
+                $order->orderStatus === 'to_assign'
+                && $assignee
+                && $assignee->role === 'head-artist'
+            ) {
                 OrderRecord::firstOrCreate(
-                    ['order_id' => $order->id],
-                    ['first_created_at' => $order->created_at] // optional seed
+                    [
+                        'order_id' => $order->id,
+                    ],
+                    [
+                        'first_created_at' => $order->created_at,
+                    ]
                 );
 
-                // stamp only once
-                OrderRecord::where('order_id', $order->id)
+                OrderRecord::query()
+                    ->where('order_id', $order->id)
                     ->whereNull('first_edited_at')
-                    ->update(['first_edited_at' => now()]);
+                    ->update([
+                        'first_edited_at' => now(),
+                    ]);
             }
 
-            // defaults
             $newStatus = 'to_assign';
-            $pending   = 0;
+            $pending = 0;
 
             if ($assignee) {
                 if ($assignee->role === 'head-artist') {
                     $newStatus = 'in_progress';
-                    $pending   = 0;
+                    $pending = 0;
                 } else {
                     $newStatus = 'assigned';
-                    $pending   = 1;
+                    $pending = 1;
                 }
             }
 
-            $order->artist_id   = $assignee?->id;
+            $order->artist_id = $assignee?->id;
             $order->orderStatus = $newStatus;
-            $order->pending     = $pending;
+            $order->pending = $pending;
             $order->save();
 
             return response()->json([
-                'ok'           => true,
-                'artist_id'    => $order->artist_id,
-                'orderStatus'  => $order->orderStatus,
-                'pending'      => $order->pending,
+                'ok' => true,
+                'artist_id' => $order->artist_id,
+                'artist_name' => $assignee?->name,
+                'orderStatus' => $order->orderStatus,
+                'pending' => $order->pending,
                 'assigneeRole' => $assignee?->role,
             ]);
-        } catch (\Throwable $e) {
+        } catch (ValidationException $e) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'ok' => false,
-                    'message' => 'Please select a valid artist or head artist to assign.',
+                    'message' => collect($e->errors())->flatten()->first()
+                        ?? 'Please select a valid active artist or head artist.',
+                    'errors' => $e->errors(),
                 ], 422);
             }
-            return back()->with('error', 'Failed to assign. Please try again.');
+
+            return back()
+                ->withErrors($e->errors())
+                ->withInput();
+        } catch (\Throwable $e) {
+            report($e);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Failed to assign the artist. Please try again.',
+                ], 500);
+            }
+
+            return back()
+                ->with('error', 'Failed to assign. Please try again.')
+                ->withInput();
         }
     }
 
