@@ -247,20 +247,73 @@
       });
     });
 
-    $('#leadTable').on('change', '.assign-dropdown', function(e){
-      e.stopPropagation();
-      let id = $(this).data('id');
-      let salespersonId = $(this).val();
-      if (salespersonId) {
+    $('#leadTable').on('change', '.assign-dropdown', function (e) {
+        e.stopPropagation();
+
+        const $dropdown = $(this);
+        const leadId = $dropdown.data('id');
+        const salespersonId = $dropdown.val();
+        const previousValue = $dropdown.data('previous-value') || '';
+
+        if (!salespersonId) {
+            return;
+        }
+
+        $dropdown.prop('disabled', true);
+
         $.ajax({
-          url: '{{ route('leads.update.salesperson', ['id' => ':id']) }}'.replace(':id', id),
-          type: 'POST',
-          data: { _token: $('meta[name="csrf-token"]').attr('content'), salesperson_id: salespersonId },
-          success: function(){ table.ajax.reload(null, false); },
-          error: function(xhr){ alert('Error reassigning lead: ' + xhr.responseText); }
+            url: '{{ route('leads.update.salesperson', ['id' => ':id']) }}'
+                .replace(':id', leadId),
+
+            type: 'POST',
+
+            data: {
+                _token: $('meta[name="csrf-token"]').attr('content'),
+                salesperson_id: salespersonId
+            },
+
+            success: function (response) {
+                table.ajax.reload(null, false);
+            },
+
+            error: function (xhr) {
+                const response = xhr.responseJSON || {};
+
+                const validationMessage =
+                    response.errors?.salesperson_id?.[0];
+
+                const message =
+                    validationMessage ||
+                    response.message ||
+                    response.error ||
+                    'Unable to assign the selected salesperson.';
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Assignment Failed',
+                    text: message,
+                    confirmButtonText: 'OK'
+                });
+
+                $dropdown.val(previousValue);
+            },
+
+            complete: function () {
+                $dropdown.prop('disabled', false);
+            }
         });
-      }
     });
+
+    $('#leadTable').on(
+        'focus',
+        '.assign-dropdown',
+        function () {
+            $(this).data(
+                'previous-value',
+                $(this).val() || ''
+            );
+        }
+    );
 
     $(document).on('click', '.confirm-reminder', function(e){
       e.stopPropagation(); e.preventDefault();

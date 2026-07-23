@@ -77,32 +77,47 @@
                             <!-- Assign To -->
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <!-- Non-boss: can assign to themselves or a salesperson -->
-                                    <select class="form-select" id="assignTo" name="salesperson_id">
+                                    <select
+                                        class="form-select @error('salesperson_id') is-invalid @enderror"
+                                        id="assignTo"
+                                        name="salesperson_id"
+                                        required
+                                    >
                                         <option value="">Select Salesperson</option>
 
-                                        <!-- Option to Assign to Myself -->
-                                        <option value="{{ Auth::user()->id }}"
-                                            {{ old('salesperson_id') == Auth::user()->id ? 'selected' : '' }}>
-                                            Assign To Myself ({{ Auth::user()->name }})
-                                        </option>
-
                                         @foreach ($salespeople as $salesperson)
-                                            @php
-                                                $selected = old('salesperson_id') == $salesperson->id ? 'selected' : '';
-                                            @endphp
-                                            <option value="{{ $salesperson->id }}" {{ $selected }}>
+                                            {{-- Defensive Blade-level check: never render inactive users. --}}
+                                            @continue(
+                                                strtolower(trim((string) $salesperson->status)) !== 'active'
+                                            )
+
+                                            <option
+                                                value="{{ $salesperson->id }}"
+                                                @selected(
+                                                    (string) old('salesperson_id') ===
+                                                    (string) $salesperson->id
+                                                )
+                                            >
                                                 {{ $salesperson->name }}
+                                                ({{ $salesperson->role }})
+                                                @if((int) $salesperson->id === (int) Auth::id())
+                                                    — Myself
+                                                @endif
                                             </option>
                                         @endforeach
                                     </select>
 
                                     <label for="assignTo">Assign To</label>
+                                </div>
 
-                                    @error('salesperson_id')
-                                        <div class="text-danger">{{ $message }}</div>
-                                    @enderror
+                                @error('salesperson_id')
+                                    <div class="invalid-feedback d-block">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
 
+                                <div class="form-text">
+                                    Only active salespersons, head salespersons and bosses are available.
                                 </div>
                             </div>
                             <!-- Opportunity -->
@@ -140,9 +155,9 @@
                             <div id="dropzone" class="dropzone" 
                                 style="min-height: 150px; border: 2px dashed #ccc; padding: 20px; text-align: center; background-color: #f8f9fa;">
                                 <p id="dropzone-message">Drag and drop files here, or click to browse</p>
-                                <p>Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB)</p>
+                                <p>Supported formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 10MB)</p>
                                 <input type="file" class="form-control" id="attachments" name="attachments[]" multiple
-                                    accept=".pdf,.doc,.docx,.jpg,.png" style="display: none;">
+                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display: none;">
                                 <button type="button" class="btn btn-secondary"
                                         onclick="document.getElementById('attachments').click();">Choose File</button>
                             </div>
@@ -205,7 +220,6 @@
 
     function processFiles(files) {
         let validFiles = [];
-        let invalidFiles = [];
         let sizeErrors = [];
         let typeErrors = [];
 
@@ -231,7 +245,7 @@
             Swal.fire('Warning!', `${sizeErrors.join(', ')} exceed 10MB limit.`, 'warning');
         }
         if (typeErrors.length > 0) {
-            Swal.fire('Warning!', `${typeErrors.join(', ')} not allowed. Only PDF, DOC, DOCX, JPG, PNG permitted.`, 'warning');
+            Swal.fire('Warning!', `${typeErrors.join(', ')} not allowed. Only PDF, DOC, DOCX, JPG, JPEG, PNG permitted.`, 'warning');
         }
 
         updateFileInput();

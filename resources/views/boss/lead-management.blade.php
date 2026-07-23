@@ -62,18 +62,31 @@
               </div>
 
               @if(Auth::user()->hasRole('boss'))
-              {{-- Salesperson filter --}}
-              <div class="col-12 col-lg-3">
-                <div class="input-group">
-                  <span class="input-group-text bg-white"><i class="bx bx-user"></i></span>
-                  <select id="salespersonFilter" name="salesperson_id" class="form-control">
-                    <option value="">All Salespersons</option>
-                    @foreach($salespeople as $salesperson)
-                      <option value="{{ $salesperson->id }}" {{ request('salesperson_id') == $salesperson->id ? 'selected' : '' }}>{{ $salesperson->name }}</option>
-                    @endforeach
-                  </select>
-                </div>
-              </div>
+                  {{-- Salesperson filter --}}
+                  <div class="col-12 col-lg-3">
+                      <div class="input-group">
+                          <span class="input-group-text bg-white">
+                              <i class="bx bx-user"></i>
+                          </span>
+
+                          <select
+                              id="salespersonFilter"
+                              name="salesperson_id"
+                              class="form-control"
+                          >
+                              <option value="">All Salespersons</option>
+
+                              @foreach($salespeople as $salesperson)
+                                  <option
+                                      value="{{ $salesperson->id }}"
+                                      {{ request('salesperson_id') == $salesperson->id ? 'selected' : '' }}
+                                  >
+                                      {{ $salesperson->name }}
+                                  </option>
+                              @endforeach
+                          </select>
+                      </div>
+                  </div>
               @endif
 
               {{-- Status --}}
@@ -164,17 +177,24 @@
       processing: true,
       serverSide: true,
       ajax: {
-        url: '{{ route('boss.leads.get') }}',
-        type: 'POST',
-        data: function(d) {
-          d._token = $('meta[name="csrf-token"]').attr('content');
-          d.search = { value: $('#globalSearch').val() };
-          d.status = $('#statusFilter').val();
-          d.from_date = $('#fromDate')?.val?.();
-          d.to_date   = $('#toDate')?.val?.();
-          if ($('#salespersonFilter').length) d.salesperson_id = $('#salespersonFilter').val();
-          return d;
-        }
+          url: '{{ route('boss.leads.get') }}',
+          type: 'POST',
+
+          data: function (d) {
+              d._token = $('meta[name="csrf-token"]').attr('content');
+              d.search = {
+                  value: $('#globalSearch').val()
+              };
+              d.status = $('#statusFilter').val();
+              d.from_date = $('#fromDate')?.val?.();
+              d.to_date = $('#toDate')?.val?.();
+
+              if ($('#salespersonFilter').length) {
+                  d.salesperson_id = $('#salespersonFilter').val();
+              }
+
+              return d;
+          }
       },
       columns: [
         { data: 'lead_data', name: 'lead_data', orderable: true },
@@ -210,10 +230,21 @@
       },
 
       order: [[0, 'desc']],
-      initComplete: function() {
-        $('#leadsFilterForm').on('submit', function(e){ e.preventDefault(); table.draw(); });
-        $('#statusFilter, #fromDate, #toDate, #salespersonFilter').on('change', function(){ table.draw(); });
-        $('#globalSearch').on('keyup', function(){ table.search(this.value).draw(); });
+
+      initComplete: function () {
+          $('#leadsFilterForm').on('submit', function (e) {
+              e.preventDefault();
+              table.draw();
+          });
+
+          $('#statusFilter, #fromDate, #toDate, #salespersonFilter')
+              .on('change', function () {
+                  table.draw();
+              });
+
+          $('#globalSearch').on('keyup', function () {
+              table.search(this.value).draw();
+          });
       }
     });
 
@@ -247,19 +278,80 @@
       });
     });
 
+    /*
+     * Remember the current value before a Boss changes the assignment.
+     * If the server rejects the new value, restore the previous selection.
+     */
+    $('#leadTable').on('focus mousedown', '.assign-dropdown', function() {
+      const $dropdown = $(this);
+
+      if ($dropdown.data('previous-value') === undefined) {
+        $dropdown.data('previous-value', $dropdown.val() || '');
+      }
+    });
+
     $('#leadTable').on('change', '.assign-dropdown', function(e){
       e.stopPropagation();
-      let id = $(this).data('id');
-      let salespersonId = $(this).val();
-      if (salespersonId) {
-        $.ajax({
-          url: '{{ route('boss.leads.update.salesperson', ['id' => ':id']) }}'.replace(':id', id),
-          type: 'POST',
-          data: { _token: $('meta[name="csrf-token"]').attr('content'), salesperson_id: salespersonId },
-          success: function(){ table.ajax.reload(null, false); },
-          error: function(xhr){ alert('Error reassigning lead: ' + xhr.responseText); }
-        });
+
+      const $dropdown = $(this);
+      const leadId = $dropdown.data('id');
+      const salespersonId = $dropdown.val();
+      const previousValue = String(
+        $dropdown.data('previous-value') ?? ''
+      );
+
+      if (!salespersonId) {
+        $dropdown.val(previousValue);
+        return;
       }
+
+      $dropdown.prop('disabled', true);
+
+      $.ajax({
+        url: '{{ route('boss.leads.update.salesperson', ['id' => ':id']) }}'
+          .replace(':id', leadId),
+
+        type: 'POST',
+
+        data: {
+          _token: $('meta[name="csrf-token"]').attr('content'),
+          salesperson_id: salespersonId
+        },
+
+        success: function(response) {
+          $dropdown.data('previous-value', String(salespersonId));
+          table.ajax.reload(null, false);
+        },
+
+        error: function(xhr) {
+          const response = xhr.responseJSON || {};
+          const validationMessage =
+            response.errors?.salesperson_id?.[0];
+
+          const message =
+            validationMessage ||
+            response.message ||
+            response.error ||
+            'Unable to assign the selected salesperson.';
+
+          $dropdown.val(previousValue);
+
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'error',
+              title: 'Assignment Failed',
+              text: message,
+              confirmButtonText: 'OK'
+            });
+          } else {
+            alert(message);
+          }
+        },
+
+        complete: function() {
+          $dropdown.prop('disabled', false);
+        }
+      });
     });
 
     $(document).on('click', '.confirm-reminder', function(e){

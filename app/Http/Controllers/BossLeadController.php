@@ -21,6 +21,7 @@ use App\Helpers\Helpers;
 use App\Models\Meeting;
 use App\Models\Order;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 use Carbon\Carbon;
 
@@ -109,131 +110,270 @@ class BossLeadController extends Controller
 
     public function getLeads(Request $request)
     {
-        \Log::info('getLeads called for user: ' . Auth::user()->email);
         $user = Auth::user();
 
-        if (!$user || !($user->hasRole('boss'))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+        Log::info(
+            'getLeads called for user: ' .
+            ($user?->email ?? 'unknown')
+        );
+
+        if (!$user || !$user->hasRole('boss')) {
+            return response()->json([
+                'error' => 'Unauthorized',
+            ], 403);
         }
 
-        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson', 'boss'])->get();
-        $leads = Lead::with('user', 'attachments', 'reminders', 'notes')->orderBy('created_at', 'desc');
+        /*
+         * Row-level assignment dropdowns must contain active eligible users
+         * only. The currently assigned inactive user's name is still shown
+         * above the dropdown through the lead's user relationship.
+         */
+        $salespeople = User::query()
+            ->whereIn('role', [
+                'salesperson',
+                'head-salesperson',
+                'boss',
+            ])
+            ->whereRaw('LOWER(TRIM(status)) = ?', ['active'])
+            ->orderByRaw("\n                CASE\n                    WHEN role = 'head-salesperson' THEN 0\n                    WHEN role = 'salesperson' THEN 1\n                    WHEN role = 'boss' THEN 2\n                    ELSE 3\n                END\n            ")
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
 
-        // if ($user->hasRole('boss')) {
-        //     $leads = $leads->where('salesperson_id', $user->id);
-        // }
+        $leads = Lead::query()
+            ->with([
+                'user:id,name,email,role,status',
+                'attachments',
+                'reminders',
+                'notes',
+            ])
+            ->orderByDesc('created_at');
 
-        if ($request->has('search') && $request->input('search')['value']) {
-            $search = $request->input('search')['value'];
+        if ($request->filled('search.value')) {
+            $search = trim((string) $request->input('search.value'));
+
             $leads->where(function ($query) use ($search) {
-                $query->where('company_name', 'like', "%{$search}%")
+                $query
+                    ->where('company_name', 'like', "%{$search}%")
                     ->orWhere('name', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%");
             });
         }
 
-        if ($request->has('status') && $request->input('status')) {
+        if ($request->filled('status')) {
             $leads->where('status', $request->input('status'));
         }
 
-        if ($request->has('from_date') && $request->input('from_date')) {
-            $leads->whereDate('created_at', '>=', $request->input('from_date'));
+        if ($request->filled('from_date')) {
+            $leads->whereDate(
+                'created_at',
+                '>=',
+                $request->input('from_date')
+            );
         }
 
-        if ($request->has('to_date') && $request->input('to_date')) {
-            $leads->whereDate('created_at', '<=', $request->input('to_date'));
+        if ($request->filled('to_date')) {
+            $leads->whereDate(
+                'created_at',
+                '<=',
+                $request->input('to_date')
+            );
         }
 
-        if ($request->has('salesperson_id') && $request->input('salesperson_id')) {
-            $leads->where('salesperson_id', $request->input('salesperson_id'));
+        if ($request->filled('salesperson_id')) {
+            $leads->where(
+                'salesperson_id',
+                $request->input('salesperson_id')
+            );
         }
 
         return DataTables::of($leads)
-            ->addColumn('lead_data', function ($lead) use ($user) {
-                $dropdown = '<select class="form-select form-select-sm status-dropdown" data-id="' . $lead->id . '" style="white-space: nowrap; width: auto;">';
-                $dropdown .= '<option value="accept" ' . ($lead->status == 'accept' ? 'selected' : '') . '>Accept</option>';
-                $dropdown .= '<option value="reject" ' . ($lead->status == 'reject' ? 'selected' : '') . '>Reject</option>';
-                $dropdown .= '<option value="followup" ' . ($lead->status == 'followup' ? 'selected' : '') . '>Followup</option>';
-                $dropdown .= '<option value="meeting" ' . ($lead->status == 'meeting' ? 'selected' : '') . '>Meeting</option>';
-                $dropdown .= '<option value="new" ' . ($lead->status == 'new' ? 'selected' : '') . '>New</option>';
+            ->addColumn('lead_data', function ($lead) {
+                $leadId = (int) $lead->id;
+
+                $dropdown =
+                    '<select class="form-select form-select-sm status-dropdown" ' .
+                    'data-id="' . $leadId . '" ' .
+                    'style="white-space: nowrap; width: auto;">';
+
+                foreach ([
+                    'accept' => 'Accept',
+                    'reject' => 'Reject',
+                    'followup' => 'Followup',
+                    'meeting' => 'Meeting',
+                    'new' => 'New',
+                ] as $value => $label) {
+                    $selected = $lead->status === $value
+                        ? ' selected'
+                        : '';
+
+                    $dropdown .=
+                        '<option value="' . e($value) . '"' .
+                        $selected . '>' .
+                        e($label) .
+                        '</option>';
+                }
+
                 $dropdown .= '</select><br>';
 
-                $opportunityDropdown = '<select class="form-select form-select-sm opportunity-dropdown" data-id="' . $lead->id . '" style="white-space: nowrap; width: auto;">';
-                $opportunityDropdown .= '<option value="50/50" ' . ($lead->opportunity == '50/50' ? 'selected' : '') . '>50/50</option>';
-                $opportunityDropdown .= '<option value="High Chance" ' . ($lead->opportunity == 'High Chance' ? 'selected' : '') . '>High Chance</option>';
-                $opportunityDropdown .= '<option value="Low Chance" ' . ($lead->opportunity == 'Low Chance' ? 'selected' : '') . '>Low Chance</option>';
-                $opportunityDropdown .= '<option value="None" ' . ($lead->opportunity == 'None' ? 'selected' : '') . '>None</option>';
+                $opportunityDropdown =
+                    '<select class="form-select form-select-sm opportunity-dropdown" ' .
+                    'data-id="' . $leadId . '" ' .
+                    'style="white-space: nowrap; width: auto;">';
+
+                foreach ([
+                    '50/50' => '50/50',
+                    'High Chance' => 'High Chance',
+                    'Low Chance' => 'Low Chance',
+                    'None' => 'None',
+                ] as $value => $label) {
+                    $selected = $lead->opportunity === $value
+                        ? ' selected'
+                        : '';
+
+                    $opportunityDropdown .=
+                        '<option value="' . e($value) . '"' .
+                        $selected . '>' .
+                        e($label) .
+                        '</option>';
+                }
+
                 $opportunityDropdown .= '</select>';
 
-                return '<div class="lead-data-cell" style="white-space: nowrap;">' .
-                    '<span class="lead-id">' . $lead->id . '</span><br>' .
-                    $dropdown .
-                    $opportunityDropdown .
+                return
+                    '<div class="lead-data-cell" style="white-space: nowrap;">' .
+                        '<span class="lead-id">' . $leadId . '</span><br>' .
+                        $dropdown .
+                        $opportunityDropdown .
                     '</div>';
             })
             ->addColumn('company_details', function ($lead) {
                 $attachmentButton = '';
+
                 if ($lead->attachments->isNotEmpty()) {
                     $attachmentButton =
-                        '<div class="d-flex align-items-center text-secondary mb-1">
-                        <i class="bx bx-paperclip me-2"></i>
-                        <button class="btn btn-link p-0 m-0 view-attachments" data-id="' . $lead->id . '">View Attachments</button>
-                    </div>';
+                        '<div class="d-flex align-items-center text-secondary mb-1">' .
+                            '<i class="bx bx-paperclip me-2"></i>' .
+                            '<button class="btn btn-link p-0 m-0 view-attachments" ' .
+                                'data-id="' . (int) $lead->id . '">' .
+                                'View Attachments' .
+                            '</button>' .
+                        '</div>';
                 }
 
-                return '<div class="company-details-cell text-secondary">' .
-                    '<div class="d-flex align-items-center mb-1">
-                       <i class="bx bxs-building me-2"></i>' . $lead->company_name . '
-                   </div>' .
-                    '<div class="d-flex align-items-center mb-1">
-                       <i class="bx bxs-phone me-2"></i>' . ($lead->company_phone ?? 'N/A') . '
-                   </div>' .
-                    '<div class="d-flex align-items-center mb-1">
-                       <i class="bx bx-globe me-2"></i>' . ($lead->website ?? 'N/A') . '
-                   </div>' .
-                    $attachmentButton .
+                return
+                    '<div class="company-details-cell text-secondary">' .
+                        '<div class="d-flex align-items-center mb-1">' .
+                            '<i class="bx bxs-building me-2"></i>' .
+                            e($lead->company_name) .
+                        '</div>' .
+                        '<div class="d-flex align-items-center mb-1">' .
+                            '<i class="bx bxs-phone me-2"></i>' .
+                            e($lead->company_phone ?? 'N/A') .
+                        '</div>' .
+                        '<div class="d-flex align-items-center mb-1">' .
+                            '<i class="bx bx-globe me-2"></i>' .
+                            e($lead->website ?? 'N/A') .
+                        '</div>' .
+                        $attachmentButton .
                     '</div>';
             })
             ->addColumn('lead_details', function ($lead) {
-                $latestNote = trim($lead->notes->last()->content ?? '');
-                $html = '<div class="lead-details-cell">' .
-                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-user me-2"></i>' . $lead->name . '</div>' .
-                    '<div class="d-flex align-items-center mb-1"><i class="bx bxs-phone me-2"></i>' . ($lead->phone ?? 'N/A') . '</div>' .
-                    '<div class="d-flex align-items-center mb-1"><i class="bx bx-envelope me-2"></i>' . ($lead->email ?? 'N/A') . '</div>';
-                if ($latestNote) {
-                    $html .= '<div class="d-flex align-items-center mb-1"><i class="bx bx-note me-2"></i>' . $latestNote . '</div>';
+                $latestNote = trim(
+                    (string) ($lead->notes->last()->content ?? '')
+                );
+
+                $html =
+                    '<div class="lead-details-cell">' .
+                        '<div class="d-flex align-items-center mb-1">' .
+                            '<i class="bx bxs-user me-2"></i>' .
+                            e($lead->name) .
+                        '</div>' .
+                        '<div class="d-flex align-items-center mb-1">' .
+                            '<i class="bx bxs-phone me-2"></i>' .
+                            e($lead->phone ?? 'N/A') .
+                        '</div>' .
+                        '<div class="d-flex align-items-center mb-1">' .
+                            '<i class="bx bx-envelope me-2"></i>' .
+                            e($lead->email ?? 'N/A') .
+                        '</div>';
+
+                if ($latestNote !== '') {
+                    $html .=
+                        '<div class="d-flex align-items-center mb-1">' .
+                            '<i class="bx bx-note me-2"></i>' .
+                            e($latestNote) .
+                        '</div>';
                 }
-                $html .= '</div>';
-                return $html;
+
+                return $html . '</div>';
             })
-            ->addColumn('assigned_salesperson', function ($lead) use ($salespeople) {
-                // Build dropdown with all salespeople (including boss)
-                $assignDropdown = '<select class="form-select form-select-sm assign-dropdown" data-id="' . $lead->id . '">';
-                $assignDropdown .= '<option value="">Select Salesperson</option>';
+            ->addColumn(
+                'assigned_salesperson',
+                function ($lead) use ($salespeople) {
+                    $assignDropdown =
+                        '<select class="form-select form-select-sm assign-dropdown" ' .
+                            'data-id="' . (int) $lead->id . '" ' .
+                            'data-previous-value="' .
+                                e((string) ($lead->salesperson_id ?? '')) .
+                            '">' .
+                            '<option value="">Select Salesperson</option>';
 
-                foreach ($salespeople as $salesperson) {
-                    $selected = $lead->salesperson_id == $salesperson->id ? 'selected' : '';
-                    $assignDropdown .= '<option value="' . $salesperson->id . '" ' . $selected . '>' . $salesperson->name . '</option>';
+                    foreach ($salespeople as $salesperson) {
+                        $selected =
+                            (int) $lead->salesperson_id ===
+                            (int) $salesperson->id
+                                ? ' selected'
+                                : '';
+
+                        $roleLabel = str_replace(
+                            '-',
+                            ' ',
+                            (string) $salesperson->role
+                        );
+
+                        $assignDropdown .=
+                            '<option value="' . (int) $salesperson->id . '"' .
+                                ' data-user-status="active"' .
+                                ' data-user-role="' . e($salesperson->role) . '"' .
+                                $selected .
+                            '>' .
+                                e($salesperson->name) .
+                                ' (' . e($roleLabel) . ')' .
+                            '</option>';
+                    }
+
+                    $assignDropdown .= '</select>';
+
+                    /*
+                     * Keep displaying the existing assigned user's name even
+                     * if that account has since become inactive. It is not
+                     * included in the selectable dropdown options.
+                     */
+                    $assignedName = $lead->user?->name
+                        ? e($lead->user->name)
+                        : 'Not Assigned';
+
+                    return
+                        '<div class="assigned-salesperson-cell">' .
+                            '<div class="mb-1">' . $assignedName . '</div>' .
+                            $assignDropdown .
+                        '</div>';
                 }
-                $assignDropdown .= '</select>';
-
-                // Find the currently assigned user (can be boss, salesperson, head-salesperson)
-                $assignedUser = $salespeople->firstWhere('id', $lead->salesperson_id);
-                $assignedName = $assignedUser ? $assignedUser->name : 'Not Assigned';
-
-                // Show assigned name on top + dropdown below (like your screenshot)
-                return '<div class="assigned-salesperson-cell">'
-                    . $assignedName . '<br>'
-                    . $assignDropdown .
-                    '</div>';
-            })      
-
+            )
             ->addColumn('reminder', function ($lead) use ($user) {
                 $reminders = $lead->reminders()
                     ->where('created_by', $user->id)
                     ->where('status', '!=', 'completed')
-                    ->orderByRaw("FIELD(status, 'upcoming', 'overdue')")
-                    ->orderBy('remind_at', 'asc')
+                    ->orderByRaw(
+                        "FIELD(status, 'upcoming', 'overdue')"
+                    )
+                    ->orderBy('remind_at')
                     ->take(5)
                     ->get();
 
@@ -242,19 +382,26 @@ class BossLeadController extends Controller
                 }
 
                 $html = '<ul class="list-unstyled">';
+
                 foreach ($reminders as $reminder) {
                     $dueDate = $reminder->remind_at;
 
-                    if ($dueDate->isPast() && $reminder->status == 'upcoming') {
+                    if (
+                        $dueDate->isPast() &&
+                        $reminder->status === 'upcoming'
+                    ) {
                         $reminder->status = 'overdue';
                         $reminder->save();
-                        $relativeTime = 'Overdue (' . $dueDate->format('Y-m-d H:i') . ')';
+
+                        $relativeTime =
+                            'Overdue (' .
+                            $dueDate->format('Y-m-d H:i') .
+                            ')';
                     } else {
                         $relativeTime = $dueDate->diffForHumans();
                     }
 
-                    $colorClass = '';
-                    if ($reminder->status == 'overdue') {
+                    if ($reminder->status === 'overdue') {
                         $colorClass = 'text-danger';
                     } elseif ($dueDate->diffInHours() <= 24) {
                         $colorClass = 'text-warning';
@@ -262,21 +409,50 @@ class BossLeadController extends Controller
                         $colorClass = 'text-success';
                     }
 
-                    $html .= '<li>';
-                    $html .= '<a href="#" class="confirm-reminder ' . $colorClass . '" data-id="' . $lead->id . '" data-reminder-id="' . $reminder->id . '" data-title="' . htmlspecialchars($reminder->title) . '">' . htmlspecialchars($reminder->title) . ' (' . $relativeTime . ')</a>';
-                    $html .= '</li>';
+                    $html .=
+                        '<li>' .
+                            '<a href="#" ' .
+                                'class="confirm-reminder ' . $colorClass . '" ' .
+                                'data-id="' . (int) $lead->id . '" ' .
+                                'data-reminder-id="' .
+                                    (int) $reminder->id .
+                                '" ' .
+                                'data-title="' .
+                                    e($reminder->title) .
+                                '">' .
+                                    e($reminder->title) .
+                                    ' (' . e($relativeTime) . ')' .
+                            '</a>' .
+                        '</li>';
                 }
-                $html .= '</ul>';
 
-                return $html;
+                return $html . '</ul>';
             })
             ->addColumn('actions', function ($lead) {
-                return '<div class="actions-cell d-flex gap-2">' .
-                    '<a href="' . route('boss.leads.edit', $lead->id) . '" class="btn" title="Edit"><i class="bx bxs-edit me-2" style="font-size: 1.5em;"></i></a>' .
-                    '<a href="' . route('boss.leads.show', $lead->id) . '" class="btn" title="View"><i class="bx bxs-show me-2" style="font-size: 1.5em;"></i></a>' .
+                return
+                    '<div class="actions-cell d-flex gap-2">' .
+                        '<a href="' .
+                            route('boss.leads.edit', $lead->id) .
+                            '" class="btn" title="Edit">' .
+                            '<i class="bx bxs-edit me-2" ' .
+                                'style="font-size: 1.5em;"></i>' .
+                        '</a>' .
+                        '<a href="' .
+                            route('boss.leads.show', $lead->id) .
+                            '" class="btn" title="View">' .
+                            '<i class="bx bxs-show me-2" ' .
+                                'style="font-size: 1.5em;"></i>' .
+                        '</a>' .
                     '</div>';
             })
-            ->rawColumns(['lead_data', 'company_details', 'lead_details', 'assigned_salesperson', 'reminder', 'actions'])
+            ->rawColumns([
+                'lead_data',
+                'company_details',
+                'lead_details',
+                'assigned_salesperson',
+                'reminder',
+                'actions',
+            ])
             ->toJson();
     }
 
@@ -304,63 +480,225 @@ class BossLeadController extends Controller
     public function create()
     {
         $user = Auth::user();
-        if (!$user->hasRole('boss') && !$user->hasRole('head-salesperson')) {
+
+        if (!$user || !$user->hasRole('boss')) {
             abort(403, 'Unauthorized');
         }
-        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
-        return view('boss.add-lead', compact('salespeople'));
+
+        $salespeople = User::query()
+            ->whereIn('role', [
+                'salesperson',
+                'head-salesperson',
+                'boss',
+            ])
+            ->whereRaw('LOWER(TRIM(status)) = ?', ['active'])
+            ->orderByRaw("\n                CASE\n                    WHEN role = 'head-salesperson' THEN 0\n                    WHEN role = 'salesperson' THEN 1\n                    WHEN role = 'boss' THEN 2\n                    ELSE 3\n                END\n            ")
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
+
+        return view(
+            'boss.add-lead',
+            compact('salespeople')
+        );
     }
 
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole('boss') && !$user->hasRole('head-salesperson')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+
+        if (!$user || !$user->hasRole('boss')) {
+            return response()->json([
+                'error' => 'Unauthorized',
+            ], 403);
         }
 
-        $validated = $request->validate([
-            'company_name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('leads')->where(function ($query) use ($request) {
-                    $query->whereRaw('LOWER(company_name) = LOWER(?)', [$request->company_name]);
-                }),
-            ],
-            'company_phone' => 'nullable|string|regex:/^[0-9+\-\s()]+$/|max:20',
-            'website' => 'nullable|string|max:255',
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|regex:/^[0-9+\-\s()]+$/|max:20',
-            'email' => 'nullable|email|max:255',
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson', 'boss'])->pluck('id')->toArray()),
-            'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
-            'remark' => 'nullable|string',
-            'attachments' => 'nullable|array|max:10',
-            'attachments.*' => 'mimes:pdf,doc,jpg,png|max:10240',
-        ]);
+        $validated = $request->validate(
+            [
+                'company_name' => [
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('leads')->where(
+                        function ($query) use ($request) {
+                            $query->whereRaw(
+                                'LOWER(company_name) = LOWER(?)',
+                                [$request->input('company_name')]
+                            );
+                        }
+                    ),
+                ],
 
-        $salesperson_id = $validated['salesperson_id'];
+                'company_phone' => [
+                    'nullable',
+                    'string',
+                    'regex:/^[0-9+\-\s()]+$/',
+                    'max:20',
+                ],
+
+                'website' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
+
+                'name' => [
+                    'required',
+                    'string',
+                    'max:255',
+                ],
+
+                'phone' => [
+                    'required',
+                    'string',
+                    'regex:/^[0-9+\-\s()]+$/',
+                    'max:20',
+                ],
+
+                'email' => [
+                    'nullable',
+                    'email',
+                    'max:255',
+                ],
+
+                'salesperson_id' => [
+                    'required',
+                    'integer',
+                    Rule::exists('users', 'id')->where(
+                        function ($query) {
+                            $query
+                                ->whereIn('role', [
+                                    'salesperson',
+                                    'head-salesperson',
+                                    'boss',
+                                ])
+                                ->whereRaw(
+                                    'LOWER(TRIM(status)) = ?',
+                                    ['active']
+                                );
+                        }
+                    ),
+                ],
+
+                'opportunity' => [
+                    'required',
+                    Rule::in([
+                        '50/50',
+                        'High Chance',
+                        'Low Chance',
+                        'None',
+                    ]),
+                ],
+
+                'remark' => [
+                    'nullable',
+                    'string',
+                ],
+
+                'attachments' => [
+                    'nullable',
+                    'array',
+                    'max:10',
+                ],
+
+                'attachments.*' => [
+                    'file',
+                    'mimes:pdf,doc,docx,jpg,jpeg,png',
+                    'max:10240',
+                ],
+            ],
+            [
+                'salesperson_id.required' =>
+                    'Please select a salesperson.',
+
+                'salesperson_id.integer' =>
+                    'The selected salesperson is invalid.',
+
+                'salesperson_id.exists' =>
+                    'The selected salesperson is inactive or unavailable.',
+            ]
+        );
+
+        /*
+         * Query again immediately before saving. This handles an account
+         * becoming inactive after the form was opened.
+         */
+        $assignee = User::query()
+            ->whereKey((int) $validated['salesperson_id'])
+            ->whereIn('role', [
+                'salesperson',
+                'head-salesperson',
+                'boss',
+            ])
+            ->whereRaw('LOWER(TRIM(status)) = ?', ['active'])
+            ->first([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
+
+        if (!$assignee) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => [
+                    'The selected salesperson is inactive or unavailable.',
+                ],
+            ]);
+        }
 
         $lead = Lead::create([
-            'salesperson_id' => $salesperson_id,
+            'salesperson_id' => $assignee->id,
             'company_name' => $validated['company_name'],
-            'company_phone' => $validated['company_phone'],
-            'website' => $validated['website'],
+            'company_phone' => $validated['company_phone'] ?? null,
+            'website' => $validated['website'] ?? null,
             'name' => $validated['name'],
             'phone' => $validated['phone'],
-            'email' => $validated['email'],
+            'email' => $validated['email'] ?? null,
             'status' => 'new',
             'opportunity' => $validated['opportunity'],
-            'remark' => $validated['remark'],
+            'remark' => $validated['remark'] ?? null,
         ]);
 
         if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $extension = $file->getClientOriginalExtension();
-                $timestamp = now()->format('Ymd_His');
-                $newName = $originalName . '_' . $timestamp . '.' . $extension;
-                $path = $file->storeAs('leads/' . $lead->id, $newName, 'public');
+            foreach ($request->file('attachments', []) as $file) {
+                if (!$file || !$file->isValid()) {
+                    continue;
+                }
+
+                $originalName = pathinfo(
+                    $file->getClientOriginalName(),
+                    PATHINFO_FILENAME
+                );
+
+                $extension = strtolower(
+                    $file->getClientOriginalExtension()
+                );
+
+                $safeOriginalName = Str::slug($originalName);
+
+                if ($safeOriginalName === '') {
+                    $safeOriginalName = 'attachment';
+                }
+
+                $newName =
+                    $safeOriginalName .
+                    '_' .
+                    now()->format('Ymd_His_u') .
+                    '.' .
+                    $extension;
+
+                $path = $file->storeAs(
+                    'leads/' . $lead->id,
+                    $newName,
+                    'public'
+                );
+
                 LeadAttachment::create([
                     'lead_id' => $lead->id,
                     'user_id' => $user->id,
@@ -371,7 +709,9 @@ class BossLeadController extends Controller
             }
         }
 
-        return redirect()->route('boss.leads')->with('success', 'Lead added successfully');
+        return redirect()
+            ->route('boss.leads')
+            ->with('success', 'Lead added successfully.');
     }
 
     public function exportCsv(Request $request)
@@ -707,45 +1047,183 @@ class BossLeadController extends Controller
 
     public function edit($id)
     {
-        $lead = Lead::with('user', 'attachments')->findOrFail($id);
+        $user = Auth::user();
+
+        if (!$user || !$user->hasRole('boss')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $lead = Lead::with([
+            'user:id,name,email,role,status',
+            'attachments',
+        ])->findOrFail($id);
+
         $this->authorizeLeadAccess($lead);
 
-        $salespeople = User::whereIn('role', ['salesperson', 'head-salesperson'])->get();
-        return view('boss.lead-edit', compact('lead', 'salespeople'));
+        $currentSalespersonId = (int) $lead->salesperson_id;
+
+        $salespeople = User::query()
+            ->whereIn('role', [
+                'salesperson',
+                'head-salesperson',
+                'boss',
+            ])
+            ->where(function ($query) use ($currentSalespersonId) {
+                $query->whereRaw(
+                    'LOWER(TRIM(status)) = ?',
+                    ['active']
+                );
+
+                if ($currentSalespersonId > 0) {
+                    $query->orWhere('id', $currentSalespersonId);
+                }
+            })
+            ->orderByRaw(
+                'CASE WHEN id = ? THEN 0 ELSE 1 END',
+                [$currentSalespersonId]
+            )
+            ->orderByRaw("\n                CASE\n                    WHEN role = 'head-salesperson' THEN 0\n                    WHEN role = 'salesperson' THEN 1\n                    WHEN role = 'boss' THEN 2\n                    ELSE 3\n                END\n            ")
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
+
+        return view(
+            'boss.lead-edit',
+            compact('lead', 'salespeople')
+        );
     }
 
 
     public function updateSalesperson(Request $request, $id)
     {
-        \Log::info('updateSalesperson called with data: ', $request->all());
-        $lead = Lead::findOrFail($id);
+        Log::info(
+            'updateSalesperson called with data: ',
+            $request->all()
+        );
+
         $user = Auth::user();
 
-        if (!$user->hasRole('boss')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+        if (!$user || !$user->hasRole('boss')) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Unauthorized',
+            ], 403);
         }
 
-        $request->validate([
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson', 'boss'])->pluck('id')->toArray()),
-        ]);
+        $lead = Lead::findOrFail($id);
+
+        $validated = $request->validate(
+            [
+                'salesperson_id' => [
+                    'required',
+                    'integer',
+                    Rule::exists('users', 'id')->where(
+                        function ($query) {
+                            $query
+                                ->whereIn('role', [
+                                    'salesperson',
+                                    'head-salesperson',
+                                    'boss',
+                                ])
+                                ->whereRaw(
+                                    'LOWER(TRIM(status)) = ?',
+                                    ['active']
+                                );
+                        }
+                    ),
+                ],
+            ],
+            [
+                'salesperson_id.required' =>
+                    'Please select a salesperson.',
+
+                'salesperson_id.integer' =>
+                    'The selected salesperson is invalid.',
+
+                'salesperson_id.exists' =>
+                    'The selected salesperson is inactive or unavailable.',
+            ]
+        );
+
+        $newSalesperson = User::query()
+            ->whereKey((int) $validated['salesperson_id'])
+            ->whereIn('role', [
+                'salesperson',
+                'head-salesperson',
+                'boss',
+            ])
+            ->whereRaw('LOWER(TRIM(status)) = ?', ['active'])
+            ->first([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
+
+        if (!$newSalesperson) {
+            return response()->json([
+                'success' => false,
+                'message' =>
+                    'The selected salesperson is inactive or unavailable.',
+                'errors' => [
+                    'salesperson_id' => [
+                        'The selected salesperson is inactive or unavailable.',
+                    ],
+                ],
+            ], 422);
+        }
 
         $oldSalespersonId = $lead->salesperson_id;
-        $lead->update(['salesperson_id' => $request->input('salesperson_id')]);
 
-        $newSalesperson = User::find($request->salesperson_id);
-        $message = "You have been assigned to lead '{$lead->name}' ({$lead->company_name}) by {$user->name}.";
-        $url = route('boss.leads.show', $lead->id);
-        Helpers::notify($newSalesperson, $message, $url);
+        $lead->update([
+            'salesperson_id' => $newSalesperson->id,
+        ]);
 
-        // Optional: Notify old salesperson if changed
-        if ($oldSalespersonId && $oldSalespersonId != $request->salesperson_id) {
+        $message =
+            "You have been assigned to lead '{$lead->name}' " .
+            "({$lead->company_name}) by {$user->name}.";
+
+        Helpers::notify(
+            $newSalesperson,
+            $message,
+            route('boss.leads.show', $lead->id)
+        );
+
+        if (
+            $oldSalespersonId &&
+            (int) $oldSalespersonId !== (int) $newSalesperson->id
+        ) {
             $oldSalesperson = User::find($oldSalespersonId);
-            $oldMessage = "Lead '{$lead->name}' has been reassigned from you to {$newSalesperson->name}.";
-            $url = route('boss.leads');
-            Helpers::notify($oldSalesperson, $oldMessage, $url);
+
+            if ($oldSalesperson) {
+                $oldMessage =
+                    "Lead '{$lead->name}' has been reassigned " .
+                    "from you to {$newSalesperson->name}.";
+
+                Helpers::notify(
+                    $oldSalesperson,
+                    $oldMessage,
+                    route('boss.leads')
+                );
+            }
         }
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message' =>
+                "Lead assigned to {$newSalesperson->name} successfully.",
+            'salesperson' => [
+                'id' => $newSalesperson->id,
+                'name' => $newSalesperson->name,
+                'role' => $newSalesperson->role,
+            ],
+        ]);
     }
 
     public function updateStatus(Request $request, $id)
@@ -813,50 +1291,246 @@ class BossLeadController extends Controller
 
     public function update(Request $request, $id)
     {
-        $lead = Lead::findOrFail($id);
         $user = Auth::user();
 
-        // Salesperson can only update their own leads
-        // Head-salesperson can update any lead
-        // if ($user->hasRole('boss') && $lead->salesperson_id !== $user->id) {
-        //     abort(403, 'Unauthorized');
-        // }
+        if (!$user || !$user->hasRole('boss')) {
+            abort(403, 'Unauthorized');
+        }
 
-        $validated = $request->validate([
-            'company_name' => 'required|string|max:255',
-            'company_phone' => 'nullable|string|regex:/^[0-9+\-\s()]+$/|max:20',
-            'website' => 'nullable|string|max:255',
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|regex:/^[0-9+\-\s()]+$/|max:20',
-            'email' => 'nullable|email|max:255',
-            'salesperson_id' => 'required|exists:users,id|in:' . implode(',', User::whereIn('role', ['salesperson', 'head-salesperson'])->pluck('id')->toArray()),
-            'status' => 'required|in:accept,reject,followup,new,meeting',
-            'opportunity' => 'required|in:50/50,High Chance,Low Chance,None',
-            'remark' => 'nullable|string',
-            'attachments' => 'nullable|array|max:10',
-            'attachments.*' => 'mimes:pdf,doc,jpg,png|max:10240',
-        ]);
+        $lead = Lead::findOrFail($id);
+
+        $rules = [
+            'company_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'company_phone' => [
+                'nullable',
+                'string',
+                'regex:/^[0-9+\-\s()]+$/',
+                'max:20',
+            ],
+
+            'website' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'phone' => [
+                'required',
+                'string',
+                'regex:/^[0-9+\-\s()]+$/',
+                'max:20',
+            ],
+
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+            ],
+
+            'salesperson_id' => [
+                'required',
+                'integer',
+
+                function ($attribute, $value, $fail) use ($lead) {
+                    $requestedId = (int) $value;
+                    $currentAssignedId = (int) $lead->salesperson_id;
+
+                    $selectedUser = User::query()
+                        ->whereKey($requestedId)
+                        ->whereIn('role', [
+                            'salesperson',
+                            'head-salesperson',
+                            'boss',
+                        ])
+                        ->first([
+                            'id',
+                            'role',
+                            'status',
+                        ]);
+
+                    if (!$selectedUser) {
+                        $fail(
+                            'The selected salesperson is invalid or unavailable.'
+                        );
+
+                        return;
+                    }
+
+                    if ((int) $selectedUser->id === $currentAssignedId) {
+                        return;
+                    }
+
+                    $isActive =
+                        strtolower(trim((string) $selectedUser->status))
+                        === 'active';
+
+                    if (!$isActive) {
+                        $fail(
+                            'The newly selected salesperson is inactive or unavailable.'
+                        );
+                    }
+                },
+            ],
+
+            'status' => [
+                'required',
+                Rule::in([
+                    'accept',
+                    'reject',
+                    'followup',
+                    'new',
+                    'meeting',
+                ]),
+            ],
+
+            'opportunity' => [
+                'required',
+                Rule::in([
+                    '50/50',
+                    'High Chance',
+                    'Low Chance',
+                    'None',
+                ]),
+            ],
+
+            'remark' => [
+                'nullable',
+                'string',
+            ],
+
+            'attachments' => [
+                'nullable',
+                'array',
+                'max:10',
+            ],
+
+            'attachments.*' => [
+                'file',
+                'mimes:pdf,doc,docx,jpg,jpeg,png',
+                'max:10240',
+            ],
+        ];
+
+        $validated = $request->validate(
+            $rules,
+            [
+                'salesperson_id.required' =>
+                    'Please select a salesperson.',
+
+                'salesperson_id.integer' =>
+                    'The selected salesperson is invalid.',
+
+                'attachments.max' =>
+                    'You may upload a maximum of 10 attachments.',
+
+                'attachments.*.mimes' =>
+                    'Attachments must be PDF, DOC, DOCX, JPG, JPEG or PNG.',
+
+                'attachments.*.max' =>
+                    'Each attachment must not exceed 10 MB.',
+            ]
+        );
+
+        $requestedSalespersonId =
+            (int) $validated['salesperson_id'];
+
+        $assignee = User::query()
+            ->whereKey($requestedSalespersonId)
+            ->whereIn('role', [
+                'salesperson',
+                'head-salesperson',
+                'boss',
+            ])
+            ->first([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
+
+        if (!$assignee) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => [
+                    'The selected salesperson is invalid or unavailable.',
+                ],
+            ]);
+        }
+
+        $isCurrentAssignee =
+            (int) $assignee->id ===
+            (int) $lead->salesperson_id;
+
+        $isActive =
+            strtolower(trim((string) $assignee->status))
+            === 'active';
+
+        if (!$isCurrentAssignee && !$isActive) {
+            throw ValidationException::withMessages([
+                'salesperson_id' => [
+                    'The newly selected salesperson is inactive or unavailable.',
+                ],
+            ]);
+        }
 
         $lead->update([
-            'salesperson_id' => $validated['salesperson_id'],
+            'salesperson_id' => $assignee->id,
             'company_name' => $validated['company_name'],
-            'company_phone' => $validated['company_phone'],
-            'website' => $validated['website'],
+            'company_phone' => $validated['company_phone'] ?? null,
+            'website' => $validated['website'] ?? null,
             'name' => $validated['name'],
             'phone' => $validated['phone'],
-            'email' => $validated['email'],
+            'email' => $validated['email'] ?? null,
             'status' => $validated['status'],
             'opportunity' => $validated['opportunity'],
-            'remark' => $validated['remark'],
+            'remark' => $validated['remark'] ?? null,
         ]);
 
         if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $extension = $file->getClientOriginalExtension();
-                $timestamp = now()->format('Ymd_His');
-                $newName = $originalName . '_' . $timestamp . '.' . $extension;
-                $path = $file->storeAs('leads/' . $lead->id, $newName, 'public');
+            foreach ($request->file('attachments', []) as $file) {
+                if (!$file || !$file->isValid()) {
+                    continue;
+                }
+
+                $originalName = pathinfo(
+                    $file->getClientOriginalName(),
+                    PATHINFO_FILENAME
+                );
+
+                $extension = strtolower(
+                    $file->getClientOriginalExtension()
+                );
+
+                $safeOriginalName = Str::slug($originalName);
+
+                if ($safeOriginalName === '') {
+                    $safeOriginalName = 'attachment';
+                }
+
+                $newName =
+                    $safeOriginalName .
+                    '_' .
+                    now()->format('Ymd_His_u') .
+                    '.' .
+                    $extension;
+
+                $path = $file->storeAs(
+                    'leads/' . $lead->id,
+                    $newName,
+                    'public'
+                );
+
                 LeadAttachment::create([
                     'lead_id' => $lead->id,
                     'user_id' => $user->id,
@@ -867,8 +1541,13 @@ class BossLeadController extends Controller
             }
         }
 
-        $redirectRoute = $request->get('highlight') == 'remark' ? route('boss.leads.show', $id) : route('boss.leads');
-        return redirect($redirectRoute)->with('success', 'Lead updated successfully');
+        $redirectRoute =
+            $request->get('highlight') === 'remark'
+                ? route('boss.leads.show', $id)
+                : route('boss.leads');
+
+        return redirect($redirectRoute)
+            ->with('success', 'Lead updated successfully.');
     }
 
     public function storeReminder(Request $request)
