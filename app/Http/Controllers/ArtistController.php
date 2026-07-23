@@ -355,70 +355,120 @@ class ArtistController extends Controller
 
     public function showAssign(Order $order)
     {
-
         // Only head artists should be here (guard with middleware)
         $order->load([
             'salesperson:id,name',
             'artist:id,name',
             'products.deliveryBreakdowns',
-            'dataEntry'
+            'dataEntry',
         ]);
 
-        // Normal artists to assign to
-        $artists = User::whereIn('role', ['artist', 'head-artist'])
+        // Only active artists and head-artists can be assigned
+        $artists = User::query()
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->where('status', 'active')
+            ->orderByRaw("
+                CASE
+                    WHEN role = 'head-artist' THEN 0
+                    WHEN role = 'artist' THEN 1
+                    ELSE 2
+                END
+            ")
             ->orderBy('name')
-            ->get(['id', 'name', 'role']);
+            ->get([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
 
         return view('artist.orders.assign', compact('order', 'artists'));
     }
 
     public function storeAssign(Request $request, Order $order)
     {
-        $data = $request->validate([
-            'artist_id' => ['required', 'exists:users,id'],
-        ]);
+        $currentUser = auth()->user();
 
-        $assignee = User::select('id', 'role', 'name')->find($data['artist_id']);
+        if (!$currentUser || $currentUser->role !== 'head-artist') {
+            abort(403, 'Forbidden');
+        }
+
+        $data = $request->validate(
+            [
+                'artist_id' => [
+                    'required',
+                    'integer',
+                    Rule::exists('users', 'id')->where(function ($query) {
+                        $query
+                            ->whereIn('role', ['artist', 'head-artist'])
+                            ->where('status', 'active');
+                    }),
+                ],
+            ],
+            [
+                'artist_id.required' => 'Please select an artist.',
+                'artist_id.integer' => 'The selected artist is invalid.',
+                'artist_id.exists' => 'The selected artist is inactive or unavailable.',
+            ]
+        );
+
+        $assignee = User::query()
+            ->select([
+                'id',
+                'role',
+                'name',
+                'status',
+            ])
+            ->whereKey((int) $data['artist_id'])
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->where('status', 'active')
+            ->first();
 
         if (!$assignee) {
-            return back()->with('error', 'Selected artist not found.');
+            return back()
+                ->withErrors([
+                    'artist_id' => 'The selected artist is inactive or unavailable.',
+                ])
+                ->withInput();
         }
 
         if ($assignee->role === 'head-artist') {
 
-            // ✅ Record first edit time (only once)
             OrderRecord::firstOrCreate(
-                ['order_id' => $order->id],
-                ['first_created_at' => $order->created_at]
+                [
+                    'order_id' => $order->id,
+                ],
+                [
+                    'first_created_at' => $order->created_at,
+                ]
             );
 
-            OrderRecord::where('order_id', $order->id)
+            OrderRecord::query()
+                ->where('order_id', $order->id)
                 ->whereNull('first_edited_at')
                 ->update([
-                    'first_edited_at' => now()
+                    'first_edited_at' => now(),
                 ]);
 
             $order->orderStatus = 'in_progress';
-            $order->pending     = 0;
-
+            $order->pending = 0;
         } else {
-
             $order->orderStatus = 'assigned';
-            $order->pending     = 1;
+            $order->pending = 1;
         }
 
-        $order->artist_id = $data['artist_id'];
+        $order->artist_id = $assignee->id;
         $order->save();
 
-        /**
-         * =======================
-         *  NOTIFICATION
-         * =======================
-         */
         $actor = auth()->user();
 
         $actorName = $actor->name ?? 'System';
-        $actorRole = str_replace('-', ' ', strtolower($actor->role ?? 'user'));
+        $actorRole = str_replace(
+            '-',
+            ' ',
+            strtolower($actor->role ?? 'user')
+        );
 
         $deadlineTxt = $order->deadline
             ? \Carbon\Carbon::parse($order->deadline)
@@ -426,7 +476,7 @@ class ArtistController extends Controller
                 ->format('Y-m-d')
             : '-';
 
-        $productCount = \DB::table('products')
+        $productCount = DB::table('products')
             ->where('OrderID', $order->id)
             ->count();
 
@@ -436,9 +486,9 @@ class ArtistController extends Controller
             . "{$productCount} Product(s). Deadline: {$deadlineTxt}.";
 
         $url = match (strtolower((string) $assignee->role)) {
-            'artist'      => url("/artist/orders/{$order->id}/edit"),
+            'artist' => url("/artist/orders/{$order->id}/edit"),
             'head-artist' => url("/artist/orders/{$order->id}"),
-            default       => url("/"),
+            default => url('/'),
         };
 
         \App\Helpers\Helpers::notify(
@@ -453,18 +503,36 @@ class ArtistController extends Controller
                 'cta' => 'View Order',
                 'heroEmoji' => '📌',
                 'details' => [
-                    ['label' => 'Order No', 'value' => $orderNo],
-                    ['label' => 'Assigned By', 'value' => $actorName . ' (' . $actorRole . ')'],
-                    ['label' => 'Assigned To', 'value' => $assignee->name . ' (' . $assignee->role . ')'],
-                    ['label' => 'Product Count', 'value' => $productCount],
-                    ['label' => 'Deadline', 'value' => $deadlineTxt],
+                    [
+                        'label' => 'Order No',
+                        'value' => $orderNo,
+                    ],
+                    [
+                        'label' => 'Assigned By',
+                        'value' => $actorName . ' (' . $actorRole . ')',
+                    ],
+                    [
+                        'label' => 'Assigned To',
+                        'value' => $assignee->name . ' (' . $assignee->role . ')',
+                    ],
+                    [
+                        'label' => 'Product Count',
+                        'value' => $productCount,
+                    ],
+                    [
+                        'label' => 'Deadline',
+                        'value' => $deadlineTxt,
+                    ],
                 ],
             ]
         );
 
         return redirect()
             ->route('artist.dashboard')
-            ->with('ok', "Order assigned to {$assignee->name} ({$assignee->role}) successfully.");
+            ->with(
+                'ok',
+                "Order assigned to {$assignee->name} ({$assignee->role}) successfully."
+            );
     }
 
     public function show(Order $order)
@@ -578,18 +646,59 @@ class ArtistController extends Controller
         ];
     }
 
-    /** Optional ajax search if you want Select2 remote search */
     public function searchArtists(Request $request)
     {
-        $q = trim($request->query('q',''));
-        $rows = User::where('role','artist')
-            ->when($q !== '', fn($w)=>$w->where('name','like',"%{$q}%"))
+        $currentUser = auth()->user();
+
+        if (!$currentUser || $currentUser->role !== 'head-artist') {
+            return response()->json([
+                'message' => 'Forbidden',
+                'results' => [],
+            ], 403);
+        }
+
+        $q = trim((string) $request->query('q', ''));
+
+        $rows = User::query()
+            ->whereIn('role', ['artist', 'head-artist'])
+            ->where('status', 'active')
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($search) use ($q) {
+                    $search
+                        ->where('name', 'like', "%{$q}%")
+                        ->orWhere('email', 'like', "%{$q}%");
+                });
+            })
+            ->orderByRaw("
+                CASE
+                    WHEN role = 'head-artist' THEN 0
+                    WHEN role = 'artist' THEN 1
+                    ELSE 2
+                END
+            ")
             ->orderBy('name')
             ->limit(20)
-            ->get(['id','name']);
+            ->get([
+                'id',
+                'name',
+                'email',
+                'role',
+                'status',
+            ]);
 
         return response()->json(
-            $rows->map(fn($u)=>['id'=>$u->id, 'text'=>$u->name])
+            $rows->map(function (User $user) {
+                return [
+                    'id' => $user->id,
+                    'text' => "{$user->name} ({$user->role})",
+                    'status' => $user->status,
+                    'meta' => [
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'status' => $user->status,
+                    ],
+                ];
+            })->values()
         );
     }
 
