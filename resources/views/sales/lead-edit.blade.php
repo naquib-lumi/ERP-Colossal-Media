@@ -87,7 +87,9 @@
                                         <option value="followup" {{ old('status', $lead->status) == 'followup' ? 'selected' : '' }}>Followup</option>
                                         <option value="meeting" {{ old('status', $lead->status) == 'meeting' ? 'selected' : '' }}>Meeting</option>
                                     </select>
+
                                     <label for="status">Status</label>
+
                                     @error('status')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
@@ -96,32 +98,91 @@
 
                             <!-- Assign To -->
                             <div class="col-md-6">
-                                <div class="form-floating">
-                                    @if (Auth::user()->hasRole('salesperson'))
-                                        <input type="text" class="form-control" id="assignTo" name="salesperson_id" value="{{ Auth::user()->name }}" readonly>
-                                        <input type="hidden" name="salesperson_id" value="{{ Auth::user()->id }}">
-                                        <label for="assignTo">Assigned To (Me)</label>
-                                        @error('salesperson_id')
-                                            <div class="text-danger">{{ $message }}</div>
-                                        @enderror
-                                    @else
-                                        <select class="form-select" id="assignTo" name="salesperson_id" required>
-                                            <option value="">Select Salesperson</option>
-                                            @foreach ($salespeople as $salesperson)
+                                @if(Auth::user()->hasRole('salesperson'))
+                                    <div class="form-floating">
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="assignToDisplay"
+                                            value="{{ Auth::user()->name }} ({{ Auth::user()->role }})"
+                                            readonly
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            name="salesperson_id"
+                                            value="{{ Auth::user()->id }}"
+                                        >
+
+                                        <label for="assignToDisplay">
+                                            Assigned To (Me)
+                                        </label>
+                                    </div>
+
+                                    @error('salesperson_id')
+                                        <div class="text-danger small mt-1">
+                                            {{ $message }}
+                                        </div>
+                                    @enderror
+                                @else
+                                    @php
+                                        $selectedSalespersonId = (string) old(
+                                            'salesperson_id',
+                                            $lead->salesperson_id
+                                        );
+                                    @endphp
+
+                                    <div class="form-floating">
+                                        <select
+                                            class="form-select @error('salesperson_id') is-invalid @enderror"
+                                            id="assignTo"
+                                            name="salesperson_id"
+                                            required
+                                        >
+                                            <option value="">
+                                                Select Salesperson
+                                            </option>
+
+                                            @foreach($salespeople as $salesperson)
                                                 @php
-                                                    $selected = old('salesperson_id', $lead->salesperson_id) == $salesperson->id ? 'selected' : '';
+                                                    $isSelected =
+                                                        $selectedSalespersonId ===
+                                                        (string) $salesperson->id;
+
+                                                    $isActive =
+                                                        strtolower(
+                                                            trim((string) $salesperson->status)
+                                                        ) === 'active';
+
+                                                    $isCurrentInactive =
+                                                        !$isActive &&
+                                                        (int) $salesperson->id ===
+                                                        (int) $lead->salesperson_id;
                                                 @endphp
-                                                <option value="{{ $salesperson->id }}" {{ $selected }}>
+
+                                                {{-- Only active users and the current inactive assignee exist here --}}
+                                                <option
+                                                    value="{{ $salesperson->id }}"
+                                                    @selected($isSelected)
+                                                    @if($isCurrentInactive) hidden @endif
+                                                >
                                                     {{ $salesperson->name }}
+                                                    ({{ $salesperson->role }})
                                                 </option>
                                             @endforeach
                                         </select>
-                                        <label for="assignTo">Assign To</label>
-                                        @error('salesperson_id')
-                                            <div class="text-danger">{{ $message }}</div>
-                                        @enderror
-                                    @endif
-                                </div>
+
+                                        <label for="assignTo">
+                                            Assign To
+                                        </label>
+                                    </div>
+
+                                    @error('salesperson_id')
+                                        <div class="text-danger small mt-1">
+                                            {{ $message }}
+                                        </div>
+                                    @enderror
+                                @endif
                             </div>
 
                             <!-- Opportunity -->

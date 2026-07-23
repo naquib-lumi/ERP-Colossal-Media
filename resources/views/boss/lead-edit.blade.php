@@ -96,32 +96,66 @@
 
                             <!-- Assign To -->
                             <div class="col-md-6">
+                                @php
+                                    $selectedSalespersonId = (string) old(
+                                        'salesperson_id',
+                                        $lead->salesperson_id
+                                    );
+                                @endphp
+
                                 <div class="form-floating">
-                                    @if (Auth::user()->hasRole('salesperson'))
-                                        <input type="text" class="form-control" id="assignTo" name="salesperson_id" value="{{ Auth::user()->name }}" readonly>
-                                        <input type="hidden" name="salesperson_id" value="{{ Auth::user()->id }}">
-                                        <label for="assignTo">Assigned To (Me)</label>
-                                        @error('salesperson_id')
-                                            <div class="text-danger">{{ $message }}</div>
-                                        @enderror
-                                    @else
-                                        <select class="form-select" id="assignTo" name="salesperson_id" required>
-                                            <option value="">Select Salesperson</option>
-                                            @foreach ($salespeople as $salesperson)
-                                                @php
-                                                    $selected = old('salesperson_id', $lead->salesperson_id) == $salesperson->id ? 'selected' : '';
-                                                @endphp
-                                                <option value="{{ $salesperson->id }}" {{ $selected }}>
-                                                    {{ $salesperson->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        <label for="assignTo">Assign To</label>
-                                        @error('salesperson_id')
-                                            <div class="text-danger">{{ $message }}</div>
-                                        @enderror
-                                    @endif
+                                    <select
+                                        class="form-select @error('salesperson_id') is-invalid @enderror"
+                                        id="assignTo"
+                                        name="salesperson_id"
+                                        required
+                                    >
+                                        <option value="">Select Salesperson</option>
+
+                                        @foreach($salespeople as $salesperson)
+                                            @php
+                                                $isActive = strtolower(
+                                                    trim((string) $salesperson->status)
+                                                ) === 'active';
+
+                                                $isCurrentAssignee =
+                                                    (int) $salesperson->id ===
+                                                    (int) $lead->salesperson_id;
+
+                                                $isCurrentInactive =
+                                                    !$isActive && $isCurrentAssignee;
+
+                                                $isSelected =
+                                                    $selectedSalespersonId ===
+                                                    (string) $salesperson->id;
+                                            @endphp
+
+                                            {{--
+                                                The controller provides active eligible users plus the
+                                                existing assignee when that account is inactive.
+
+                                                Other inactive users must never be rendered.
+                                            --}}
+                                            @continue(!$isActive && !$isCurrentAssignee)
+
+                                            <option
+                                                value="{{ $salesperson->id }}"
+                                                @selected($isSelected)
+                                                @if($isCurrentInactive) hidden @endif
+                                            >
+                                                {{ $salesperson->name }} ({{ $salesperson->role }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+
+                                    <label for="assignTo">Assign To</label>
                                 </div>
+
+                                @error('salesperson_id')
+                                    <div class="text-danger small mt-1">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
                             </div>
 
                             <!-- Opportunity -->
@@ -159,9 +193,9 @@
                             <div id="dropzone" class="dropzone" 
                                 style="min-height: 150px; border: 2px dashed #ccc; padding: 20px; text-align: center; background-color: #f8f9fa;">
                                 <p id="dropzone-message">Drag and drop files here, or click to browse</p>
-                                <p>Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB)</p>
+                                <p>Supported formats: PDF, DOC, DOCX, JPG, JPEG, PNG (Max 10MB)</p>
                                 <input type="file" class="form-control" id="attachments" name="attachments[]" multiple
-                                    accept=".pdf,.doc,.docx,.jpg,.png" style="display: none;">
+                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display: none;">
                                 <button type="button" class="btn btn-secondary"
                                         onclick="document.getElementById('attachments').click();">Choose File</button>
                             </div>
@@ -261,7 +295,7 @@
             Swal.fire('Warning!', `${sizeErrors.join(', ')} exceed 10MB limit.`, 'warning');
         }
         if (typeErrors.length > 0) {
-            Swal.fire('Warning!', `${typeErrors.join(', ')} not allowed. Only PDF, DOC, DOCX, JPG, PNG permitted.`, 'warning');
+            Swal.fire('Warning!', `${typeErrors.join(', ')} not allowed. Only PDF, DOC, DOCX, JPG, JPEG, PNG permitted.`, 'warning');
         }
 
         updateFileInput();
