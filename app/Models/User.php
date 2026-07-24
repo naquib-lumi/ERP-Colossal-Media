@@ -78,8 +78,8 @@ class User extends Authenticatable
 
     public function routeNotificationForMail($notification = null)
 {
-    if (app()->environment(['local', 'staging'])) {
-        // return 'graysonhy1@gmail.com';
+    if (app()->environment(['local'])) {
+        return 'graysonhy1@gmail.com';
     }
     return $this->email;
 }
