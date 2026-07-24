@@ -31,6 +31,21 @@ class User extends Authenticatable
         return $query->where('role', $role);
     }
 
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereRaw(
+            'LOWER(TRIM(status)) = ?',
+            ['active']
+        );
+    }
+
+    public function isActive(): bool
+    {
+        return strtolower(
+            trim((string) $this->status)
+        ) === 'active';
+    }
+
     public function leads()
     {
         return $this->hasMany(Lead::class, 'salesperson_id');
