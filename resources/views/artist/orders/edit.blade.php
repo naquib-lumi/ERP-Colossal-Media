@@ -931,11 +931,19 @@
                                   $currentLam = old("products.$pIndex.items.$i.lamination", data_get($it, 'spec.lamination'));
                                   $currentPrinter = old("products.$pIndex.items.$i.printer", data_get($it, 'spec.printer'));
                                   $currentCutter = old("products.$pIndex.items.$i.cutter", data_get($it, 'spec.cutter'));
-    
+
+                                  if (
+                                      $currentPrinter === null ||
+                                      trim((string) $currentPrinter) === '' ||
+                                      strcasecmp(trim((string) $currentPrinter), 'no') === 0
+                                  ) {
+                                      $currentPrinter = 'TBC';
+                                  }
+
                                   @endphp
                                   <div class="col-md-3">
-                                    <label class="form-label">Lamination</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }}>
+                                      <label class="form-label">Lamination</label>
+                                      <select name="products[{{ $pIndex }}][items][{{ $i }}][lamination]" class="form-select" {{ $disabled }}>
                                       @if($currentLam !== '')
                                           <option value="{{ $currentLam }}" selected>{{ $currentLam }}</option>
                                       @else
@@ -957,27 +965,45 @@
                                   </div>
 
                                   <div class="col-md-3">
-                                    <label class="form-label">Printer</label>
-                                    <select name="products[{{ $pIndex }}][items][{{ $i }}][printer]" class="form-select" {{ $disabled }}>
-                                    @if($currentPrinter !== '')
-                                        <option value="{{ $currentPrinter }}" selected>{{ $currentPrinter }}</option>
-                                    @else
-                                        <option value="" selected>-</option>
-                                    @endif  
-                                    
-                                    <option value="">-</option>
-                                      <option value="no" {{ (isset($item->printer) && $item->printer === 'no') ? 'selected' : '' }}>No</option>
-                                      <option value="TBC" {{ (isset($item->printer) && $item->printer === 'TBC') ? 'selected' : '' }}>TBC</option>
+                                      <label class="form-label">Printer</label>
 
-                                      @foreach($printerMachines ?? [] as $m)
-                                          @continue(isset($m->active) && !$m->active)
+                                      <select
+                                          name="products[{{ $pIndex }}][items][{{ $i }}][printer]"
+                                          class="form-select"
+                                          {{ $disabled }}
+                                      >
+                                          {{-- Preserve an existing real printer value --}}
+                                          @if(strcasecmp((string) $currentPrinter, 'TBC') !== 0)
+                                              <option value="{{ $currentPrinter }}" selected>
+                                                  {{ $currentPrinter }}
+                                              </option>
+                                          @endif
 
-                                          <option value="{{ $m->machine_name }}"
-                                              {{ (isset($item->printer) && $item->printer === $m->machine_name) ? 'selected' : '' }}>
-                                              {{ $m->machine_name }}
+                                          {{-- Default printer value --}}
+                                          <option
+                                              value="TBC"
+                                              {{ strcasecmp((string) $currentPrinter, 'TBC') === 0 ? 'selected' : '' }}
+                                          >
+                                              TBC
                                           </option>
-                                      @endforeach
-                                    </select>
+
+                                          @foreach($printerMachines ?? [] as $m)
+                                              {{-- Do not show deactivated printers --}}
+                                              @continue(isset($m->active) && !$m->active)
+
+                                              {{-- Prevent duplicate current printer --}}
+                                              @continue(
+                                                  strcasecmp(
+                                                      (string) $m->machine_name,
+                                                      (string) $currentPrinter
+                                                  ) === 0
+                                              )
+
+                                              <option value="{{ $m->machine_name }}">
+                                                  {{ $m->machine_name }}
+                                              </option>
+                                          @endforeach
+                                      </select>
                                   </div>
 
                                   <div class="col-md-3">
@@ -1180,23 +1206,25 @@
                                   </div>
 
                                   <div class="col-md-3">
-                                    <label class="form-label">Printer</label>
-                                    <select name="products[__PINDEX__][items][__INDEX__][printer]" class="form-select" {{ $disabled }}>
-                                      
-                                      
-                                      <option value="">-</option>
-                                        <option value="no" {{ (isset($item->printer) && $item->printer === 'no') ? 'selected' : '' }}>No</option>
-                                        <option value="TBC" {{ (isset($item->printer) && $item->printer === 'TBC') ? 'selected' : '' }}>TBC</option>
+                                      <label class="form-label">Printer</label>
 
-                                        @foreach($printerMachines ?? [] as $m)
-                                            @continue(isset($m->active) && !$m->active)
+                                      <select
+                                          name="products[__PINDEX__][items][__INDEX__][printer]"
+                                          class="form-select"
+                                          {{ $disabled }}
+                                      >
+                                          {{-- New items always default to TBC --}}
+                                          <option value="TBC" selected>TBC</option>
 
-                                            <option value="{{ $m->machine_name }}"
-                                                {{ (isset($item->printer) && $item->printer === $m->machine_name) ? 'selected' : '' }}>
-                                                {{ $m->machine_name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                          @foreach($printerMachines ?? [] as $m)
+                                              {{-- Do not show deactivated printers --}}
+                                              @continue(isset($m->active) && !$m->active)
+
+                                              <option value="{{ $m->machine_name }}">
+                                                  {{ $m->machine_name }}
+                                              </option>
+                                          @endforeach
+                                      </select>
                                   </div>
 
                                   <div class="col-md-3">
