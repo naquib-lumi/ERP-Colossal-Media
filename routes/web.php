@@ -12,7 +12,6 @@ use App\Http\Controllers\MaterialsController;
 use App\Http\Controllers\CalendarController;
 
 
-use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\ArtistOrderController;
@@ -508,10 +507,6 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
 
 
 
-
-    Route::middleware('role:printing,installation,delivery,furnishing')->group(function () {
-        Route::get('/operations/tasks', [OperationsController::class, 'tasks'])->name('operations.tasks');
-    });
 
     Route::middleware('role:boss')->group(function () {
         Route::get('/boss/dashboard', [BossDashboardController::class, 'index'])->name('boss.dashboard');

@@ -63,11 +63,6 @@ class AuthenticatedSessionController extends Controller
                 return redirect()->route('artist.dashboard');
             case 'admin':
                 return redirect()->route('admin.dashboard');
-            case 'printing':
-            case 'installation':
-            case 'delivery':
-            case 'furnishing':
-                return redirect()->route('operations.tasks');
             case 'boss':
                 return redirect()->route('boss.dashboard');
             default:
