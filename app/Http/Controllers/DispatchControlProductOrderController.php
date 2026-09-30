@@ -825,6 +825,9 @@ class DispatchControlProductOrderController extends Controller
                 ['ProductID', 'stage'],
                 ['status', 'updated_at'] // keep acceptedAt if already set earlier
             );
+
+            // Return stock the rejected product (or the order sent back to draft) no longer uses.
+            app(\App\Services\OrderStockSync::class)->syncOrder((int) $orderId, note: 'rejected by dispatch');
         });
 
         // --- Build and send notifications (after commit) ---

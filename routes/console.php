@@ -13,3 +13,6 @@ Artisan::command('inspire', function () {
 Schedule::command('notifications:prune')->daily();
 
 Schedule::command('reminders:send')->everyMinute();
+
+// Safety net: re-sync stock used by tracked orders (only records differences).
+Schedule::command('inventory:reconcile')->dailyAt('02:00')->withoutOverlapping();

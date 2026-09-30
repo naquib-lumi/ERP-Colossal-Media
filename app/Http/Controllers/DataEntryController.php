@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\OrderProductService;
+use App\Services\OrderStockSync;
 use App\Rules\KnownMaterial;
 use App\Models\Order;
 use App\Models\Meeting;
@@ -602,6 +603,7 @@ class DataEntryController extends Controller
                 'submit'        => 0,
                 'data_entry_id' => $order->data_entry_id ?: $user->id,
             ])->save();
+            app(\App\Services\OrderStockSync::class)->syncOrder($order, note: 'reopened by data entry');
         }
 
         return redirect()->route('data-entry.orders.edit', $order);
@@ -898,6 +900,13 @@ class DataEntryController extends Controller
                     (int) auth()->id(),
                     syncRemarks: false,
                 );
+
+                // Keep material stock in line with the saved items (tracks the order from its first submit).
+                app(OrderStockSync::class)->syncOrder(
+                    $order,
+                    markTracked: $request->boolean('submit'),
+                    note: $request->boolean('submit') ? 'submitted' : 'edited',
+                );
             });
 
             if ($request->boolean('submit')) {
@@ -1118,6 +1127,7 @@ class DataEntryController extends Controller
         }
 
         $item->delete(); // FK cascade will remove specification if set up
+        app(\App\Services\OrderStockSync::class)->syncOrder($order, note: 'item deleted');
         return response()->json(['ok' => true]);
     }
 

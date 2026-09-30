@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\OrderProductService;
+use App\Services\OrderStockSync;
 use App\Rules\KnownMaterial;
 use Illuminate\Http\Request;
 use App\Models\Order;
@@ -803,6 +804,7 @@ class BossOrderController extends Controller
         $order->submit        = 0;
         $order->pending       = 0;                // ✅ make sure it doesn't stay "pending"
         $order->save();
+        app(\App\Services\OrderStockSync::class)->syncOrder($order, note: 'passed to data entry');
 
         /**
          * =======================
@@ -1125,6 +1127,13 @@ class BossOrderController extends Controller
                     (array) $request->input('product', []),
                     (array) $request->input('delete_remarks', []),
                     $authorId,
+                );
+
+                // Keep material stock in line with the saved items (tracks the order from its first submit).
+                app(OrderStockSync::class)->syncOrder(
+                    $order,
+                    markTracked: $request->boolean('submit'),
+                    note: $request->boolean('submit') ? 'submitted' : 'edited',
                 );
             });
 
@@ -1452,6 +1461,7 @@ class BossOrderController extends Controller
 
         // Delete the item; FK ON DELETE CASCADE will remove the specification row
         $item->delete();
+        app(\App\Services\OrderStockSync::class)->syncOrder($order, note: 'item deleted');
 
         return response()->json(['ok' => true]);
     }
@@ -1557,6 +1567,7 @@ class BossOrderController extends Controller
             // If you have other child tables (deliveries, etc.), delete them here similarly.
 
             $product->delete();
+            app(\App\Services\OrderStockSync::class)->syncOrder((int) $product->OrderID, note: 'product deleted');
         });
 
         if ($request->expectsJson()) {
