@@ -13,14 +13,14 @@ class ReminderSeeder extends Seeder
         Reminder::create([
             'lead_id' => 1,
             'title' => 'Follow up with John about the proposal.',
-            'due_date' => Carbon::now()->subDays(1),
+            'remind_at' => Carbon::now()->subDays(1),
             'status' => 'overdue',
         ]);
 
         Reminder::create([
             'lead_id' => 1,
             'title' => 'Send contract for signature.',
-            'due_date' => Carbon::now()->addDays(2),
+            'remind_at' => Carbon::now()->addDays(2),
             'status' => 'upcoming',
         ]);
     }

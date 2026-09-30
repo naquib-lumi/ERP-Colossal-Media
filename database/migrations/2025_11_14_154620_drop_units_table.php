@@ -9,11 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Drop FK on materials.unit_id
-        Schema::table('materials', function (Blueprint $table) {
-            // Replace the FK name below with your actual one if needed
-            $table->dropForeign(['unit_id']);
-            $table->dropColumn('unit_id');
-        });
+        // Guarded: the migration that created unit_id was later commented out,
+        // so a fresh database never has this column.
+        if (Schema::hasColumn('materials', 'unit_id')) {
+            Schema::table('materials', function (Blueprint $table) {
+                $table->dropForeign(['unit_id']);
+                $table->dropColumn('unit_id');
+            });
+        }
 
         // 2. Now safe to drop units table
         Schema::dropIfExists('units');
