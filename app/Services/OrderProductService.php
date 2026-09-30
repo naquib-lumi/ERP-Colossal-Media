@@ -148,7 +148,9 @@ class OrderProductService
                 if (array_key_exists('material', $row)) {
                     $vals = is_array($row['material'])
                         ? $row['material']
-                        : array_map('trim', explode(',', (string)$row['material']));
+                        : explode(',', (string)$row['material']);
+                    // Blank entries arrive as null (ConvertEmptyStringsToNull), so drop those too.
+                    $vals = array_map(fn($v) => trim((string) $v), $vals);
                     $vals = array_values(array_filter($vals, fn($v) => $v !== ''));
 
                     if (method_exists($item, 'hasCast') && $item->hasCast('material', 'array')) {
@@ -257,9 +259,8 @@ class OrderProductService
             $bd->date     = $d['date'];
             $bd->time     = $d['time'];
             $bd->deliver_install_type = $d['deliver_install_type'] ?? null;
-            $bd->outsource_cost       = array_key_exists('outsource_cost', $d) && $d['outsource_cost'] !== ''
-                                        ? (float) $d['outsource_cost']
-                                        : null;
+            // Already normalised above: a number, or null when left blank.
+            $bd->outsource_cost       = $d['outsource_cost'];
             $bd->save();
 
             $keepDeliveryIds[] = $bd->BreakdownID;

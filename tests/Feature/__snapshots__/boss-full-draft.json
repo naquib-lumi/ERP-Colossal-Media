@@ -30,7 +30,7 @@
                     "bleedRight": null,
                     "bleedUnit": "mm",
                     "finishing": null,
-                    "material": "[\"PVC White Sticker\", \"UV Laminate\", null]",
+                    "material": "[\"PVC White Sticker\", \"UV Laminate\"]",
                     "prime_centre": 1,
                     "spec": {
                         "lamination": "Gloss",
@@ -72,7 +72,7 @@
                     "date": "2026-09-26",
                     "time": "09:15:00",
                     "deliver_install_type": null,
-                    "outsource_cost": "0.00"
+                    "outsource_cost": null
                 }
             ],
             "remarks": [
