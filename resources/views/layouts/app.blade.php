@@ -297,6 +297,14 @@ $configData = \App\Helpers\Helpers::appClasses();
               </li>
 
             @endif
+            @if (in_array(auth()->user()->role, ['admin', 'boss', 'salesperson', 'head-salesperson', 'artist', 'head-artist', 'data-entry']))
+              <li class="menu-item {{ request()->routeIs('inventory.*') ? 'active' : '' }}">
+                <a href="{{ route('inventory.index') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-package"></i>
+                  <div data-i18n="Inventory">Inventory</div>
+                </a>
+              </li>
+            @endif
           @endif
         </ul>
         </aside>

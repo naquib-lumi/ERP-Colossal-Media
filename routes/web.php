@@ -10,6 +10,7 @@ use App\Http\Controllers\AdminOrderController;
 use App\Http\Controllers\AdminManageUserController;
 use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\MaterialsController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\CalendarController;
 
 
@@ -469,6 +470,20 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/installation/permit', [AdminController::class,'installationPermitStore'])->name('admin.installation.permit.store');
     Route::get('/admin/installation/permit/{permit}/download', [AdminController::class,'installationPermitDownload'])->name('admin.installation.permit.download');
     Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'installationPermitDestroy'])->name('admin.installation.permit.destroy');
+});
+
+// Inventory: everyone below can view; the inner groups limit who can change stock / settings.
+Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,artist,head-artist,data-entry'])->group(function () {
+    Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('/inventory/{material}', [InventoryController::class, 'show'])->name('inventory.show');
+
+    Route::post('/inventory/{material}/movements', [InventoryController::class, 'storeMovement'])
+        ->middleware('role:admin,salesperson,head-salesperson,artist,head-artist,data-entry')
+        ->name('inventory.movements.store');
+
+    Route::patch('/inventory/{material}/settings', [InventoryController::class, 'updateSettings'])
+        ->middleware('role:admin')
+        ->name('inventory.settings.update');
 });
 
 

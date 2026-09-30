@@ -19,6 +19,19 @@ use InvalidArgumentException;
  */
 class MaterialStockService
 {
+    /** Stock volume is stored in square inches; screens show square feet. */
+    public const SQ_IN_PER_SQ_FT = 144;
+
+    public static function toSqFt(float|string|null $sqIn): float
+    {
+        return round((float) $sqIn / self::SQ_IN_PER_SQ_FT, 2);
+    }
+
+    public static function fromSqFt(float|string|null $sqFt): float
+    {
+        return (float) $sqFt * self::SQ_IN_PER_SQ_FT;
+    }
+
     /**
      * @param  float  $quantityChange  + adds, - deducts (in the material's quantity_unit)
      * @param  float  $volumeChange    + adds, - deducts (square inches)
