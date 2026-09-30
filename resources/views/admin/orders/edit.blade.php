@@ -3281,7 +3281,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data?.ok) {
-          window.location.href = @json(route('admin.orders.show', $order));
+          window.location.href = @json(route('admin.orders.shows', $order));
         } else {
           // const msg = data?.message || `HTTP ${res.status}`;
           // (window.Swal ? Swal.fire({icon:'error', title:'Assign failed', text: msg}) : alert(msg));
@@ -3534,7 +3534,7 @@
           });
           const data = await res.json().catch(() => ({}));
           if (res.ok && data?.ok) {
-            window.location.href = @json(route('admin.orders.show', $order));
+            window.location.href = @json(route('admin.orders.shows', $order));
           } else {
             // const msg = data?.message || `HTTP ${res.status}`;
             // if (window.Swal) await Swal.fire({

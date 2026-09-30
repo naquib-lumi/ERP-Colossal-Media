@@ -389,7 +389,7 @@ $inProgressProducts = Product::from('products as p')
                     '</span>';
             })
             ->addColumn('actions', function ($order) {
-                $leadViewRoute = route('admin.orders.show', $order->id);
+                $leadViewRoute = route('admin.orders.shows', $order->id);
                 $html = '<div class="actions-cell d-flex gap-2">';
                 $html .= '<a href="' . $leadViewRoute . '" class="btn" title="View"><i class="bx bx-show" style="font-size: 1.5em;"></i></a>';
                 $html .= '</div>';
@@ -1518,12 +1518,6 @@ $inProgressProducts = Product::from('products as p')
         return Storage::disk('public')->download($path, $originalName ?: basename($path));
     }
 
-
-    public function fulfillmentEdit($id)
-    {
-        $order = Order::with('artist')->findOrFail($id);
-        return view('admin.fulfillment-edit', compact('order'));
-    }
 
     public function dataKeyIn()
     {

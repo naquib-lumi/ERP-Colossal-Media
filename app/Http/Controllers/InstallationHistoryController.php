@@ -237,10 +237,10 @@ class InstallationHistoryController extends Controller
         ]);
     }
 
-    public function show($productId)
+    public function show(Request $request, $productId)
     {
         // Reuse the same data as FurnishingProductOrderController@show
-        $data = app(\App\Http\Controllers\InstallationProductOrderController::class)->show($productId);
+        $data = app(\App\Http\Controllers\InstallationProductOrderController::class)->show($request, (int) $productId);
 
         // If show() in the original controller returns a view,
         // we can just re-render that but hide the actionbar using a flag.

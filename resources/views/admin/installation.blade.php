@@ -164,8 +164,8 @@ body{background:var(--bg);}
               @endif
             </td>
             <td class="action">
-              <a href="{{ route('admin.fulfillment.show', $item->id ?? 0) }}"><i class='bx bx-show-alt' title="View"></i></a>
-              <a href="{{ route('admin.fulfillment.edit', $item->id ?? 0) }}"><i class='bx bx-edit' title="Edit"></i></a>
+              <a href="{{ route('admin.orders.shows', $item->id) }}"><i class='bx bx-show-alt' title="View"></i></a>
+              <a href="{{ route('admin.orders.edit', $item->id) }}"><i class='bx bx-edit' title="Edit"></i></a>
             </td>
           </tr>
         @empty

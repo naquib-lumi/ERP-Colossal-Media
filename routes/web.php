@@ -21,7 +21,6 @@ use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\FulfillmentController;
 use App\Http\Controllers\RedoOrderController;
 use App\Http\Controllers\PrintingController;
-use App\Http\Controllers\ProductOrderController;
 
 use App\Http\Controllers\ArtistController;
 use App\Http\Controllers\LogisticOrderHistoryController;
@@ -75,9 +74,6 @@ Route::get('/', function () {
     }
     return redirect()->route('login');
 });
-Route::get('/test-notification', [NotificationController::class, 'testSelf'])->name('test-notification');
-Route::get('/test-allnotif', [NotificationController::class, 'testAll'])->name('test-allnotif');
-Route::get('/test-bulknotif', [NotificationController::class, 'testSales'])->name('test-bulknotif');
 
 
 
@@ -188,9 +184,6 @@ Route::get('/dashboard', function () {
 
     });
 
-    Route::get('/test-route', function () {
-        return 'Route is working';
-    });
 
     Route::fallback(function () {
         return response()
@@ -262,7 +255,6 @@ Route::get('/dashboard', function () {
     });
 
     Route::middleware(['web','auth','role:data-entry'])->group(function () {
-        Route::get('/data-entry/dashboard', [DataEntryController::class, 'dashboard'])->name('data-entry.dashboard');
         Route::get('/data-entry/orders', [DataEntryController::class, 'orders'])->name('data-entry.orders');
         Route::get('/data-entry/orders/{order}',        [DataEntryController::class, 'show'])->name('data-entry.orders.show');
         Route::get('/data-entry/orders/{order}/edit',   [DataEntryController::class, 'edit'])->name('data-entry.orders.edit');
@@ -291,8 +283,6 @@ Route::get('/dashboard', function () {
             Route::put('/profile', [PrintingProfileController::class, 'update'])->name('profile.update');
             Route::get('/report/{productId}', [PrintingController::class, 'reportForm'])->name('report');
             Route::post('/report/{productId}', [PrintingController::class, 'reportSubmit'])->name('report.submit');
-            Route::get('/product-orders', [ProductOrderController::class, 'productorder'])->name('productorders.index');
-            Route::get('/product-orders/{id}', [ProductOrderController::class, 'show'])->name('productorders.show');
             Route::post('/update-printers', [PrintingController::class, 'updatePrinters'])->name('update.printers');
             Route::get('/history/{product}', [PrintingHistoryController::class, 'show'])->name('history.show');
             Route::get('/progress', [PrintingController::class, 'progress'])->name('progress');
@@ -307,7 +297,6 @@ Route::get('/dashboard', function () {
         Route::get('/furnishing/jobs/{product}', [FurnishingProductOrderController::class, 'show'])->name('furnishing.orders.show');
         Route::post('/furnishing/jobs/{product}/accept', [FurnishingProductOrderController::class, 'accept'])->name('furnishing.orders.accept');
         Route::post('/furnishing/jobs/{product}/reject', [FurnishingProductOrderController::class, 'reject'])->name('furnishing.orders.reject');
-        Route::get('/furnishing/product-order', [FurnishingProductOrderController::class, 'productorder'])->name('furnishing.product-order');
         Route::get('/furnishing/history', [FurnishingHistoryController::class, 'index'])->name('furnishing.history');
         Route::get('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'index'])->name('furnishing.profile');
         Route::put('/furnishing/profile', [\App\Http\Controllers\FurnishingProfileController::class, 'update'])->name('furnishing.profile.update');
@@ -382,7 +371,6 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/fulfillment-counts', [AdminController::class, 'fulfillmentCounts'])->name('admin.fulfillmentCounts');
     Route::get('/admin/fulfillment', [AdminController::class, 'fulfillment'])->name('admin.fulfillment');
     Route::get('/admin/fulfillment/show/{id}', [AdminController::class, 'fulfillmentShow'])->name('admin.fulfillment.product.show');
-    Route::get('/admin/fulfillment/{id}/edit', [AdminController::class, 'fulfillmentEdit'])->name('admin.fulfillment.edit');
     Route::put('/admin/fulfillment/{product}/deliveries', [AdminController::class, 'updateDeliveries'])->name('admin.fulfillment.deliveries.update');
     Route::post('/admin/fulfillment/permit', [AdminController::class, 'storePermit'])->name('admin.fulfillment.permit.store');
     Route::get('/admin/fulfillment/permit/{product_id}', [AdminController::class, 'viewPermit'])->name('admin.fulfillment.permit.view');
@@ -472,16 +460,16 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/orders/{order}/edit', [AdminOrderController::class, 'assign'])->name('admin.orders.assigns');
 
     Route::get('/admin/data-entry/users', [AdminOrderController::class, 'bossDataEntryUsers'])->name('admin.dataEntry.users');
-});
 
     Route::get('/admin/dispatch-control', [AdminController::class, 'dispatchControl'])->name('admin.dispatch');
     Route::get('/admin/dispatch-control/export', [AdminController::class, 'dispatchExport'])->name('admin.dispatch.export');
-Route::get('/admin/installation', [AdminController::class, 'installation'])->name('admin.installation');
-Route::get('/admin/installation/export', [AdminController::class, 'installationExport'])->name('admin.installation.export');
-Route::post('/admin/installation/{order}/permit', [AdminController::class, 'installationPermitUpload'])->name('admin.installation.permit.upload');
-Route::post('/admin/installation/permit', [AdminController::class,'installationPermitStore'])->name('admin.installation.permit.store');
-Route::get('/admin/installation/permit/{permit}/download', [AdminController::class,'installationPermitDownload'])->name('admin.installation.permit.download');
-Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'installationPermitDestroy'])->name('admin.installation.permit.destroy');
+    Route::get('/admin/installation', [AdminController::class, 'installation'])->name('admin.installation');
+    Route::get('/admin/installation/export', [AdminController::class, 'installationExport'])->name('admin.installation.export');
+    Route::post('/admin/installation/{order}/permit', [AdminController::class, 'installationPermitUpload'])->name('admin.installation.permit.upload');
+    Route::post('/admin/installation/permit', [AdminController::class,'installationPermitStore'])->name('admin.installation.permit.store');
+    Route::get('/admin/installation/permit/{permit}/download', [AdminController::class,'installationPermitDownload'])->name('admin.installation.permit.download');
+    Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'installationPermitDestroy'])->name('admin.installation.permit.destroy');
+});
 
 
 
@@ -491,7 +479,6 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
         Route::get('/boss/dashboard', [BossDashboardController::class, 'index'])->name('boss.dashboard');
         Route::post('/boss/dashboard/machines', [BossDashboardController::class, 'storeMachine'])->name('boss.dashboard.machines.store');
         Route::get('/boss/reports', [BossReportController::class, 'index'])->name('boss.reports');
-        Route::get('/boss/reports/sales/export', [BossReportController::class, 'exportSales'])->name('boss.reports.sales.export');
         Route::post('/boss/reports/machines', [BossReportController::class, 'storeMachine'])->name('boss.machines.store');
 
         Route::get('/boss/manageuser', [BossManageUserController::class, 'index'])->name('boss.manageuser');
@@ -565,7 +552,6 @@ Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'in
 
         Route::get('/boss/fulfillment', [BossFulfillmentController::class, 'fulfillment'])->name('boss.fulfillment');
         Route::get('/boss/fulfillment/show/{id}', [BossFulfillmentController::class, 'fulfillmentShow'])->name('boss.fulfillment.product.show');
-        Route::get('/boss/fulfillment/{id}/edit', [BossFulfillmentController::class, 'fulfillmentEdit'])->name('boss.fulfillment.edit');
         Route::put('/boss/fulfillment/{product}/deliveries', [BossFulfillmentController::class, 'updateDeliveries'])->name('boss.fulfillment.deliveries.update');
         Route::post('/boss/fulfillment/permit', [BossFulfillmentController::class, 'storePermit'])->name('boss.fulfillment.permit.store');
 
