@@ -424,6 +424,10 @@ public function index(Request $request)
             ];
         };
 
+        // Empty by default so orders without attachments don't crash the view.
+        $headerAttachments = collect();
+        $attachments       = collect();
+
         if ($rows->isNotEmpty()) {
             // split by uploader role
             $headerAttachments = $rows

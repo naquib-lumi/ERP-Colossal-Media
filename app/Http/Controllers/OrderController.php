@@ -1158,6 +1158,10 @@ class OrderController extends Controller
                 ];
             };
 
+            // Empty by default so orders without attachments don't crash the view.
+            $headerAttachments = collect();
+            $attachments       = collect();
+
             if ($rows->isNotEmpty()) {
                 // split by uploader role
                 $headerAttachments = $rows
@@ -1226,6 +1230,10 @@ class OrderController extends Controller
                 'uploaded_at'   => optional($att->created_at)->format('d M Y'),
             ];
         };
+
+        // Empty by default so orders without attachments don't crash the view.
+        $headerAttachments = collect();
+        $attachments       = collect();
 
         if ($rows->isNotEmpty()) {
             // split by uploader role
