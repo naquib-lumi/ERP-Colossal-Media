@@ -19,6 +19,23 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderProductService
 {
+    /** @var array<string, string>|null lower-cased name => materials.materialName */
+    private ?array $materialNames = null;
+
+    /** The materials list's spelling of $name, or $name itself if it is not listed. */
+    private function officialMaterialName(string $name): string
+    {
+        if ($this->materialNames === null) {
+            $this->materialNames = [];
+            // Active materials win over inactive ones with the same name.
+            foreach (DB::table('materials')->orderBy('active')->orderByDesc('MaterialID')->pluck('materialName') as $official) {
+                $this->materialNames[mb_strtolower(trim($official))] = $official;
+            }
+        }
+
+        return $this->materialNames[mb_strtolower(trim($name))] ?? $name;
+    }
+
     /**
      * @param  array  $products       the posted products[] groups
      * @param  array  $header         the posted product[] header fields (name, qty_total, material)
@@ -152,6 +169,8 @@ class OrderProductService
                     // Blank entries arrive as null (ConvertEmptyStringsToNull), so drop those too.
                     $vals = array_map(fn($v) => trim((string) $v), $vals);
                     $vals = array_values(array_filter($vals, fn($v) => $v !== ''));
+                    // Use the materials list's spelling, so stock and costing match on one name.
+                    $vals = array_values(array_unique(array_map(fn($v) => $this->officialMaterialName($v), $vals)));
 
                     if (method_exists($item, 'hasCast') && $item->hasCast('material', 'array')) {
                         $item->material = $vals ?: null;

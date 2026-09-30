@@ -2,6 +2,7 @@
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\DB;
 class Material extends Model
 {
     use HasFactory;
@@ -24,6 +25,53 @@ class Material extends Model
         'low_stock_quantity' => 'decimal:2',
         'low_stock_volume' => 'decimal:2',
     ];
+
+    protected static function booted()
+    {
+        // Order items store material names; keep them pointing at this material after a rename.
+        static::updated(function (Material $material) {
+            if ($material->wasChanged('materialName')) {
+                self::renameOnItems((string) $material->getOriginal('materialName'), (string) $material->materialName);
+            }
+        });
+    }
+
+    /** Replace $old with $new (ignoring case and spaces) in product_items.material lists. */
+    public static function renameOnItems(string $old, string $new): int
+    {
+        $oldKey = mb_strtolower(trim($old));
+        $new    = trim($new);
+        if ($oldKey === '' || $new === '') {
+            return 0;
+        }
+
+        $changed = 0;
+        DB::table('product_items')->whereNotNull('material')->orderBy('ItemID')
+            ->chunkById(500, function ($items) use ($oldKey, $new, &$changed) {
+                foreach ($items as $item) {
+                    $names = json_decode((string) $item->material, true);
+                    if (! is_array($names)) {
+                        continue;
+                    }
+
+                    $hit = false;
+                    foreach ($names as $i => $name) {
+                        if (is_string($name) && mb_strtolower(trim($name)) === $oldKey) {
+                            $names[$i] = $new;
+                            $hit = true;
+                        }
+                    }
+
+                    if ($hit) {
+                        DB::table('product_items')->where('ItemID', $item->ItemID)
+                            ->update(['material' => json_encode(array_values(array_unique($names)))]);
+                        $changed++;
+                    }
+                }
+            }, 'ItemID');
+
+        return $changed;
+    }
 
     public function stockMovements()
     {

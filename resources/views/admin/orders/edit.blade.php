@@ -805,7 +805,7 @@
                                       data-name="products[{{ $pIndex }}][items][{{ $i }}][material][]"
                                       data-suggestions='@json($materialSuggestions)'
                                       data-values='@json($materialVal)'
-                                      data-allow-custom="1" data-max-tags="5"  data-readonly="{{ $order->submit ? '1' : '0' }}">
+                                      data-allow-custom="0" data-max-tags="5"  data-readonly="{{ $order->submit ? '1' : '0' }}">
                                     </div>
                                   </div>
 
@@ -1064,7 +1064,7 @@
                                       data-name="products[__PINDEX__][items][__INDEX__][material][]"
                                       data-suggestions='@json($allMaterials ?? [])'
                                       data-values='[]'
-                                      data-allow-custom="1" data-max-tags="5" data-readonly="{{ $order->submit ? '1' : '0' }}">
+                                      data-allow-custom="0" data-max-tags="5" data-readonly="{{ $order->submit ? '1' : '0' }}">
                                     </div>
                                   </div>
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\OrderProductService;
+use App\Rules\KnownMaterial;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\Material;
@@ -912,7 +913,7 @@ class BossOrderController extends Controller
             'products.*.items.*.finishing'      => ['nullable','string','max:255'],
             'products.*.items.*.renderTime'     => ['nullable','integer','min:0'],
             'products.*.items.*.material'       => ['nullable'],
-            'products.*.items.*.material.*'     => ['nullable','string','max:255'],
+            'products.*.items.*.material.*'     => ['nullable','string','max:255', new KnownMaterial($order)],
             'products.*.items.*.lamination'     => ['nullable','string','max:255'],
             'products.*.items.*.printer'        => ['nullable','string','max:255'],
             'products.*.items.*.cutter'         => ['nullable','string','max:255'],

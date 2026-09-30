@@ -43,6 +43,12 @@ function oput_fixture(): array
         $users[$role] = oput_user($role);
     }
 
+    // Materials the payloads pick from (items may only use listed materials).
+    $typeId = DB::table('material_types')->insertGetId(['name' => 'Stickers / Films', 'created_at' => now(), 'updated_at' => now()]);
+    foreach (['PVC White Sticker', 'UV Laminate', 'Art Card', 'Synthetic Paper', 'Backlit Fabric'] as $name) {
+        DB::table('materials')->insert(['materialName' => $name, 'material_type_id' => $typeId, 'unitCost' => 0.005, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
     $lead = Lead::create([
         'salesperson_id' => $users['salesperson']->id,
         'company_name'   => 'Acme Sdn Bhd',
@@ -128,8 +134,8 @@ function oput_full_payload(array $f, bool $submit): array
                         'itemName' => 'Side', 'quantity' => '2', 'sizeWidth' => '30', 'sizeHeight' => '30',
                         'sizeUnit' => 'inch', 'material' => 'Art Card, Synthetic Paper', 'prime_centre' => '-',
                     ],
-                    [   // blank row: ignored
-                        'itemName' => '', 'quantity' => '', 'material' => ['x'],
+                    [   // blank row: ignored even though a material is picked
+                        'itemName' => '', 'quantity' => '', 'material' => ['Art Card'],
                     ],
                     // itemDrop is not posted: deleted
                 ],
