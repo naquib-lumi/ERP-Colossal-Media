@@ -1,0 +1,111 @@
+{
+    "order": {
+        "orderStatus": "in_progress",
+        "submit": 0,
+        "draft": 1,
+        "approval": 1,
+        "submitted_record": false
+    },
+    "products": [
+        {
+            "productName": "Banner v2",
+            "totalQuantity": 12,
+            "materialRemark": null,
+            "permit": 1,
+            "accepted": null,
+            "installation_accepted": 1,
+            "taskType": "printing",
+            "status": "in_progress",
+            "editable": 1,
+            "items": [
+                {
+                    "itemName": "Front v2",
+                    "quantity": 8,
+                    "sizeWidth": "120.00",
+                    "sizeHeight": "60.00",
+                    "sizeUnit": "cm",
+                    "bleedTop": "5.00",
+                    "bleedBottom": "5.00",
+                    "bleedLeft": null,
+                    "bleedRight": null,
+                    "bleedUnit": "mm",
+                    "finishing": null,
+                    "material": "[\"PVC White Sticker\", \"UV Laminate\", null]",
+                    "prime_centre": 1,
+                    "spec": {
+                        "lamination": "Gloss",
+                        "printer": "HT 1 RTR 3.2",
+                        "cutter": "Laser 1 300W"
+                    }
+                },
+                {
+                    "itemName": "Side",
+                    "quantity": 2,
+                    "sizeWidth": "30.00",
+                    "sizeHeight": "30.00",
+                    "sizeUnit": "inch",
+                    "bleedTop": null,
+                    "bleedBottom": null,
+                    "bleedLeft": null,
+                    "bleedRight": null,
+                    "bleedUnit": "mm",
+                    "finishing": null,
+                    "material": "[\"Art Card\", \"Synthetic Paper\"]",
+                    "prime_centre": 0,
+                    "spec": null
+                }
+            ],
+            "deliveries": [
+                {
+                    "method": "delivery",
+                    "location": "New address",
+                    "quantity": 7,
+                    "date": "2026-09-25",
+                    "time": "14:30:00",
+                    "deliver_install_type": "outsource",
+                    "outsource_cost": "150.50"
+                },
+                {
+                    "method": "courier",
+                    "location": "Branch KL",
+                    "quantity": 5,
+                    "date": "2026-09-26",
+                    "time": "09:15:00",
+                    "deliver_install_type": null,
+                    "outsource_cost": "0.00"
+                }
+            ],
+            "remarks": [
+                {
+                    "operation": "printing",
+                    "remark": "Print glossy",
+                    "by": "salesperson"
+                },
+                {
+                    "operation": "furnishing",
+                    "remark": "Unchanged",
+                    "by": "salesperson"
+                },
+                {
+                    "operation": "installation",
+                    "remark": "Delete me",
+                    "by": "salesperson"
+                }
+            ]
+        },
+        {
+            "productName": "Untouched sticker",
+            "totalQuantity": 5,
+            "materialRemark": "Sticker",
+            "permit": null,
+            "accepted": null,
+            "installation_accepted": null,
+            "taskType": null,
+            "status": "in_progress",
+            "editable": 1,
+            "items": [],
+            "deliveries": [],
+            "remarks": []
+        }
+    ]
+}

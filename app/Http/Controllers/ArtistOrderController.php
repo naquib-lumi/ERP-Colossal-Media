@@ -159,6 +159,8 @@ class ArtistOrderController extends Controller
             return back()->with('error', 'Unauthorized');
         }
 
+        $inTx = false;
+
         try {
             $request->validate([
                 'lead_id'     => 'nullable|exists:leads,id',
@@ -274,6 +276,10 @@ class ArtistOrderController extends Controller
                     $order->pending     = 1;
                 }
             }
+
+            // Save the order and its products all-or-nothing; notifications go out after commit.
+            DB::beginTransaction();
+            $inTx = true;
 
             $order->save();
 
@@ -459,6 +465,9 @@ class ArtistOrderController extends Controller
                 }
             }
 
+            DB::commit();
+            $inTx = false;
+
             /**
              * =======================
              *  NOTIFICATIONS (NEW)
@@ -555,8 +564,10 @@ class ArtistOrderController extends Controller
                 ->with('success', 'Order created successfully.');
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($inTx) DB::rollBack();
             return back()->withErrors($e->validator)->withInput();
         } catch (\Throwable $e) {
+            if ($inTx) DB::rollBack();
             report($e);
             return back()->with('error', 'Failed to create order.')->withInput();
         }
@@ -787,37 +798,40 @@ class ArtistOrderController extends Controller
             'remarks.*.remark'    => ['nullable','string'],
         ]);
 
-        // Create product (columns match your products table)
-        $product = \App\Models\Product::create([
-            'OrderID'        => $order->id,
-            'productName'    => $request->product_name,
-            'totalQuantity'  => (int) $request->quantity,
-            'materialRemark' => $request->material_info,
-            // optional defaults that exist in your schema:
-            'status'      => 'in_progress',
-            'editable'    => 1,
-        ]);
+        // Product and its remarks are saved all-or-nothing.
+        DB::transaction(function () use ($request, $order) {
+            // Create product (columns match your products table)
+            $product = \App\Models\Product::create([
+                'OrderID'        => $order->id,
+                'productName'    => $request->product_name,
+                'totalQuantity'  => (int) $request->quantity,
+                'materialRemark' => $request->material_info,
+                // optional defaults that exist in your schema:
+                'status'      => 'in_progress',
+                'editable'    => 1,
+            ]);
 
-        // Optional: save product remarks if provided (product_remarks table)
-        if ($request->filled('remarks') && is_array($request->remarks)) {
-            $rows = [];
-            $now  = now();
-            $userId = auth()->id();
-            foreach ($request->remarks as $r) {
-                if (empty($r['operation']) || empty($r['remark'])) continue;
-                $rows[] = [
-                    'ProductID'  => $product->getKey(),
-                    'user_id'    => $userId, 
-                    'operation'  => $r['operation'],
-                    'remark'     => $r['remark'],
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+            // Optional: save product remarks if provided (product_remarks table)
+            if ($request->filled('remarks') && is_array($request->remarks)) {
+                $rows = [];
+                $now  = now();
+                $userId = auth()->id();
+                foreach ($request->remarks as $r) {
+                    if (empty($r['operation']) || empty($r['remark'])) continue;
+                    $rows[] = [
+                        'ProductID'  => $product->getKey(),
+                        'user_id'    => $userId, 
+                        'operation'  => $r['operation'],
+                        'remark'     => $r['remark'],
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+                if ($rows) {
+                    DB::table('product_remarks')->insert($rows);
+                }
             }
-            if ($rows) {
-                DB::table('product_remarks')->insert($rows);
-            }
-        }
+        });
 
         // Redirect back to edit page so the new accordion block appears
         return redirect()

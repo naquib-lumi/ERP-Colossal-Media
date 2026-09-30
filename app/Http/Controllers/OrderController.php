@@ -787,6 +787,8 @@ class OrderController extends Controller
             return back()->with('error', 'This order can no longer be edited.');
         }
 
+        $inTx = false;
+
         try {
             $isDraft = $request->input('save_type') === 'draft';
 
@@ -828,6 +830,10 @@ class OrderController extends Controller
             ];
 
             $request->validate($rules);
+
+            // Save the order and its products all-or-nothing (committed before each redirect below).
+            DB::beginTransaction();
+            $inTx = true;
 
             // ✅ Update basic order info
             $order->orderTitle = $request->filled('orderTitle') ? $request->orderTitle : $order->orderTitle;
@@ -1038,6 +1044,9 @@ class OrderController extends Controller
 
             // ✅ If opened from lead page
             if ($request->has('from') && $request->input('from') === 'lead' && $request->has('lead_id')) {
+                DB::commit();
+                $inTx = false;
+
                 return redirect()
                     ->route('leads.show', $request->input('lead_id'))
                     ->withFragment('order-history')
@@ -1065,6 +1074,9 @@ class OrderController extends Controller
                 }
             }
 
+            DB::commit();
+            $inTx = false;
+
             if ($isDraft) {
                 return redirect()
                     ->route('sales.orders')
@@ -1091,6 +1103,11 @@ class OrderController extends Controller
             return back()
                 ->with('error', 'Something went wrong. Please try again.')
                 ->withInput();
+        } finally {
+            // Any failure before a commit above (including errors not caught here) undoes the partial save.
+            if ($inTx) {
+                DB::rollBack();
+            }
         }
     }
 

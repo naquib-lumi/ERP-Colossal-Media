@@ -1,0 +1,95 @@
+{
+    "order": {
+        "orderStatus": "in_progress",
+        "submit": 0,
+        "draft": 1,
+        "approval": 0,
+        "submitted_record": false
+    },
+    "products": [
+        {
+            "productName": "Header name",
+            "totalQuantity": 99,
+            "materialRemark": "Header material",
+            "permit": 0,
+            "accepted": null,
+            "installation_accepted": 1,
+            "taskType": "printing",
+            "status": "in_progress",
+            "editable": 1,
+            "items": [
+                {
+                    "itemName": "Only item",
+                    "quantity": 1,
+                    "sizeWidth": "100.00",
+                    "sizeHeight": "50.00",
+                    "sizeUnit": "cm",
+                    "bleedTop": null,
+                    "bleedBottom": null,
+                    "bleedLeft": null,
+                    "bleedRight": null,
+                    "bleedUnit": "mm",
+                    "finishing": "Eyelet",
+                    "material": "[\"PVC White Sticker\"]",
+                    "prime_centre": 0,
+                    "spec": {
+                        "lamination": "Matte",
+                        "printer": "Latex 3.2",
+                        "cutter": null
+                    }
+                }
+            ],
+            "deliveries": [
+                {
+                    "method": "delivery",
+                    "location": "Old address",
+                    "quantity": 5,
+                    "date": "2026-09-20",
+                    "time": "10:00:00",
+                    "deliver_install_type": null,
+                    "outsource_cost": null
+                },
+                {
+                    "method": "self pickup",
+                    "location": "Shop",
+                    "quantity": 5,
+                    "date": "2026-09-21",
+                    "time": "11:00:00",
+                    "deliver_install_type": null,
+                    "outsource_cost": null
+                }
+            ],
+            "remarks": [
+                {
+                    "operation": "printing",
+                    "remark": "Print glossy",
+                    "by": "salesperson"
+                },
+                {
+                    "operation": "furnishing",
+                    "remark": "Unchanged",
+                    "by": "salesperson"
+                },
+                {
+                    "operation": "installation",
+                    "remark": "Delete me",
+                    "by": "salesperson"
+                }
+            ]
+        },
+        {
+            "productName": "Untouched sticker",
+            "totalQuantity": 5,
+            "materialRemark": "Sticker",
+            "permit": null,
+            "accepted": null,
+            "installation_accepted": null,
+            "taskType": null,
+            "status": "in_progress",
+            "editable": 1,
+            "items": [],
+            "deliveries": [],
+            "remarks": []
+        }
+    ]
+}
