@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Role;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -21,9 +22,9 @@ class User extends Authenticatable
         'status' => 'string',
     ];
 
-    public function hasRole($role)
+    public function hasRole(Role|string $role): bool
     {
-        return $this->role === $role;
+        return $this->role === ($role instanceof Role ? $role->value : $role);
     }
 
     public function scopeRole(Builder $query, $role): Builder

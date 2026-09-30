@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -46,11 +47,8 @@ class Order extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        $map = [
-            'to_assign'   => 'Assign', 'assigned' => 'Assigned', 'in_progress' => 'In Progress',
-            'pending'     => 'Pending', 'completed' => 'Completed', 'rejected' => 'Rejected',
-        ];
-        return $map[$this->orderStatus] ?? ucfirst(str_replace('_', ' ', $this->orderStatus));
+        return OrderStatus::tryFrom((string) $this->orderStatus)?->label()
+            ?? ucfirst(str_replace('_', ' ', (string) $this->orderStatus));
     }
         public function deliveryBreakdowns()
     {

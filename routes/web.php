@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Role;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\LeadController;
@@ -82,33 +83,11 @@ Route::get('/test-bulknotif', [NotificationController::class, 'testSales'])->nam
 
 Route::get('/dashboard', function () {
     if (Auth::check()) {
-        $user = Auth::user();
-        switch ($user->role) {
-            case 'salesperson':
-                return redirect()->route('sales.dashboard');
-             case 'head-salesperson':
-                return redirect()->route('sales.dashboard');
-            case 'artist':
-                return redirect()->route('artist.dashboard');
-            case 'head-artist':
-                return redirect()->route('artist.dashboard');
-            case 'admin':
-                return redirect()->route('admin.dashboard');
-            case 'operations-printing':
-                return redirect()->route('printing.dashboard');
-            case 'operations-delivery-installation':
-                return redirect()->route('installation.dashboard');
-            case 'operations-dispatch-control':
-                return redirect()->route('dispatchcontrol.dashboard');
-            case 'operations-furnishing':
-                return redirect()->route('furnishing.dashboard');
-            case 'boss':
-                return redirect()->route('boss.dashboard');
-            case 'data-entry':
-                return redirect()->route('data-entry.orders');
-            default:
-                return view('dashboard');
-        }
+        $role = Role::tryFrom((string) Auth::user()->role);
+
+        return $role
+            ? redirect()->route($role->dashboardRoute())
+            : view('dashboard');
     }
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
