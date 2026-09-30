@@ -1283,6 +1283,12 @@ class BossLeadController extends Controller
         //     return response()->json(['error' => 'Unauthorized'], 403);
         // }
 
+        // Deleting a lead cascades to its notes, meetings, reminders and attachments
+        // and unlinks its orders (orders.lead_id is set to NULL), which breaks order pages.
+        if ($lead->orders()->exists()) {
+            return response()->json(['error' => 'This lead has orders and cannot be deleted.'], 422);
+        }
+
         $lead->delete();
 
         return response()->json(['message' => 'Lead deleted successfully']);

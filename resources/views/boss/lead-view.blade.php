@@ -91,16 +91,10 @@
                                             @auth
                                                 @if (auth()->user()->role === 'boss')
                                                     <li>
-                                                        <form action="{{ route('boss.leads.destroy', $lead->id) }}" method="POST"
-                                                            style="display:inline;"
-                                                            onsubmit="return confirm('Are you sure you want to delete this lead?');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn btn-outline-danger btn-sm">
-                                                                <i class="bx bxs-trash me-1"></i> DELETE LEAD –
-                                                                {{ $lead->id }}
-                                                            </button>
-                                                        </form>
+                                                        @include('partials.delete-lead-button', [
+                                                            'url' => route('boss.leads.destroy', $lead->id),
+                                                            'redirect' => route('boss.leads'),
+                                                        ])
                                                     </li>
                                                 @endif
                                             @endauth
