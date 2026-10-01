@@ -11,6 +11,7 @@ use App\Http\Controllers\AdminManageUserController;
 use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\MaterialsController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\OrderCopyController;
 use App\Http\Controllers\CalendarController;
 
 
@@ -471,6 +472,12 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/installation/permit/{permit}/download', [AdminController::class,'installationPermitDownload'])->name('admin.installation.permit.download');
     Route::delete('/admin/installation/permit/{permit}', [AdminController::class,'installationPermitDestroy'])->name('admin.installation.permit.destroy');
 });
+
+// Auto-fill: copy an order into a new draft (which orders each role may copy: OrderCopyService::canCopy).
+Route::post('/orders/{order}/copy', [OrderCopyController::class, 'store'])
+    ->middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,artist,head-artist'])
+    ->whereNumber('order')
+    ->name('orders.copy');
 
 // Inventory: everyone below can view; the inner groups limit who can change stock / settings.
 Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,artist,head-artist,data-entry'])->group(function () {

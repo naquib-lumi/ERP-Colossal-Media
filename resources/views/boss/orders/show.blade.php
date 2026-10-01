@@ -3,29 +3,7 @@
 @section('title', 'Job Order Details – '.str_pad($order->order_number, 4, '0', STR_PAD_LEFT))
 
 @section('content')
-@php
-function dd_method_label($v) {
-$v = strtolower((string) $v);
-return [
-'courier' => 'Courier',
-'self_pickup' => 'Self Pickup',
-'pickup' => 'Pickup',
-'installation' => 'Installation',
-'delivery_installation' => 'Delivery & Installation',
-][$v] ?? ucfirst($v ?: '-');
-}
-
-function dd_datetime(?string $d, ?string $t) {
-if (!$d && !$t) return '—';
-try {
-if ($d && $t) return \Carbon\Carbon::parse("$d $t")->format('M d, Y · h:i A');
-if ($d) return \Carbon\Carbon::parse($d)->format('M d, Y');
-return \Carbon\Carbon::parse($t)->format('h:i A');
-} catch (\Throwable $e) { return trim(($d ?: '').' '.$t) ?: '—'; }
-}
-
-function yn($v) { return ((int)$v) === 1 ? 'Yes' : 'No'; }
-@endphp
+{{-- dd_method_label(), dd_datetime(), yn(): app/Helpers/view_helpers.php --}}
 @php
 $baseOrderId = $order->redo ?: $order->id;
 
@@ -238,6 +216,7 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
             </div>
             @endif
         @endif
+        @include('orders._copy-button')
     </div>
 
     {{-- Job order information --}}

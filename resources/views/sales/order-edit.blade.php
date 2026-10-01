@@ -210,6 +210,13 @@
 </style>
 @endpush
 
+@if (session('success'))
+  <div class="alert alert-secondary alert-dismissible fade show border-0 shadow-sm" role="alert" style="background-color:#f8f9fa;color:#6c757d;">
+    <i class="bx bx-check-circle me-2"></i>{{ session('success') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+@endif
+
 <form id="order-form" action="{{ route('orders.update', $order->id) }}" method="POST" enctype="multipart/form-data">
     @csrf
     @method('PUT')
