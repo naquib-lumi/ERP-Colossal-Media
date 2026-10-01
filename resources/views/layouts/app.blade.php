@@ -305,6 +305,14 @@ $configData = \App\Helpers\Helpers::appClasses();
                 </a>
               </li>
             @endif
+            @if (in_array(auth()->user()->role, ['admin', 'boss', 'salesperson', 'head-salesperson', 'operations-dispatch-control', 'operations-delivery-installation']))
+              <li class="menu-item {{ request()->routeIs('delivery-orders.*', 'orders.delivery-orders') ? 'active' : '' }}">
+                <a href="{{ route('delivery-orders.index') }}" class="menu-link">
+                  <i class="menu-icon icon-base bx bx-receipt"></i>
+                  <div data-i18n="Delivery Orders">Delivery Orders</div>
+                </a>
+              </li>
+            @endif
           @endif
         </ul>
         </aside>

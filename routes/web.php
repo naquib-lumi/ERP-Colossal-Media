@@ -12,6 +12,7 @@ use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\MaterialsController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OrderCopyController;
+use App\Http\Controllers\DeliveryOrderController;
 use App\Http\Controllers\CalendarController;
 
 
@@ -478,6 +479,16 @@ Route::post('/orders/{order}/copy', [OrderCopyController::class, 'store'])
     ->middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,artist,head-artist'])
     ->whereNumber('order')
     ->name('orders.copy');
+
+// Delivery orders (one per delivery location). Per-order permissions: DeliveryOrderService::canView / canGenerate / canEmail.
+Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,operations-dispatch-control,operations-delivery-installation'])->group(function () {
+    Route::get('/delivery-orders', [DeliveryOrderController::class, 'index'])->name('delivery-orders.index');
+    Route::get('/delivery-orders/{deliveryOrder}', [DeliveryOrderController::class, 'show'])->whereNumber('deliveryOrder')->name('delivery-orders.show');
+    Route::get('/delivery-orders/{deliveryOrder}/pdf', [DeliveryOrderController::class, 'pdf'])->whereNumber('deliveryOrder')->name('delivery-orders.pdf');
+    Route::post('/delivery-orders/{deliveryOrder}/email', [DeliveryOrderController::class, 'email'])->whereNumber('deliveryOrder')->name('delivery-orders.email');
+    Route::get('/orders/{order}/delivery-orders', [DeliveryOrderController::class, 'forOrder'])->whereNumber('order')->name('orders.delivery-orders');
+    Route::post('/orders/{order}/delivery-orders/sync', [DeliveryOrderController::class, 'sync'])->whereNumber('order')->name('orders.delivery-orders.sync');
+});
 
 // Inventory: everyone below can view; the inner groups limit who can change stock / settings.
 Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,artist,head-artist,data-entry'])->group(function () {
