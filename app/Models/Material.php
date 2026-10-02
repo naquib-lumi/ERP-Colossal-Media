@@ -11,19 +11,17 @@ class Material extends Model
     public $incrementing = true;
     protected $keyType = 'int';
     public $timestamps = true;
-    // stock_quantity / stock_volume are left out on purpose: they change only
-    // through App\Services\MaterialStockService, which logs every movement.
+    // stock_quantity is left out on purpose: it changes only through
+    // App\Services\MaterialStockService, which logs every movement.
     protected $fillable = [
         'UserID', 'materialName', 'materialDescription', 'material_type_id', 'unitCost', 'pastUsageReference', 'active',
-        'quantity_unit', 'low_stock_quantity', 'low_stock_volume',
+        'quantity_unit', 'low_stock_quantity',
     ];
     protected $casts = [
         'unitCost' => 'decimal:6',
         'active' => 'boolean',
-        'stock_quantity' => 'decimal:2',
-        'stock_volume' => 'decimal:2',
-        'low_stock_quantity' => 'decimal:2',
-        'low_stock_volume' => 'decimal:2',
+        'stock_quantity' => 'integer',
+        'low_stock_quantity' => 'integer',
     ];
 
     protected static function booted()
@@ -78,11 +76,10 @@ class Material extends Model
         return $this->hasMany(MaterialStockMovement::class, 'material_id', 'MaterialID');
     }
 
-    /** At or below an alert level that has been set (volume in sq inch). */
+    /** At or below the low-stock alert level, when one is set. */
     public function isLowStock(): bool
     {
-        return ($this->low_stock_quantity !== null && (float) $this->stock_quantity <= (float) $this->low_stock_quantity)
-            || ($this->low_stock_volume !== null && (float) $this->stock_volume <= (float) $this->low_stock_volume);
+        return $this->low_stock_quantity !== null && $this->stock_quantity <= $this->low_stock_quantity;
     }
     // Relations
     public function user()

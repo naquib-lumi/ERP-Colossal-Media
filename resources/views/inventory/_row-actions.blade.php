@@ -1,5 +1,4 @@
 {{-- Add / Deduct / Settings buttons for one material. Needs $m, $canAdjust, $isAdmin. --}}
-@php($sqft = \App\Services\MaterialStockService::class)
 @if ($canAdjust)
   <button type="button" class="inv-btn inv-btn-primary" data-move="add"
           data-url="{{ route('inventory.movements.store', $m) }}" data-name="{{ $m->materialName }}" data-unit="{{ $m->quantity_unit }}">
@@ -14,8 +13,7 @@
   <button type="button" class="inv-btn inv-btn-ghost" data-settings title="Stock settings"
           data-url="{{ route('inventory.settings.update', $m) }}" data-name="{{ $m->materialName }}"
           data-unit="{{ $m->quantity_unit }}"
-          data-low-qty="{{ $m->low_stock_quantity !== null ? (float) $m->low_stock_quantity : '' }}"
-          data-low-vol="{{ $m->low_stock_volume !== null ? $sqft::toSqFt($m->low_stock_volume) : '' }}">
+          data-low-qty="{{ $m->low_stock_quantity }}">
     <i class="bi bi-gear"></i>
   </button>
 @endif

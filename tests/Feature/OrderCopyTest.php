@@ -40,7 +40,7 @@ function ocp_source(array $orderAttrs = []): Order
         'leadName' => 'Ali', 'leadPhone' => '0123', 'leadEmail' => 'ali@acme.test', 'companyName' => 'Acme Sdn Bhd',
         'orderDate' => '2026-01-10', 'deadline' => '2026-01-20', 'orderTitle' => 'Shop signage', 'orderDetail' => 'Monthly banners',
         'orderStatus' => 'completed', 'draft' => 0, 'submit' => 1, 'approval' => 1, 'pending' => 0, 'status' => 0,
-        'data_entry_id' => ocp_user('data-entry')->id, 'stock_tracked' => 1,
+        'data_entry_id' => ocp_user('data-entry')->id,
     ], $orderAttrs))->save();
 
     $p = new Product();
@@ -83,7 +83,7 @@ test('copy makes a new draft with the products, items, specs, remarks and delive
             ->toBe($source->only(['lead_id', 'leadName', 'leadPhone', 'leadEmail', 'companyName', 'salesperson_id', 'orderTitle', 'orderDetail']))
         ->and($copy->orderDate->toDateString())->toBe(now()->toDateString())
         ->and($copy->deadline)->toBeNull()
-        ->and([(int) $copy->draft, (int) $copy->submit, (int) $copy->approval, (int) $copy->stock_tracked])->toBe([1, 0, 0, 0])
+        ->and([(int) $copy->draft, (int) $copy->submit, (int) $copy->approval])->toBe([1, 0, 0])
         ->and($copy->orderStatus)->toBe('in_progress')
         ->and($copy->data_entry_id)->toBeNull()
         ->and(OrderAttachment::where('order_id', $copy->id)->count())->toBe(0);
@@ -171,7 +171,7 @@ test('the copy opens in the edit page with the hint, and the button shows only f
     $this->actingAs(ocp_user('boss'))->get("/boss/orders/{$source->id}")->assertOk()->assertSee('Copy as new order');
 });
 
-test('copying never touches stock; submitting the copy deducts it', function () {
+test('orders never change stock: copying and submitting leave it alone (stock is manual only)', function () {
     $source = ocp_source();
     $head = ocp_user('head-artist');
 
@@ -189,9 +189,8 @@ test('copying never touches stock; submitting the copy deducts it', function () 
         ]]]],
     ])->assertOk();
 
-    // 2 × 36 × 24 = 1728 sq in = 12 sq ft
-    expect((float) Material::where('materialName', 'Vinyl')->value('stock_volume'))->toBe(-1728.0)
-        ->and(MaterialStockMovement::sole()->order_id)->toBe($copy->id);
+    expect(Material::where('materialName', 'Vinyl')->value('stock_quantity'))->toBe(0)
+        ->and(MaterialStockMovement::count())->toBe(0);
 });
 
 test('all five order detail pages render one after another (shared view helpers)', function () {

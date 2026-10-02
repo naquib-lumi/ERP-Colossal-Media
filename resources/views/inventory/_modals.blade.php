@@ -20,17 +20,10 @@
           <option value="adjustment">Adjustment (count correction, damage...)</option>
         </select>
       </div>
-      <div class="inv-row">
-        <div class="inv-field">
-          <label class="inv-label" for="mvQty">Quantity (<span id="mvUnit">units</span>)</label>
-          <input class="inv-control" type="number" step="0.01" min="0" name="quantity" id="mvQty" placeholder="0">
-        </div>
-        <div class="inv-field">
-          <label class="inv-label" for="mvVol">Volume (sq ft)</label>
-          <input class="inv-control" type="number" step="0.01" min="0" name="volume_sqft" id="mvVol" placeholder="0">
-        </div>
+      <div class="inv-field">
+        <label class="inv-label" for="mvQty">Quantity (<span id="mvUnit">units</span>) *</label>
+        <input class="inv-control" type="number" step="1" min="1" name="quantity" id="mvQty" placeholder="0" required>
       </div>
-      <div class="inv-hint" style="margin:-6px 0 12px">Fill in quantity, volume, or both.</div>
       <div class="inv-field">
         <label class="inv-label" for="mvReason">Reason *</label>
         <textarea class="inv-control" name="reason" id="mvReason" maxlength="500" required placeholder="e.g. Supplier delivery INV-1234"></textarea>
@@ -60,19 +53,14 @@
       </div>
       <div class="inv-field">
         <label class="inv-label" for="stUnit">Quantity unit</label>
-        <input class="inv-control" name="quantity_unit" id="stUnit" maxlength="30" placeholder="e.g. roll, sheet, piece">
+        <input class="inv-control" name="quantity_unit" id="stUnit" maxlength="30" placeholder="e.g. roll, sheet, piece, box">
+        <div class="inv-hint">What counts as 1 in stock for this material.</div>
       </div>
-      <div class="inv-row">
-        <div class="inv-field">
-          <label class="inv-label" for="stLowQty">Low-stock alert: quantity</label>
-          <input class="inv-control" type="number" step="0.01" min="0" name="low_stock_quantity" id="stLowQty" placeholder="No alert">
-        </div>
-        <div class="inv-field">
-          <label class="inv-label" for="stLowVol">Low-stock alert: sq ft</label>
-          <input class="inv-control" type="number" step="0.01" min="0" name="low_stock_volume_sqft" id="stLowVol" placeholder="No alert">
-        </div>
+      <div class="inv-field">
+        <label class="inv-label" for="stLowQty">Low-stock alert at</label>
+        <input class="inv-control" type="number" step="1" min="0" name="low_stock_quantity" id="stLowQty" placeholder="No alert">
       </div>
-      <div class="inv-hint">Leave an alert empty to turn it off.</div>
+      <div class="inv-hint">When stock drops to this number or below, all admins get an email and a notification. Leave empty to turn the alert off.</div>
     </div>
     <div class="inv-dft">
       <button type="button" class="inv-btn inv-btn-ghost" data-close>Cancel</button>
@@ -101,7 +89,6 @@
     type.value = add ? 'restock' : 'adjustment';
     type.querySelector('option[value="restock"]').disabled = !add;   // restock only adds
     document.getElementById('mvQty').value = '';
-    document.getElementById('mvVol').value = '';
     document.getElementById('mvReason').value = '';
     document.getElementById('mvSubmit').textContent = add ? 'Add stock' : 'Deduct stock';
     open('mdlMove');
@@ -112,7 +99,6 @@
     document.getElementById('stMaterial').textContent = btn.dataset.name;
     document.getElementById('stUnit').value = btn.dataset.unit || '';
     document.getElementById('stLowQty').value = btn.dataset.lowQty || '';
-    document.getElementById('stLowVol').value = btn.dataset.lowVol || '';
     open('mdlSettings');
   }));
 })();

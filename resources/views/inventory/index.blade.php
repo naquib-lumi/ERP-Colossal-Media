@@ -2,14 +2,13 @@
 @section('title', 'Inventory')
 @section('content')
 @include('inventory._styles')
-@php($sqft = \App\Services\MaterialStockService::class)
 
 <div class="inv-wrap">
   <div class="inv-card">
     <div class="inv-hd">
       <div>
         <div class="inv-title">Inventory</div>
-        <div class="inv-sub">Stock on hand per material. Volume in square feet.</div>
+        <div class="inv-sub">Stock on hand per material, in whole units (roll, sheet, piece, box...).</div>
       </div>
     </div>
 
@@ -40,8 +39,8 @@
           <tr>
             <th>Material</th>
             <th>Type</th>
-            <th class="inv-num">Quantity</th>
-            <th class="inv-num">Volume (sq ft)</th>
+            <th class="inv-num">Stock</th>
+            <th class="inv-num">Alert at</th>
             <th>Status</th>
             <th style="text-align:right">Actions</th>
           </tr>
@@ -51,12 +50,10 @@
             <tr>
               <td><a href="{{ route('inventory.show', $m) }}">{{ $m->materialName }}</a></td>
               <td>{{ $m->materialType->name ?? '-' }}</td>
-              <td class="inv-num {{ (float) $m->stock_quantity < 0 ? 'inv-neg' : '' }}">
-                {{ number_format((float) $m->stock_quantity, 2) }} {{ $m->quantity_unit }}
+              <td class="inv-num {{ $m->stock_quantity < 0 ? 'inv-neg' : '' }}">
+                {{ number_format($m->stock_quantity) }} {{ $m->quantity_unit }}
               </td>
-              <td class="inv-num {{ (float) $m->stock_volume < 0 ? 'inv-neg' : '' }}">
-                {{ number_format($sqft::toSqFt($m->stock_volume), 2) }}
-              </td>
+              <td class="inv-num">{{ $m->low_stock_quantity !== null ? number_format($m->low_stock_quantity) : '-' }}</td>
               <td>@include('inventory._status', ['m' => $m])</td>
               <td>
                 <div class="inv-actions">

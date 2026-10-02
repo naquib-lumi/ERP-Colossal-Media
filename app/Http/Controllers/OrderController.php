@@ -1294,11 +1294,7 @@ class OrderController extends Controller
         if ($order->lead->salesperson_id !== Auth::id() && !Auth::user()->hasRole('head-salesperson')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
-        // Give back any stock the order uses first: the stock log loses its link to a deleted order.
-        DB::transaction(function () use ($order) {
-            app(\App\Services\OrderStockSync::class)->syncOrder($order, release: true, note: 'order deleted');
-            $order->delete();
-        });
+        $order->delete();
         return response()->json(['message' => 'Order deleted successfully']);
     }
 

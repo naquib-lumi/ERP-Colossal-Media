@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 /**
  * Material stock: list, history, manual add/deduct and alert settings.
  * Viewing: every role on the route group. Changing stock: roles in canAdjust().
- * Settings (unit, alert levels): admin only (route middleware).
+ * Settings (unit, low-stock alert level): admin only (route middleware).
  */
 class InventoryController extends Controller
 {
@@ -43,11 +43,8 @@ class InventoryController extends Controller
             ->where('active', true)
             ->when($q !== '', fn (Builder $b) => $b->where('materialName', 'like', "%{$q}%"))
             ->when($type !== 'all' && $type !== '', fn (Builder $b) => $b->where('material_type_id', $type))
-            ->when($status === 'low', fn (Builder $b) => $b->where(function (Builder $w) {
-                $w->where(fn ($x) => $x->whereNotNull('low_stock_quantity')->whereColumn('stock_quantity', '<=', 'low_stock_quantity'))
-                  ->orWhere(fn ($x) => $x->whereNotNull('low_stock_volume')->whereColumn('stock_volume', '<=', 'low_stock_volume'));
-            }))
-            ->when($status === 'negative', fn (Builder $b) => $b->where(fn ($w) => $w->where('stock_quantity', '<', 0)->orWhere('stock_volume', '<', 0)))
+            ->when($status === 'low', fn (Builder $b) => $b->whereNotNull('low_stock_quantity')->whereColumn('stock_quantity', '<=', 'low_stock_quantity'))
+            ->when($status === 'negative', fn (Builder $b) => $b->where('stock_quantity', '<', 0))
             ->orderBy('materialName')
             ->paginate(25)
             ->withQueryString();
@@ -64,7 +61,7 @@ class InventoryController extends Controller
     public function show(Request $request, Material $material)
     {
         $movements = $material->stockMovements()
-            ->with(['user:id,name,role', 'order:id,order_number'])
+            ->with('user:id,name,role')
             ->latest('id')
             ->paginate(30);
 
@@ -83,8 +80,7 @@ class InventoryController extends Controller
         $this->stock->record(
             $material,
             StockMovementType::from($request->input('type')),
-            $sign * (float) $request->input('quantity', 0),
-            $sign * MaterialStockService::fromSqFt($request->input('volume_sqft', 0)),
+            $sign * (int) $request->input('quantity'),
             $request->input('reason'),
             $request->user()->id,
         );
@@ -95,17 +91,15 @@ class InventoryController extends Controller
     public function updateSettings(Request $request, Material $material)
     {
         $data = $request->validate([
-            'quantity_unit'         => ['nullable', 'string', 'max:30'],
-            'low_stock_quantity'    => ['nullable', 'numeric', 'min:0', 'max:1000000000'],
-            'low_stock_volume_sqft' => ['nullable', 'numeric', 'min:0', 'max:1000000000'],
+            'quantity_unit'      => ['nullable', 'string', 'max:30'],
+            'low_stock_quantity' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+        ], [
+            'low_stock_quantity.integer' => 'The low-stock alert must be a whole number.',
         ]);
 
         $material->update([
             'quantity_unit'      => isset($data['quantity_unit']) ? trim($data['quantity_unit']) : null,
             'low_stock_quantity' => $data['low_stock_quantity'] ?? null,
-            'low_stock_volume'   => isset($data['low_stock_volume_sqft'])
-                ? MaterialStockService::fromSqFt($data['low_stock_volume_sqft'])
-                : null,
         ]);
 
         return back()->with('success', "Settings saved for {$material->materialName}.");

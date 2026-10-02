@@ -56,7 +56,6 @@ class OrderCopyService
                 'status'         => 0,
                 'redo'           => null,
                 'data_entry_id'  => null,
-                'stock_tracked'  => 0,
             ], $this->ownership($source, $actor)));
             $order->save(); // the model's created hook assigns the order number
 
