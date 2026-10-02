@@ -1,6 +1,7 @@
 <?php
 
 use App\Mail\DeliveryOrderMail;
+use App\Models\Company;
 use App\Models\DeliveryBreakdown;
 use App\Models\DeliveryOrder;
 use App\Models\Lead;
@@ -153,6 +154,7 @@ test('print page shows the delivery order and the PDF is a real PDF', function (
         ->assertOk()
         ->assertSeeInOrder(['DELIVERY ORDER', $do->do_number, $order->order_number, 'Acme Sdn Bhd', 'Shop KL', 'Banner', 'Sticker', 'Total quantity', '8', 'Received in good order'])
         ->assertSee('Courier')
+        ->assertSee(['COLOSSAL MEDIA SDN BHD', '658233-U', 'Alam Premier Industrial Park', 'Fax: 03-5103 6610', 'assets/img/companies/colossal-media.png'])
         ->assertDontSee('Rejected job');
 
     $pdf = $this->actingAs($admin)->get("/delivery-orders/{$do->id}/pdf");
@@ -176,7 +178,8 @@ test('emailing sends the PDF, records it, and flags later changes', function () 
         return $mail->hasTo('ali@acme.test')
             && $pdf !== null
             && $pdf->mime === 'application/pdf'
-            && $mail->deliveryOrder->is($do);
+            && $mail->deliveryOrder->is($do)
+            && $mail->envelope()->subject === "Delivery Order {$do->do_number} – COLOSSAL MEDIA SDN BHD";
     });
     Mail::assertSentCount(1);
 
@@ -213,4 +216,10 @@ test('the list shows delivery orders, a salesperson only for their own leads', f
     $this->actingAs(dlo_user('admin'))->get("/delivery-orders?q=branch")->assertOk()->assertSee('Branch PJ')->assertDontSee('Shop KL');
 
     $this->actingAs(dlo_user('admin'))->get("/admin/orders/{$order->id}")->assertOk()->assertSee('Delivery orders');
+});
+
+test('the two issuing companies exist and Colossal Media is the default', function () {
+    expect(Company::orderBy('id')->pluck('name')->all())->toBe(['COLOSSAL MEDIA SDN BHD', 'COLOSSAL XCEED SDN BHD'])
+        ->and(Company::default()->code)->toBe('colossal-media')
+        ->and(Company::all()->every(fn (Company $c) => $c->logoPath() !== null))->toBeTrue();
 });

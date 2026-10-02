@@ -12,6 +12,6 @@
     <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Items</td><td>{{ $do->lines->count() }} line(s), {{ $do->totalQuantity() }} unit(s)</td></tr>
   </table>
   <p>Please check the goods on receipt and contact us if anything is missing or damaged.</p>
-  <p>Thank you,<br>{{ config('company.name') }}</p>
+  <p>Thank you,<br>{{ $company->name }}</p>
 </body>
 </html>

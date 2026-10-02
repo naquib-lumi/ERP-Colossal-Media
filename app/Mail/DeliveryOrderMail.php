@@ -22,13 +22,13 @@ class DeliveryOrderMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Delivery Order {$this->deliveryOrder->do_number} – " . config('company.name'),
+            subject: "Delivery Order {$this->deliveryOrder->do_number} – " . $this->deliveryOrder->company()->name,
         );
     }
 
     public function content(): Content
     {
-        return new Content(view: 'emails.delivery-order', with: ['do' => $this->deliveryOrder]);
+        return new Content(view: 'emails.delivery-order', with: ['do' => $this->deliveryOrder, 'company' => $this->deliveryOrder->company()]);
     }
 
     public function attachments(): array

@@ -17,13 +17,11 @@
     <tr>
       <td class="do-company">
         @if ($logoSrc)
-          <img src="{{ $logoSrc }}" alt="{{ $company['name'] }}" class="do-logo">
+          <img src="{{ $logoSrc }}" alt="{{ $company->name }}" class="do-logo">
         @endif
-        <div class="do-company-name">{{ $company['name'] }}@if ($company['reg_no']) <span class="do-muted">({{ $company['reg_no'] }})</span>@endif</div>
-        @if ($company['address'])<div class="do-muted">{!! nl2br(e(str_replace('\n', "\n", $company['address']))) !!}</div>@endif
-        <div class="do-muted">
-          {{ collect([$company['phone'] ? 'Tel: ' . $company['phone'] : null, $company['email'], $company['website']])->filter()->implode(' · ') }}
-        </div>
+        <div class="do-company-name">{{ $company->name }}@if ($company->reg_no) <span class="do-muted">({{ $company->reg_no }})</span>@endif</div>
+        @if ($company->address)<div class="do-muted">{!! nl2br(e($company->address)) !!}</div>@endif
+        <div class="do-muted">{{ $company->contactLine() }}</div>
       </td>
       <td class="do-title-cell">
         <div class="do-title">DELIVERY ORDER</div>

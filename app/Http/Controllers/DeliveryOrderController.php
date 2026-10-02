@@ -129,14 +129,14 @@ class DeliveryOrderController extends Controller
     private function documentData(DeliveryOrder $do, bool $forPdf): array
     {
         $do->loadMissing(['lines', 'order.lead']);
-        $logo = config('company.logo');
+        $company = $do->company();
 
         return [
             'do'      => $do,
             'order'   => $do->order,
-            'company' => config('company'),
+            'company' => $company,
             // dompdf reads images from disk; the browser needs a URL.
-            'logoSrc' => $logo && is_file(public_path($logo)) ? ($forPdf ? public_path($logo) : asset($logo)) : null,
+            'logoSrc' => $company->logoPath() ? ($forPdf ? $company->logoPath() : asset($company->logo)) : null,
         ];
     }
 }

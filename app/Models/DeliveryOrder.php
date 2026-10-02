@@ -33,6 +33,12 @@ class DeliveryOrder extends Model
         return $this->belongsTo(Order::class);
     }
 
+    /** The company printed on the DO. Every order uses the default company until orders come from quotations. */
+    public function company(): Company
+    {
+        return Company::default();
+    }
+
     public function lines()
     {
         return $this->hasMany(DeliveryOrderLine::class)->orderBy('id');
