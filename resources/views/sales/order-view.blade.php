@@ -210,6 +210,7 @@ $fs = $fmtMini(optional($orderRecord)->submitted_at);
         </div>
         @include('orders._copy-button')
         @include('orders._delivery-orders-button')
+        @include('orders._materials-button')
     </div>
 
     {{-- Job order information --}}

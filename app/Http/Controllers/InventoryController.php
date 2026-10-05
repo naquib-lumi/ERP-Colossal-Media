@@ -60,7 +60,7 @@ class InventoryController extends Controller
     public function show(Request $request, Material $material)
     {
         $movements = $material->stockMovements()
-            ->with('user:id,name,role')
+            ->with(['user:id,name,role', 'order:id,order_number'])
             ->latest('id')
             ->paginate(30);
 
@@ -82,6 +82,7 @@ class InventoryController extends Controller
             $sign * (int) $request->input('quantity'),
             $request->input('reason'),
             $request->user()->id,
+            $request->orderId(),
         );
 
         return back()->with('success', "Stock updated for {$material->materialName}.");

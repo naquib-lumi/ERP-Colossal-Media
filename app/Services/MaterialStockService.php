@@ -34,6 +34,7 @@ class MaterialStockService
         int $quantityChange,
         ?string $reason = null,
         ?int $userId = null,
+        ?int $orderId = null,
     ): MaterialStockMovement {
         if ($quantityChange === 0) {
             throw new InvalidArgumentException('A stock movement must change the quantity.');
@@ -41,7 +42,7 @@ class MaterialStockService
 
         $materialId = $material instanceof Material ? $material->getKey() : $material;
 
-        [$movement, $locked, $before] = DB::transaction(function () use ($materialId, $type, $quantityChange, $reason, $userId) {
+        [$movement, $locked, $before] = DB::transaction(function () use ($materialId, $type, $quantityChange, $reason, $userId, $orderId) {
             /** @var Material $locked */
             $locked = Material::whereKey($materialId)->lockForUpdate()->firstOrFail();
 
@@ -60,6 +61,7 @@ class MaterialStockService
                 'quantity_after'  => $after,
                 'reason'          => $reason !== null ? mb_substr(trim($reason), 0, 500) : null,
                 'user_id'         => $userId,
+                'order_id'        => $orderId,
             ]);
 
             return [$movement, $locked, $before];

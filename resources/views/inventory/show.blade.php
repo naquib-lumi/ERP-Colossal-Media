@@ -38,6 +38,7 @@
             <th class="inv-num">Change</th>
             <th class="inv-num">Balance after</th>
             <th>Reason</th>
+            <th>Order</th>
             <th>By</th>
           </tr>
         </thead>
@@ -50,10 +51,13 @@
               <td class="inv-num {{ $q < 0 ? 'inv-neg' : 'inv-pos' }}">{{ sprintf('%+d', $q) }}</td>
               <td class="inv-num">{{ number_format($mv->quantity_after) }} {{ $m->quantity_unit }}</td>
               <td>{{ $mv->reason ?? '-' }}</td>
+              <td style="white-space:nowrap">
+                @if ($mv->order)<a href="{{ route('orders.materials', $mv->order) }}">{{ $mv->order->order_number }}</a>@else - @endif
+              </td>
               <td style="white-space:nowrap">{{ $mv->user->name ?? 'System' }}</td>
             </tr>
           @empty
-            <tr><td colspan="5" class="inv-empty">No stock changes yet.</td></tr>
+            <tr><td colspan="7" class="inv-empty">No stock changes yet.</td></tr>
           @endforelse
         </tbody>
       </table>

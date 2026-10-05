@@ -15,7 +15,7 @@ class MaterialStockMovement extends Model
     protected $fillable = [
         'material_id', 'material_name', 'type',
         'quantity_change', 'quantity_after',
-        'reason', 'user_id',
+        'reason', 'user_id', 'order_id',
     ];
 
     protected $casts = [
@@ -33,5 +33,10 @@ class MaterialStockMovement extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
     }
 }

@@ -24,6 +24,11 @@
         <label class="inv-label" for="mvQty">Quantity (<span id="mvUnit">units</span>) *</label>
         <input class="inv-control" type="number" step="1" min="1" name="quantity" id="mvQty" placeholder="0" required>
       </div>
+      <div class="inv-field" id="mvOrderField">
+        <label class="inv-label" for="mvOrder">Order no. (optional)</label>
+        <input class="inv-control" name="order_ref" id="mvOrder" maxlength="30" placeholder="e.g. ORD-2026-0012">
+        <div class="inv-hint">The order this material was used for.</div>
+      </div>
       <div class="inv-field">
         <label class="inv-label" for="mvReason">Reason *</label>
         <textarea class="inv-control" name="reason" id="mvReason" maxlength="500" required placeholder="e.g. Supplier delivery INV-1234"></textarea>
@@ -103,6 +108,8 @@
     type.querySelector('option[value="restock"]').disabled = !add;   // restock only adds
     document.getElementById('mvQty').value = '';
     document.getElementById('mvReason').value = '';
+    document.getElementById('mvOrder').value = '';
+    document.getElementById('mvOrderField').style.display = add ? 'none' : '';
     document.getElementById('mvSubmit').textContent = add ? 'Add stock' : 'Deduct stock';
     open('mdlMove');
   }));

@@ -490,6 +490,10 @@ Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,operati
     Route::post('/orders/{order}/delivery-orders/sync', [DeliveryOrderController::class, 'sync'])->whereNumber('order')->name('orders.delivery-orders.sync');
 });
 
+// Materials an order needs (from its items) and the stock deductions linked to it. Access per role in the controller.
+Route::middleware('auth')->get('/orders/{order}/materials', [\App\Http\Controllers\OrderMaterialsController::class, 'show'])
+    ->whereNumber('order')->name('orders.materials');
+
 // Inventory: everyone below can view; the inner groups limit who can change stock / settings.
 Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,artist,head-artist,data-entry'])->group(function () {
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
