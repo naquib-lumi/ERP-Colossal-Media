@@ -16,6 +16,13 @@
           @if ($m->low_stock_quantity !== null)alert at {{ number_format($m->low_stock_quantity) }} ·@endif
           @include('inventory._status', ['m' => $m])
         </div>
+        @if ($m->internal_ref || $m->materialDescription)
+          <div class="inv-sub">
+            @if ($m->internal_ref)Ref: {{ $m->internal_ref }}@endif
+            @if ($m->internal_ref && $m->materialDescription) · @endif
+            {{ $m->materialDescription }}
+          </div>
+        @endif
       </div>
       <div class="inv-actions">@include('inventory._row-actions', ['m' => $m])</div>
     </div>

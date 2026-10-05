@@ -14,9 +14,12 @@ class Material extends Model
     // stock_quantity is left out on purpose: it changes only through
     // App\Services\MaterialStockService, which logs every movement.
     protected $fillable = [
-        'UserID', 'materialName', 'materialDescription', 'material_type_id', 'unitCost', 'pastUsageReference', 'active',
+        'UserID', 'materialName', 'materialDescription', 'internal_ref', 'material_type_id', 'unitCost', 'pastUsageReference', 'active',
         'quantity_unit', 'low_stock_quantity',
     ];
+
+    /** What 1 in stock can mean; chosen per material by admin. */
+    public const UNITS = ['roll', 'sheet', 'board', 'box', 'set', 'unit'];
     protected $casts = [
         'unitCost' => 'decimal:6',
         'active' => 'boolean',

@@ -13,7 +13,9 @@
   <button type="button" class="inv-btn inv-btn-ghost" data-settings title="Stock settings"
           data-url="{{ route('inventory.settings.update', $m) }}" data-name="{{ $m->materialName }}"
           data-unit="{{ $m->quantity_unit }}"
-          data-low-qty="{{ $m->low_stock_quantity }}">
+          data-low-qty="{{ $m->low_stock_quantity }}"
+          data-ref="{{ $m->internal_ref }}"
+          data-description="{{ $m->materialDescription }}">
     <i class="bi bi-gear"></i>
   </button>
 @endif

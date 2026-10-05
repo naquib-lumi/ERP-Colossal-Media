@@ -10,6 +10,7 @@ use App\Models\MaterialType;
 use App\Services\MaterialStockService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Material stock: list, history, manual add/deduct and alert settings.
@@ -36,7 +37,7 @@ class InventoryController extends Controller
 
         $materials = Material::with('materialType:id,name')
             ->where('active', true)
-            ->when($q !== '', fn (Builder $b) => $b->where('materialName', 'like', "%{$q}%"))
+            ->when($q !== '', fn (Builder $b) => $b->where(fn (Builder $w) => $w->where('materialName', 'like', "%{$q}%")->orWhere('internal_ref', 'like', "%{$q}%")))
             ->when($type !== 'all' && $type !== '', fn (Builder $b) => $b->where('material_type_id', $type))
             ->when($status === 'low', fn (Builder $b) => $b->whereNotNull('low_stock_quantity')->whereColumn('stock_quantity', '<=', 'low_stock_quantity'))
             ->when($status === 'negative', fn (Builder $b) => $b->where('stock_quantity', '<', 0))
@@ -86,15 +87,20 @@ class InventoryController extends Controller
     public function updateSettings(Request $request, Material $material)
     {
         $data = $request->validate([
-            'quantity_unit'      => ['nullable', 'string', 'max:30'],
-            'low_stock_quantity' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'quantity_unit'       => ['nullable', Rule::in(Material::UNITS)],
+            'low_stock_quantity'  => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'materialDescription' => ['nullable', 'string', 'max:1000'],
+            'internal_ref'        => ['nullable', 'string', 'max:50'],
         ], [
+            'quantity_unit.in'           => 'Pick a unit from the list.',
             'low_stock_quantity.integer' => 'The low-stock alert must be a whole number.',
         ]);
 
         $material->update([
-            'quantity_unit'      => isset($data['quantity_unit']) ? trim($data['quantity_unit']) : null,
-            'low_stock_quantity' => $data['low_stock_quantity'] ?? null,
+            'quantity_unit'       => $data['quantity_unit'] ?? null,
+            'low_stock_quantity'  => $data['low_stock_quantity'] ?? null,
+            'materialDescription' => isset($data['materialDescription']) ? trim($data['materialDescription']) : null,
+            'internal_ref'        => isset($data['internal_ref']) ? trim($data['internal_ref']) : null,
         ]);
 
         return back()->with('success', "Settings saved for {$material->materialName}.");

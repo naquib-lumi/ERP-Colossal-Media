@@ -53,7 +53,12 @@
       </div>
       <div class="inv-field">
         <label class="inv-label" for="stUnit">Quantity unit</label>
-        <input class="inv-control" name="quantity_unit" id="stUnit" maxlength="30" placeholder="e.g. roll, sheet, piece, box">
+        <select class="inv-control" name="quantity_unit" id="stUnit">
+          <option value="">Not set</option>
+          @foreach (\App\Models\Material::UNITS as $unit)
+            <option value="{{ $unit }}">{{ $unit }}</option>
+          @endforeach
+        </select>
         <div class="inv-hint">What counts as 1 in stock for this material.</div>
       </div>
       <div class="inv-field">
@@ -61,6 +66,14 @@
         <input class="inv-control" type="number" step="1" min="0" name="low_stock_quantity" id="stLowQty" placeholder="No alert">
       </div>
       <div class="inv-hint">When stock drops to this number or below, all admins get an email and a notification. Leave empty to turn the alert off.</div>
+      <div class="inv-field">
+        <label class="inv-label" for="stRef">Internal reference</label>
+        <input class="inv-control" name="internal_ref" id="stRef" maxlength="50" placeholder="e.g. supplier or shelf code">
+      </div>
+      <div class="inv-field">
+        <label class="inv-label" for="stDescription">Description</label>
+        <textarea class="inv-control" name="materialDescription" id="stDescription" rows="3" maxlength="1000"></textarea>
+      </div>
     </div>
     <div class="inv-dft">
       <button type="button" class="inv-btn inv-btn-ghost" data-close>Cancel</button>
@@ -99,6 +112,8 @@
     document.getElementById('stMaterial').textContent = btn.dataset.name;
     document.getElementById('stUnit').value = btn.dataset.unit || '';
     document.getElementById('stLowQty').value = btn.dataset.lowQty || '';
+    document.getElementById('stRef').value = btn.dataset.ref || '';
+    document.getElementById('stDescription').value = btn.dataset.description || '';
     open('mdlSettings');
   }));
 })();

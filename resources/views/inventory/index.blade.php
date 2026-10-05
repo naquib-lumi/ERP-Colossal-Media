@@ -15,7 +15,7 @@
     @include('inventory._flash')
 
     <form class="inv-toolbar" method="GET" action="{{ route('inventory.index') }}">
-      <input type="text" name="q" value="{{ $filters['q'] }}" placeholder="Search materials..." aria-label="Search materials">
+      <input type="text" name="q" value="{{ $filters['q'] }}" placeholder="Search name or reference..." aria-label="Search materials">
       <select name="type" aria-label="Material type">
         <option value="all">All material types</option>
         @foreach ($types as $t)
@@ -48,7 +48,10 @@
         <tbody>
           @forelse ($materials as $m)
             <tr>
-              <td><a href="{{ route('inventory.show', $m) }}">{{ $m->materialName }}</a></td>
+              <td>
+                <a href="{{ route('inventory.show', $m) }}">{{ $m->materialName }}</a>
+                @if ($m->internal_ref)<div class="inv-sub">{{ $m->internal_ref }}</div>@endif
+              </td>
               <td>{{ $m->materialType->name ?? '-' }}</td>
               <td class="inv-num {{ $m->stock_quantity < 0 ? 'inv-neg' : '' }}">
                 {{ number_format($m->stock_quantity) }} {{ $m->quantity_unit }}

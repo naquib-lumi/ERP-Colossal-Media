@@ -129,6 +129,30 @@ test('only admin can change stock settings; the alert level is a whole number', 
     expect($material->refresh()->low_stock_quantity)->toBeNull();
 });
 
+test('admin sets unit from the list, internal reference and description; search finds the reference', function () {
+    $material = inv_material('Clear Sticker');
+    $admin = inv_user('admin');
+
+    $this->actingAs($admin)
+        ->patch("/inventory/{$material->MaterialID}/settings", ['quantity_unit' => 'piece'])
+        ->assertSessionHasErrors('quantity_unit');
+
+    $this->actingAs($admin)
+        ->patch("/inventory/{$material->MaterialID}/settings", [
+            'quantity_unit' => 'board', 'internal_ref' => ' SH-12 ', 'materialDescription' => 'Gloss, 1.37 m wide',
+        ])
+        ->assertSessionHas('success');
+
+    $material->refresh();
+    expect($material->quantity_unit)->toBe('board')
+        ->and($material->internal_ref)->toBe('SH-12')
+        ->and($material->materialDescription)->toBe('Gloss, 1.37 m wide');
+
+    $this->actingAs($admin)->get('/inventory?q=SH-12')->assertOk()->assertSee('Clear Sticker')->assertSee('SH-12');
+    $this->actingAs(inv_user('salesperson'))->get("/inventory/{$material->MaterialID}")
+        ->assertOk()->assertSee('Ref: SH-12')->assertSee('Gloss, 1.37 m wide');
+});
+
 test('low and negative filters', function () {
     $stock = app(MaterialStockService::class);
     $ok  = inv_material('Healthy', ['low_stock_quantity' => 1]);
