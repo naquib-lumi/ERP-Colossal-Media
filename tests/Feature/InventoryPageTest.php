@@ -174,6 +174,25 @@ test('low and negative filters', function () {
         ->assertSee('Healthy')->assertDontSee('Overdrawn');
 });
 
+test('near low stock: above the alert level but within 1.5 times it', function () {
+    $stock = app(MaterialStockService::class);
+    $near  = inv_material('Getting close', ['low_stock_quantity' => 10]);
+    $fine  = inv_material('Plenty left', ['low_stock_quantity' => 10]);
+    $low   = inv_material('Already low', ['low_stock_quantity' => 10]);
+    $stock->record($near, StockMovementType::Restock, 15);
+    $stock->record($fine, StockMovementType::Restock, 16);
+    $stock->record($low, StockMovementType::Restock, 10);
+
+    expect($near->refresh()->isNearLowStock())->toBeTrue()
+        ->and($fine->refresh()->isNearLowStock())->toBeFalse()
+        ->and($low->refresh()->isNearLowStock())->toBeFalse()
+        ->and($low->isLowStock())->toBeTrue();
+
+    $this->actingAs(inv_user('admin'))->get('/inventory?status=near')
+        ->assertOk()->assertSee('Getting close')->assertSee('Near low')
+        ->assertDontSee('Plenty left')->assertDontSee('Already low');
+});
+
 test('pages show whole units, no square feet', function () {
     $material = inv_material('PVC White Sticker', ['low_stock_quantity' => 2]);
     $admin = inv_user('admin');

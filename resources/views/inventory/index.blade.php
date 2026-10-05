@@ -24,6 +24,7 @@
       </select>
       <select name="status" aria-label="Stock status">
         <option value="all" @selected($filters['status'] === 'all')>All stock</option>
+        <option value="near" @selected($filters['status'] === 'near')>Near low stock</option>
         <option value="low" @selected($filters['status'] === 'low')>Low stock</option>
         <option value="negative" @selected($filters['status'] === 'negative')>Negative stock</option>
       </select>

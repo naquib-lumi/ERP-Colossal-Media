@@ -20,6 +20,9 @@ class Material extends Model
 
     /** What 1 in stock can mean; chosen per material by admin. */
     public const UNITS = ['roll', 'sheet', 'board', 'box', 'set', 'unit'];
+
+    /** "Near low" = above the alert level but at most this many times it (rounded up). */
+    public const NEAR_LOW_FACTOR = 1.5;
     protected $casts = [
         'unitCost' => 'decimal:6',
         'active' => 'boolean',
@@ -83,6 +86,14 @@ class Material extends Model
     public function isLowStock(): bool
     {
         return $this->low_stock_quantity !== null && $this->stock_quantity <= $this->low_stock_quantity;
+    }
+
+    /** Above the alert level but within NEAR_LOW_FACTOR of it, e.g. alert 10 → near at 11–15. */
+    public function isNearLowStock(): bool
+    {
+        return $this->low_stock_quantity !== null
+            && $this->stock_quantity > $this->low_stock_quantity
+            && $this->stock_quantity <= (int) ceil($this->low_stock_quantity * self::NEAR_LOW_FACTOR);
     }
     // Relations
     public function user()

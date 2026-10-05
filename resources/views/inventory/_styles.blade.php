@@ -31,7 +31,8 @@
   .inv-pos{color:var(--ok)}
   .inv-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
   .inv-badge.ok{background:var(--ok-bg);color:var(--ok)}
-  .inv-badge.low{background:var(--warn-bg);color:var(--warn)}
+  .inv-badge.near{background:var(--warn-bg);color:var(--warn)}
+  .inv-badge.low{background:var(--bad-bg);color:var(--bad)}
   .inv-badge.neg{background:var(--bad-bg);color:var(--bad)}
   .inv-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
   .inv-alert{margin:14px 20px 0;padding:12px 14px;border-radius:10px;font-size:14px}
