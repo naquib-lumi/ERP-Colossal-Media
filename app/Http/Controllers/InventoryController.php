@@ -22,15 +22,10 @@ class InventoryController extends Controller
     {
     }
 
-    /** Roles that may add or deduct stock by hand. */
+    /** Roles that may add or deduct stock by hand: admin and management (boss). */
     public static function canAdjust(?string $role): bool
     {
-        return in_array($role, [
-            Role::Admin->value,
-            Role::Salesperson->value, Role::HeadSalesperson->value,
-            Role::Artist->value, Role::HeadArtist->value,
-            Role::DataEntry->value,
-        ], true);
+        return in_array($role, [Role::Admin->value, Role::Boss->value], true);
     }
 
     public function index(Request $request)

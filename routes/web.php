@@ -496,7 +496,7 @@ Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,artist,
     Route::get('/inventory/{material}', [InventoryController::class, 'show'])->name('inventory.show');
 
     Route::post('/inventory/{material}/movements', [InventoryController::class, 'storeMovement'])
-        ->middleware('role:admin,salesperson,head-salesperson,artist,head-artist,data-entry')
+        ->middleware('role:admin,boss')
         ->name('inventory.movements.store');
 
     Route::patch('/inventory/{material}/settings', [InventoryController::class, 'updateSettings'])

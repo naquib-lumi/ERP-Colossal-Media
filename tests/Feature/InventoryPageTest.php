@@ -24,7 +24,7 @@ function inv_material(string $name = 'PVC White Sticker', array $attrs = []): Ma
 }
 
 $viewers  = ['admin', 'boss', 'salesperson', 'head-salesperson', 'artist', 'head-artist', 'data-entry'];
-$adjusters = ['admin', 'salesperson', 'head-salesperson', 'artist', 'head-artist', 'data-entry'];
+$adjusters = ['admin', 'boss'];
 
 test('inventory list and history open for the allowed roles only', function () use ($viewers) {
     $material = inv_material();
@@ -51,29 +51,32 @@ test('each adjusting role can add and deduct stock in whole units', function () 
             ->assertRedirect()->assertSessionHas('success');
     }
 
-    $this->actingAs(User::where('role', 'artist')->first())
+    $this->actingAs(User::where('role', 'boss')->first())
         ->post("/inventory/{$material->MaterialID}/movements", [
             'direction' => 'deduct', 'type' => 'adjustment', 'quantity' => 1, 'reason' => 'Damaged',
         ])->assertSessionHas('success');
 
-    // 6 roles × 2 rolls − 1 roll
-    expect($material->refresh()->stock_quantity)->toBe(11)
-        ->and(MaterialStockMovement::count())->toBe(7);
+    // 2 roles × 2 rolls − 1 roll
+    expect($material->refresh()->stock_quantity)->toBe(3)
+        ->and(MaterialStockMovement::count())->toBe(3);
 
     $last = MaterialStockMovement::latest('id')->first();
     expect($last->type)->toBe(StockMovementType::Adjustment)
         ->and($last->quantity_change)->toBe(-1)
-        ->and($last->user->role)->toBe('artist');
+        ->and($last->user->role)->toBe('boss');
 });
 
-test('boss can view but not change stock', function () {
+test('sales, artists and data entry can view but not change stock', function () {
     $material = inv_material();
 
-    $this->actingAs(inv_user('boss'))
-        ->post("/inventory/{$material->MaterialID}/movements", ['direction' => 'add', 'type' => 'restock', 'quantity' => 1, 'reason' => 'x'])
-        ->assertForbidden();
+    foreach (['salesperson', 'head-salesperson', 'artist', 'head-artist', 'data-entry'] as $role) {
+        $user = inv_user($role);
+        $this->actingAs($user)
+            ->post("/inventory/{$material->MaterialID}/movements", ['direction' => 'add', 'type' => 'restock', 'quantity' => 1, 'reason' => 'x'])
+            ->assertForbidden();
+        $this->actingAs($user)->get('/inventory')->assertOk()->assertDontSee('data-move="add"', false);
+    }
 
-    $this->actingAs(User::where('role', 'boss')->first())->get('/inventory')->assertOk()->assertDontSee('data-move="add"', false);
     expect(MaterialStockMovement::count())->toBe(0);
 });
 
