@@ -110,3 +110,12 @@ test('an unknown order number is rejected; additions never link an order', funct
     expect(MaterialStockMovement::latest('id')->first()->order_id)->toBeNull()
         ->and($tarp->refresh()->stock_quantity)->toBe(6);
 });
+
+test('printing and furnishing job pages link to the order materials page', function () {
+    $order = om_order();
+    $product = Product::where('OrderID', $order->id)->first();
+    $link = route('orders.materials', $order->id);
+
+    $this->actingAs(om_user('operations-printing'))->get("/printing/jobs/{$product->ProductID}")->assertOk()->assertSee($link, false);
+    $this->actingAs(om_user('operations-furnishing'))->get("/furnishing/jobs/{$product->ProductID}")->assertOk()->assertSee($link, false);
+});

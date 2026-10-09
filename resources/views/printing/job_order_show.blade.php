@@ -277,6 +277,9 @@
           <div class="col-12 col-lg-6">
             <dl class="dl">
               <dt>Job Order ID</dt><dd>{{ $job_order_code ?? ($header->order_number ?: '—') }}</dd>
+              @if (!empty($header->OrderID))
+                <dt>Materials</dt><dd><a href="{{ route('orders.materials', $header->OrderID) }}"><i class="bi bi-layers"></i> Materials needed for this order</a></dd>
+              @endif
               <dt>Job Title</dt><dd>{{ $header->order_title }}</dd>
               <dt>Company Name</dt><dd>{{ $header->companyName ?? '—' }}</dd>
               @php
