@@ -9,7 +9,9 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\DeliveryOrderService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 function dlo_user(string $role, ?string $email = null): User
 {
@@ -222,4 +224,97 @@ test('the two issuing companies exist and Colossal Media is the default', functi
     expect(Company::orderBy('id')->pluck('name')->all())->toBe(['COLOSSAL MEDIA SDN BHD', 'COLOSSAL XCEED SDN BHD'])
         ->and(Company::default()->code)->toBe('colossal-media')
         ->and(Company::all()->every(fn (Company $c) => $c->logoPath() !== null))->toBeTrue();
+});
+
+test('only dispatch, delivery & installation, admin and boss can print or download a DO', function () {
+    [$order] = dlo_order();
+    $do = dlo_sync($order)->firstWhere('location_key', 'shop kl');
+
+    foreach (['admin', 'boss', 'operations-dispatch-control', 'operations-delivery-installation'] as $role) {
+        $this->actingAs(dlo_user($role))->get("/delivery-orders/{$do->id}/pdf")->assertOk();
+        $this->actingAs(dlo_user($role))->get("/delivery-orders/{$do->id}")->assertOk()->assertSee('window.print()', false);
+    }
+    foreach (['salesperson', 'head-salesperson'] as $role) {
+        $this->actingAs(dlo_user($role))->get("/delivery-orders/{$do->id}/pdf")->assertForbidden();
+        $this->actingAs(dlo_user($role))->get("/delivery-orders/{$do->id}")->assertOk()->assertDontSee('window.print()', false);
+    }
+});
+
+test('delivery staff mark a DO delivered with a photo of the signed DO', function () {
+    Storage::fake('local');
+    [$order] = dlo_order();
+    $do = dlo_sync($order)->firstWhere('location_key', 'shop kl');
+    $driver = dlo_user('operations-delivery-installation');
+
+    $this->actingAs($driver)->get("/delivery-orders/{$do->id}/status")->assertOk()->assertSee('Mark as delivered');
+
+    $this->actingAs($driver)
+        ->post("/delivery-orders/{$do->id}/deliver", [
+            'delivered_at' => now()->timezone('Asia/Kuala_Lumpur')->subHour()->format('Y-m-d\TH:i'),
+            'signed_photo' => UploadedFile::fake()->image('signed.jpg', 3000, 2000),
+            'delivery_remarks' => 'Received by store manager',
+        ])
+        ->assertRedirect("/delivery-orders/{$do->id}/status");
+
+    $do->refresh();
+    expect($do->isDelivered())->toBeTrue()
+        ->and($do->delivered_by)->toBe($driver->id)
+        ->and($do->delivery_remarks)->toBe('Received by store manager')
+        ->and(Storage::disk('local')->exists($do->signed_photo_path))->toBeTrue()
+        ->and(getimagesizefromstring(Storage::disk('local')->get($do->signed_photo_path))[0])->toBe(1600) // scaled down
+        ->and($do->events()->pluck('event')->all())->toContain('delivered', 'created');
+
+    // Sales can see the status and the photo, but not mark anything.
+    $this->actingAs(dlo_user('salesperson'))->get("/delivery-orders/{$do->id}/status")
+        ->assertOk()->assertSee('Delivered')->assertSee('Received by store manager')->assertDontSee('Mark as delivered');
+    $this->actingAs(dlo_user('salesperson'))->get("/delivery-orders/{$do->id}/signed-photo")->assertOk();
+
+    // A second confirmation is refused.
+    $this->actingAs($driver)->post("/delivery-orders/{$do->id}/deliver", [
+        'delivered_at' => now()->timezone('Asia/Kuala_Lumpur')->format('Y-m-d\TH:i'),
+        'signed_photo' => UploadedFile::fake()->image('again.jpg'),
+    ])->assertSessionHas('error');
+});
+
+test('marking delivered: sales are refused, a photo is required, no future time', function () {
+    Storage::fake('local');
+    [$order] = dlo_order();
+    $do = dlo_sync($order)->firstWhere('location_key', 'shop kl');
+    $dispatch = dlo_user('operations-dispatch-control');
+    $nowKl = now()->timezone('Asia/Kuala_Lumpur');
+
+    $this->actingAs(dlo_user('salesperson'))->post("/delivery-orders/{$do->id}/deliver", [
+        'delivered_at' => $nowKl->format('Y-m-d\TH:i'), 'signed_photo' => UploadedFile::fake()->image('s.jpg'),
+    ])->assertForbidden();
+
+    $this->actingAs($dispatch)->from("/delivery-orders/{$do->id}/status")
+        ->post("/delivery-orders/{$do->id}/deliver", ['delivered_at' => $nowKl->format('Y-m-d\TH:i')])
+        ->assertSessionHasErrors('signed_photo');
+
+    $this->actingAs($dispatch)->from("/delivery-orders/{$do->id}/status")
+        ->post("/delivery-orders/{$do->id}/deliver", ['delivered_at' => $nowKl->addDay()->format('Y-m-d\TH:i'), 'signed_photo' => UploadedFile::fake()->image('s.jpg')])
+        ->assertSessionHasErrors('delivered_at');
+
+    expect($do->refresh()->isDelivered())->toBeFalse();
+});
+
+test('a delivered DO is frozen: order changes no longer update or cancel it', function () {
+    [$order, $rows] = dlo_order();
+    $kl = dlo_sync($order)->firstWhere('location_key', 'shop kl');
+    $kl->forceFill(['delivered_at' => now(), 'delivered_by' => dlo_user('operations-dispatch-control')->id])->save();
+    $hash = $kl->content_hash;
+
+    $rows['kl']->update(['quantity' => 99]);          // change the delivered location
+    $rows['pj']->update(['quantity' => 7]);           // and another one
+    $service = app(DeliveryOrderService::class);
+    expect($service->isOutOfDate($order))->toBeTrue();   // PJ changed
+    $service->sync($order);
+    expect($service->isOutOfDate($order))->toBeFalse()   // KL difference ignored once delivered
+        ->and($kl->refresh()->content_hash)->toBe($hash)
+        ->and(DeliveryOrder::where('location_key', 'branch pj')->first()->events()->pluck('event')->all())->toContain('updated');
+
+    // Removing the delivered location does not cancel its DO.
+    DeliveryBreakdown::whereIn('BreakdownID', [$rows['kl']->BreakdownID, $rows['kl2']->BreakdownID])->delete();
+    $service->sync($order);
+    expect($kl->refresh()->isCancelled())->toBeFalse();
 });

@@ -12,11 +12,13 @@ class DeliveryOrder extends Model
     protected $fillable = [
         'order_id', 'location_key', 'location', 'methods', 'delivery_date', 'delivery_time',
         'status', 'content_hash', 'emailed_at', 'emailed_to', 'emailed_hash', 'created_by',
+        'delivered_at', 'delivered_by', 'delivery_remarks', 'signed_photo_path',
     ];
 
     protected $casts = [
         'delivery_date' => 'date',
         'emailed_at'    => 'datetime',
+        'delivered_at'  => 'datetime',
     ];
 
     protected static function booted()
@@ -52,6 +54,27 @@ class DeliveryOrder extends Model
     public function isCancelled(): bool
     {
         return $this->status === self::STATUS_CANCELLED;
+    }
+
+    /** Delivered DOs are frozen: order changes no longer update or cancel them. */
+    public function isDelivered(): bool
+    {
+        return $this->delivered_at !== null;
+    }
+
+    public function deliveredBy()
+    {
+        return $this->belongsTo(User::class, 'delivered_by');
+    }
+
+    public function events()
+    {
+        return $this->hasMany(DeliveryOrderEvent::class)->orderByDesc('id');
+    }
+
+    public function log(string $event, ?int $userId = null, ?string $note = null): void
+    {
+        $this->events()->create(['event' => $event, 'user_id' => $userId, 'note' => $note !== null ? mb_substr($note, 0, 500) : null]);
     }
 
     /** Emailed, and the lines changed afterwards. */

@@ -480,10 +480,13 @@ Route::post('/orders/{order}/copy', [OrderCopyController::class, 'store'])
     ->whereNumber('order')
     ->name('orders.copy');
 
-// Delivery orders (one per delivery location). Per-order permissions: DeliveryOrderService::canView / canGenerate / canEmail.
+// Delivery orders (one per delivery location). Per-order permissions: DeliveryOrderService::canView / canGenerate / canEmail / canPrint.
 Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,operations-dispatch-control,operations-delivery-installation'])->group(function () {
     Route::get('/delivery-orders', [DeliveryOrderController::class, 'index'])->name('delivery-orders.index');
     Route::get('/delivery-orders/{deliveryOrder}', [DeliveryOrderController::class, 'show'])->whereNumber('deliveryOrder')->name('delivery-orders.show');
+    Route::get('/delivery-orders/{deliveryOrder}/status', [DeliveryOrderController::class, 'status'])->whereNumber('deliveryOrder')->name('delivery-orders.status');
+    Route::post('/delivery-orders/{deliveryOrder}/deliver', [DeliveryOrderController::class, 'deliver'])->whereNumber('deliveryOrder')->name('delivery-orders.deliver');
+    Route::get('/delivery-orders/{deliveryOrder}/signed-photo', [DeliveryOrderController::class, 'photo'])->whereNumber('deliveryOrder')->name('delivery-orders.photo');
     Route::get('/delivery-orders/{deliveryOrder}/pdf', [DeliveryOrderController::class, 'pdf'])->whereNumber('deliveryOrder')->name('delivery-orders.pdf');
     Route::post('/delivery-orders/{deliveryOrder}/email', [DeliveryOrderController::class, 'email'])->whereNumber('deliveryOrder')->name('delivery-orders.email');
     Route::get('/orders/{order}/delivery-orders', [DeliveryOrderController::class, 'forOrder'])->whereNumber('order')->name('orders.delivery-orders');

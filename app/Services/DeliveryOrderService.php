@@ -31,6 +31,20 @@ class DeliveryOrderService
         };
     }
 
+    /** Print, download the PDF, and confirm delivery (client answer no. 7): not sales. */
+    public static function canPrint(User $user): bool
+    {
+        return in_array($user->role, [
+            Role::Admin->value, Role::Boss->value,
+            Role::OperationsDispatchControl->value, Role::OperationsDeliveryInstallation->value,
+        ], true);
+    }
+
+    public static function canConfirmDelivery(User $user): bool
+    {
+        return self::canPrint($user);
+    }
+
     public static function canGenerate(User $user): bool
     {
         return in_array($user->role, [Role::Admin->value, Role::Boss->value, Role::OperationsDispatchControl->value], true);
@@ -97,8 +111,10 @@ class DeliveryOrderService
     /** True when the saved DOs no longer match the order's delivery rows. */
     public function isOutOfDate(Order $order): bool
     {
-        $plan = $this->plan($order)->map(fn ($g) => $this->hash($g['lines']));
+        $delivered = DeliveryOrder::where('order_id', $order->id)->whereNotNull('delivered_at')->pluck('location_key')->all();
+        $plan = $this->plan($order)->except($delivered)->map(fn ($g) => $this->hash($g['lines']));
         $saved = DeliveryOrder::where('order_id', $order->id)->where('status', DeliveryOrder::STATUS_ISSUED)
+            ->whereNull('delivered_at')
             ->pluck('content_hash', 'location_key');
 
         return $plan->sortKeys()->all() !== $saved->sortKeys()->all();
@@ -128,6 +144,9 @@ class DeliveryOrderService
 
                 /** @var DeliveryOrder|null $do */
                 $do = $existing->get($key);
+                if ($do?->isDelivered()) {
+                    continue; // frozen once delivered
+                }
                 if ($do && $do->content_hash === $attrs['content_hash'] && ! $do->isCancelled()
                     && $do->location === $attrs['location']) {
                     continue; // unchanged
@@ -136,17 +155,24 @@ class DeliveryOrderService
                 if ($do) {
                     $do->update($attrs);
                     $do->lines()->delete();
+                    $do->log('updated', $userId);
                 } else {
                     $do = DeliveryOrder::create($attrs + ['order_id' => $order->id, 'location_key' => $key, 'created_by' => $userId]);
+                    $do->log('created', $userId);
                 }
                 $do->lines()->createMany($lines);
             }
 
             // Locations that are gone: keep the DO for the record, but cancelled.
-            DeliveryOrder::where('order_id', $order->id)
+            $gone = DeliveryOrder::where('order_id', $order->id)
                 ->whereNotIn('location_key', $plan->keys()->all() ?: [''])
                 ->where('status', DeliveryOrder::STATUS_ISSUED)
-                ->update(['status' => DeliveryOrder::STATUS_CANCELLED, 'updated_at' => now()]);
+                ->whereNull('delivered_at')
+                ->get();
+            foreach ($gone as $do) {
+                $do->update(['status' => DeliveryOrder::STATUS_CANCELLED]);
+                $do->log('cancelled', $userId);
+            }
 
             return DeliveryOrder::where('order_id', $order->id)->where('status', DeliveryOrder::STATUS_ISSUED)
                 ->orderBy('id')->get();

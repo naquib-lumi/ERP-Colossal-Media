@@ -50,7 +50,7 @@
         <tbody>
           @forelse ($issued as $do)
             <tr>
-              <td><strong>{{ $do->do_number }}</strong><div class="inv-sub">{{ collect(explode(', ', (string) $do->methods))->filter()->map(fn ($m) => dd_method_label($m))->implode(', ') }}</div></td>
+              <td><strong>{{ $do->do_number }}</strong>@if ($do->isDelivered()) <span class="inv-badge ok">Delivered</span>@endif<div class="inv-sub">{{ collect(explode(', ', (string) $do->methods))->filter()->map(fn ($m) => dd_method_label($m))->implode(', ') }}</div></td>
               <td style="max-width:320px">{{ $do->location }}</td>
               <td style="white-space:nowrap">{{ $do->delivery_date ? $do->delivery_date->format('d M Y') : 'TBC' }}</td>
               <td class="inv-num">{{ $do->lines->count() }} / {{ $do->totalQuantity() }}</td>
@@ -64,8 +64,9 @@
               </td>
               <td>
                 <div class="inv-actions">
-                  <a class="inv-btn inv-btn-primary" href="{{ route('delivery-orders.show', $do) }}" target="_blank"><i class="bi bi-printer"></i> Print{{ $canEmail ? ' / email' : '' }}</a>
-                  <a class="inv-btn inv-btn-ghost" href="{{ route('delivery-orders.pdf', $do) }}"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
+                  <a class="inv-btn inv-btn-primary" href="{{ route('delivery-orders.show', $do) }}" target="_blank"><i class="bi bi-printer"></i> {{ $canPrint ? 'Print' : 'View' }}{{ $canEmail ? ' / email' : '' }}</a>
+                  @if ($canPrint)<a class="inv-btn inv-btn-ghost" href="{{ route('delivery-orders.pdf', $do) }}"><i class="bi bi-file-earmark-pdf"></i> PDF</a>@endif
+                  <a class="inv-btn inv-btn-ghost" href="{{ route('delivery-orders.status', $do) }}"><i class="bi bi-truck"></i> {{ ! $do->isDelivered() && $canPrint ? 'Mark delivered' : 'Status' }}</a>
                 </div>
               </td>
             </tr>

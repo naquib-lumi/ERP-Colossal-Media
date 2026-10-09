@@ -29,8 +29,11 @@
     <a href="{{ url()->previous() }}">← Back</a>
     <strong>{{ $do->do_number }}</strong>
     <span class="spacer"></span>
-    <button type="button" class="primary" onclick="window.print()">Print</button>
-    <a href="{{ route('delivery-orders.pdf', $do) }}">Download PDF</a>
+    @if ($canPrint)
+      <button type="button" class="primary" onclick="window.print()">Print</button>
+      <a href="{{ route('delivery-orders.pdf', $do) }}">Download PDF</a>
+    @endif
+    <a href="{{ route('delivery-orders.status', $do) }}">Delivery status</a>
     @if ($canEmail && ! $do->isCancelled())
       <form method="POST" action="{{ route('delivery-orders.email', $do) }}" onsubmit="return confirm('Email {{ $do->do_number }} to ' + this.to.value + '?')">
         @csrf
@@ -42,6 +45,9 @@
   @if (session('success'))<div class="flash ok">{{ session('success') }}</div>@endif
   @if (session('error'))<div class="flash bad">{{ session('error') }}</div>@endif
   @if ($errors->any())<div class="flash bad">{{ $errors->first() }}</div>@endif
+  @if ($do->isDelivered())
+    <div class="flash ok">Delivered on {{ $do->delivered_at->timezone('Asia/Kuala_Lumpur')->format('d M Y, h:i A') }}.</div>
+  @endif
   @if ($do->emailed_at)
     <div class="flash {{ $do->changedSinceEmailed() ? 'bad' : 'ok' }}">
       Emailed to {{ $do->emailed_to }} on {{ $do->emailed_at->timezone('Asia/Kuala_Lumpur')->format('d M Y, h:i A') }}.

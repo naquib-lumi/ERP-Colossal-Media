@@ -40,6 +40,7 @@
               <td>
                 <strong>{{ $do->do_number }}</strong>
                 @if ($do->isCancelled())<div><span class="inv-badge neg">Cancelled</span></div>
+                @elseif ($do->isDelivered())<div><span class="inv-badge ok">Delivered</span></div>
                 @elseif ($do->changedSinceEmailed())<div><span class="inv-badge low">Changed since emailed</span></div>
                 @elseif ($do->emailed_at)<div><span class="inv-badge ok">Emailed</span></div>@endif
               </td>
@@ -53,7 +54,8 @@
               <td>
                 <div class="inv-actions">
                   <a class="inv-btn inv-btn-primary" href="{{ route('delivery-orders.show', $do) }}" target="_blank"><i class="bi bi-printer"></i> Open</a>
-                  <a class="inv-btn inv-btn-ghost" href="{{ route('delivery-orders.pdf', $do) }}"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
+                  @if ($canPrint)<a class="inv-btn inv-btn-ghost" href="{{ route('delivery-orders.pdf', $do) }}"><i class="bi bi-file-earmark-pdf"></i> PDF</a>@endif
+                  <a class="inv-btn inv-btn-ghost" href="{{ route('delivery-orders.status', $do) }}"><i class="bi bi-truck"></i> {{ ! $do->isDelivered() && ! $do->isCancelled() && $canPrint ? 'Mark delivered' : 'Status' }}</a>
                 </div>
               </td>
             </tr>
