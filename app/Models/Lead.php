@@ -36,6 +36,11 @@ class Lead extends Model
         return $this->hasMany(Reminder::class);
     }
 
+    public function quotations()
+    {
+        return $this->hasMany(Quotation::class);
+    }
+
     public function orders()
 {
     return $this->hasMany(Order::class);

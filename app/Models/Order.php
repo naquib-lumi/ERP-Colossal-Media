@@ -38,6 +38,7 @@ class Order extends Model
     public function salesperson()     { return $this->belongsTo(User::class, 'salesperson_id'); }
     public function lead()           { return $this->belongsTo(Lead::class); }
     public function products()        { return $this->hasMany(Product::class, 'OrderID'); }
+    public function quotation()       { return $this->hasOne(Quotation::class); }
 
     // NEW: Only this one
     public function attachments()
