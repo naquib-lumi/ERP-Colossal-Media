@@ -157,6 +157,12 @@ $configData = \App\Helpers\Helpers::appClasses();
                     <div data-i18n="Material Data">Material Data</div>
                 </a>
             </li>
+            <li class="menu-item {{ request()->routeIs('admin.companies.*') ? 'active' : '' }}">
+                <a href="{{ route('admin.companies.index') }}" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-buildings"></i>
+                    <div data-i18n="Companies">Companies</div>
+                </a>
+            </li>
             <li class="menu-item {{ request()->routeIs('admin.calendar') ? 'active' : '' }}">
                 <a href="{{ route('admin.calendar') }}" class="menu-link">
                     <i class="menu-icon icon-base bx bx-calendar"></i>

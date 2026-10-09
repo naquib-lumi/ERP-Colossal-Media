@@ -404,6 +404,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
   
    // routes/web.php (updated)
    Route::get('/admin/costing-data', [MaterialsController::class, 'index'])->name('admin.costing-data');
+    Route::get('/admin/companies', [\App\Http\Controllers\CompanyController::class, 'index'])->name('admin.companies.index');
+    Route::get('/admin/companies/{company}/edit', [\App\Http\Controllers\CompanyController::class, 'edit'])->name('admin.companies.edit');
+    Route::put('/admin/companies/{company}', [\App\Http\Controllers\CompanyController::class, 'update'])->name('admin.companies.update');
     Route::post('/admin/material-types', [MaterialsController::class, 'storeType'])->name('admin.material-types.store');
     Route::put('/admin/material-types/{id}', [MaterialsController::class, 'updateType'])->name('admin.material-types.update');
     Route::delete('/admin/material-types/{id}', [MaterialsController::class, 'destroyType'])->name('admin.material-types.destroy');
