@@ -500,6 +500,16 @@ Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,operati
 Route::middleware('auth')->get('/orders/{order}/materials', [\App\Http\Controllers\OrderMaterialsController::class, 'show'])
     ->whereNumber('order')->name('orders.materials');
 
+// Quotations. Create/edit: head-sales, sales, head-artist, artist; admin and boss view. Per-quotation rules in QuotationService.
+Route::middleware(['auth', 'role:admin,boss,head-salesperson,salesperson,head-artist,artist'])->group(function () {
+    Route::get('/quotations', [\App\Http\Controllers\QuotationController::class, 'index'])->name('quotations.index');
+    Route::get('/quotations/create', [\App\Http\Controllers\QuotationController::class, 'create'])->name('quotations.create');
+    Route::post('/quotations', [\App\Http\Controllers\QuotationController::class, 'store'])->name('quotations.store');
+    Route::get('/quotations/{quotation}', [\App\Http\Controllers\QuotationController::class, 'show'])->whereNumber('quotation')->name('quotations.show');
+    Route::get('/quotations/{quotation}/edit', [\App\Http\Controllers\QuotationController::class, 'edit'])->whereNumber('quotation')->name('quotations.edit');
+    Route::put('/quotations/{quotation}', [\App\Http\Controllers\QuotationController::class, 'update'])->whereNumber('quotation')->name('quotations.update');
+});
+
 // Inventory: everyone below can view; the inner groups limit who can change stock / settings.
 Route::middleware(['auth', 'role:admin,boss,salesperson,head-salesperson,artist,head-artist,data-entry'])->group(function () {
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
